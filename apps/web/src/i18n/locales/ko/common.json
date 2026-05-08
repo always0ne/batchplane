@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "BatchTrail",
+    "edition": "Repo Mode",
+    "tagline": "Git 기반 배치통제와 감사"
+  },
+  "actions": {
+    "open": "열기",
+    "refresh": "새로고침",
+    "view": "보기"
+  },
+  "status": {
+    "ready": "준비됨",
+    "pending": "대기",
+    "blocked": "차단"
+  }
+}

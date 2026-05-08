@@ -1,0 +1,10 @@
+{
+  "title": "Dashboard",
+  "subtitle": "Repo Mode control summary from GitHub artifacts.",
+  "cards": {
+    "repoReadiness": "Repository readiness",
+    "pendingApprovals": "Pending approvals",
+    "gateBlocked": "Gate blocked runs",
+    "auditTrail": "Audit trail"
+  }
+}

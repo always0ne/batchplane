@@ -1,0 +1,19 @@
+name: BatchTrail Dispatcher
+description: Dispatch approved BatchTrail Repo Mode execution requests.
+inputs:
+  issue-number:
+    required: true
+    description: Execution request issue number
+  comment-id:
+    required: true
+    description: Triggering approval comment ID
+  config-path:
+    required: false
+    default: .batch-governance
+    description: BatchTrail repository config path
+  github-token:
+    required: true
+    description: GitHub token used by the dispatcher workflow
+runs:
+  using: node20
+  main: dist/index.js

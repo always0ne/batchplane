@@ -1,0 +1,5 @@
+{
+  "title": "Executions",
+  "subtitle": "Request, approve, dispatch, and inspect batch runs.",
+  "approveCommand": "/bgcp approve requestDigest=..."
+}

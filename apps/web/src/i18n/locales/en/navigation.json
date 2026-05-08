@@ -1,0 +1,13 @@
+{
+  "items": {
+    "dashboard": "Dashboard",
+    "setup": "Repo Setup",
+    "batches": "Batches",
+    "approvals": "Approvals",
+    "runs": "Runs",
+    "failures": "Failures",
+    "myWork": "My Work",
+    "audit": "Audit",
+    "settings": "Settings"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "title": "Batches",
+  "subtitle": "Governed batch definitions from .batch-governance.",
+  "table": {
+    "batchId": "Batch ID",
+    "name": "Name",
+    "environment": "Environment",
+    "status": "Status"
+  }
+}

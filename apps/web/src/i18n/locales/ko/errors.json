@@ -1,0 +1,10 @@
+{
+  "notFound": {
+    "title": "페이지를 찾을 수 없습니다",
+    "message": "요청한 BatchTrail 페이지가 없습니다."
+  },
+  "gate": {
+    "executionRequestRequired": "실행 요청 승인 증적이 필요합니다.",
+    "requestDigestMismatch": "요청 digest가 승인된 payload와 일치하지 않습니다."
+  }
+}
