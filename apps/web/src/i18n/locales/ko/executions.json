@@ -1,0 +1,5 @@
+{
+  "title": "실행",
+  "subtitle": "배치 실행을 요청, 승인, dispatch, 조회합니다.",
+  "approveCommand": "/bgcp approve requestDigest=..."
+}

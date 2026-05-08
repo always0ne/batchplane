@@ -1,0 +1,10 @@
+{
+  "notFound": {
+    "title": "Page not found",
+    "message": "The requested BatchTrail page does not exist."
+  },
+  "gate": {
+    "executionRequestRequired": "Execution request evidence is required.",
+    "requestDigestMismatch": "The request digest does not match the approved payload."
+  }
+}

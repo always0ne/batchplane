@@ -1,0 +1,22 @@
+{
+  "name": "@batchtrail/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@batchtrail/domain": "workspace:*",
+    "i18next": "^23.0.0",
+    "lucide-react": "^0.468.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-i18next": "^14.0.0",
+    "react-router-dom": "^6.0.0"
+  },
+  "devDependencies": {}
+}

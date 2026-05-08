@@ -1,0 +1,10 @@
+{
+  "title": "대시보드",
+  "subtitle": "GitHub 증적 기반 Repo Mode 통제 요약입니다.",
+  "cards": {
+    "repoReadiness": "Repository 준비 상태",
+    "pendingApprovals": "승인 대기",
+    "gateBlocked": "Gate 차단 실행",
+    "auditTrail": "감사 trail"
+  }
+}

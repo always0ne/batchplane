@@ -1,0 +1,10 @@
+{
+  "title": "배치",
+  "subtitle": ".batch-governance에서 관리되는 배치 정의입니다.",
+  "table": {
+    "batchId": "Batch ID",
+    "name": "이름",
+    "environment": "환경",
+    "status": "상태"
+  }
+}

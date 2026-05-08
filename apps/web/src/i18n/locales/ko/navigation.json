@@ -1,0 +1,13 @@
+{
+  "items": {
+    "dashboard": "대시보드",
+    "setup": "Repo 설정",
+    "batches": "배치",
+    "approvals": "승인함",
+    "runs": "실행",
+    "failures": "실패내역",
+    "myWork": "내처리함",
+    "audit": "감사",
+    "settings": "설정"
+  }
+}

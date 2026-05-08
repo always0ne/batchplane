@@ -1,0 +1,6 @@
+{
+  "title": "Settings",
+  "subtitle": "Manage locale and session-only GitHub token settings.",
+  "language": "Language",
+  "tokenPolicy": "GitHub tokens are kept in sessionStorage only."
+}

@@ -1,0 +1,28 @@
+name: BatchTrail Gate
+description: Verify BatchTrail execution authorization before business steps run.
+inputs:
+  mode:
+    required: true
+    description: lite or server
+  batch-id:
+    required: true
+    description: Batch definition ID
+  config-path:
+    required: false
+    default: .batch-governance
+    description: BatchTrail repository config path
+  request-id:
+    required: false
+    description: Execution request ID for manual executions
+  approval-source:
+    required: false
+    description: Approval evidence source
+  approval-ref:
+    required: false
+    description: Approval evidence reference
+  request-digest:
+    required: false
+    description: Approved request digest
+runs:
+  using: node20
+  main: dist/index.js

@@ -1,0 +1,6 @@
+{
+  "title": "설정",
+  "subtitle": "언어와 session-only GitHub token 설정을 관리합니다.",
+  "language": "언어",
+  "tokenPolicy": "GitHub token은 sessionStorage에만 보관합니다."
+}

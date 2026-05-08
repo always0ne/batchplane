@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "BatchTrail",
+    "edition": "Repo Mode",
+    "tagline": "Git-native Batch Control & Audit"
+  },
+  "actions": {
+    "open": "Open",
+    "refresh": "Refresh",
+    "view": "View"
+  },
+  "status": {
+    "ready": "Ready",
+    "pending": "Pending",
+    "blocked": "Blocked"
+  }
+}
