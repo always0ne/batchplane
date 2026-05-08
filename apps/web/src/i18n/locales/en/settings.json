@@ -2,5 +2,32 @@
   "title": "Settings",
   "subtitle": "Manage locale and session-only GitHub token settings.",
   "language": "Language",
-  "tokenPolicy": "GitHub tokens are kept in sessionStorage only."
+  "tokenPolicy": "GitHub tokens are kept in sessionStorage only.",
+  "github": {
+    "title": "GitHub repository",
+    "subtitle": "Connect the repository that stores BatchTrail Repo Mode files.",
+    "owner": "Repository owner",
+    "repo": "Repository name",
+    "token": "GitHub token",
+    "save": "Save session",
+    "check": "Check connection",
+    "clear": "Clear session"
+  },
+  "session": {
+    "title": "Session",
+    "status": "Status",
+    "empty": "Not connected",
+    "stored": "Saved for this browser session",
+    "checking": "Checking GitHub connection...",
+    "connected": "Connected",
+    "user": "User",
+    "repository": "Repository",
+    "defaultBranch": "Default branch",
+    "token": "Token"
+  },
+  "errors": {
+    "unknown": "Unknown error",
+    "requiredFields": "Repository owner, repository name, and token are required.",
+    "connectionFailed": "GitHub connection failed."
+  }
 }

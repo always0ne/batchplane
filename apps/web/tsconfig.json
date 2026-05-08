@@ -11,5 +11,9 @@
     "vite.config.ts",
     "tailwind.config.ts",
     "postcss.config.js"
+  ],
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/github-lite" }
   ]
 }

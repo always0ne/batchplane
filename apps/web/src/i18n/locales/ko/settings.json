@@ -2,5 +2,32 @@
   "title": "설정",
   "subtitle": "언어와 session-only GitHub token 설정을 관리합니다.",
   "language": "언어",
-  "tokenPolicy": "GitHub token은 sessionStorage에만 보관합니다."
+  "tokenPolicy": "GitHub token은 sessionStorage에만 보관합니다.",
+  "github": {
+    "title": "GitHub 저장소",
+    "subtitle": "BatchTrail Repo Mode 파일을 보관할 저장소를 연결합니다.",
+    "owner": "저장소 소유자",
+    "repo": "저장소 이름",
+    "token": "GitHub token",
+    "save": "세션 저장",
+    "check": "연결 확인",
+    "clear": "세션 삭제"
+  },
+  "session": {
+    "title": "세션",
+    "status": "상태",
+    "empty": "연결 안 됨",
+    "stored": "이 브라우저 세션에 저장됨",
+    "checking": "GitHub 연결을 확인하는 중...",
+    "connected": "연결됨",
+    "user": "사용자",
+    "repository": "저장소",
+    "defaultBranch": "기본 브랜치",
+    "token": "Token"
+  },
+  "errors": {
+    "unknown": "알 수 없는 오류",
+    "requiredFields": "저장소 소유자, 저장소 이름, token은 필수입니다.",
+    "connectionFailed": "GitHub 연결에 실패했습니다."
+  }
 }

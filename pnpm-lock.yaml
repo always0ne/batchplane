@@ -74,6 +74,9 @@ importers:
       "@batchtrail/domain":
         specifier: workspace:*
         version: link:../../packages/domain
+      "@batchtrail/github-lite":
+        specifier: workspace:*
+        version: link:../../packages/github-lite
       i18next:
         specifier: ^23.0.0
         version: 23.16.8
