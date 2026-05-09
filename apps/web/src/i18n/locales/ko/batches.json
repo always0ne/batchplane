@@ -1,6 +1,9 @@
 {
   "title": "배치",
   "subtitle": ".batch-governance에서 관리되는 배치 정의입니다.",
+  "actions": {
+    "register": "배치 등록"
+  },
   "table": {
     "batchId": "Batch ID",
     "name": "이름",

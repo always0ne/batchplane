@@ -13,6 +13,12 @@ export type GitHubRepository = RepoRef & {
   url: string;
 };
 
+export type GitHubFile = {
+  path: string;
+  content: string;
+  sha: string;
+};
+
 export type GitHubIssue = {
   number: number;
   title: string;
@@ -21,10 +27,33 @@ export type GitHubIssue = {
   url: string;
 };
 
+export type GitHubPullRequest = {
+  number: number;
+  title: string;
+  url: string;
+  head: string;
+  base: string;
+};
+
 export type CreateIssueParams = RepoRef & {
   title: string;
   body: string;
   labels: string[];
+};
+
+export type PutFileParams = RepoRef & {
+  path: string;
+  branch: string;
+  message: string;
+  content: string;
+  sha?: string;
+};
+
+export type CreatePullRequestParams = RepoRef & {
+  title: string;
+  body: string;
+  head: string;
+  base: string;
 };
 
 export type GitHubLiteClient = {
@@ -32,7 +61,15 @@ export type GitHubLiteClient = {
   getRepository(params: RepoRef): Promise<GitHubRepository>;
   getFile(
     params: RepoRef & { path: string; ref?: string },
-  ): Promise<{ path: string; content: string } | null>;
+  ): Promise<GitHubFile | null>;
+  getBranchHeadSha(params: RepoRef & { branch: string }): Promise<string>;
+  createBranch(
+    params: RepoRef & { branch: string; sha: string },
+  ): Promise<void>;
+  putFile(params: PutFileParams): Promise<{ path: string; sha: string }>;
+  createPullRequest(
+    params: CreatePullRequestParams,
+  ): Promise<GitHubPullRequest>;
   createIssue(params: CreateIssueParams): Promise<GitHubIssue>;
   createIssueComment(
     params: RepoRef & { issueNumber: number; body: string },
@@ -84,6 +121,7 @@ type GitHubContentResponse = {
   path: string;
   content: string;
   encoding: string;
+  sha: string;
 };
 
 type GitHubIssueResponse = {
@@ -97,6 +135,31 @@ type GitHubIssueResponse = {
 type GitHubCommentResponse = {
   id: number;
   body: string;
+};
+
+type GitHubRefResponse = {
+  object: {
+    sha: string;
+  };
+};
+
+type GitHubPutFileResponse = {
+  content: {
+    path: string;
+    sha: string;
+  };
+};
+
+type GitHubPullRequestResponse = {
+  number: number;
+  title: string;
+  html_url: string;
+  head: {
+    ref: string;
+  };
+  base: {
+    ref: string;
+  };
 };
 
 export function createGitHubLiteClient({
@@ -201,6 +264,93 @@ export function createGitHubLiteClient({
       return {
         path: content.path,
         content: decodeBase64(content.content),
+        sha: content.sha,
+      };
+    },
+
+    async getBranchHeadSha({ owner, repo, branch }) {
+      const ref = await request<GitHubRefResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/git/ref/heads/${encodePath(branch)}`,
+      );
+
+      if (!ref) {
+        throw new GitHubLiteApiError(
+          "GitHub branch ref was empty.",
+          "unknown",
+          500,
+        );
+      }
+
+      return ref.object.sha;
+    },
+
+    async createBranch({ owner, repo, branch, sha }) {
+      await request<GitHubRefResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/git/refs`,
+        {
+          method: "POST",
+          body: JSON.stringify({ ref: `refs/heads/${branch}`, sha }),
+        },
+      );
+    },
+
+    async putFile({ owner, repo, path, branch, message, content, sha }) {
+      const response = await request<GitHubPutFileResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/contents/${encodePath(path)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            branch,
+            content: encodeBase64(content),
+            message,
+            ...(sha ? { sha } : {}),
+          }),
+        },
+      );
+
+      if (!response) {
+        throw new GitHubLiteApiError(
+          "GitHub file response was empty.",
+          "unknown",
+          500,
+        );
+      }
+
+      return {
+        path: response.content.path,
+        sha: response.content.sha,
+      };
+    },
+
+    async createPullRequest({ owner, repo, title, body, head, base }) {
+      const pullRequest = await request<GitHubPullRequestResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`,
+        {
+          method: "POST",
+          body: JSON.stringify({ base, body, head, title }),
+        },
+      );
+
+      if (!pullRequest) {
+        throw new GitHubLiteApiError(
+          "GitHub pull request was empty.",
+          "unknown",
+          500,
+        );
+      }
+
+      return {
+        number: pullRequest.number,
+        title: pullRequest.title,
+        url: pullRequest.html_url,
+        head: pullRequest.head.ref,
+        base: pullRequest.base.ref,
       };
     },
 
@@ -294,6 +444,17 @@ function decodeBase64(value: string): string {
   );
 
   return new TextDecoder().decode(bytes);
+}
+
+function encodeBase64(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary);
 }
 
 async function readErrorMessage(response: Response): Promise<string> {

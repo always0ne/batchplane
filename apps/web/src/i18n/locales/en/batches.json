@@ -1,6 +1,9 @@
 {
   "title": "Batches",
   "subtitle": "Governed batch definitions from .batch-governance.",
+  "actions": {
+    "register": "Register batch"
+  },
   "table": {
     "batchId": "Batch ID",
     "name": "Name",

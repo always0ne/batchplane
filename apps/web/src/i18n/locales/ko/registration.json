@@ -1,4 +1,33 @@
 {
   "title": "등록",
-  "subtitle": "통제 대상 배치 정의를 Pull Request로 생성합니다."
+  "subtitle": "통제 대상 배치 정의를 Pull Request로 생성합니다.",
+  "form": {
+    "definition": "배치 정의",
+    "workflow": "Workflow",
+    "batchId": "Batch ID",
+    "name": "이름",
+    "owner": "소유자",
+    "domain": "업무 도메인",
+    "environment": "환경",
+    "criticality": "중요도",
+    "status": "상태",
+    "workflowPath": "Workflow 경로",
+    "workflowRef": "Workflow ref",
+    "gateRequired": "실행 전 BatchTrail Gate 필수"
+  },
+  "preview": {
+    "title": "YAML 미리보기"
+  },
+  "actions": {
+    "createPullRequest": "등록 PR 생성"
+  },
+  "result": {
+    "success": "등록 Pull Request가 생성되었습니다."
+  },
+  "errors": {
+    "required": "필수 항목이 누락되었습니다: {{fields}}",
+    "noSession": "등록 PR을 생성하기 전에 설정에서 GitHub 저장소를 연결하세요.",
+    "alreadyExists": "{{path}}에 이미 배치 정의가 있습니다.",
+    "unknown": "등록 Pull Request 생성에 실패했습니다."
+  }
 }
