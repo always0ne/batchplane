@@ -1,4 +1,26 @@
 {
   "title": "승인함",
-  "subtitle": "등록 요청과 실행 요청을 검토합니다."
+  "subtitle": "등록 Pull Request를 검토하고 승인된 배치 정의로 반영합니다.",
+  "actions": {
+    "approveAndMerge": "승인 후 반영",
+    "openPullRequest": "PR 열기",
+    "openSetup": "설정 열기",
+    "refresh": "새로고침",
+    "reject": "반려"
+  },
+  "fields": {
+    "author": "작성자",
+    "base": "대상",
+    "head": "요청 브랜치",
+    "repository": "저장소"
+  },
+  "result": {
+    "approved": "PR #{{number}}가 승인되고 반영되었습니다.",
+    "rejected": "PR #{{number}}가 반려되고 닫혔습니다."
+  },
+  "states": {
+    "empty": "{{branch}} 브랜치에 대기 중인 등록 승인이 없습니다.",
+    "loading": "승인 요청을 불러오는 중입니다...",
+    "noSession": "승인 요청을 보려면 GitHub 저장소를 먼저 연결하세요."
+  }
 }

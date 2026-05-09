@@ -19,7 +19,8 @@
     "title": "YAML preview"
   },
   "actions": {
-    "createPullRequest": "Create registration PR"
+    "createPullRequest": "Create registration PR",
+    "openApprovals": "Review in approvals"
   },
   "result": {
     "success": "Registration pull request created."

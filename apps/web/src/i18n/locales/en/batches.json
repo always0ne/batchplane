@@ -2,12 +2,26 @@
   "title": "Batches",
   "subtitle": "Governed batch definitions from .batch-governance.",
   "actions": {
+    "openSetup": "Open setup",
+    "refresh": "Refresh",
     "register": "Register batch"
+  },
+  "states": {
+    "empty": "No batch definitions are registered on {{branch}} yet.",
+    "loading": "Loading batch definitions...",
+    "noSession": "Connect a GitHub repository before viewing governed batches."
   },
   "table": {
     "batchId": "Batch ID",
+    "criticality": "Criticality",
+    "gate": "Gate",
     "name": "Name",
+    "owner": "Owner",
     "environment": "Environment",
     "status": "Status"
+  },
+  "values": {
+    "off": "Off",
+    "required": "Required"
   }
 }

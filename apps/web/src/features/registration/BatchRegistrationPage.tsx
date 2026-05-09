@@ -6,6 +6,7 @@ import {
 import type { BatchStatus, Criticality } from "@batchtrail/domain";
 import { AlertCircle, FileText, GitPullRequest, Loader2 } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { readGitHubSession } from "../lite-setup/github-session";
@@ -343,14 +344,19 @@ function SubmissionBanner({ state }: { state: SubmissionState }) {
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
         <p className="font-semibold">{t("result.success")}</p>
-        <a
-          className="mt-2 inline-flex font-semibold underline"
-          href={state.pullRequest.url}
-          rel="noreferrer"
-          target="_blank"
-        >
-          #{state.pullRequest.number} {state.pullRequest.title}
-        </a>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <a
+            className="inline-flex font-semibold underline"
+            href={state.pullRequest.url}
+            rel="noreferrer"
+            target="_blank"
+          >
+            #{state.pullRequest.number} {state.pullRequest.title}
+          </a>
+          <Link className="font-semibold underline" to="/approvals">
+            {t("actions.openApprovals")}
+          </Link>
+        </div>
       </div>
     );
   }

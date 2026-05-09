@@ -1,4 +1,5 @@
 import auditEn from "./locales/en/audit.json";
+import approvalsEn from "./locales/en/approvals.json";
 import batchesEn from "./locales/en/batches.json";
 import commonEn from "./locales/en/common.json";
 import dashboardEn from "./locales/en/dashboard.json";
@@ -10,6 +11,7 @@ import navigationEn from "./locales/en/navigation.json";
 import registrationEn from "./locales/en/registration.json";
 import settingsEn from "./locales/en/settings.json";
 import auditKo from "./locales/ko/audit.json";
+import approvalsKo from "./locales/ko/approvals.json";
 import batchesKo from "./locales/ko/batches.json";
 import commonKo from "./locales/ko/common.json";
 import dashboardKo from "./locales/ko/dashboard.json";
@@ -27,6 +29,7 @@ export const namespaces = [
   "common",
   "navigation",
   "dashboard",
+  "approvals",
   "batches",
   "registration",
   "executions",
@@ -40,6 +43,7 @@ export const namespaces = [
 export const resources = {
   en: {
     audit: auditEn,
+    approvals: approvalsEn,
     batches: batchesEn,
     common: commonEn,
     dashboard: dashboardEn,
@@ -53,6 +57,7 @@ export const resources = {
   },
   ko: {
     audit: auditKo,
+    approvals: approvalsKo,
     batches: batchesKo,
     common: commonKo,
     dashboard: dashboardKo,

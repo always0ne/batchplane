@@ -76,6 +76,67 @@ export function serializeBatchDefinitionYaml(
   ].join("\n");
 }
 
+export function parseBatchDefinitionYaml(yaml: string): BatchDefinition {
+  const fieldMap = new Map<string, string>();
+  let section = "";
+  let nestedSection = "";
+
+  for (const rawLine of yaml.split("\n")) {
+    const line = rawLine.trimEnd();
+
+    if (!line.trim() || line.trimStart().startsWith("#")) {
+      continue;
+    }
+
+    if (!line.startsWith(" ") && line.endsWith(":")) {
+      section = line.slice(0, -1);
+      nestedSection = "";
+      continue;
+    }
+
+    if (line.startsWith("  ") && !line.startsWith("    ")) {
+      const [key, value] = splitYamlPair(line.trim());
+
+      if (value === undefined) {
+        nestedSection = key;
+        continue;
+      }
+
+      fieldMap.set(`${section}.${key}`, value);
+      nestedSection = "";
+      continue;
+    }
+
+    if (line.startsWith("    ")) {
+      const [key, value] = splitYamlPair(line.trim());
+
+      if (value !== undefined) {
+        fieldMap.set(`${section}.${nestedSection}.${key}`, value);
+      }
+    }
+  }
+
+  const criticality = parseCriticality(
+    readYamlString(fieldMap, "spec.criticality"),
+  );
+  const status = parseBatchStatus(readYamlString(fieldMap, "spec.status"));
+
+  return {
+    batchId: readYamlString(fieldMap, "metadata.id"),
+    name: readYamlString(fieldMap, "metadata.name"),
+    owner: readYamlString(fieldMap, "spec.owner"),
+    domain: readYamlString(fieldMap, "spec.domain"),
+    environment: readYamlString(fieldMap, "spec.environment"),
+    criticality,
+    status,
+    workflow: {
+      path: readYamlString(fieldMap, "spec.workflow.path"),
+      ref: readYamlString(fieldMap, "spec.workflow.ref"),
+    },
+    gateRequired: readYamlBoolean(fieldMap, "spec.gateRequired"),
+  };
+}
+
 export function validateBatchRegistration(
   definition: BatchDefinition,
 ): string[] {
@@ -133,4 +194,57 @@ export function buildRegistrationPullRequestBody(definition: BatchDefinition) {
 
 function yamlString(value: string): string {
   return JSON.stringify(value);
+}
+
+function splitYamlPair(line: string): [string, string | undefined] {
+  const separatorIndex = line.indexOf(":");
+
+  if (separatorIndex < 0) {
+    return [line, undefined];
+  }
+
+  const key = line.slice(0, separatorIndex).trim();
+  const value = line.slice(separatorIndex + 1).trim();
+
+  return [key, value || undefined];
+}
+
+function readYamlString(fieldMap: Map<string, string>, path: string): string {
+  const rawValue = fieldMap.get(path);
+
+  if (!rawValue) {
+    return "";
+  }
+
+  try {
+    const parsedValue = JSON.parse(rawValue) as unknown;
+    return typeof parsedValue === "string" ? parsedValue : String(parsedValue);
+  } catch {
+    return rawValue;
+  }
+}
+
+function readYamlBoolean(fieldMap: Map<string, string>, path: string): boolean {
+  return fieldMap.get(path) === "true";
+}
+
+function parseCriticality(value: string): Criticality {
+  if (
+    value === "LOW" ||
+    value === "MEDIUM" ||
+    value === "HIGH" ||
+    value === "CRITICAL"
+  ) {
+    return value;
+  }
+
+  return "MEDIUM";
+}
+
+function parseBatchStatus(value: string): BatchStatus {
+  if (value === "ACTIVE" || value === "INACTIVE") {
+    return value;
+  }
+
+  return "INACTIVE";
 }

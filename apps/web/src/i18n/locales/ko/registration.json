@@ -19,7 +19,8 @@
     "title": "YAML 미리보기"
   },
   "actions": {
-    "createPullRequest": "등록 PR 생성"
+    "createPullRequest": "등록 PR 생성",
+    "openApprovals": "승인함에서 검토"
   },
   "result": {
     "success": "등록 Pull Request가 생성되었습니다."
