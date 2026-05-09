@@ -283,6 +283,8 @@ describe("createGitHubLiteClient", () => {
         body: null,
         labels: [],
         html_url: "https://github.com/always0ne/batchtrail/pull/12",
+        state: "closed",
+        user: { login: "always0ne" },
       });
     };
     const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
@@ -314,6 +316,8 @@ describe("createGitHubLiteClient", () => {
         body: "body",
         labels: [],
         html_url: "https://github.com/always0ne/batchtrail/issues/34",
+        state: "open",
+        user: { login: "always0ne" },
       });
     };
     const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
@@ -332,6 +336,9 @@ describe("createGitHubLiteClient", () => {
       body: "body",
       labels: [],
       url: "https://github.com/always0ne/batchtrail/issues/34",
+      state: "open",
+      author: "always0ne",
+      isPullRequest: false,
     });
 
     expect(requests[0]?.input.toString()).toBe(
@@ -342,6 +349,49 @@ describe("createGitHubLiteClient", () => {
       labels: [],
       title: "Run batch payment.daily-close",
     });
+  });
+
+  it("lists issues", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json([
+        {
+          number: 34,
+          title: "Run batch payment.daily-close",
+          body: "body",
+          labels: [],
+          html_url: "https://github.com/always0ne/batchtrail/issues/34",
+          state: "open",
+          user: { login: "always0ne" },
+        },
+      ]);
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.listIssues({
+        owner: "always0ne",
+        repo: "batchtrail",
+        state: "open",
+      }),
+    ).resolves.toEqual([
+      {
+        number: 34,
+        title: "Run batch payment.daily-close",
+        body: "body",
+        labels: [],
+        url: "https://github.com/always0ne/batchtrail/issues/34",
+        state: "open",
+        author: "always0ne",
+        isPullRequest: false,
+      },
+    ]);
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchtrail/issues?state=open",
+    );
   });
 
   it("maps GitHub API errors", async () => {

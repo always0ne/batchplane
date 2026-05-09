@@ -75,8 +75,10 @@ later slices.
 To test the first execution-control entry point, choose `Request run` from an
 approved batch in `Batches`. A successful request creates a GitHub Issue with a
 BatchTrail execution request marker, canonical payload, and SHA-256 request
-digest. Execution approval, dispatcher handoff, and Gate verification are added
-in later slices.
+digest. Go to `Approvals` to approve or reject the execution request. A
+successful decision records a BatchTrail execution approval comment and closes
+the Issue so it leaves the approval inbox. Dispatcher handoff and Gate
+verification are added in later slices.
 
 ## Workspace
 

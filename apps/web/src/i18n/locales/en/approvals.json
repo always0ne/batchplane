@@ -1,8 +1,10 @@
 {
   "title": "Approvals",
-  "subtitle": "Review registration pull requests before they become governed batch definitions.",
+  "subtitle": "Review registration changes and execution requests before they affect governed batches.",
   "actions": {
     "approveAndMerge": "Approve and merge",
+    "approveExecution": "Approve execution",
+    "openIssue": "Open Issue",
     "openPullRequest": "Open PR",
     "openSetup": "Open setup",
     "refresh": "Refresh",
@@ -11,15 +13,26 @@
   "fields": {
     "author": "Author",
     "base": "Base",
+    "batchId": "Batch ID",
+    "expiresAt": "Expires at",
     "head": "Head",
+    "requestDigest": "Request digest",
+    "requestedBy": "Requested by",
+    "requestId": "Request ID",
     "repository": "Repository"
   },
   "result": {
-    "approved": "PR #{{number}} was approved and merged.",
-    "rejected": "PR #{{number}} was rejected and closed."
+    "executionApproved": "Execution request {{requestId}} was approved.",
+    "executionRejected": "Execution request {{requestId}} was rejected.",
+    "registrationApproved": "PR #{{number}} was approved and merged.",
+    "registrationRejected": "PR #{{number}} was rejected and closed."
+  },
+  "sections": {
+    "execution": "Execution requests",
+    "registration": "Registration changes"
   },
   "states": {
-    "empty": "No registration approvals are pending on {{branch}}.",
+    "empty": "No approvals are pending on {{branch}}.",
     "loading": "Loading approval requests...",
     "noSession": "Connect a GitHub repository before reviewing approvals."
   }

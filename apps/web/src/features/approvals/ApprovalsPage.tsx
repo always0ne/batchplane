@@ -5,6 +5,7 @@ import {
 } from "@batchtrail/github-lite";
 import {
   CheckCircle2,
+  FileText,
   GitPullRequest,
   Loader2,
   RefreshCw,
@@ -21,9 +22,13 @@ import {
   type GitHubSession,
 } from "../lite-setup/github-session";
 import {
+  buildExecutionApprovalComment,
+  buildExecutionRejectionComment,
   buildRegistrationApprovalComment,
   buildRegistrationRejectionComment,
+  type ExecutionApprovalRequest,
   isRegistrationApprovalRequest,
+  parseExecutionApprovalRequest,
 } from "./approval-model";
 
 type ApprovalPageState =
@@ -32,16 +37,17 @@ type ApprovalPageState =
   | {
       type: "loaded";
       defaultBranch: string;
+      executionRequests: ExecutionApprovalRequest[];
       login: string;
+      registrationRequests: GitHubPullRequest[];
       repository: string;
-      requests: GitHubPullRequest[];
       session: GitHubSession;
     }
   | { type: "error"; message: string };
 
 type ApprovalActionState =
   | { type: "idle" }
-  | { type: "running"; pullNumber: number; action: "approve" | "reject" }
+  | { type: "running"; action: "approve" | "reject"; targetKey: string }
   | { type: "success"; message: string }
   | { type: "error"; message: string };
 
@@ -72,19 +78,33 @@ export function ApprovalsPage() {
           client.getCurrentUser(),
           client.getRepository(session),
         ]);
-        const pullRequests = await client.listPullRequests({
-          ...session,
-          base: repository.defaultBranch,
-          state: "open",
-        });
+        const [pullRequests, issues] = await Promise.all([
+          client.listPullRequests({
+            ...session,
+            base: repository.defaultBranch,
+            state: "open",
+          }),
+          client.listIssues({
+            ...session,
+            state: "open",
+          }),
+        ]);
 
         if (!ignoreResult) {
           setState({
             type: "loaded",
             defaultBranch: repository.defaultBranch,
+            executionRequests: issues
+              .map(parseExecutionApprovalRequest)
+              .filter(
+                (request): request is ExecutionApprovalRequest =>
+                  request !== null,
+              ),
             login: user.login,
+            registrationRequests: pullRequests.filter(
+              isRegistrationApprovalRequest,
+            ),
             repository: `${repository.owner}/${repository.repo}`,
-            requests: pullRequests.filter(isRegistrationApprovalRequest),
             session,
           });
         }
@@ -109,8 +129,8 @@ export function ApprovalsPage() {
 
     setActionState({
       type: "running",
-      pullNumber: pullRequest.number,
       action: "approve",
+      targetKey: registrationRequestKey(pullRequest),
     });
 
     try {
@@ -137,10 +157,12 @@ export function ApprovalsPage() {
         throw new Error(mergeResult.message);
       }
 
-      removeRequest(pullRequest.number);
+      removeRegistrationRequest(pullRequest.number);
       setActionState({
         type: "success",
-        message: t("result.approved", { number: pullRequest.number }),
+        message: t("result.registrationApproved", {
+          number: pullRequest.number,
+        }),
       });
     } catch (error) {
       setActionState({ type: "error", message: formatApprovalError(error) });
@@ -154,8 +176,8 @@ export function ApprovalsPage() {
 
     setActionState({
       type: "running",
-      pullNumber: pullRequest.number,
       action: "reject",
+      targetKey: registrationRequestKey(pullRequest),
     });
 
     try {
@@ -175,17 +197,99 @@ export function ApprovalsPage() {
         issueNumber: pullRequest.number,
       });
 
-      removeRequest(pullRequest.number);
+      removeRegistrationRequest(pullRequest.number);
       setActionState({
         type: "success",
-        message: t("result.rejected", { number: pullRequest.number }),
+        message: t("result.registrationRejected", {
+          number: pullRequest.number,
+        }),
       });
     } catch (error) {
       setActionState({ type: "error", message: formatApprovalError(error) });
     }
   }
 
-  function removeRequest(pullNumber: number) {
+  async function approveExecution(request: ExecutionApprovalRequest) {
+    if (state.type !== "loaded") {
+      return;
+    }
+
+    setActionState({
+      type: "running",
+      action: "approve",
+      targetKey: executionRequestKey(request),
+    });
+
+    try {
+      const client = createGitHubLiteClient({ token: state.session.token });
+
+      await client.createIssueComment({
+        ...state.session,
+        issueNumber: request.issue.number,
+        body: buildExecutionApprovalComment({
+          approvedAt: new Date(),
+          approver: state.login,
+          request,
+        }),
+      });
+      await client.closeIssue({
+        ...state.session,
+        issueNumber: request.issue.number,
+      });
+
+      removeExecutionRequest(request.issue.number);
+      setActionState({
+        type: "success",
+        message: t("result.executionApproved", {
+          requestId: request.requestId,
+        }),
+      });
+    } catch (error) {
+      setActionState({ type: "error", message: formatApprovalError(error) });
+    }
+  }
+
+  async function rejectExecution(request: ExecutionApprovalRequest) {
+    if (state.type !== "loaded") {
+      return;
+    }
+
+    setActionState({
+      type: "running",
+      action: "reject",
+      targetKey: executionRequestKey(request),
+    });
+
+    try {
+      const client = createGitHubLiteClient({ token: state.session.token });
+
+      await client.createIssueComment({
+        ...state.session,
+        issueNumber: request.issue.number,
+        body: buildExecutionRejectionComment({
+          rejectedAt: new Date(),
+          rejector: state.login,
+          request,
+        }),
+      });
+      await client.closeIssue({
+        ...state.session,
+        issueNumber: request.issue.number,
+      });
+
+      removeExecutionRequest(request.issue.number);
+      setActionState({
+        type: "success",
+        message: t("result.executionRejected", {
+          requestId: request.requestId,
+        }),
+      });
+    } catch (error) {
+      setActionState({ type: "error", message: formatApprovalError(error) });
+    }
+  }
+
+  function removeRegistrationRequest(pullNumber: number) {
     setState((current) => {
       if (current.type !== "loaded") {
         return current;
@@ -193,8 +297,23 @@ export function ApprovalsPage() {
 
       return {
         ...current,
-        requests: current.requests.filter(
+        registrationRequests: current.registrationRequests.filter(
           (request) => request.number !== pullNumber,
+        ),
+      };
+    });
+  }
+
+  function removeExecutionRequest(issueNumber: number) {
+    setState((current) => {
+      if (current.type !== "loaded") {
+        return current;
+      }
+
+      return {
+        ...current,
+        executionRequests: current.executionRequests.filter(
+          (request) => request.issue.number !== issueNumber,
         ),
       };
     });
@@ -223,8 +342,12 @@ export function ApprovalsPage() {
 
       <ApprovalContent
         actionState={actionState}
-        onApprove={(pullRequest) => void approveAndMerge(pullRequest)}
-        onReject={(pullRequest) => void rejectAndClose(pullRequest)}
+        onApproveExecution={(request) => void approveExecution(request)}
+        onApproveRegistration={(pullRequest) =>
+          void approveAndMerge(pullRequest)
+        }
+        onRejectExecution={(request) => void rejectExecution(request)}
+        onRejectRegistration={(pullRequest) => void rejectAndClose(pullRequest)}
         state={state}
       />
     </section>
@@ -233,13 +356,17 @@ export function ApprovalsPage() {
 
 function ApprovalContent({
   actionState,
-  onApprove,
-  onReject,
+  onApproveExecution,
+  onApproveRegistration,
+  onRejectExecution,
+  onRejectRegistration,
   state,
 }: {
   actionState: ApprovalActionState;
-  onApprove: (pullRequest: GitHubPullRequest) => void;
-  onReject: (pullRequest: GitHubPullRequest) => void;
+  onApproveExecution: (request: ExecutionApprovalRequest) => void;
+  onApproveRegistration: (pullRequest: GitHubPullRequest) => void;
+  onRejectExecution: (request: ExecutionApprovalRequest) => void;
+  onRejectRegistration: (pullRequest: GitHubPullRequest) => void;
   state: ApprovalPageState;
 }) {
   const { t } = useTranslation("approvals");
@@ -275,7 +402,10 @@ function ApprovalContent({
     );
   }
 
-  if (state.requests.length === 0) {
+  if (
+    state.registrationRequests.length === 0 &&
+    state.executionRequests.length === 0
+  ) {
     return (
       <StatusPanel>
         <span>{t("states.empty", { branch: state.defaultBranch })}</span>
@@ -284,95 +414,212 @@ function ApprovalContent({
   }
 
   return (
-    <div className="space-y-3">
-      {state.requests.map((pullRequest) => {
-        const isBusy =
-          actionState.type === "running" &&
-          actionState.pullNumber === pullRequest.number;
-        const disabled = actionState.type === "running";
+    <div className="space-y-6">
+      {state.registrationRequests.length > 0 ? (
+        <ApprovalSection title={t("sections.registration")}>
+          {state.registrationRequests.map((pullRequest) => {
+            const isBusy =
+              actionState.type === "running" &&
+              actionState.targetKey === registrationRequestKey(pullRequest);
+            const disabled = actionState.type === "running";
 
-        return (
-          <article
-            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
-            key={pullRequest.number}
-          >
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <GitPullRequest
-                    className="h-4 w-4 text-bt-git"
-                    aria-hidden="true"
-                  />
-                  <h2 className="text-lg font-semibold text-bt-graphite">
-                    #{pullRequest.number} {pullRequest.title}
-                  </h2>
+            return (
+              <article
+                className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+                key={registrationRequestKey(pullRequest)}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <GitPullRequest
+                        className="h-4 w-4 text-bt-git"
+                        aria-hidden="true"
+                      />
+                      <h3 className="text-lg font-semibold text-bt-graphite">
+                        #{pullRequest.number} {pullRequest.title}
+                      </h3>
+                    </div>
+                    <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                      <ApprovalMeta
+                        label={t("fields.repository")}
+                        value={state.repository}
+                      />
+                      <ApprovalMeta
+                        label={t("fields.author")}
+                        value={pullRequest.author || "-"}
+                      />
+                      <ApprovalMeta
+                        label={t("fields.head")}
+                        value={pullRequest.head}
+                      />
+                      <ApprovalMeta
+                        label={t("fields.base")}
+                        value={pullRequest.base}
+                      />
+                    </dl>
+                  </div>
+                  <a
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                    href={pullRequest.url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {t("actions.openPullRequest")}
+                  </a>
                 </div>
-                <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                  <ApprovalMeta
-                    label={t("fields.repository")}
-                    value={state.repository}
-                  />
-                  <ApprovalMeta
-                    label={t("fields.author")}
-                    value={pullRequest.author || "-"}
-                  />
-                  <ApprovalMeta
-                    label={t("fields.head")}
-                    value={pullRequest.head}
-                  />
-                  <ApprovalMeta
-                    label={t("fields.base")}
-                    value={pullRequest.base}
-                  />
-                </dl>
-              </div>
-              <a
-                className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
-                href={pullRequest.url}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {t("actions.openPullRequest")}
-              </a>
-            </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                className="inline-flex items-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-                disabled={disabled}
-                onClick={() => onApprove(pullRequest)}
-                type="button"
+                <ApprovalActions
+                  approveLabel={t("actions.approveAndMerge")}
+                  disabled={disabled}
+                  isApproving={isBusy && actionState.action === "approve"}
+                  isRejecting={isBusy && actionState.action === "reject"}
+                  onApprove={() => onApproveRegistration(pullRequest)}
+                  onReject={() => onRejectRegistration(pullRequest)}
+                  rejectLabel={t("actions.reject")}
+                />
+              </article>
+            );
+          })}
+        </ApprovalSection>
+      ) : null}
+
+      {state.executionRequests.length > 0 ? (
+        <ApprovalSection title={t("sections.execution")}>
+          {state.executionRequests.map((request) => {
+            const isBusy =
+              actionState.type === "running" &&
+              actionState.targetKey === executionRequestKey(request);
+            const disabled = actionState.type === "running";
+
+            return (
+              <article
+                className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+                key={executionRequestKey(request)}
               >
-                {isBusy && actionState.action === "approve" ? (
-                  <Loader2
-                    className="h-4 w-4 animate-spin"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                )}
-                {t("actions.approveAndMerge")}
-              </button>
-              <button
-                className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
-                disabled={disabled}
-                onClick={() => onReject(pullRequest)}
-                type="button"
-              >
-                {isBusy && actionState.action === "reject" ? (
-                  <Loader2
-                    className="h-4 w-4 animate-spin"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <XCircle className="h-4 w-4" aria-hidden="true" />
-                )}
-                {t("actions.reject")}
-              </button>
-            </div>
-          </article>
-        );
-      })}
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <FileText
+                        className="h-4 w-4 text-bt-git"
+                        aria-hidden="true"
+                      />
+                      <h3 className="text-lg font-semibold text-bt-graphite">
+                        #{request.issue.number} {request.issue.title}
+                      </h3>
+                    </div>
+                    <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                      <ApprovalMeta
+                        label={t("fields.requestId")}
+                        value={request.requestId}
+                      />
+                      <ApprovalMeta
+                        label={t("fields.batchId")}
+                        value={request.batchId}
+                      />
+                      <ApprovalMeta
+                        label={t("fields.requestedBy")}
+                        value={
+                          request.requestedBy || request.issue.author || "-"
+                        }
+                      />
+                      <ApprovalMeta
+                        label={t("fields.expiresAt")}
+                        value={request.expiresAt || "-"}
+                      />
+                      <ApprovalMeta
+                        label={t("fields.requestDigest")}
+                        value={request.requestDigest}
+                      />
+                    </dl>
+                  </div>
+                  <a
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                    href={request.issue.url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {t("actions.openIssue")}
+                  </a>
+                </div>
+
+                <ApprovalActions
+                  approveLabel={t("actions.approveExecution")}
+                  disabled={disabled}
+                  isApproving={isBusy && actionState.action === "approve"}
+                  isRejecting={isBusy && actionState.action === "reject"}
+                  onApprove={() => onApproveExecution(request)}
+                  onReject={() => onRejectExecution(request)}
+                  rejectLabel={t("actions.reject")}
+                />
+              </article>
+            );
+          })}
+        </ApprovalSection>
+      ) : null}
+    </div>
+  );
+}
+
+function ApprovalSection({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section>
+      <h2 className="mb-3 text-base font-bold text-bt-graphite">{title}</h2>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function ApprovalActions({
+  approveLabel,
+  disabled,
+  isApproving,
+  isRejecting,
+  onApprove,
+  onReject,
+  rejectLabel,
+}: {
+  approveLabel: string;
+  disabled: boolean;
+  isApproving: boolean;
+  isRejecting: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  rejectLabel: string;
+}) {
+  return (
+    <div className="mt-5 flex flex-wrap gap-3">
+      <button
+        className="inline-flex items-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+        disabled={disabled}
+        onClick={onApprove}
+        type="button"
+      >
+        {isApproving ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+        )}
+        {approveLabel}
+      </button>
+      <button
+        className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
+        disabled={disabled}
+        onClick={onReject}
+        type="button"
+      >
+        {isRejecting ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <XCircle className="h-4 w-4" aria-hidden="true" />
+        )}
+        {rejectLabel}
+      </button>
     </div>
   );
 }
@@ -429,6 +676,14 @@ function StatusPanel({
       {children}
     </div>
   );
+}
+
+function registrationRequestKey(pullRequest: GitHubPullRequest): string {
+  return `registration:${pullRequest.number}`;
+}
+
+function executionRequestKey(request: ExecutionApprovalRequest): string {
+  return `execution:${request.issue.number}`;
 }
 
 function formatApprovalError(error: unknown): string {
