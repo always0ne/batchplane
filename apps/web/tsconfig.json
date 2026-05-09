@@ -13,6 +13,7 @@
     "postcss.config.js"
   ],
   "references": [
+    { "path": "../../packages/digest" },
     { "path": "../../packages/domain" },
     { "path": "../../packages/github-lite" }
   ]

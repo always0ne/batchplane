@@ -4,7 +4,16 @@
   "actions": {
     "openSetup": "설정 열기",
     "refresh": "새로고침",
-    "register": "배치 등록"
+    "register": "배치 등록",
+    "requestRun": "실행 요청"
+  },
+  "execution": {
+    "errors": {
+      "inactive": "비활성 배치는 실행 요청할 수 없습니다."
+    },
+    "result": {
+      "created": "실행 요청 {{requestId}}가 생성되었습니다."
+    }
   },
   "states": {
     "empty": "{{branch}} 브랜치에 등록된 배치 정의가 아직 없습니다.",
@@ -12,6 +21,7 @@
     "noSession": "관리 대상 배치를 보려면 GitHub 저장소를 먼저 연결하세요."
   },
   "table": {
+    "actions": "작업",
     "batchId": "Batch ID",
     "criticality": "중요도",
     "gate": "Gate",

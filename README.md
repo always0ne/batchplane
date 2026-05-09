@@ -34,6 +34,7 @@ Create a fine-grained GitHub personal access token for the `batch` repository:
 
 - Repository access: only the `batch` repository
 - `Contents`: read and write
+- `Issues`: read and write
 - `Pull requests`: read and write
 - `Metadata`: read-only
 
@@ -70,6 +71,12 @@ repository's `.batch-governance/batches` directory.
 Repo Mode currently covers registration request, approval, merge, and
 repo-backed batch listing. Dispatch and Gate enforcement are implemented in
 later slices.
+
+To test the first execution-control entry point, choose `Request run` from an
+approved batch in `Batches`. A successful request creates a GitHub Issue with a
+BatchTrail execution request marker, canonical payload, and SHA-256 request
+digest. Execution approval, dispatcher handoff, and Gate verification are added
+in later slices.
 
 ## Workspace
 

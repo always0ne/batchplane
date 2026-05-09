@@ -303,6 +303,47 @@ describe("createGitHubLiteClient", () => {
     });
   });
 
+  it("creates an issue", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        number: 34,
+        title: "Run batch payment.daily-close",
+        body: "body",
+        labels: [],
+        html_url: "https://github.com/always0ne/batchtrail/issues/34",
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.createIssue({
+        owner: "always0ne",
+        repo: "batchtrail",
+        title: "Run batch payment.daily-close",
+        body: "body",
+        labels: [],
+      }),
+    ).resolves.toEqual({
+      number: 34,
+      title: "Run batch payment.daily-close",
+      body: "body",
+      labels: [],
+      url: "https://github.com/always0ne/batchtrail/issues/34",
+    });
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchtrail/issues",
+    );
+    expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
+      body: "body",
+      labels: [],
+      title: "Run batch payment.daily-close",
+    });
+  });
+
   it("maps GitHub API errors", async () => {
     const fetcher: typeof fetch = async () =>
       Response.json({ message: "Bad credentials" }, { status: 401 });

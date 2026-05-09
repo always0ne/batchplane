@@ -4,7 +4,16 @@
   "actions": {
     "openSetup": "Open setup",
     "refresh": "Refresh",
-    "register": "Register batch"
+    "register": "Register batch",
+    "requestRun": "Request run"
+  },
+  "execution": {
+    "errors": {
+      "inactive": "Inactive batches cannot be requested for execution."
+    },
+    "result": {
+      "created": "Execution request {{requestId}} was created."
+    }
   },
   "states": {
     "empty": "No batch definitions are registered on {{branch}} yet.",
@@ -12,6 +21,7 @@
     "noSession": "Connect a GitHub repository before viewing governed batches."
   },
   "table": {
+    "actions": "Actions",
     "batchId": "Batch ID",
     "criticality": "Criticality",
     "gate": "Gate",

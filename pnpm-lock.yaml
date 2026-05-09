@@ -71,6 +71,9 @@ importers:
 
   apps/web:
     dependencies:
+      "@batchtrail/digest":
+        specifier: workspace:*
+        version: link:../../packages/digest
       "@batchtrail/domain":
         specifier: workspace:*
         version: link:../../packages/domain
