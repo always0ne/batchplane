@@ -60,8 +60,16 @@ test creates:
 - `.batch-governance/batches/{batchId}.yml`
 - A pull request back to the default branch
 
-Repo Mode currently tests registration PR creation only. Approval, dispatch, and
-Gate enforcement are implemented in later slices.
+To complete the registration approval cycle, go to `Approvals` and choose
+`Approve and merge` for the generated PR. A successful approval records a
+BatchTrail approval comment on the PR, squash-merges the PR into the default
+branch, and removes the request from the approval inbox. Return to `Batches` and
+choose `Refresh`; the approved batch definition should appear from the
+repository's `.batch-governance/batches` directory.
+
+Repo Mode currently covers registration request, approval, merge, and
+repo-backed batch listing. Dispatch and Gate enforcement are implemented in
+later slices.
 
 ## Workspace
 

@@ -4,6 +4,7 @@ import {
   buildRegistrationPullRequestBody,
   createRegistrationBranchName,
   getBatchDefinitionPath,
+  parseBatchDefinitionYaml,
   serializeBatchDefinitionYaml,
   toBatchDefinition,
   validateBatchRegistration,
@@ -33,6 +34,12 @@ describe("registration model", () => {
     expect(serializeBatchDefinitionYaml(definition)).toContain(
       "  gateRequired: true",
     );
+  });
+
+  it("parses a serialized batch definition", () => {
+    expect(
+      parseBatchDefinitionYaml(serializeBatchDefinitionYaml(definition)),
+    ).toEqual(definition);
   });
 
   it("builds the governed repo path", () => {

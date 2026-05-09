@@ -1,9 +1,16 @@
-import { GitBranch, LayoutDashboard, ListChecks, Settings } from "lucide-react";
+import {
+  ClipboardCheck,
+  GitBranch,
+  LayoutDashboard,
+  ListChecks,
+  Settings,
+} from "lucide-react";
 import { useMemo } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { BatchesPage } from "../features/batches/BatchesPage";
+import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
 import { BatchRegistrationPage } from "../features/registration/BatchRegistrationPage";
@@ -18,6 +25,7 @@ const navItems = [
   { icon: LayoutDashboard, labelKey: "items.dashboard", to: "/dashboard" },
   { icon: Settings, labelKey: "items.setup", to: "/lite/setup" },
   { icon: ListChecks, labelKey: "items.batches", to: "/batches" },
+  { icon: ClipboardCheck, labelKey: "items.approvals", to: "/approvals" },
 ] as const;
 
 export function App() {
@@ -108,6 +116,7 @@ export function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/batches" element={<BatchesPage />} />
             <Route path="/batches/new" element={<BatchRegistrationPage />} />
+            <Route path="/approvals" element={<ApprovalsPage />} />
             <Route path="/lite/setup" element={<LiteSetupPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

@@ -19,6 +19,13 @@ export type GitHubFile = {
   sha: string;
 };
 
+export type GitHubDirectoryEntry = {
+  name: string;
+  path: string;
+  sha: string;
+  type: "file" | "dir" | "symlink" | "submodule";
+};
+
 export type GitHubIssue = {
   number: number;
   title: string;
@@ -27,12 +34,24 @@ export type GitHubIssue = {
   url: string;
 };
 
+export type GitHubPullRequestState = "open" | "closed" | "all";
+
 export type GitHubPullRequest = {
   number: number;
   title: string;
   url: string;
   head: string;
   base: string;
+  state: Exclude<GitHubPullRequestState, "all">;
+  author: string;
+  body: string;
+  merged: boolean;
+};
+
+export type GitHubMergeResult = {
+  merged: boolean;
+  message: string;
+  sha: string;
 };
 
 export type CreateIssueParams = RepoRef & {
@@ -56,12 +75,28 @@ export type CreatePullRequestParams = RepoRef & {
   base: string;
 };
 
+export type ListPullRequestsParams = RepoRef & {
+  state?: GitHubPullRequestState;
+  base?: string;
+  head?: string;
+};
+
+export type MergePullRequestParams = RepoRef & {
+  pullNumber: number;
+  commitTitle?: string;
+  commitMessage?: string;
+  mergeMethod?: "merge" | "squash" | "rebase";
+};
+
 export type GitHubLiteClient = {
   getCurrentUser(): Promise<GitHubUser>;
   getRepository(params: RepoRef): Promise<GitHubRepository>;
   getFile(
     params: RepoRef & { path: string; ref?: string },
   ): Promise<GitHubFile | null>;
+  getDirectory(
+    params: RepoRef & { path: string; ref?: string },
+  ): Promise<GitHubDirectoryEntry[] | null>;
   getBranchHeadSha(params: RepoRef & { branch: string }): Promise<string>;
   createBranch(
     params: RepoRef & { branch: string; sha: string },
@@ -70,6 +105,10 @@ export type GitHubLiteClient = {
   createPullRequest(
     params: CreatePullRequestParams,
   ): Promise<GitHubPullRequest>;
+  listPullRequests(
+    params: ListPullRequestsParams,
+  ): Promise<GitHubPullRequest[]>;
+  mergePullRequest(params: MergePullRequestParams): Promise<GitHubMergeResult>;
   createIssue(params: CreateIssueParams): Promise<GitHubIssue>;
   createIssueComment(
     params: RepoRef & { issueNumber: number; body: string },
@@ -77,6 +116,7 @@ export type GitHubLiteClient = {
   addIssueLabels(
     params: RepoRef & { issueNumber: number; labels: string[] },
   ): Promise<void>;
+  closeIssue(params: RepoRef & { issueNumber: number }): Promise<void>;
 };
 
 export type GitHubLiteClientOptions = {
@@ -124,6 +164,13 @@ type GitHubContentResponse = {
   sha: string;
 };
 
+type GitHubDirectoryEntryResponse = {
+  name: string;
+  path: string;
+  sha: string;
+  type: "file" | "dir" | "symlink" | "submodule";
+};
+
 type GitHubIssueResponse = {
   number: number;
   title: string;
@@ -154,12 +201,25 @@ type GitHubPullRequestResponse = {
   number: number;
   title: string;
   html_url: string;
+  body: string | null;
+  state: "open" | "closed";
+  merged?: boolean;
+  merged_at?: string | null;
+  user: {
+    login: string;
+  } | null;
   head: {
     ref: string;
   };
   base: {
     ref: string;
   };
+};
+
+type GitHubMergeResponse = {
+  merged: boolean;
+  message: string;
+  sha: string;
 };
 
 export function createGitHubLiteClient({
@@ -268,6 +328,36 @@ export function createGitHubLiteClient({
       };
     },
 
+    async getDirectory({ owner, repo, path, ref }) {
+      const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+      const entries = await request<GitHubDirectoryEntryResponse[]>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/contents/${encodePath(path)}${query}`,
+        {},
+        { allowNotFound: true },
+      );
+
+      if (!entries) {
+        return null;
+      }
+
+      if (!Array.isArray(entries)) {
+        throw new GitHubLiteApiError(
+          `GitHub path is not a directory: ${path}`,
+          "bad-request",
+          400,
+        );
+      }
+
+      return entries.map((entry) => ({
+        name: entry.name,
+        path: entry.path,
+        sha: entry.sha,
+        type: entry.type,
+      }));
+    },
+
     async getBranchHeadSha({ owner, repo, branch }) {
       const ref = await request<GitHubRefResponse>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
@@ -345,12 +435,54 @@ export function createGitHubLiteClient({
         );
       }
 
+      return mapPullRequestResponse(pullRequest);
+    },
+
+    async listPullRequests({ owner, repo, state = "open", base, head }) {
+      const query = buildQuery({ base, head, state });
+      const pullRequests = await request<GitHubPullRequestResponse[]>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/pulls${query}`,
+      );
+
+      return (pullRequests ?? []).map(mapPullRequestResponse);
+    },
+
+    async mergePullRequest({
+      owner,
+      repo,
+      pullNumber,
+      commitTitle,
+      commitMessage,
+      mergeMethod = "squash",
+    }) {
+      const result = await request<GitHubMergeResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/pulls/${pullNumber}/merge`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            ...(commitMessage ? { commit_message: commitMessage } : {}),
+            ...(commitTitle ? { commit_title: commitTitle } : {}),
+            merge_method: mergeMethod,
+          }),
+        },
+      );
+
+      if (!result) {
+        throw new GitHubLiteApiError(
+          "GitHub merge response was empty.",
+          "unknown",
+          500,
+        );
+      }
+
       return {
-        number: pullRequest.number,
-        title: pullRequest.title,
-        url: pullRequest.html_url,
-        head: pullRequest.head.ref,
-        base: pullRequest.base.ref,
+        merged: result.merged,
+        message: result.message,
+        sha: result.sha,
       };
     },
 
@@ -401,6 +533,18 @@ export function createGitHubLiteClient({
         },
       );
     },
+
+    async closeIssue({ owner, repo, issueNumber }) {
+      await request<GitHubIssueResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/issues/${issueNumber}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ state: "closed" }),
+        },
+      );
+    },
   };
 }
 
@@ -429,6 +573,36 @@ function mapIssueResponse(issue: GitHubIssueResponse | null): GitHubIssue {
       .filter((label): label is string => Boolean(label)),
     url: issue.html_url,
   };
+}
+
+function mapPullRequestResponse(
+  pullRequest: GitHubPullRequestResponse,
+): GitHubPullRequest {
+  return {
+    number: pullRequest.number,
+    title: pullRequest.title,
+    url: pullRequest.html_url,
+    head: pullRequest.head.ref,
+    base: pullRequest.base.ref,
+    state: pullRequest.state,
+    author: pullRequest.user?.login ?? "",
+    body: pullRequest.body ?? "",
+    merged: pullRequest.merged ?? Boolean(pullRequest.merged_at),
+  };
+}
+
+function buildQuery(params: Record<string, string | undefined>): string {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      query.set(key, value);
+    }
+  }
+
+  const serializedQuery = query.toString();
+
+  return serializedQuery ? `?${serializedQuery}` : "";
 }
 
 function encodePath(path: string): string {
