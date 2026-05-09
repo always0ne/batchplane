@@ -1,0 +1,68 @@
+import { describe, expect, it } from "vitest";
+
+import type { BatchDefinition } from "@batchtrail/domain";
+
+import {
+  addHours,
+  buildExecutionRequestIssue,
+  createExecutionRequestId,
+} from "./execution-request-model";
+
+const batch: BatchDefinition = {
+  batchId: "payment.daily-close",
+  criticality: "HIGH",
+  domain: "payments",
+  environment: "PROD",
+  gateRequired: true,
+  name: "Daily Close",
+  owner: "ops-team",
+  status: "ACTIVE",
+  workflow: {
+    path: ".github/workflows/daily-close.yml",
+    ref: "main",
+  },
+};
+
+describe("execution request model", () => {
+  it("creates a stable request id", () => {
+    expect(
+      createExecutionRequestId(
+        "Payment Daily Close",
+        new Date("2026-05-09T01:02:03.000Z"),
+        "abcdef12",
+      ),
+    ).toBe("btr-20260509010203-payment-daily-close-abcdef12");
+  });
+
+  it("adds expiration hours", () => {
+    expect(
+      addHours(new Date("2026-05-09T01:02:03.000Z"), 1).toISOString(),
+    ).toBe("2026-05-09T02:02:03.000Z");
+  });
+
+  it("builds an auditable GitHub issue body", async () => {
+    const issue = await buildExecutionRequestIssue({
+      batch,
+      expiresAt: new Date("2026-05-09T02:02:03.000Z"),
+      requestId: "btr-20260509010203-payment.daily-close-abcdef12",
+      requestedAt: new Date("2026-05-09T01:02:03.000Z"),
+      requestedBy: "always0ne",
+    });
+
+    expect(issue.title).toBe("Run batch payment.daily-close");
+    expect(issue.labels).toEqual([]);
+    expect(issue.request).toMatchObject({
+      batchId: "payment.daily-close",
+      requestedBy: "always0ne",
+      status: "REQUESTED",
+    });
+    expect(issue.request.requestDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(issue.body).toContain("## BatchTrail Execution Request");
+    expect(issue.body).toContain("batchtrail:execution-request");
+    expect(issue.body).toContain("requestId=btr-20260509010203");
+    expect(issue.body).toContain(
+      `requestDigest=${issue.request.requestDigest}`,
+    );
+    expect(issue.body).toContain('"kind": "ExecutionRequest"');
+  });
+});

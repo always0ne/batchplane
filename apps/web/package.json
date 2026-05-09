@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@batchtrail/digest": "workspace:*",
     "@batchtrail/domain": "workspace:*",
     "@batchtrail/github-lite": "workspace:*",
     "i18next": "^23.0.0",
