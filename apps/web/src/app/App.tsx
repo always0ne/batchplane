@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { BatchesPage } from "../features/batches/BatchesPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
+import { BatchRegistrationPage } from "../features/registration/BatchRegistrationPage";
 import {
   localeLabels,
   supportedLocales,
@@ -106,6 +107,7 @@ export function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/batches" element={<BatchesPage />} />
+            <Route path="/batches/new" element={<BatchRegistrationPage />} />
             <Route path="/lite/setup" element={<LiteSetupPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
