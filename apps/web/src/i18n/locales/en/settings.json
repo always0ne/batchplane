@@ -25,6 +25,17 @@
     "defaultBranch": "Default branch",
     "token": "Token"
   },
+  "installation": {
+    "title": "Repo Mode installation",
+    "subtitle": "Install the dispatcher workflow and governance folders into the connected repository.",
+    "idle": "Check the GitHub connection to inspect installation status.",
+    "checking": "Checking BatchTrail installation...",
+    "installed": "BatchTrail Repo Mode is installed.",
+    "missing": "Installation files are missing.",
+    "creating": "Creating installation pull request...",
+    "createPullRequest": "Create installation PR",
+    "success": "Installation pull request created."
+  },
   "errors": {
     "unknown": "Unknown error",
     "requiredFields": "Repository owner, repository name, and token are required.",

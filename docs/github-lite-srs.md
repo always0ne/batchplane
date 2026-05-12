@@ -12,6 +12,7 @@ user-provided token stored only in session storage.
 
 GitHub Lite must support:
 
+- Repository installation through a setup pull request.
 - Batch registration through pull requests.
 - Registration approval through the approvals inbox.
 - Execution requests through GitHub Issues.
@@ -19,6 +20,28 @@ GitHub Lite must support:
 - Dispatcher handoff through a repository workflow.
 - BatchTrail Gate enforcement before any batch command runs.
 - Future schedule execution through occurrence-level execution requests.
+
+## Installation Requirements
+
+The setup screen must inspect the connected repository before users rely on
+execution approval.
+
+Installation status is based on the default branch containing:
+
+- `.github/workflows/batchtrail-dispatcher.yml`
+- `.batch-governance/README.md`
+- `.batch-governance/batches/.gitkeep`
+- `.batch-governance/schedules/.gitkeep`
+
+If required files are missing, the UI must offer an installation pull request.
+The UI must create a setup branch and PR, not write directly to the default
+branch. A repository maintainer reviews and merges the setup PR using GitHub's
+native permission model.
+
+The dispatcher workflow installed by the setup PR must listen to
+`issue_comment.created`, filter comments that start with `/bgcp approve `, and
+invoke `always0ne/batchtrail/actions/dispatcher@main` with the triggering issue
+number, comment ID, and repository `GITHUB_TOKEN`.
 
 ## Registration Requirements
 

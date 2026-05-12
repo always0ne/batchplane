@@ -24,6 +24,38 @@ Governance records live in the target GitHub repository:
 `{batchId}` paths must be derived from the submitted Batch ID. The application
 must not persist placeholder paths such as `new-batch.yml`.
 
+## Installation Flow
+
+GitHub Lite is installed into a target repository by a setup pull request. The
+browser UI creates the setup branch and pull request; a repository maintainer
+reviews and merges it through GitHub. BatchTrail execution control starts after
+that installation PR is merged.
+
+The setup flow checks these required files on the default branch:
+
+```text
+.github/workflows/batchtrail-dispatcher.yml
+.batch-governance/README.md
+.batch-governance/batches/.gitkeep
+.batch-governance/schedules/.gitkeep
+```
+
+If one or more files are missing, the UI may create a branch named:
+
+```text
+batchtrail/install/repo-mode-{yyyyMMddHHmmss}
+```
+
+and open a pull request titled:
+
+```text
+Install BatchTrail Repo Mode
+```
+
+The browser UI must not directly write installation files to the default branch.
+It must create a pull request so the repository's native review and merge rules
+remain the source of trust for bootstrap.
+
 ## Batch Definition
 
 The batch definition is serialized as deterministic YAML:
