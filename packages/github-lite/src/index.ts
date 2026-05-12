@@ -32,7 +32,12 @@ export type GitHubIssue = {
   body: string;
   labels: string[];
   url: string;
+  state: GitHubIssueState;
+  author: string;
+  isPullRequest: boolean;
 };
+
+export type GitHubIssueState = "open" | "closed" | "all";
 
 export type GitHubPullRequestState = "open" | "closed" | "all";
 
@@ -81,6 +86,10 @@ export type ListPullRequestsParams = RepoRef & {
   head?: string;
 };
 
+export type ListIssuesParams = RepoRef & {
+  state?: GitHubIssueState;
+};
+
 export type MergePullRequestParams = RepoRef & {
   pullNumber: number;
   commitTitle?: string;
@@ -110,6 +119,7 @@ export type GitHubLiteClient = {
   ): Promise<GitHubPullRequest[]>;
   mergePullRequest(params: MergePullRequestParams): Promise<GitHubMergeResult>;
   createIssue(params: CreateIssueParams): Promise<GitHubIssue>;
+  listIssues(params: ListIssuesParams): Promise<GitHubIssue[]>;
   createIssueComment(
     params: RepoRef & { issueNumber: number; body: string },
   ): Promise<{ id: number; body: string }>;
@@ -177,6 +187,11 @@ type GitHubIssueResponse = {
   body: string | null;
   labels: Array<string | { name?: string }>;
   html_url: string;
+  state?: "open" | "closed";
+  user?: {
+    login: string;
+  } | null;
+  pull_request?: unknown;
 };
 
 type GitHubCommentResponse = {
@@ -500,6 +515,17 @@ export function createGitHubLiteClient({
       return mapIssueResponse(issue);
     },
 
+    async listIssues({ owner, repo, state = "open" }) {
+      const query = buildQuery({ state });
+      const issues = await request<GitHubIssueResponse[]>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/issues${query}`,
+      );
+
+      return (issues ?? []).map(mapIssueResponse);
+    },
+
     async createIssueComment({ owner, repo, issueNumber, body }) {
       const comment = await request<GitHubCommentResponse>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
@@ -572,6 +598,9 @@ function mapIssueResponse(issue: GitHubIssueResponse | null): GitHubIssue {
       .map((label) => (typeof label === "string" ? label : label.name))
       .filter((label): label is string => Boolean(label)),
     url: issue.html_url,
+    state: issue.state ?? "open",
+    author: issue.user?.login ?? "",
+    isPullRequest: Boolean(issue.pull_request),
   };
 }
 
