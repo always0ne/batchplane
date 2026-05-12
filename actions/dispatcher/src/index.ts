@@ -34,6 +34,28 @@ export type DispatcherDispatchPlan = {
   workflowInputs: Record<string, string>;
 };
 
+export type DispatcherRunInput = {
+  apiBaseUrl?: string;
+  commentId: number;
+  fetcher?: typeof fetch;
+  githubToken: string;
+  issueNumber: number;
+  now?: Date;
+  owner: string;
+  repo: string;
+};
+
+export type DispatcherRunResult =
+  | {
+      dispatchPlan: DispatcherDispatchPlan;
+      status: "dispatched";
+    }
+  | {
+      message: string;
+      reasonCode: string;
+      status: "failed" | "ignored";
+    };
+
 export type DispatcherVerificationResult =
   | {
       ok: true;
@@ -65,6 +87,71 @@ export function parseDispatcherCommand(commentBody: string): DispatcherCommand {
   }
 
   return "ignore";
+}
+
+export async function dispatchApprovedExecutionRequest({
+  apiBaseUrl = "https://api.github.com",
+  commentId,
+  fetcher = fetch,
+  githubToken,
+  issueNumber,
+  now = new Date(),
+  owner,
+  repo,
+}: DispatcherRunInput): Promise<DispatcherRunResult> {
+  const client = createDispatcherGitHubClient({
+    apiBaseUrl,
+    fetcher,
+    owner,
+    repo,
+    token: githubToken,
+  });
+  const [issue, approvalComment] = await Promise.all([
+    client.getIssue(issueNumber),
+    client.getIssueComment(commentId),
+  ]);
+  const command = parseDispatcherCommand(approvalComment.body);
+
+  if (command === "ignore") {
+    return {
+      message: "Comment is not a BatchTrail dispatcher command.",
+      reasonCode: "IGNORED_COMMENT",
+      status: "ignored",
+    };
+  }
+
+  const verification = verifyDispatcherEvidence({
+    approvalCommentBody: approvalComment.body,
+    issueBody: issue.body,
+    now,
+  });
+
+  if (!verification.ok) {
+    await client.createIssueComment(
+      issueNumber,
+      buildDispatchFailureComment(
+        verification.message,
+        verification.reasonCode,
+      ),
+    );
+
+    return {
+      message: verification.message,
+      reasonCode: verification.reasonCode,
+      status: "failed",
+    };
+  }
+
+  await client.dispatchWorkflow(verification.dispatchPlan);
+  await client.createIssueComment(
+    issueNumber,
+    buildDispatchSuccessComment(verification.dispatchPlan),
+  );
+
+  return {
+    dispatchPlan: verification.dispatchPlan,
+    status: "dispatched",
+  };
 }
 
 export function verifyDispatcherEvidence({
@@ -309,4 +396,203 @@ function isExpired(expiresAt: string, now: Date): boolean {
   }
 
   return expiresAtTime <= now.getTime();
+}
+
+type DispatcherGitHubClientOptions = {
+  apiBaseUrl: string;
+  fetcher: typeof fetch;
+  owner: string;
+  repo: string;
+  token: string;
+};
+
+type GitHubIssueResponse = {
+  body: string | null;
+};
+
+type GitHubIssueCommentResponse = {
+  body: string | null;
+};
+
+function createDispatcherGitHubClient({
+  apiBaseUrl,
+  fetcher,
+  owner,
+  repo,
+  token,
+}: DispatcherGitHubClientOptions) {
+  async function request<T>(
+    path: string,
+    init: RequestInit = {},
+  ): Promise<T | null> {
+    const response = await fetcher(`${apiBaseUrl}${path}`, {
+      ...init,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...init.headers,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `GitHub API request failed: ${response.status} ${await response.text()}`,
+      );
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    return (await response.json()) as T;
+  }
+
+  const repoPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+
+  return {
+    async createIssueComment(issueNumber: number, body: string) {
+      await request(`${repoPath}/issues/${issueNumber}/comments`, {
+        body: JSON.stringify({ body }),
+        method: "POST",
+      });
+    },
+
+    async dispatchWorkflow(dispatchPlan: DispatcherDispatchPlan) {
+      await request(
+        `${repoPath}/actions/workflows/${encodeURIComponent(
+          getWorkflowId(dispatchPlan.workflowPath),
+        )}/dispatches`,
+        {
+          body: JSON.stringify({
+            inputs: dispatchPlan.workflowInputs,
+            ref: dispatchPlan.workflowRef,
+          }),
+          method: "POST",
+        },
+      );
+    },
+
+    async getIssue(issueNumber: number) {
+      const issue = await request<GitHubIssueResponse>(
+        `${repoPath}/issues/${issueNumber}`,
+      );
+
+      return { body: issue?.body ?? "" };
+    },
+
+    async getIssueComment(commentId: number) {
+      const comment = await request<GitHubIssueCommentResponse>(
+        `${repoPath}/issues/comments/${commentId}`,
+      );
+
+      return { body: comment?.body ?? "" };
+    },
+  };
+}
+
+function getWorkflowId(workflowPath: string): string {
+  return workflowPath.replace(/^\.github\/workflows\//, "");
+}
+
+function buildDispatchSuccessComment(
+  dispatchPlan: DispatcherDispatchPlan,
+): string {
+  return [
+    "## BatchTrail Dispatch",
+    "",
+    "- Status: DISPATCHED",
+    `- Request ID: \`${dispatchPlan.requestId}\``,
+    `- Batch ID: \`${dispatchPlan.batchId}\``,
+    `- Workflow: \`${dispatchPlan.workflowPath}\``,
+    `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
+    `- Request digest: \`${dispatchPlan.requestDigest}\``,
+    "",
+    "<!-- batchtrail:execution-dispatch",
+    "status=DISPATCHED",
+    `requestId=${dispatchPlan.requestId}`,
+    `batchId=${dispatchPlan.batchId}`,
+    `requestDigest=${dispatchPlan.requestDigest}`,
+    "-->",
+  ].join("\n");
+}
+
+function buildDispatchFailureComment(message: string, reasonCode: string) {
+  return [
+    "## BatchTrail Dispatch",
+    "",
+    "- Status: DISPATCH_FAILED",
+    `- Reason code: ${reasonCode}`,
+    `- Message: ${message}`,
+    "",
+    "<!-- batchtrail:execution-dispatch",
+    "status=DISPATCH_FAILED",
+    `reasonCode=${reasonCode}`,
+    "-->",
+  ].join("\n");
+}
+
+async function runDispatcherFromEnv() {
+  const repository = getEnv("GITHUB_REPOSITORY");
+  const [owner, repo] = repository.split("/");
+
+  if (!owner || !repo) {
+    throw new Error("GITHUB_REPOSITORY must be in owner/repo form.");
+  }
+
+  const result = await dispatchApprovedExecutionRequest({
+    apiBaseUrl: process.env["GITHUB_API_URL"],
+    commentId: parseRequiredNumberInput("comment-id"),
+    githubToken: getInput("github-token"),
+    issueNumber: parseRequiredNumberInput("issue-number"),
+    owner,
+    repo,
+  });
+
+  if (result.status === "failed") {
+    throw new Error(`${result.reasonCode}: ${result.message}`);
+  }
+}
+
+function parseRequiredNumberInput(name: string): number {
+  const value = Number.parseInt(getInput(name), 10);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Input ${name} must be a positive integer.`);
+  }
+
+  return value;
+}
+
+function getInput(name: string): string {
+  const key = `INPUT_${name.toUpperCase()}`;
+  const normalizedKey = key.replaceAll("-", "_");
+  const value = process.env[key] ?? process.env[normalizedKey] ?? "";
+
+  if (!value.trim()) {
+    throw new Error(`Input ${name} is required.`);
+  }
+
+  return value.trim();
+}
+
+function getEnv(name: string): string {
+  const value = process.env[name];
+
+  if (!value?.trim()) {
+    throw new Error(`${name} is required.`);
+  }
+
+  return value.trim();
+}
+
+if (
+  process.env["GITHUB_ACTIONS"] === "true" &&
+  process.env["BATCHTRAIL_DISPATCHER_DISABLE_AUTO_RUN"] !== "true"
+) {
+  void runDispatcherFromEnv().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
 }

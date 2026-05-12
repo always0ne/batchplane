@@ -144,6 +144,33 @@ Only after those checks may the dispatcher call `workflow_dispatch`.
 The target repository needs a dispatcher workflow that listens to approval
 comments and invokes `actions/dispatcher`.
 
+Minimum dispatcher workflow:
+
+```yaml
+name: BatchTrail Dispatcher
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+jobs:
+  dispatch-approved-request:
+    if: startsWith(github.event.comment.body, '/bgcp approve ')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch approved BatchTrail execution
+        uses: always0ne/batchtrail/actions/dispatcher@main
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          comment-id: ${{ github.event.comment.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 The browser UI must not directly dispatch governed batch workflows in Lite mode.
 
 The dispatcher workflow is responsible for:

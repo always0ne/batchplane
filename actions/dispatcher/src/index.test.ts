@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dispatchApprovedExecutionRequest,
   parseDispatcherCommand,
   parseExecutionApprovalEvidence,
   parseExecutionRequestEvidence,
@@ -57,6 +58,8 @@ const issueBody = [
 ].join("\n");
 
 const approvalCommentBody = [
+  `/bgcp approve requestDigest=${requestDigest}`,
+  "",
   "## BatchTrail Execution Approval",
   "",
   "- Decision: APPROVED",
@@ -192,5 +195,142 @@ describe("dispatcher verification", () => {
       ok: false,
       reasonCode: "EXPIRED_REQUEST",
     });
+  });
+
+  it("dispatches an approved execution request", async () => {
+    const requests: Array<{
+      body?: unknown;
+      input: string;
+      method: string;
+    }> = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(init.body.toString()) : undefined;
+
+      requests.push({ body, input: url, method });
+
+      if (url.endsWith("/issues/34")) {
+        return Response.json({ body: issueBody });
+      }
+
+      if (url.endsWith("/issues/comments/99")) {
+        return Response.json({ body: approvalCommentBody });
+      }
+
+      if (url.endsWith("/dispatches")) {
+        return new Response(null, { status: 204 });
+      }
+
+      if (url.endsWith("/issues/34/comments")) {
+        return Response.json({ id: 100, body: "dispatch comment" });
+      }
+
+      return Response.json({ message: "not found" }, { status: 404 });
+    };
+
+    await expect(
+      dispatchApprovedExecutionRequest({
+        apiBaseUrl: "https://api.github.test",
+        commentId: 99,
+        fetcher,
+        githubToken: "ghs_test",
+        issueNumber: 34,
+        now: new Date("2026-05-09T01:30:03.000Z"),
+        owner: "always0ne",
+        repo: "batch",
+      }),
+    ).resolves.toMatchObject({ status: "dispatched" });
+
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          body: {
+            inputs: {
+              batch_id: "payment.daily-close",
+              request_digest: requestDigest,
+              request_id: requestId,
+            },
+            ref: "main",
+          },
+          input:
+            "https://api.github.test/repos/always0ne/batch/actions/workflows/daily-close.yml/dispatches",
+          method: "POST",
+        }),
+        expect.objectContaining({
+          body: expect.objectContaining({
+            body: expect.stringContaining("Status: DISPATCHED"),
+          }),
+          input:
+            "https://api.github.test/repos/always0ne/batch/issues/34/comments",
+          method: "POST",
+        }),
+      ]),
+    );
+  });
+
+  it("writes failure evidence when verification fails", async () => {
+    const requests: Array<{
+      body?: unknown;
+      input: string;
+      method: string;
+    }> = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(init.body.toString()) : undefined;
+
+      requests.push({ body, input: url, method });
+
+      if (url.endsWith("/issues/34")) {
+        return Response.json({
+          body: issueBody.replace("status=REQUESTED", "status=APPROVED"),
+        });
+      }
+
+      if (url.endsWith("/issues/comments/99")) {
+        return Response.json({ body: approvalCommentBody });
+      }
+
+      if (url.endsWith("/issues/34/comments")) {
+        return Response.json({ id: 100, body: "failure comment" });
+      }
+
+      return Response.json({ message: "not found" }, { status: 404 });
+    };
+
+    await expect(
+      dispatchApprovedExecutionRequest({
+        apiBaseUrl: "https://api.github.test",
+        commentId: 99,
+        fetcher,
+        githubToken: "ghs_test",
+        issueNumber: 34,
+        now: new Date("2026-05-09T01:30:03.000Z"),
+        owner: "always0ne",
+        repo: "batch",
+      }),
+    ).resolves.toMatchObject({
+      reasonCode: "REQUEST_NOT_REQUESTED",
+      status: "failed",
+    });
+
+    expect(
+      requests.some((request) =>
+        request.input.endsWith("/actions/workflows/daily-close.yml/dispatches"),
+      ),
+    ).toBe(false);
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          body: expect.objectContaining({
+            body: expect.stringContaining("Status: DISPATCH_FAILED"),
+          }),
+          input:
+            "https://api.github.test/repos/always0ne/batch/issues/34/comments",
+          method: "POST",
+        }),
+      ]),
+    );
   });
 });
