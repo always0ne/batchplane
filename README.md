@@ -74,9 +74,10 @@ choose `Refresh`; the approved batch definition should appear from the
 repository's `.batch-governance/batches` directory.
 
 Repo Mode currently covers registration request, approval, merge, repo-backed
-batch listing, execution request creation, execution approval evidence, and the
-dispatcher verification model. Full dispatcher workflow bootstrap in target
-repositories is tracked separately.
+batch listing, execution request creation, execution approval evidence, and
+dispatcher-side `workflow_dispatch`. Target repositories still need a
+BatchTrail dispatcher workflow installed so approval comments can trigger the
+dispatcher action.
 
 To test the first execution-control entry point, choose `Request run` from an
 approved batch in `Batches`. A successful request creates a GitHub Issue with a
@@ -87,10 +88,9 @@ dispatcher command (`/bgcp approve ...`). The target repository still needs the
 BatchTrail dispatcher workflow installed for that approval comment to perform
 `workflow_dispatch`.
 
-The dispatcher action currently includes the verification skeleton for that
-handoff: it checks that the execution request Issue and approval comment
-reference the same request ID, batch ID, digest, approval decision, expiration
-window, and workflow target before a later slice performs `workflow_dispatch`.
+The dispatcher action checks that the execution request Issue and approval
+comment reference the same request ID, batch ID, digest, approval decision,
+expiration window, and workflow target before it performs `workflow_dispatch`.
 
 See also:
 
