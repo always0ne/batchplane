@@ -80,6 +80,11 @@ successful decision records a BatchTrail execution approval comment and closes
 the Issue so it leaves the approval inbox. Dispatcher handoff and Gate
 verification are added in later slices.
 
+The dispatcher action currently includes the verification skeleton for that
+handoff: it checks that the execution request Issue and approval comment
+reference the same request ID, batch ID, digest, approval decision, expiration
+window, and workflow target before a later slice performs `workflow_dispatch`.
+
 ## Workspace
 
 ```text
