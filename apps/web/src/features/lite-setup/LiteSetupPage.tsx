@@ -1,8 +1,18 @@
 import {
   createGitHubLiteClient,
   GitHubLiteApiError,
+  type GitHubPullRequest,
 } from "@batchtrail/github-lite";
-import { CheckCircle2, KeyRound, Loader2, Plug, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  GitPullRequest,
+  KeyRound,
+  Loader2,
+  Plug,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -14,6 +24,11 @@ import {
   writeGitHubSession,
   type GitHubSession,
 } from "./github-session";
+import {
+  checkLiteInstallationStatus,
+  createLiteInstallationPullRequest,
+  type LiteInstallationStatus,
+} from "./installation-model";
 
 type ConnectionCheckState =
   | { type: "idle" }
@@ -27,6 +42,15 @@ type ConnectionCheckState =
     }
   | { type: "error"; message: string };
 
+type InstallationCheckState =
+  | { type: "idle" }
+  | { type: "checking" }
+  | { type: "installed"; status: LiteInstallationStatus }
+  | { type: "missing"; status: LiteInstallationStatus }
+  | { type: "creating" }
+  | { type: "success"; pullRequest: GitHubPullRequest }
+  | { type: "error"; message: string };
+
 export function LiteSetupPage() {
   const { t } = useTranslation(["settings", "common"]);
   const initialSession = useMemo(() => readGitHubSession(), []);
@@ -38,6 +62,8 @@ export function LiteSetupPage() {
       ? { type: "stored", session: initialSession }
       : { type: "idle" },
   );
+  const [installationState, setInstallationState] =
+    useState<InstallationCheckState>({ type: "idle" });
 
   const canSubmit = Boolean(owner.trim() && repo.trim() && token.trim());
 
@@ -50,6 +76,7 @@ export function LiteSetupPage() {
       setRepo(session.repo);
       setToken(session.token);
       setCheckState({ type: "stored", session });
+      setInstallationState({ type: "idle" });
     } catch (error) {
       setCheckState({
         type: "error",
@@ -65,6 +92,7 @@ export function LiteSetupPage() {
     clearGitHubSession();
     setToken("");
     setCheckState({ type: "idle" });
+    setInstallationState({ type: "idle" });
   }
 
   async function checkConnection() {
@@ -84,6 +112,7 @@ export function LiteSetupPage() {
     }
 
     setCheckState({ type: "checking" });
+    setInstallationState({ type: "checking" });
 
     try {
       const client = createGitHubLiteClient({ token: session.token });
@@ -100,6 +129,16 @@ export function LiteSetupPage() {
         repository: `${repository.owner}/${repository.repo}`,
         defaultBranch: repository.defaultBranch,
       });
+      const installationStatus = await checkLiteInstallationStatus({
+        client,
+        ref: repository.defaultBranch,
+        repo: session,
+      });
+      setInstallationState(
+        installationStatus.installed
+          ? { type: "installed", status: installationStatus }
+          : { type: "missing", status: installationStatus },
+      );
     } catch (error) {
       setCheckState({
         type: "error",
@@ -107,6 +146,49 @@ export function LiteSetupPage() {
           error,
           t("settings:errors.connectionFailed"),
         ),
+      });
+      setInstallationState({
+        type: "error",
+        message: formatConnectionError(
+          error,
+          t("settings:errors.connectionFailed"),
+        ),
+      });
+    }
+  }
+
+  async function createInstallationPullRequest() {
+    let session: GitHubSession;
+
+    try {
+      session = writeGitHubSession({ owner, repo, token });
+    } catch (error) {
+      setInstallationState({
+        type: "error",
+        message:
+          error instanceof Error
+            ? t("settings:errors.requiredFields")
+            : t("settings:errors.unknown"),
+      });
+      return;
+    }
+
+    setInstallationState({ type: "creating" });
+
+    try {
+      const client = createGitHubLiteClient({ token: session.token });
+      const repository = await client.getRepository(session);
+      const { pullRequest } = await createLiteInstallationPullRequest({
+        client,
+        defaultBranch: repository.defaultBranch,
+        repo: session,
+      });
+
+      setInstallationState({ type: "success", pullRequest });
+    } catch (error) {
+      setInstallationState({
+        type: "error",
+        message: formatConnectionError(error, t("settings:errors.unknown")),
       });
     }
   }
@@ -207,22 +289,130 @@ export function LiteSetupPage() {
           </div>
         </form>
 
-        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-bt-graphite">
-                {t("settings:session.title")}
-              </h2>
-              <p className="mt-2 text-sm text-bt-muted">
-                {t("common:app.tagline")}
-              </p>
+        <div className="space-y-4">
+          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-bt-graphite">
+                  {t("settings:session.title")}
+                </h2>
+                <p className="mt-2 text-sm text-bt-muted">
+                  {t("common:app.tagline")}
+                </p>
+              </div>
+              <CheckCircle2
+                className="h-5 w-5 text-bt-git"
+                aria-hidden="true"
+              />
             </div>
-            <CheckCircle2 className="h-5 w-5 text-bt-git" aria-hidden="true" />
-          </div>
-          <SessionStatus state={checkState} token={token} />
-        </article>
+            <SessionStatus state={checkState} token={token} />
+          </article>
+
+          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-bt-graphite">
+                  {t("settings:installation.title")}
+                </h2>
+                <p className="mt-2 text-sm text-bt-muted">
+                  {t("settings:installation.subtitle")}
+                </p>
+              </div>
+              <ShieldCheck className="h-5 w-5 text-bt-git" aria-hidden="true" />
+            </div>
+            <InstallationStatus
+              onInstall={() => void createInstallationPullRequest()}
+              state={installationState}
+            />
+          </article>
+        </div>
       </div>
     </section>
+  );
+}
+
+function InstallationStatus({
+  onInstall,
+  state,
+}: {
+  onInstall: () => void;
+  state: InstallationCheckState;
+}) {
+  const { t } = useTranslation("settings");
+
+  if (state.type === "installed") {
+    return (
+      <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+        {t("installation.installed")}
+      </div>
+    );
+  }
+
+  if (state.type === "missing") {
+    return (
+      <div className="mt-5 space-y-4">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p className="font-semibold">{t("installation.missing")}</p>
+          <ul className="mt-2 space-y-1 text-xs font-mono">
+            {state.status.missingPaths.map((path) => (
+              <li className="break-all" key={path}>
+                {path}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white"
+          onClick={onInstall}
+          type="button"
+        >
+          <GitPullRequest className="h-4 w-4" aria-hidden="true" />
+          {t("installation.createPullRequest")}
+        </button>
+      </div>
+    );
+  }
+
+  if (state.type === "checking" || state.type === "creating") {
+    return (
+      <div className="mt-5 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bt-muted">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        {state.type === "checking"
+          ? t("installation.checking")
+          : t("installation.creating")}
+      </div>
+    );
+  }
+
+  if (state.type === "success") {
+    return (
+      <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <p className="font-semibold">{t("installation.success")}</p>
+        <a
+          className="mt-2 inline-flex font-semibold underline"
+          href={state.pullRequest.url}
+          rel="noreferrer"
+          target="_blank"
+        >
+          #{state.pullRequest.number} {state.pullRequest.title}
+        </a>
+      </div>
+    );
+  }
+
+  if (state.type === "error") {
+    return (
+      <div className="mt-5 flex gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <p className="font-semibold">{state.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bt-muted">
+      {t("installation.idle")}
+    </div>
   );
 }
 

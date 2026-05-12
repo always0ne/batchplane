@@ -51,7 +51,20 @@ In `Setup`, enter:
 - Token: the fine-grained personal access token
 
 Use `Save session`, then `Check connection`. Tokens are stored in
-`sessionStorage` only.
+`sessionStorage` only. Connection check also inspects whether the repository has
+BatchTrail Repo Mode installed.
+
+If Repo Mode is not installed, choose `Create installation PR` in `Setup`. The
+installation pull request adds:
+
+- `.github/workflows/batchtrail-dispatcher.yml`
+- `.batch-governance/README.md`
+- `.batch-governance/batches/.gitkeep`
+- `.batch-governance/schedules/.gitkeep`
+
+Merge the installation pull request before testing execution approval. The
+browser UI creates setup and request records, but approved execution dispatch is
+performed by the target repository's dispatcher workflow.
 
 To test batch registration, go to `Batches`, choose `Register batch`, fill in the
 form, review the YAML preview, and choose `Create registration PR`. Registration
@@ -73,11 +86,11 @@ branch, and removes the request from the approval inbox. Return to `Batches` and
 choose `Refresh`; the approved batch definition should appear from the
 repository's `.batch-governance/batches` directory.
 
-Repo Mode currently covers registration request, approval, merge, repo-backed
-batch listing, execution request creation, execution approval evidence, and
-dispatcher-side `workflow_dispatch`. Target repositories still need a
-BatchTrail dispatcher workflow installed so approval comments can trigger the
-dispatcher action.
+Repo Mode currently covers repository installation PR creation, registration
+request, approval, merge, repo-backed batch listing, execution request creation,
+execution approval evidence, and dispatcher-side `workflow_dispatch`. Target
+repositories must merge the BatchTrail dispatcher workflow installation before
+approval comments can trigger the dispatcher action.
 
 To test the first execution-control entry point, choose `Request run` from an
 approved batch in `Batches`. A successful request creates a GitHub Issue with a
