@@ -12,8 +12,8 @@ import {
   XCircle,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../shared/components/PageHeader";
@@ -30,6 +30,13 @@ import {
   isRegistrationApprovalRequest,
   parseExecutionApprovalRequest,
 } from "./approval-model";
+import {
+  mergeExecutionApprovalRequests,
+  mergeRegistrationApprovalRequests,
+  normalizeApprovalHandoff,
+  removeExecutionApprovalHandoff,
+  removeRegistrationApprovalHandoff,
+} from "./approval-handoff";
 
 type ApprovalPageState =
   | { type: "loading" }
@@ -53,6 +60,8 @@ type ApprovalActionState =
 
 export function ApprovalsPage() {
   const { t } = useTranslation("approvals");
+  const location = useLocation();
+  const approvalHandoffRef = useRef(normalizeApprovalHandoff(location.state));
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<ApprovalPageState>({ type: "loading" });
   const [actionState, setActionState] = useState<ApprovalActionState>({
@@ -78,6 +87,32 @@ export function ApprovalsPage() {
           client.getCurrentUser(),
           client.getRepository(session),
         ]);
+        const handoff = approvalHandoffRef.current;
+        const immediateExecutionRequests = mergeExecutionApprovalRequests(
+          [],
+          handoff.executionIssues,
+        );
+        const immediateRegistrationRequests = mergeRegistrationApprovalRequests(
+          [],
+          handoff.registrationRequests,
+        );
+
+        if (
+          !ignoreResult &&
+          (immediateRegistrationRequests.length > 0 ||
+            immediateExecutionRequests.length > 0)
+        ) {
+          setState({
+            type: "loaded",
+            defaultBranch: repository.defaultBranch,
+            executionRequests: immediateExecutionRequests,
+            login: user.login,
+            registrationRequests: immediateRegistrationRequests,
+            repository: `${repository.owner}/${repository.repo}`,
+            session,
+          });
+        }
+
         const [pullRequests, issues] = await Promise.all([
           client.listPullRequests({
             ...session,
@@ -91,18 +126,28 @@ export function ApprovalsPage() {
         ]);
 
         if (!ignoreResult) {
+          const currentHandoff = approvalHandoffRef.current;
+          const listedExecutionRequests = issues
+            .map(parseExecutionApprovalRequest)
+            .filter(
+              (request): request is ExecutionApprovalRequest =>
+                request !== null,
+            );
+          const listedRegistrationRequests = pullRequests.filter(
+            isRegistrationApprovalRequest,
+          );
+
           setState({
             type: "loaded",
             defaultBranch: repository.defaultBranch,
-            executionRequests: issues
-              .map(parseExecutionApprovalRequest)
-              .filter(
-                (request): request is ExecutionApprovalRequest =>
-                  request !== null,
-              ),
+            executionRequests: mergeExecutionApprovalRequests(
+              listedExecutionRequests,
+              currentHandoff.executionIssues,
+            ),
             login: user.login,
-            registrationRequests: pullRequests.filter(
-              isRegistrationApprovalRequest,
+            registrationRequests: mergeRegistrationApprovalRequests(
+              listedRegistrationRequests,
+              currentHandoff.registrationRequests,
             ),
             repository: `${repository.owner}/${repository.repo}`,
             session,
@@ -290,6 +335,10 @@ export function ApprovalsPage() {
   }
 
   function removeRegistrationRequest(pullNumber: number) {
+    approvalHandoffRef.current = removeRegistrationApprovalHandoff(
+      approvalHandoffRef.current,
+      pullNumber,
+    );
     setState((current) => {
       if (current.type !== "loaded") {
         return current;
@@ -305,6 +354,10 @@ export function ApprovalsPage() {
   }
 
   function removeExecutionRequest(issueNumber: number) {
+    approvalHandoffRef.current = removeExecutionApprovalHandoff(
+      approvalHandoffRef.current,
+      issueNumber,
+    );
     setState((current) => {
       if (current.type !== "loaded") {
         return current;

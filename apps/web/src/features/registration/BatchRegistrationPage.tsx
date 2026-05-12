@@ -19,9 +19,10 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
+import { buildRegistrationApprovalHandoff } from "../approvals/approval-handoff";
 import { readGitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
@@ -61,6 +62,7 @@ const runnerOptions = [
 
 export function BatchRegistrationPage() {
   const { t } = useTranslation("registration");
+  const navigate = useNavigate();
   const [values, setValues] = useState<BatchRegistrationFormValues>(
     defaultBatchRegistrationValues,
   );
@@ -239,6 +241,9 @@ export function BatchRegistrationPage() {
       });
 
       setSubmissionState({ type: "success", pullRequest });
+      navigate("/approvals", {
+        state: buildRegistrationApprovalHandoff(pullRequest),
+      });
     } catch (error) {
       setSubmissionState({
         type: "error",

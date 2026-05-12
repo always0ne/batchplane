@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
 import "../../i18n/i18n";
@@ -6,7 +7,11 @@ import { BatchRegistrationPage } from "./BatchRegistrationPage";
 
 describe("BatchRegistrationPage", () => {
   it("renders a YAML preview from form input", async () => {
-    render(<BatchRegistrationPage />);
+    render(
+      <MemoryRouter>
+        <BatchRegistrationPage />
+      </MemoryRouter>,
+    );
 
     fireEvent.change(screen.getByLabelText("Batch ID"), {
       target: { value: "payment.daily-close" },
