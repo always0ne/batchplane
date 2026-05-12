@@ -104,6 +104,11 @@ The batch job runs on the selected runner label and then executes the Batch
 command. Uploaded execution files are committed as repository artifacts and are
 available after checkout.
 
+The Gate action must deny direct GitHub Actions reruns by default. When
+`GITHUB_RUN_ATTEMPT` is greater than `1`, Gate returns
+`RERUN_NOT_AUTHORIZED`. Retrying a governed batch requires a new BatchTrail
+execution request or a future explicit retry-approval flow.
+
 ## Execution Request Payload
 
 Manual request payload:
