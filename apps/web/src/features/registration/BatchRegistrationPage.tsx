@@ -24,6 +24,7 @@ import {
   buildRegistrationPullRequestTitle,
   createRegistrationBranchName,
   defaultBatchRegistrationValues,
+  getBatchArtifactPath,
   getBatchDefinitionPath,
   serializeBatchDefinitionYaml,
   toBatchDefinition,
@@ -37,8 +38,20 @@ type SubmissionState =
   | { type: "success"; pullRequest: GitHubPullRequest }
   | { type: "error"; message: string };
 
+type UploadedExecutionFile = {
+  contentBase64: string;
+  name: string;
+};
+
 const criticalityOptions: Criticality[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const statusOptions: BatchStatus[] = ["ACTIVE", "INACTIVE"];
+const runnerOptions = [
+  "ubuntu-latest",
+  "ubuntu-24.04",
+  "windows-latest",
+  "macos-latest",
+  "self-hosted",
+] as const;
 
 export function BatchRegistrationPage() {
   const { t } = useTranslation("registration");
@@ -48,6 +61,8 @@ export function BatchRegistrationPage() {
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     type: "idle",
   });
+  const [uploadedFile, setUploadedFile] =
+    useState<UploadedExecutionFile | null>(null);
 
   const definition = useMemo(() => toBatchDefinition(values), [values]);
   const yaml = useMemo(
@@ -55,22 +70,43 @@ export function BatchRegistrationPage() {
     [definition],
   );
   const generatedWorkflowYaml = useMemo(
-    () => buildBatchWorkflowYaml(definition),
-    [definition],
+    () =>
+      buildBatchWorkflowYaml(definition, values.runCommand, values.runnerLabel),
+    [definition, values.runCommand, values.runnerLabel],
   );
-  const missingFields = useMemo(
-    () => validateBatchRegistration(definition),
-    [definition],
-  );
+  const missingFields = useMemo(() => {
+    const fields = validateBatchRegistration(definition);
+
+    if (!values.runCommand.trim()) {
+      fields.push("runCommand");
+    }
+
+    if (!values.runnerLabel.trim()) {
+      fields.push("runnerLabel");
+    }
+
+    return fields;
+  }, [definition, values.runCommand, values.runnerLabel]);
   const batchPath = getBatchDefinitionPath(definition.batchId || "new-batch");
   const workflowPath = definition.workflow.path;
+  const uploadedFilePath = uploadedFile
+    ? getBatchArtifactPath(definition.batchId || "new-batch", uploadedFile.name)
+    : null;
+  const selectedRunner = runnerOptions.includes(
+    values.runnerLabel as (typeof runnerOptions)[number],
+  )
+    ? values.runnerLabel
+    : "custom";
   const canSubmit =
     missingFields.length === 0 &&
     generatedWorkflowYaml.trim().length > 0 &&
     submissionState.type !== "submitting";
 
   function updateTextField(
-    field: keyof Omit<BatchRegistrationFormValues, "criticality" | "status">,
+    field: keyof Omit<
+      BatchRegistrationFormValues,
+      "criticality" | "runCommand" | "status"
+    >,
   ) {
     return (event: ChangeEvent<HTMLInputElement>) => {
       setValues((current) => ({
@@ -160,6 +196,16 @@ export function BatchRegistrationPage() {
         message: buildRegistrationPullRequestTitle(definition),
         content: generatedWorkflowYaml,
       });
+      if (uploadedFile && uploadedFilePath) {
+        await client.putFile({
+          ...session,
+          branch,
+          path: uploadedFilePath,
+          message: buildRegistrationPullRequestTitle(definition),
+          content: uploadedFile.contentBase64,
+          encoding: "base64",
+        });
+      }
       const pullRequest = await client.createPullRequest({
         ...session,
         title: buildRegistrationPullRequestTitle(definition),
@@ -260,19 +306,73 @@ export function BatchRegistrationPage() {
                 placeholder="main"
                 value={values.workflowRef}
               />
+              <SelectField
+                label={t("form.runnerLabel")}
+                onChange={(event) =>
+                  setValues((current) => ({
+                    ...current,
+                    runnerLabel:
+                      event.target.value === "custom" ? "" : event.target.value,
+                  }))
+                }
+                options={[...runnerOptions, "custom"]}
+                value={selectedRunner}
+              />
+              {selectedRunner === "custom" ? (
+                <TextField
+                  label={t("form.customRunnerLabel")}
+                  onChange={updateTextField("runnerLabel")}
+                  placeholder="self-hosted, linux, prod"
+                  value={values.runnerLabel}
+                />
+              ) : null}
             </div>
-            <div className="mt-5 flex gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <div className="mt-5 flex items-center gap-2 text-xs font-semibold text-emerald-800">
               <ShieldCheck
-                className="mt-0.5 h-4 w-4 shrink-0"
+                className="h-3.5 w-3.5 shrink-0"
                 aria-hidden="true"
               />
-              <div>
-                <p className="font-semibold">{t("form.gateRequired")}</p>
-                <p className="mt-1 text-emerald-800">
-                  {t("form.gateRequiredDescription")}
-                </p>
-              </div>
+              <span>{t("form.gateRequiredInline")}</span>
             </div>
+            <FileUploadField
+              filePath={uploadedFilePath}
+              label={t("form.executionFile")}
+              onChange={(file) => {
+                void handleExecutionFileChange({
+                  file,
+                  onLoaded: ({ contentBase64, name }) => {
+                    const path = getBatchArtifactPath(
+                      definition.batchId || "new-batch",
+                      name,
+                    );
+
+                    setUploadedFile({ contentBase64, name });
+                    setValues((current) => ({
+                      ...current,
+                      runCommand: current.runCommand.trim()
+                        ? current.runCommand
+                        : `chmod +x ${path}\n./${path}`,
+                    }));
+                  },
+                  onError: () =>
+                    setSubmissionState({
+                      type: "error",
+                      message: t("errors.fileRead"),
+                    }),
+                });
+              }}
+            />
+            <TextAreaField
+              label={t("form.runCommand")}
+              onChange={(event) =>
+                setValues((current) => ({
+                  ...current,
+                  runCommand: event.target.value,
+                }))
+              }
+              placeholder={"./scripts/daily-close.sh\n# or\npnpm batch:close"}
+              value={values.runCommand}
+            />
           </article>
 
           <SubmissionBanner state={submissionState} />
@@ -355,6 +455,32 @@ function TextField({
   );
 }
 
+function FileUploadField({
+  filePath,
+  label,
+  onChange,
+}: {
+  filePath: string | null;
+  label: string;
+  onChange: (file: File | null) => void;
+}) {
+  return (
+    <label className="mt-5 block text-sm font-semibold text-bt-graphite">
+      {label}
+      <input
+        className="mt-2 block w-full text-sm text-bt-muted file:mr-4 file:rounded-md file:border-0 file:bg-bt-control file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+        type="file"
+      />
+      {filePath ? (
+        <code className="mt-2 block break-all text-xs font-normal text-bt-muted">
+          {filePath}
+        </code>
+      ) : null}
+    </label>
+  );
+}
+
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div className="block text-sm font-semibold text-bt-graphite">
@@ -363,6 +489,31 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
         {value}
       </code>
     </div>
+  );
+}
+
+function TextAreaField({
+  label,
+  onChange,
+  placeholder,
+  value,
+}: {
+  label: string;
+  onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <label className="mt-5 block text-sm font-semibold text-bt-graphite">
+      {label}
+      <textarea
+        className="mt-2 min-h-36 w-full resize-y rounded-md border border-slate-300 px-3 py-2 font-mono text-sm font-normal text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+        onChange={onChange}
+        placeholder={placeholder}
+        spellCheck={false}
+        value={value}
+      />
+    </label>
   );
 }
 
@@ -441,4 +592,37 @@ function formatRegistrationError(error: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+async function handleExecutionFileChange({
+  file,
+  onError,
+  onLoaded,
+}: {
+  file: File | null;
+  onError: () => void;
+  onLoaded: (file: UploadedExecutionFile) => void;
+}) {
+  if (!file) {
+    return;
+  }
+
+  try {
+    const contentBase64 = arrayBufferToBase64(await file.arrayBuffer());
+    onLoaded({ contentBase64, name: file.name });
+  } catch {
+    onError();
+  }
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+
+  return btoa(binary);
 }

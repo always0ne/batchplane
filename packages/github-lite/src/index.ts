@@ -70,6 +70,7 @@ export type PutFileParams = RepoRef & {
   branch: string;
   message: string;
   content: string;
+  encoding?: "utf-8" | "base64";
   sha?: string;
 };
 
@@ -403,7 +404,16 @@ export function createGitHubLiteClient({
       );
     },
 
-    async putFile({ owner, repo, path, branch, message, content, sha }) {
+    async putFile({
+      owner,
+      repo,
+      path,
+      branch,
+      message,
+      content,
+      encoding = "utf-8",
+      sha,
+    }) {
       const response = await request<GitHubPutFileResponse>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
           repo,
@@ -412,7 +422,7 @@ export function createGitHubLiteClient({
           method: "PUT",
           body: JSON.stringify({
             branch,
-            content: encodeBase64(content),
+            content: encoding === "base64" ? content : encodeBase64(content),
             message,
             ...(sha ? { sha } : {}),
           }),

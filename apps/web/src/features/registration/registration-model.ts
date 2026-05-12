@@ -12,6 +12,8 @@ export type BatchRegistrationFormValues = {
   environment: string;
   criticality: Criticality;
   status: BatchStatus;
+  runCommand: string;
+  runnerLabel: string;
   workflowRef: string;
 };
 
@@ -23,6 +25,8 @@ export const defaultBatchRegistrationValues: BatchRegistrationFormValues = {
   environment: "PROD",
   criticality: "MEDIUM",
   status: "ACTIVE",
+  runCommand: "",
+  runnerLabel: "ubuntu-latest",
   workflowRef: "main",
 };
 
@@ -53,7 +57,16 @@ export function getBatchDefinitionPath(batchId: string): string {
 
 export function getBatchWorkflowPath(batchId: string): string {
   const slug = toFileSlug(batchId);
-  return `.github/workflows/batchtrail-${slug || "new-batch"}.yml`;
+  return `.github/workflows/${slug || "new-batch"}.yml`;
+}
+
+export function getBatchArtifactPath(
+  batchId: string,
+  fileName: string,
+): string {
+  const batchSlug = toFileSlug(batchId);
+  const fileSlug = toFileNameSlug(fileName);
+  return `.batch-governance/batches/${batchSlug || "new-batch"}/artifacts/${fileSlug || "artifact.bin"}`;
 }
 
 export function serializeBatchDefinitionYaml(
@@ -79,9 +92,15 @@ export function serializeBatchDefinitionYaml(
   ].join("\n");
 }
 
-export function buildBatchWorkflowYaml(definition: BatchDefinition): string {
+export function buildBatchWorkflowYaml(
+  definition: BatchDefinition,
+  runCommand: string,
+  runnerLabel: string,
+): string {
   const workflowName = definition.name || definition.batchId || "New batch";
   const batchId = definition.batchId || "new-batch";
+  const runCommandLines = indentRunCommand(runCommand);
+  const runner = formatRunnerLabel(runnerLabel);
 
   return [
     `name: ${yamlString(`BatchTrail - ${workflowName}`)}`,
@@ -124,13 +143,16 @@ export function buildBatchWorkflowYaml(definition: BatchDefinition): string {
     "",
     "  run-batch:",
     "    name: Run governed batch",
-    "    runs-on: ubuntu-latest",
+    `    runs-on: ${runner}`,
     "    needs: batchtrail-gate",
     "    steps:",
-    "      - name: Run batch command",
+    "      - name: Checkout registered assets",
+    "        uses: actions/checkout@v4",
+    "",
+    "      - name: Run batch",
     "        run: |",
     `          echo ${yamlString(`BatchTrail approved execution for ${batchId}`)}`,
-    "          echo Replace this step with the real batch command.",
+    ...runCommandLines,
     "",
   ].join("\n");
 }
@@ -318,4 +340,46 @@ function toFileSlug(value: string): string {
     .replace(/[._-]+$/g, "")
     .replace(/^[._-]+/g, "")
     .slice(0, 80);
+}
+
+function toFileNameSlug(value: string): string {
+  return value
+    .trim()
+    .replace(/[\\/]+/g, "-")
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/[._-]+$/g, "")
+    .replace(/^[._-]+/g, "")
+    .slice(0, 120);
+}
+
+function indentRunCommand(runCommand: string): string[] {
+  const lines = runCommand.trimEnd().split("\n");
+
+  if (lines.length === 0 || lines.every((line) => !line.trim())) {
+    return [
+      "          # Define the governed batch command during registration.",
+    ];
+  }
+
+  return lines.map((line) => `          ${line}`);
+}
+
+function formatRunnerLabel(runnerLabel: string): string {
+  const runner = runnerLabel.trim() || "ubuntu-latest";
+
+  if (runner.startsWith("[") || runner.startsWith("${{")) {
+    return runner;
+  }
+
+  if (runner.includes(",")) {
+    const labels = runner
+      .split(",")
+      .map((label) => label.trim())
+      .filter(Boolean)
+      .map(yamlString);
+
+    return `[${labels.join(", ")}]`;
+  }
+
+  return yamlString(runner);
 }

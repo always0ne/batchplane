@@ -153,6 +153,37 @@ describe("createGitHubLiteClient", () => {
     );
   });
 
+  it("can put pre-encoded base64 file content", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        content: {
+          path: ".batch-governance/batches/demo/artifacts/app.bin",
+          sha: "file-sha",
+        },
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await client.putFile({
+      owner: "always0ne",
+      repo: "batchtrail",
+      path: ".batch-governance/batches/demo/artifacts/app.bin",
+      branch: "batchtrail/register/demo",
+      message: "Register batch demo",
+      content: "AQID",
+      encoding: "base64",
+    });
+
+    const body = JSON.parse(requests[0]?.init?.body?.toString() ?? "{}") as {
+      content: string;
+    };
+
+    expect(body.content).toBe("AQID");
+  });
+
   it("creates a pull request", async () => {
     const fetcher: typeof fetch = async () =>
       Response.json({

@@ -13,8 +13,11 @@
     "status": "상태",
     "workflowPath": "생성될 Workflow 경로",
     "workflowRef": "Workflow ref",
-    "gateRequired": "실행 전 BatchTrail Gate 필수",
-    "gateRequiredDescription": "생성되는 Workflow는 업무 실행 단계 전에 항상 Gate job을 먼저 실행합니다."
+    "runnerLabel": "실행 환경",
+    "customRunnerLabel": "Custom runner label",
+    "executionFile": "실행 파일",
+    "runCommand": "승인 후 실행할 명령",
+    "gateRequiredInline": "BatchTrail Gate는 업무 실행 명령 전에 항상 실행됩니다."
   },
   "preview": {
     "title": "배치 정의 YAML",
@@ -32,6 +35,7 @@
     "noSession": "등록 PR을 생성하기 전에 설정에서 GitHub 저장소를 연결하세요.",
     "alreadyExists": "{{path}}에 이미 배치 정의가 있습니다.",
     "workflowAlreadyExists": "{{path}}에 이미 Workflow가 있습니다.",
+    "fileRead": "업로드한 실행 파일을 읽지 못했습니다.",
     "unknown": "등록 Pull Request 생성에 실패했습니다."
   }
 }

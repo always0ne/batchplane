@@ -13,8 +13,11 @@
     "status": "Status",
     "workflowPath": "Generated workflow path",
     "workflowRef": "Workflow ref",
-    "gateRequired": "BatchTrail Gate is required before execution",
-    "gateRequiredDescription": "The generated workflow always runs the Gate job before business steps."
+    "runnerLabel": "Execution environment",
+    "customRunnerLabel": "Custom runner label",
+    "executionFile": "Execution file",
+    "runCommand": "Command to run after approval",
+    "gateRequiredInline": "BatchTrail Gate always runs before the batch command."
   },
   "preview": {
     "title": "Batch definition YAML",
@@ -32,6 +35,7 @@
     "noSession": "Connect a GitHub repository in setup before creating a registration PR.",
     "alreadyExists": "A batch definition already exists at {{path}}.",
     "workflowAlreadyExists": "A workflow already exists at {{path}}.",
+    "fileRead": "Failed to read the uploaded execution file.",
     "unknown": "Failed to create the registration pull request."
   }
 }
