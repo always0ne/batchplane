@@ -54,11 +54,16 @@ Use `Save session`, then `Check connection`. Tokens are stored in
 `sessionStorage` only.
 
 To test batch registration, go to `Batches`, choose `Register batch`, fill in the
-form, review the YAML preview, and choose `Create registration PR`. A successful
-test creates:
+form, review the YAML preview, and choose `Create registration PR`. Registration
+always generates a BatchTrail Gate-protected workflow. The workflow path is
+derived from the Batch ID, the execution environment is selected through the
+`runs-on` control, and the batch command is the only command executed after Gate
+approval. A successful test creates:
 
 - A new `batchtrail/register/...` branch
 - `.batch-governance/batches/{batchId}.yml`
+- `.github/workflows/{batchId}.yml`
+- Optional `.batch-governance/batches/{batchId}/artifacts/...` execution files
 - A pull request back to the default branch
 
 To complete the registration approval cycle, go to `Approvals` and choose
@@ -68,22 +73,29 @@ branch, and removes the request from the approval inbox. Return to `Batches` and
 choose `Refresh`; the approved batch definition should appear from the
 repository's `.batch-governance/batches` directory.
 
-Repo Mode currently covers registration request, approval, merge, and
-repo-backed batch listing. Dispatch and Gate enforcement are implemented in
-later slices.
+Repo Mode currently covers registration request, approval, merge, repo-backed
+batch listing, execution request creation, execution approval evidence, and the
+dispatcher verification model. Full dispatcher workflow bootstrap in target
+repositories is tracked separately.
 
 To test the first execution-control entry point, choose `Request run` from an
 approved batch in `Batches`. A successful request creates a GitHub Issue with a
 BatchTrail execution request marker, canonical payload, and SHA-256 request
-digest. Go to `Approvals` to approve or reject the execution request. A
-successful decision records a BatchTrail execution approval comment and closes
-the Issue so it leaves the approval inbox. Dispatcher handoff and Gate
-verification are added in later slices.
+digest, then routes the UI to `Approvals`. Approving the execution request
+records a BatchTrail execution approval comment whose first line is the
+dispatcher command (`/bgcp approve ...`). The target repository still needs the
+BatchTrail dispatcher workflow installed for that approval comment to perform
+`workflow_dispatch`.
 
 The dispatcher action currently includes the verification skeleton for that
 handoff: it checks that the execution request Issue and approval comment
 reference the same request ID, batch ID, digest, approval decision, expiration
 window, and workflow target before a later slice performs `workflow_dispatch`.
+
+See also:
+
+- `docs/github-lite-srs.md`
+- `docs/github-lite-technical-spec.md`
 
 ## Workspace
 

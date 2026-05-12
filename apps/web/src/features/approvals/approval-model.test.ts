@@ -131,6 +131,13 @@ describe("approval model", () => {
       }),
     ).toContain("decision=APPROVED");
     expect(
+      buildExecutionApprovalComment({
+        approvedAt: new Date("2026-05-09T03:02:03.000Z"),
+        approver: "maintainer",
+        request,
+      }),
+    ).toMatch(/^\/bgcp approve requestDigest=sha256:/);
+    expect(
       buildExecutionRejectionComment({
         rejectedAt: new Date("2026-05-09T03:02:03.000Z"),
         rejector: "maintainer",
