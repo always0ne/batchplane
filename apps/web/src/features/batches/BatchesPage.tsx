@@ -5,7 +5,7 @@ import {
 } from "@batchtrail/github-lite";
 import type { BatchDefinition } from "@batchtrail/domain";
 import { ExternalLink, Loader2, Play, Plus, RefreshCw } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -46,6 +46,7 @@ type ExecutionRequestState =
 
 export function BatchesPage() {
   const { t } = useTranslation("batches");
+  const navigate = useNavigate();
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<BatchListState>({ type: "loading" });
   const [executionRequestState, setExecutionRequestState] =
@@ -135,6 +136,7 @@ export function BatchesPage() {
         issue,
         requestIssue,
       });
+      navigate("/approvals");
     } catch (error) {
       setExecutionRequestState({
         type: "error",

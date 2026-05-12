@@ -118,6 +118,8 @@ export function buildExecutionApprovalComment({
   request: ExecutionApprovalRequest;
 }): string {
   return [
+    `/bgcp approve requestDigest=${request.requestDigest}`,
+    "",
     "## BatchTrail Execution Approval",
     "",
     "- Decision: APPROVED",

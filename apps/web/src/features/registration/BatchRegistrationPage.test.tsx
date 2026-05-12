@@ -20,16 +20,28 @@ describe("BatchRegistrationPage", () => {
     fireEvent.change(screen.getByLabelText("Domain"), {
       target: { value: "payments" },
     });
-    fireEvent.change(screen.getByLabelText("Workflow path"), {
-      target: { value: ".github/workflows/daily-close.yml" },
+    expect(screen.queryByText(/new-batch/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Batch command"), {
+      target: { value: "./scripts/daily-close.sh" },
     });
 
     expect(
-      await screen.findByText(/payment.daily-close.yml/),
-    ).toBeInTheDocument();
+      await screen.findAllByText(/payment.daily-close.yml/),
+    ).not.toHaveLength(0);
     expect(screen.getByText(/id: "payment.daily-close"/)).toBeInTheDocument();
     expect(
-      screen.getByText(/path: ".github\/workflows\/daily-close.yml"/),
+      screen.getByText(/path: ".github\/workflows\/payment.daily-close.yml"/),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("BatchTrail Gate always runs before the batch command."),
+    ).toBeInTheDocument();
+
+    expect(screen.getByText(/workflow_dispatch:/)).toBeInTheDocument();
+    expect(screen.getByText(/batchtrail-gate:/)).toBeInTheDocument();
+    expect(screen.getByText(/runs-on: "ubuntu-latest"/)).toBeInTheDocument();
+    expect(screen.getAllByText(/.\/scripts\/daily-close.sh/)).not.toHaveLength(
+      0,
+    );
   });
 });

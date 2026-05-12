@@ -1,6 +1,6 @@
 {
   "title": "등록",
-  "subtitle": "통제 대상 배치 정의를 Pull Request로 생성합니다.",
+  "subtitle": "통제 대상 배치 정의와 BatchTrail Gate가 적용된 Workflow를 Pull Request로 생성합니다.",
   "form": {
     "definition": "배치 정의",
     "workflow": "Workflow",
@@ -11,12 +11,17 @@
     "environment": "환경",
     "criticality": "중요도",
     "status": "상태",
-    "workflowPath": "Workflow 경로",
+    "workflowPath": "생성될 Workflow 경로",
     "workflowRef": "Workflow ref",
-    "gateRequired": "실행 전 BatchTrail Gate 필수"
+    "runnerLabel": "실행 환경",
+    "customRunnerLabel": "Custom runner label",
+    "executionFile": "실행 파일",
+    "runCommand": "배치 명령",
+    "gateRequiredInline": "BatchTrail Gate는 업무 실행 명령 전에 항상 실행됩니다."
   },
   "preview": {
-    "title": "YAML 미리보기"
+    "title": "배치 정의 YAML",
+    "workflowTitle": "Workflow YAML"
   },
   "actions": {
     "createPullRequest": "등록 PR 생성",
@@ -29,6 +34,8 @@
     "required": "필수 항목이 누락되었습니다: {{fields}}",
     "noSession": "등록 PR을 생성하기 전에 설정에서 GitHub 저장소를 연결하세요.",
     "alreadyExists": "{{path}}에 이미 배치 정의가 있습니다.",
+    "workflowAlreadyExists": "{{path}}에 이미 Workflow가 있습니다.",
+    "fileRead": "업로드한 실행 파일을 읽지 못했습니다.",
     "unknown": "등록 Pull Request 생성에 실패했습니다."
   }
 }

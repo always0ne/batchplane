@@ -1,6 +1,6 @@
 {
   "title": "Registration",
-  "subtitle": "Create a pull request for a governed batch definition.",
+  "subtitle": "Create a pull request for a governed batch definition and its BatchTrail-protected workflow.",
   "form": {
     "definition": "Batch definition",
     "workflow": "Workflow",
@@ -11,12 +11,17 @@
     "environment": "Environment",
     "criticality": "Criticality",
     "status": "Status",
-    "workflowPath": "Workflow path",
+    "workflowPath": "Generated workflow path",
     "workflowRef": "Workflow ref",
-    "gateRequired": "Require BatchTrail Gate before execution"
+    "runnerLabel": "Execution environment",
+    "customRunnerLabel": "Custom runner label",
+    "executionFile": "Execution file",
+    "runCommand": "Batch command",
+    "gateRequiredInline": "BatchTrail Gate always runs before the batch command."
   },
   "preview": {
-    "title": "YAML preview"
+    "title": "Batch definition YAML",
+    "workflowTitle": "Workflow YAML"
   },
   "actions": {
     "createPullRequest": "Create registration PR",
@@ -29,6 +34,8 @@
     "required": "Required fields are missing: {{fields}}",
     "noSession": "Connect a GitHub repository in setup before creating a registration PR.",
     "alreadyExists": "A batch definition already exists at {{path}}.",
+    "workflowAlreadyExists": "A workflow already exists at {{path}}.",
+    "fileRead": "Failed to read the uploaded execution file.",
     "unknown": "Failed to create the registration pull request."
   }
 }
