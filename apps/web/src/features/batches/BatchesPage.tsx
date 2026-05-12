@@ -20,6 +20,7 @@ import {
   buildExecutionRequestIssue,
   type ExecutionRequestIssue,
 } from "../execution-requests/execution-request-model";
+import { buildExecutionApprovalHandoff } from "../approvals/approval-handoff";
 import { loadBatchDefinitions } from "./batch-repository";
 
 type BatchListState =
@@ -136,7 +137,9 @@ export function BatchesPage() {
         issue,
         requestIssue,
       });
-      navigate("/approvals");
+      navigate("/approvals", {
+        state: buildExecutionApprovalHandoff(issue),
+      });
     } catch (error) {
       setExecutionRequestState({
         type: "error",
