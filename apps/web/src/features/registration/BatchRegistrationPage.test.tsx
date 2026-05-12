@@ -20,7 +20,9 @@ describe("BatchRegistrationPage", () => {
     fireEvent.change(screen.getByLabelText("Domain"), {
       target: { value: "payments" },
     });
-    fireEvent.change(screen.getByLabelText("Command to run after approval"), {
+    expect(screen.queryByText(/new-batch/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Batch command"), {
       target: { value: "./scripts/daily-close.sh" },
     });
 

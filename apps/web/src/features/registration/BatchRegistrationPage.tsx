@@ -12,7 +12,13 @@ import {
   Loader2,
   ShieldCheck,
 } from "lucide-react";
-import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
@@ -63,6 +69,7 @@ export function BatchRegistrationPage() {
   });
   const [uploadedFile, setUploadedFile] =
     useState<UploadedExecutionFile | null>(null);
+  const [autoFileCommand, setAutoFileCommand] = useState<string | null>(null);
 
   const definition = useMemo(() => toBatchDefinition(values), [values]);
   const yaml = useMemo(
@@ -87,10 +94,14 @@ export function BatchRegistrationPage() {
 
     return fields;
   }, [definition, values.runCommand, values.runnerLabel]);
-  const batchPath = getBatchDefinitionPath(definition.batchId || "new-batch");
+  const batchPath = getBatchDefinitionPath(definition.batchId);
   const workflowPath = definition.workflow.path;
-  const uploadedFilePath = uploadedFile
-    ? getBatchArtifactPath(definition.batchId || "new-batch", uploadedFile.name)
+  const uploadedFilePath =
+    uploadedFile && definition.batchId
+      ? getBatchArtifactPath(definition.batchId, uploadedFile.name)
+      : null;
+  const nextAutoFileCommand = uploadedFilePath
+    ? buildExecutionFileCommand(uploadedFilePath)
     : null;
   const selectedRunner = runnerOptions.includes(
     values.runnerLabel as (typeof runnerOptions)[number],
@@ -101,6 +112,19 @@ export function BatchRegistrationPage() {
     missingFields.length === 0 &&
     generatedWorkflowYaml.trim().length > 0 &&
     submissionState.type !== "submitting";
+
+  useEffect(() => {
+    if (!autoFileCommand || !nextAutoFileCommand) {
+      return;
+    }
+
+    setValues((current) =>
+      current.runCommand === autoFileCommand
+        ? { ...current, runCommand: nextAutoFileCommand }
+        : current,
+    );
+    setAutoFileCommand(nextAutoFileCommand);
+  }, [autoFileCommand, nextAutoFileCommand]);
 
   function updateTextField(
     field: keyof Omit<
@@ -335,24 +359,24 @@ export function BatchRegistrationPage() {
               <span>{t("form.gateRequiredInline")}</span>
             </div>
             <FileUploadField
+              disabled={!definition.batchId}
               filePath={uploadedFilePath}
               label={t("form.executionFile")}
               onChange={(file) => {
                 void handleExecutionFileChange({
                   file,
                   onLoaded: ({ contentBase64, name }) => {
-                    const path = getBatchArtifactPath(
-                      definition.batchId || "new-batch",
-                      name,
-                    );
+                    const path = getBatchArtifactPath(definition.batchId, name);
+                    const command = buildExecutionFileCommand(path);
 
                     setUploadedFile({ contentBase64, name });
                     setValues((current) => ({
                       ...current,
                       runCommand: current.runCommand.trim()
                         ? current.runCommand
-                        : `chmod +x ${path}\n./${path}`,
+                        : command,
                     }));
+                    setAutoFileCommand(command);
                   },
                   onError: () =>
                     setSubmissionState({
@@ -456,10 +480,12 @@ function TextField({
 }
 
 function FileUploadField({
+  disabled = false,
   filePath,
   label,
   onChange,
 }: {
+  disabled?: boolean;
   filePath: string | null;
   label: string;
   onChange: (file: File | null) => void;
@@ -468,7 +494,8 @@ function FileUploadField({
     <label className="mt-5 block text-sm font-semibold text-bt-graphite">
       {label}
       <input
-        className="mt-2 block w-full text-sm text-bt-muted file:mr-4 file:rounded-md file:border-0 file:bg-bt-control file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+        className="mt-2 block w-full text-sm text-bt-muted file:mr-4 file:rounded-md file:border-0 file:bg-bt-control file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={disabled}
         onChange={(event) => onChange(event.target.files?.[0] ?? null)}
         type="file"
       />
@@ -625,4 +652,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   }
 
   return btoa(binary);
+}
+
+function buildExecutionFileCommand(path: string): string {
+  return `chmod +x ${path}\n./${path}`;
 }

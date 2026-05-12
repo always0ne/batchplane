@@ -16,7 +16,7 @@
     "runnerLabel": "실행 환경",
     "customRunnerLabel": "Custom runner label",
     "executionFile": "실행 파일",
-    "runCommand": "승인 후 실행할 명령",
+    "runCommand": "배치 명령",
     "gateRequiredInline": "BatchTrail Gate는 업무 실행 명령 전에 항상 실행됩니다."
   },
   "preview": {

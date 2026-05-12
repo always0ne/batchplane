@@ -16,7 +16,7 @@
     "runnerLabel": "Execution environment",
     "customRunnerLabel": "Custom runner label",
     "executionFile": "Execution file",
-    "runCommand": "Command to run after approval",
+    "runCommand": "Batch command",
     "gateRequiredInline": "BatchTrail Gate always runs before the batch command."
   },
   "preview": {

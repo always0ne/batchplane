@@ -49,18 +49,21 @@ describe("registration model", () => {
     expect(getBatchDefinitionPath("payment.daily-close")).toBe(
       ".batch-governance/batches/payment.daily-close.yml",
     );
+    expect(getBatchDefinitionPath("")).toBe("");
   });
 
   it("builds a deterministic governed workflow path", () => {
     expect(getBatchWorkflowPath("Payment Daily Close")).toBe(
       ".github/workflows/payment-daily-close.yml",
     );
+    expect(getBatchWorkflowPath("")).toBe("");
   });
 
   it("builds a deterministic governed artifact path", () => {
     expect(getBatchArtifactPath("Payment Daily Close", "../close job.sh")).toBe(
       ".batch-governance/batches/payment-daily-close/artifacts/close-job.sh",
     );
+    expect(getBatchArtifactPath("", "close.sh")).toBe("");
   });
 
   it("always requires the BatchTrail Gate", () => {

@@ -44,7 +44,7 @@ export function toBatchDefinition(
     criticality: values.criticality,
     status: values.status,
     workflow: {
-      path: getBatchWorkflowPath(batchId || "new-batch"),
+      path: getBatchWorkflowPath(batchId),
       ref: values.workflowRef.trim(),
     },
     gateRequired: true,
@@ -52,12 +52,23 @@ export function toBatchDefinition(
 }
 
 export function getBatchDefinitionPath(batchId: string): string {
-  return `.batch-governance/batches/${batchId.trim()}.yml`;
+  const id = batchId.trim();
+
+  if (!id) {
+    return "";
+  }
+
+  return `.batch-governance/batches/${id}.yml`;
 }
 
 export function getBatchWorkflowPath(batchId: string): string {
   const slug = toFileSlug(batchId);
-  return `.github/workflows/${slug || "new-batch"}.yml`;
+
+  if (!slug) {
+    return "";
+  }
+
+  return `.github/workflows/${slug}.yml`;
 }
 
 export function getBatchArtifactPath(
@@ -66,7 +77,12 @@ export function getBatchArtifactPath(
 ): string {
   const batchSlug = toFileSlug(batchId);
   const fileSlug = toFileNameSlug(fileName);
-  return `.batch-governance/batches/${batchSlug || "new-batch"}/artifacts/${fileSlug || "artifact.bin"}`;
+
+  if (!batchSlug) {
+    return "";
+  }
+
+  return `.batch-governance/batches/${batchSlug}/artifacts/${fileSlug || "artifact.bin"}`;
 }
 
 export function serializeBatchDefinitionYaml(
@@ -98,7 +114,7 @@ export function buildBatchWorkflowYaml(
   runnerLabel: string,
 ): string {
   const workflowName = definition.name || definition.batchId || "New batch";
-  const batchId = definition.batchId || "new-batch";
+  const batchId = definition.batchId || "batch-id";
   const runCommandLines = indentRunCommand(runCommand);
   const runner = formatRunnerLabel(runnerLabel);
 
