@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildBatchWorkflowYaml,
   buildRegistrationPullRequestBody,
   createRegistrationBranchName,
   getBatchDefinitionPath,
+  getBatchWorkflowPath,
   parseBatchDefinitionYaml,
   serializeBatchDefinitionYaml,
   toBatchDefinition,
@@ -18,9 +20,7 @@ const definition = toBatchDefinition({
   environment: "PROD",
   criticality: "HIGH",
   status: "ACTIVE",
-  workflowPath: ".github/workflows/daily-close.yml",
   workflowRef: "main",
-  gateRequired: true,
 });
 
 describe("registration model", () => {
@@ -29,7 +29,7 @@ describe("registration model", () => {
       '  id: "payment.daily-close"',
     );
     expect(serializeBatchDefinitionYaml(definition)).toContain(
-      '    path: ".github/workflows/daily-close.yml"',
+      '    path: ".github/workflows/batchtrail-payment.daily-close.yml"',
     );
     expect(serializeBatchDefinitionYaml(definition)).toContain(
       "  gateRequired: true",
@@ -46,6 +46,29 @@ describe("registration model", () => {
     expect(getBatchDefinitionPath("payment.daily-close")).toBe(
       ".batch-governance/batches/payment.daily-close.yml",
     );
+  });
+
+  it("builds a deterministic governed workflow path", () => {
+    expect(getBatchWorkflowPath("Payment Daily Close")).toBe(
+      ".github/workflows/batchtrail-payment-daily-close.yml",
+    );
+  });
+
+  it("always requires the BatchTrail Gate", () => {
+    expect(definition.gateRequired).toBe(true);
+  });
+
+  it("builds a workflow with mandatory dispatch inputs and Gate job", () => {
+    const workflowYaml = buildBatchWorkflowYaml(definition);
+
+    expect(workflowYaml).toContain("workflow_dispatch:");
+    expect(workflowYaml).toContain("request_id:");
+    expect(workflowYaml).toContain("request_digest:");
+    expect(workflowYaml).toContain("batchtrail-gate:");
+    expect(workflowYaml).toContain(
+      "uses: always0ne/batchtrail/actions/gate@main",
+    );
+    expect(workflowYaml).toContain("needs: batchtrail-gate");
   });
 
   it("validates required fields", () => {
@@ -66,6 +89,9 @@ describe("registration model", () => {
   it("creates a PR body with auditable registration context", () => {
     expect(buildRegistrationPullRequestBody(definition)).toContain(
       "Batch ID: `payment.daily-close`",
+    );
+    expect(buildRegistrationPullRequestBody(definition)).toContain(
+      "BatchTrail Gate: required",
     );
   });
 });
