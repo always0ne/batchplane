@@ -76,6 +76,12 @@ original `workflow_dispatch` inputs, so it is not treated as a new BatchTrail
 authorization. A retry must be represented by a new execution request or by a
 future explicit retry approval.
 
+The Gate must also verify GitHub evidence independently. The generated workflow
+passes the repository `GITHUB_TOKEN` to Gate, and Gate must confirm that the
+workflow run was initiated by the dispatcher automation and that a matching
+execution request Issue plus APPROVED approval comment exist for the submitted
+`request_id`, `batch_id`, and `request_digest`.
+
 ### Execution Environment
 
 Registration must let users select the batch execution environment.

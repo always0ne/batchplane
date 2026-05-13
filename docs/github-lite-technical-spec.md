@@ -109,6 +109,18 @@ The Gate action must deny direct GitHub Actions reruns by default. When
 `RERUN_NOT_AUTHORIZED`. Retrying a governed batch requires a new BatchTrail
 execution request or a future explicit retry-approval flow.
 
+The Gate action must not trust `workflow_dispatch` inputs alone. The generated
+workflow passes `github-token: ${{ secrets.GITHUB_TOKEN }}` to Gate. Gate uses
+that token with `issues: read` permission to verify:
+
+- the current workflow actor is the dispatcher automation actor
+  (`github-actions[bot]` by default)
+- a GitHub Issue contains a `batchtrail:execution-request` marker for the
+  submitted `request_id`
+- the Issue marker matches `batch_id`, `request_digest`, and `REQUESTED` status
+- at least one Issue comment starts with `/bgcp approve ` and contains a
+  matching `batchtrail:execution-approval` marker with `decision=APPROVED`
+
 ## Execution Request Payload
 
 Manual request payload:
