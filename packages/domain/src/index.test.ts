@@ -1,5 +1,10 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
+import {
+  formatYamlDiagnostics,
+  parseYamlDocument,
+  serializeYamlDocument,
+} from "./index";
 import type {
   ApprovalDecision,
   ApprovalPolicy,
@@ -210,5 +215,61 @@ describe("domain model contracts", () => {
     expectTypeOf<ExecutionRequestPayload["spec"]["schedule"]>().toEqualTypeOf<
       ScheduleOccurrenceRef | undefined
     >();
+  });
+});
+
+describe("BatchTrail YAML utilities", () => {
+  it("serializes and parses valid BatchTrail YAML fixtures", () => {
+    const yaml = serializeYamlDocument({
+      apiVersion: "batchtrail.io/v1",
+      kind: "BatchDefinition",
+      metadata: {
+        id: "payment.daily-close",
+        name: "Daily Close",
+      },
+      spec: {
+        gateRequired: true,
+        labels: ["prod", "close"],
+        workflow: {
+          path: ".github/workflows/payment.daily-close.yml",
+          ref: "main",
+        },
+      },
+    });
+
+    expect(yaml).toContain('id: "payment.daily-close"');
+    expect(yaml).toContain('labels: ["prod","close"]');
+
+    expect(parseYamlDocument(yaml)).toEqual({
+      ok: true,
+      value: {
+        apiVersion: "batchtrail.io/v1",
+        kind: "BatchDefinition",
+        metadata: {
+          id: "payment.daily-close",
+          name: "Daily Close",
+        },
+        spec: {
+          gateRequired: true,
+          labels: ["prod", "close"],
+          workflow: {
+            path: ".github/workflows/payment.daily-close.yml",
+            ref: "main",
+          },
+        },
+      },
+    });
+  });
+
+  it("returns readable diagnostics for invalid YAML", () => {
+    const result = parseYamlDocument("metadata:\n   id: broken\n");
+
+    expect(result.ok).toBe(false);
+
+    if (!result.ok) {
+      expect(formatYamlDiagnostics(result.diagnostics)).toContain(
+        "Indentation must use two-space levels.",
+      );
+    }
   });
 });
