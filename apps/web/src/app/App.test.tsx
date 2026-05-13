@@ -6,9 +6,28 @@ import { App } from "./App";
 import "../i18n/i18n";
 
 describe("App", () => {
-  it("renders the dashboard route", async () => {
+  it.each([
+    { heading: "Dashboard", path: "/dashboard" },
+    { heading: "Settings", path: "/lite/setup" },
+    { heading: "Batches", path: "/batches" },
+    { heading: "Registration", path: "/batches/new" },
+    { heading: "Approvals", path: "/approvals" },
+  ])("renders the $path route", async ({ heading, path }) => {
     render(
-      <MemoryRouter initialEntries={["/dashboard"]}>
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: heading }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("BatchTrail")).toBeInTheDocument();
+  });
+
+  it("redirects the root route to the dashboard", async () => {
+    render(
+      <MemoryRouter initialEntries={["/"]}>
         <App />
       </MemoryRouter>,
     );
@@ -16,6 +35,17 @@ describe("App", () => {
     expect(
       await screen.findByRole("heading", { name: "Dashboard" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("BatchTrail")).toBeInTheDocument();
+  });
+
+  it("renders a not found state for unknown routes", async () => {
+    render(
+      <MemoryRouter initialEntries={["/unknown"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Page not found" }),
+    ).toBeInTheDocument();
   });
 });
