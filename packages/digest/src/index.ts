@@ -6,6 +6,42 @@ export type CanonicalValue =
   | CanonicalValue[]
   | { [key: string]: CanonicalValue | undefined };
 
+export type DigestEnvelope = {
+  comments?: string[];
+  labels?: string[];
+  markdownBody?: string;
+  payload: CanonicalValue;
+};
+
+export const canonicalExecutionRequestPayloadFixture: CanonicalValue = {
+  apiVersion: "batchtrail.io/v1",
+  kind: "ExecutionRequest",
+  metadata: {
+    batchId: "payment.daily-close",
+    requestId: "btr-20260513010000-payment.daily-close-abcdef12",
+  },
+  spec: {
+    batch: {
+      criticality: "HIGH",
+      domain: "payments",
+      environment: "PROD",
+      name: "Daily Close",
+      owner: "ops-team",
+    },
+    expiresAt: "2026-05-13T02:00:00.000Z",
+    reason: "Manual request from BatchTrail Repo Mode.",
+    requestedAt: "2026-05-13T01:00:00.000Z",
+    requestedBy: "developer",
+    workflow: {
+      path: ".github/workflows/payment.daily-close.yml",
+      ref: "main",
+    },
+  },
+};
+
+export const canonicalExecutionRequestDigestFixture =
+  "sha256:c049d17f2ddf592f3fbedcd2adaff2cfcbe7fcc925a4532d0cbce4392e6806fe";
+
 export function canonicalize(value: CanonicalValue): string {
   return JSON.stringify(normalize(value));
 }
@@ -14,6 +50,22 @@ export async function createCanonicalDigest(
   value: CanonicalValue,
 ): Promise<string> {
   return `sha256:${await sha256Hex(canonicalize(value))}`;
+}
+
+export async function createParameterDigest(
+  parameters: Record<string, CanonicalValue | undefined>,
+): Promise<string> {
+  return createCanonicalDigest({ parameters });
+}
+
+export async function createReasonDigest(reason: string): Promise<string> {
+  return createCanonicalDigest({ reason });
+}
+
+export async function createRequestDigest(
+  input: CanonicalValue | DigestEnvelope,
+): Promise<string> {
+  return createCanonicalDigest(isDigestEnvelope(input) ? input.payload : input);
 }
 
 export async function sha256Hex(value: string): Promise<string> {
@@ -50,4 +102,15 @@ function normalize(value: CanonicalValue): unknown {
   }
 
   return value;
+}
+
+function isDigestEnvelope(
+  value: CanonicalValue | DigestEnvelope,
+): value is DigestEnvelope {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "payload" in value,
+  );
 }

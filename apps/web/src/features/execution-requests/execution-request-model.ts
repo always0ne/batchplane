@@ -1,4 +1,4 @@
-import { createCanonicalDigest, type CanonicalValue } from "@batchtrail/digest";
+import { createRequestDigest, type CanonicalValue } from "@batchtrail/digest";
 import type { BatchDefinition, ExecutionRequest } from "@batchtrail/domain";
 
 export type ExecutionRequestPayload = {
@@ -81,7 +81,7 @@ export async function buildExecutionRequestIssue({
       },
     },
   };
-  const requestDigest = await createCanonicalDigest(
+  const requestDigest = await createRequestDigest(
     payload as unknown as CanonicalValue,
   );
   const request: ExecutionRequest = {

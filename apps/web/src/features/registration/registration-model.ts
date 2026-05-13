@@ -1,7 +1,13 @@
+import {
+  formatYamlDiagnostics,
+  parseYamlDocument,
+  serializeYamlDocument,
+} from "@batchtrail/domain";
 import type {
   BatchDefinition,
   BatchStatus,
   Criticality,
+  YamlValue,
 } from "@batchtrail/domain";
 
 export type BatchRegistrationFormValues = {
@@ -88,24 +94,26 @@ export function getBatchArtifactPath(
 export function serializeBatchDefinitionYaml(
   definition: BatchDefinition,
 ): string {
-  return [
-    "apiVersion: batchtrail.io/v1",
-    "kind: BatchDefinition",
-    "metadata:",
-    `  id: ${yamlString(definition.batchId)}`,
-    `  name: ${yamlString(definition.name)}`,
-    "spec:",
-    `  owner: ${yamlString(definition.owner)}`,
-    `  domain: ${yamlString(definition.domain)}`,
-    `  environment: ${yamlString(definition.environment)}`,
-    `  criticality: ${yamlString(definition.criticality)}`,
-    `  status: ${yamlString(definition.status)}`,
-    "  workflow:",
-    `    path: ${yamlString(definition.workflow.path)}`,
-    `    ref: ${yamlString(definition.workflow.ref)}`,
-    `  gateRequired: ${definition.gateRequired ? "true" : "false"}`,
-    "",
-  ].join("\n");
+  return serializeYamlDocument({
+    apiVersion: "batchtrail.io/v1",
+    kind: "BatchDefinition",
+    metadata: {
+      id: definition.batchId,
+      name: definition.name,
+    },
+    spec: {
+      criticality: definition.criticality,
+      domain: definition.domain,
+      environment: definition.environment,
+      gateRequired: definition.gateRequired,
+      owner: definition.owner,
+      status: definition.status,
+      workflow: {
+        path: definition.workflow.path,
+        ref: definition.workflow.ref,
+      },
+    },
+  });
 }
 
 export function buildBatchWorkflowYaml(
@@ -175,63 +183,34 @@ export function buildBatchWorkflowYaml(
 }
 
 export function parseBatchDefinitionYaml(yaml: string): BatchDefinition {
-  const fieldMap = new Map<string, string>();
-  let section = "";
-  let nestedSection = "";
+  const result = parseYamlDocument(yaml);
 
-  for (const rawLine of yaml.split("\n")) {
-    const line = rawLine.trimEnd();
-
-    if (!line.trim() || line.trimStart().startsWith("#")) {
-      continue;
-    }
-
-    if (!line.startsWith(" ") && line.endsWith(":")) {
-      section = line.slice(0, -1);
-      nestedSection = "";
-      continue;
-    }
-
-    if (line.startsWith("  ") && !line.startsWith("    ")) {
-      const [key, value] = splitYamlPair(line.trim());
-
-      if (value === undefined) {
-        nestedSection = key;
-        continue;
-      }
-
-      fieldMap.set(`${section}.${key}`, value);
-      nestedSection = "";
-      continue;
-    }
-
-    if (line.startsWith("    ")) {
-      const [key, value] = splitYamlPair(line.trim());
-
-      if (value !== undefined) {
-        fieldMap.set(`${section}.${nestedSection}.${key}`, value);
-      }
-    }
+  if (!result.ok) {
+    throw new Error(
+      `Invalid BatchTrail YAML: ${formatYamlDiagnostics(result.diagnostics)}`,
+    );
   }
 
-  const criticality = parseCriticality(
-    readYamlString(fieldMap, "spec.criticality"),
-  );
-  const status = parseBatchStatus(readYamlString(fieldMap, "spec.status"));
+  const document = asYamlRecord(result.value);
+  const metadata = asYamlRecord(document.metadata);
+  const spec = asYamlRecord(document.spec);
+  const workflow = asYamlRecord(spec.workflow);
+  const criticality = parseCriticality(readYamlString(spec, "criticality"));
+  const status = parseBatchStatus(readYamlString(spec, "status"));
 
   return {
-    batchId: readYamlString(fieldMap, "metadata.id"),
-    name: readYamlString(fieldMap, "metadata.name"),
-    owner: readYamlString(fieldMap, "spec.owner"),
-    domain: readYamlString(fieldMap, "spec.domain"),
-    environment: readYamlString(fieldMap, "spec.environment"),
+    batchId: readYamlString(metadata, "id"),
+    name: readYamlString(metadata, "name"),
+    owner: readYamlString(spec, "owner"),
+    domain: readYamlString(spec, "domain"),
+    environment: readYamlString(spec, "environment"),
     criticality,
     status,
     workflow: {
-      path: readYamlString(fieldMap, "spec.workflow.path"),
-      ref: readYamlString(fieldMap, "spec.workflow.ref"),
+      path: readYamlString(workflow, "path"),
+      ref: readYamlString(workflow, "ref"),
     },
-    gateRequired: readYamlBoolean(fieldMap, "spec.gateRequired"),
+    gateRequired: readYamlBoolean(spec, "gateRequired"),
   };
 }
 
@@ -296,36 +275,32 @@ function yamlString(value: string): string {
   return JSON.stringify(value);
 }
 
-function splitYamlPair(line: string): [string, string | undefined] {
-  const separatorIndex = line.indexOf(":");
-
-  if (separatorIndex < 0) {
-    return [line, undefined];
-  }
-
-  const key = line.slice(0, separatorIndex).trim();
-  const value = line.slice(separatorIndex + 1).trim();
-
-  return [key, value || undefined];
+function asYamlRecord(
+  value: YamlValue | undefined,
+): Record<string, YamlValue | undefined> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
 }
 
-function readYamlString(fieldMap: Map<string, string>, path: string): string {
-  const rawValue = fieldMap.get(path);
+function readYamlString(
+  record: Record<string, YamlValue | undefined>,
+  key: string,
+): string {
+  const value = record[key];
 
-  if (!rawValue) {
+  if (value === undefined || value === null || Array.isArray(value)) {
     return "";
   }
 
-  try {
-    const parsedValue = JSON.parse(rawValue) as unknown;
-    return typeof parsedValue === "string" ? parsedValue : String(parsedValue);
-  } catch {
-    return rawValue;
-  }
+  return typeof value === "object" ? "" : String(value);
 }
 
-function readYamlBoolean(fieldMap: Map<string, string>, path: string): boolean {
-  return fieldMap.get(path) === "true";
+function readYamlBoolean(
+  record: Record<string, YamlValue | undefined>,
+  key: string,
+): boolean {
+  return record[key] === true;
 }
 
 function parseCriticality(value: string): Criticality {
