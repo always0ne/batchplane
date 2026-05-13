@@ -13,6 +13,13 @@ export function verifyLiteInput(input) {
             message: "Batch ID is required.",
         };
     }
+    if ((input.runAttempt ?? 1) > 1) {
+        return {
+            result: "DENY",
+            reasonCode: "RERUN_NOT_AUTHORIZED",
+            message: "GitHub Actions reruns are not authorized by BatchTrail. Create a new execution request or approved retry instead.",
+        };
+    }
     if (!input.requestId) {
         return {
             result: "DENY",
@@ -45,6 +52,7 @@ export function readGateInputFromEnv(env = process.env) {
         approvalSource: readOptionalActionInput(env, "approval-source"),
         approvalRef: readOptionalActionInput(env, "approval-ref"),
         requestDigest: readOptionalActionInput(env, "request-digest"),
+        runAttempt: readRunAttempt(env),
     };
 }
 export function runGateFromEnv(env = process.env) {
@@ -66,6 +74,10 @@ function readActionInput(env, name) {
 function readOptionalActionInput(env, name) {
     const value = readActionInput(env, name);
     return value || undefined;
+}
+function readRunAttempt(env) {
+    const value = Number.parseInt(env.GITHUB_RUN_ATTEMPT ?? "1", 10);
+    return Number.isFinite(value) && value > 0 ? value : 1;
 }
 if (process.env.GITHUB_ACTIONS === "true" &&
     process.env.BATCHTRAIL_GATE_DISABLE_AUTO_RUN !== "true") {

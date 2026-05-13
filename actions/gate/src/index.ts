@@ -8,6 +8,7 @@ export type GateInput = {
   approvalSource?: string;
   approvalRef?: string;
   requestDigest?: string;
+  runAttempt?: number;
 };
 
 export type GateResult = {
@@ -30,6 +31,15 @@ export function verifyLiteInput(input: GateInput): GateResult {
       result: "DENY",
       reasonCode: "BATCH_ID_REQUIRED",
       message: "Batch ID is required.",
+    };
+  }
+
+  if ((input.runAttempt ?? 1) > 1) {
+    return {
+      result: "DENY",
+      reasonCode: "RERUN_NOT_AUTHORIZED",
+      message:
+        "GitHub Actions reruns are not authorized by BatchTrail. Create a new execution request or approved retry instead.",
     };
   }
 
@@ -71,6 +81,7 @@ export function readGateInputFromEnv(
     approvalSource: readOptionalActionInput(env, "approval-source"),
     approvalRef: readOptionalActionInput(env, "approval-ref"),
     requestDigest: readOptionalActionInput(env, "request-digest"),
+    runAttempt: readRunAttempt(env),
   };
 }
 
@@ -107,6 +118,12 @@ function readOptionalActionInput(
   const value = readActionInput(env, name);
 
   return value || undefined;
+}
+
+function readRunAttempt(env: Record<string, string | undefined>): number {
+  const value = Number.parseInt(env.GITHUB_RUN_ATTEMPT ?? "1", 10);
+
+  return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
 if (

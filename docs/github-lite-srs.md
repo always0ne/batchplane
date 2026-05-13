@@ -71,6 +71,11 @@ The generated workflow must include:
 
 `gateRequired` is an invariant. It is not an optional checkbox.
 
+The Gate must deny GitHub Actions UI reruns by default. A rerun reuses the
+original `workflow_dispatch` inputs, so it is not treated as a new BatchTrail
+authorization. A retry must be represented by a new execution request or by a
+future explicit retry approval.
+
 ### Execution Environment
 
 Registration must let users select the batch execution environment.
