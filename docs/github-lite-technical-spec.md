@@ -207,6 +207,10 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: batchtrail-dispatch-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
 jobs:
   dispatch-approved-request:
     if: startsWith(github.event.comment.body, '/bgcp approve ')
@@ -227,11 +231,27 @@ The dispatcher workflow is responsible for:
 - reading the triggering issue comment
 - reading the execution request issue body
 - verifying BatchTrail evidence
+- serializing dispatch attempts for the same execution request issue
+- ignoring requests that already have `batchtrail:dispatching` or
+  `batchtrail:dispatched` state evidence
 - calling the target workflow with:
   - `request_id`
   - `batch_id`
   - `request_digest`
 - writing dispatch success or failure evidence
+
+The dispatcher writes state evidence as Issue labels and comments:
+
+- `batchtrail:dispatching` with a `DISPATCHING` `batchtrail:bgcp:dispatcher`
+  marker before `workflow_dispatch`
+- `batchtrail:dispatched` with a `DISPATCHED` `batchtrail:bgcp:dispatcher`
+  marker after `workflow_dispatch` succeeds
+- `batchtrail:dispatch-failed` with a `DISPATCH_FAILED`
+  `batchtrail:bgcp:dispatcher` marker when dispatch fails
+
+Duplicate approval comments for the same request ID, Batch ID, and request
+digest must not create a second `workflow_dispatch` call once `DISPATCHING` or
+`DISPATCHED` evidence exists.
 
 Until this dispatcher workflow is installed in the target repository, approving
 an execution request records approval evidence but does not execute the batch.
