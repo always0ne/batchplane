@@ -1,0 +1,214 @@
+import { describe, expect, expectTypeOf, it } from "vitest";
+
+import type {
+  ApprovalDecision,
+  ApprovalPolicy,
+  ApprovalPolicyFile,
+  AuditTimelineItem,
+  BatchDefinition,
+  BatchDefinitionFile,
+  BatchGovernanceConfigFile,
+  ExecutionRequest,
+  ExecutionRequestPayload,
+  ExecutionRun,
+  GitHubLiteRepositoryFile,
+  RoleMapping,
+  RoleMappingFile,
+  ScheduleOccurrenceRef,
+} from "./index";
+
+const batchDefinition: BatchDefinition = {
+  batchId: "payment.daily-close",
+  criticality: "HIGH",
+  domain: "payments",
+  environment: "PROD",
+  gateRequired: true,
+  name: "Daily Close",
+  owner: "ops-team",
+  status: "ACTIVE",
+  workflow: {
+    path: ".github/workflows/payment.daily-close.yml",
+    ref: "main",
+  },
+};
+
+const approvalPolicy: ApprovalPolicy = {
+  appliesTo: ["BATCH_REGISTRATION", "EXECUTION_REQUEST"],
+  approvers: {
+    githubTeams: ["platform-ops"],
+    repositoryRoles: ["maintain"],
+  },
+  name: "Production four-eyes",
+  policyId: "prod-four-eyes",
+  preventSelfApproval: true,
+  requiredApprovals: 1,
+};
+
+const roleMapping: RoleMapping = {
+  roles: {
+    approver: {
+      githubTeams: ["platform-ops"],
+    },
+    auditor: {
+      repositoryRoles: ["triage"],
+    },
+    maintainer: {
+      repositoryRoles: ["maintain", "admin"],
+    },
+    requester: {
+      repositoryRoles: ["write"],
+    },
+  },
+};
+
+describe("domain model contracts", () => {
+  it("exports core batch, approval, execution, and audit contracts", () => {
+    const request: ExecutionRequest = {
+      batchId: batchDefinition.batchId,
+      expiresAt: "2026-05-13T02:00:00.000Z",
+      requestDigest:
+        "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      requestedAt: "2026-05-13T01:00:00.000Z",
+      requestedBy: "developer",
+      requestId: "btr-20260513010000-payment.daily-close-abcdef12",
+      status: "REQUESTED",
+      triggerType: "MANUAL",
+    };
+    const decision: ApprovalDecision = {
+      decidedAt: "2026-05-13T01:05:00.000Z",
+      decidedBy: "maintainer",
+      decision: "APPROVED",
+      decisionId: "approval-1",
+      requestDigest: request.requestDigest,
+      subjectId: request.requestId,
+      subjectType: "EXECUTION_REQUEST",
+    };
+    const run: ExecutionRun = {
+      batchId: request.batchId,
+      requestId: request.requestId,
+      runId: "run-1",
+      status: "QUEUED",
+    };
+    const auditItem: AuditTimelineItem = {
+      actor: decision.decidedBy,
+      itemId: "audit-1",
+      occurredAt: decision.decidedAt,
+      subjectId: decision.subjectId,
+      subjectType: "EXECUTION_REQUEST",
+      summary: "Execution request approved.",
+      type: "APPROVAL_RECORDED",
+    };
+
+    expect(batchDefinition.workflow.path).toBe(
+      ".github/workflows/payment.daily-close.yml",
+    );
+    expect(approvalPolicy.preventSelfApproval).toBe(true);
+    expect(roleMapping.roles.maintainer.repositoryRoles).toContain("admin");
+    expect(request.status).toBe("REQUESTED");
+    expect(decision.decision).toBe("APPROVED");
+    expect(run.status).toBe("QUEUED");
+    expect(auditItem.type).toBe("APPROVAL_RECORDED");
+  });
+
+  it("exports GitHub Lite repository file schemas", () => {
+    const configFile: BatchGovernanceConfigFile = {
+      apiVersion: "batchtrail.io/v1",
+      kind: "BatchGovernanceConfig",
+      metadata: {
+        repository: "always0ne/batch",
+      },
+      spec: {
+        batchesPath: ".batch-governance/batches",
+        configPath: ".batch-governance",
+        defaultWorkflowRef: "main",
+        dispatcherWorkflowPath: ".github/workflows/batchtrail-dispatcher.yml",
+        schedulesPath: ".batch-governance/schedules",
+      },
+    };
+    const batchFile: BatchDefinitionFile = {
+      apiVersion: "batchtrail.io/v1",
+      kind: "BatchDefinition",
+      metadata: {
+        id: batchDefinition.batchId,
+        name: batchDefinition.name,
+      },
+      spec: {
+        criticality: batchDefinition.criticality,
+        domain: batchDefinition.domain,
+        environment: batchDefinition.environment,
+        gateRequired: true,
+        owner: batchDefinition.owner,
+        status: batchDefinition.status,
+        workflow: batchDefinition.workflow,
+      },
+    };
+    const roleMappingFile: RoleMappingFile = {
+      apiVersion: "batchtrail.io/v1",
+      kind: "RoleMapping",
+      metadata: {
+        id: "default",
+      },
+      spec: roleMapping,
+    };
+    const approvalPolicyFile: ApprovalPolicyFile = {
+      apiVersion: "batchtrail.io/v1",
+      kind: "ApprovalPolicy",
+      metadata: {
+        id: approvalPolicy.policyId,
+        name: approvalPolicy.name,
+      },
+      spec: approvalPolicy,
+    };
+    const requestPayload: ExecutionRequestPayload = {
+      apiVersion: "batchtrail.io/v1",
+      kind: "ExecutionRequest",
+      metadata: {
+        batchId: batchDefinition.batchId,
+        requestId: "btr-20260513010000-payment.daily-close-abcdef12",
+      },
+      spec: {
+        batch: {
+          criticality: batchDefinition.criticality,
+          domain: batchDefinition.domain,
+          environment: batchDefinition.environment,
+          name: batchDefinition.name,
+          owner: batchDefinition.owner,
+        },
+        expiresAt: "2026-05-13T02:00:00.000Z",
+        requestedAt: "2026-05-13T01:00:00.000Z",
+        requestedBy: "developer",
+        triggerType: "MANUAL",
+        workflow: batchDefinition.workflow,
+      },
+    };
+    const files: GitHubLiteRepositoryFile[] = [
+      configFile,
+      batchFile,
+      approvalPolicyFile,
+      roleMappingFile,
+      requestPayload,
+    ];
+
+    expect(files.map((file) => file.kind)).toEqual([
+      "BatchGovernanceConfig",
+      "BatchDefinition",
+      "ApprovalPolicy",
+      "RoleMapping",
+      "ExecutionRequest",
+    ]);
+  });
+
+  it("keeps required and optional file fields explicit", () => {
+    expectTypeOf<BatchDefinitionFile["metadata"]>().toEqualTypeOf<{
+      id: string;
+      labels?: string[];
+      name: string;
+    }>();
+    expectTypeOf<
+      BatchDefinitionFile["spec"]["gateRequired"]
+    >().toEqualTypeOf<true>();
+    expectTypeOf<ExecutionRequestPayload["spec"]["schedule"]>().toEqualTypeOf<
+      ScheduleOccurrenceRef | undefined
+    >();
+  });
+});
