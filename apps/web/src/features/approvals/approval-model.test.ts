@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { GitHubIssue, GitHubPullRequest } from "@batchtrail/github-lite";
+import type {
+  RepositoryIssue,
+  RepositoryPullRequest,
+} from "@batchtrail/domain";
 
 import {
   buildExecutionApprovalComment,
@@ -11,7 +14,7 @@ import {
   parseExecutionApprovalRequest,
 } from "./approval-model";
 
-const pullRequest: GitHubPullRequest = {
+const pullRequest: RepositoryPullRequest = {
   number: 12,
   title: "Register batch payment.daily-close",
   url: "https://github.com/always0ne/batch/pull/12",
@@ -23,7 +26,7 @@ const pullRequest: GitHubPullRequest = {
   merged: false,
 };
 
-const executionIssue: GitHubIssue = {
+const executionIssue: RepositoryIssue = {
   number: 34,
   title: "Run batch payment.daily-close",
   body: [

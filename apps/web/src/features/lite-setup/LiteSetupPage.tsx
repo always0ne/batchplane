@@ -1,8 +1,7 @@
-import {
-  createGitHubLiteClient,
-  GitHubLiteApiError,
-  type GitHubPullRequest,
-} from "@batchtrail/github-lite";
+import type {
+  RepositoryPullRequest,
+  RuntimeInstallationStatus,
+} from "@batchtrail/domain";
 import {
   AlertCircle,
   CheckCircle2,
@@ -17,6 +16,8 @@ import { type FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../shared/components/PageHeader";
+import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
   clearGitHubSession,
   readGitHubSession,
@@ -24,11 +25,6 @@ import {
   writeGitHubSession,
   type GitHubSession,
 } from "./github-session";
-import {
-  checkLiteInstallationStatus,
-  createLiteInstallationPullRequest,
-  type LiteInstallationStatus,
-} from "./installation-model";
 
 type ConnectionCheckState =
   | { type: "idle" }
@@ -45,10 +41,10 @@ type ConnectionCheckState =
 type InstallationCheckState =
   | { type: "idle" }
   | { type: "checking" }
-  | { type: "installed"; status: LiteInstallationStatus }
-  | { type: "missing"; status: LiteInstallationStatus }
+  | { type: "installed"; status: RuntimeInstallationStatus }
+  | { type: "missing"; status: RuntimeInstallationStatus }
   | { type: "creating" }
-  | { type: "success"; pullRequest: GitHubPullRequest }
+  | { type: "success"; pullRequest: RepositoryPullRequest }
   | { type: "error"; message: string };
 
 export function LiteSetupPage() {
@@ -115,10 +111,10 @@ export function LiteSetupPage() {
     setInstallationState({ type: "checking" });
 
     try {
-      const client = createGitHubLiteClient({ token: session.token });
+      const runtime = createGitHubLiteRuntime(session);
       const [user, repository] = await Promise.all([
-        client.getCurrentUser(),
-        client.getRepository(session),
+        runtime.settings.getCurrentUser(),
+        runtime.settings.getRepository(),
       ]);
 
       setOwner(repository.owner);
@@ -129,11 +125,11 @@ export function LiteSetupPage() {
         repository: `${repository.owner}/${repository.repo}`,
         defaultBranch: repository.defaultBranch,
       });
-      const installationStatus = await checkLiteInstallationStatus({
-        client,
-        ref: repository.defaultBranch,
-        repo: session,
-      });
+      const installationStatus = await runtime.settings.checkInstallationStatus(
+        {
+          ref: repository.defaultBranch,
+        },
+      );
       setInstallationState(
         installationStatus.installed
           ? { type: "installed", status: installationStatus }
@@ -176,13 +172,12 @@ export function LiteSetupPage() {
     setInstallationState({ type: "creating" });
 
     try {
-      const client = createGitHubLiteClient({ token: session.token });
-      const repository = await client.getRepository(session);
-      const { pullRequest } = await createLiteInstallationPullRequest({
-        client,
-        defaultBranch: repository.defaultBranch,
-        repo: session,
-      });
+      const runtime = createGitHubLiteRuntime(session);
+      const repository = await runtime.settings.getRepository();
+      const { pullRequest } =
+        await runtime.settings.createInstallationPullRequest({
+          defaultBranch: repository.defaultBranch,
+        });
 
       setInstallationState({ type: "success", pullRequest });
     } catch (error) {
@@ -494,13 +489,5 @@ function StatusRow({ label, value }: { label: string; value: string }) {
 }
 
 function formatConnectionError(error: unknown, fallback: string): string {
-  if (error instanceof GitHubLiteApiError) {
-    return error.message;
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return fallback;
+  return formatRuntimeError(error, fallback);
 }

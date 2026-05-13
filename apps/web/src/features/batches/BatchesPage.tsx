@@ -1,9 +1,4 @@
-import {
-  createGitHubLiteClient,
-  GitHubLiteApiError,
-  type GitHubIssue,
-} from "@batchtrail/github-lite";
-import type { BatchDefinition } from "@batchtrail/domain";
+import type { BatchDefinition, RepositoryIssue } from "@batchtrail/domain";
 import { ExternalLink, Loader2, Play, Plus, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -11,6 +6,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../shared/components/PageHeader";
+import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
   readGitHubSession,
   type GitHubSession,
@@ -21,7 +18,6 @@ import {
   type ExecutionRequestIssue,
 } from "../execution-requests/execution-request-model";
 import { buildExecutionApprovalHandoff } from "../approvals/approval-handoff";
-import { loadBatchDefinitions } from "./batch-repository";
 
 type BatchListState =
   | { type: "loading" }
@@ -40,7 +36,7 @@ type ExecutionRequestState =
   | { type: "running"; batchId: string }
   | {
       type: "success";
-      issue: GitHubIssue;
+      issue: RepositoryIssue;
       requestIssue: ExecutionRequestIssue;
     }
   | { type: "error"; message: string };
@@ -67,15 +63,13 @@ export function BatchesPage() {
       setState({ type: "loading" });
 
       try {
-        const client = createGitHubLiteClient({ token: session.token });
+        const runtime = createGitHubLiteRuntime(session);
         const [repository, user] = await Promise.all([
-          client.getRepository(session),
-          client.getCurrentUser(),
+          runtime.settings.getRepository(),
+          runtime.settings.getCurrentUser(),
         ]);
-        const batches = await loadBatchDefinitions({
-          client,
+        const batches = await runtime.batches.listBatchDefinitions({
           ref: repository.defaultBranch,
-          repository: session,
         });
 
         if (!ignoreResult) {
@@ -124,9 +118,8 @@ export function BatchesPage() {
         requestedAt: now,
         requestedBy: state.login,
       });
-      const client = createGitHubLiteClient({ token: state.session.token });
-      const issue = await client.createIssue({
-        ...state.session,
+      const runtime = createGitHubLiteRuntime(state.session);
+      const issue = await runtime.executions.createExecutionRequest({
         body: requestIssue.body,
         labels: requestIssue.labels,
         title: requestIssue.title,
@@ -377,13 +370,5 @@ function StatusPanel({
 }
 
 function formatBatchListError(error: unknown): string {
-  if (error instanceof GitHubLiteApiError) {
-    return error.message;
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Failed to load batch definitions.";
+  return formatRuntimeError(error, "Failed to load batch definitions.");
 }

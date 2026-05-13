@@ -1,4 +1,7 @@
-import type { GitHubIssue, GitHubPullRequest } from "@batchtrail/github-lite";
+import type {
+  RepositoryIssue,
+  RepositoryPullRequest,
+} from "@batchtrail/domain";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,7 +15,7 @@ import {
 } from "./approval-handoff";
 import { parseExecutionApprovalRequest } from "./approval-model";
 
-const registrationPullRequest: GitHubPullRequest = {
+const registrationPullRequest: RepositoryPullRequest = {
   author: "developer",
   base: "main",
   body: "body",
@@ -24,7 +27,7 @@ const registrationPullRequest: GitHubPullRequest = {
   url: "https://github.com/always0ne/batch/pull/12",
 };
 
-const executionIssue: GitHubIssue = {
+const executionIssue: RepositoryIssue = {
   author: "developer",
   body: [
     "## BatchTrail Execution Request",
