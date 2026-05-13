@@ -263,6 +263,268 @@ export type GitHubLiteRepositoryFile =
   | ScheduleDefinitionFile
   | ExecutionRequestPayload;
 
+export type ValidationSeverity = "error" | "warning";
+
+export type FieldValidationDiagnostic = {
+  field: string;
+  code: string;
+  message: string;
+  severity: ValidationSeverity;
+};
+
+export type ValidationResult<T> =
+  | {
+      diagnostics: [];
+      ok: true;
+      value: T;
+    }
+  | {
+      diagnostics: FieldValidationDiagnostic[];
+      ok: false;
+    };
+
+export type ApprovalPolicyInput = Omit<ApprovalPolicy, "preventSelfApproval"> &
+  Partial<Pick<ApprovalPolicy, "preventSelfApproval">>;
+
+export function validateBatchDefinition(
+  definition: unknown,
+): FieldValidationDiagnostic[] {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(definition, "$", diagnostics);
+
+  if (!record) {
+    return diagnostics;
+  }
+
+  requireString(record, "batchId", diagnostics);
+  requireString(record, "name", diagnostics);
+  requireString(record, "owner", diagnostics);
+  requireString(record, "domain", diagnostics);
+  requireString(record, "environment", diagnostics);
+  validateEnumField(
+    record.criticality,
+    "criticality",
+    criticalityValues,
+    diagnostics,
+  );
+  validateEnumField(record.status, "status", batchStatusValues, diagnostics);
+  validateWorkflowTarget(record.workflow, "workflow", diagnostics);
+  validateGateRequired(record.gateRequired, diagnostics);
+  validateOptionalExecution(record.execution, diagnostics);
+  validateOptionalStringArray(record.labels, "labels", diagnostics);
+
+  return diagnostics;
+}
+
+export function validateBatchDefinitionFile(
+  file: unknown,
+): ValidationResult<BatchDefinitionFile> {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(file, "$", diagnostics);
+
+  if (!record) {
+    return { diagnostics, ok: false };
+  }
+
+  validateExactValue(
+    record.apiVersion,
+    "apiVersion",
+    "batchtrail.io/v1",
+    diagnostics,
+  );
+  validateExactValue(record.kind, "kind", "BatchDefinition", diagnostics);
+
+  const metadata = requireRecord(record.metadata, "metadata", diagnostics);
+  const spec = requireRecord(record.spec, "spec", diagnostics);
+
+  if (metadata && spec) {
+    const batchDefinition = {
+      batchId: metadata.id,
+      criticality: spec.criticality,
+      domain: spec.domain,
+      environment: spec.environment,
+      execution: spec.execution,
+      gateRequired: spec.gateRequired,
+      labels: metadata.labels,
+      name: metadata.name,
+      owner: spec.owner,
+      status: spec.status,
+      workflow: spec.workflow,
+    };
+
+    diagnostics.push(
+      ...validateBatchDefinition(batchDefinition).map(
+        mapBatchDefinitionDiagnosticToFile,
+      ),
+    );
+  }
+
+  if (diagnostics.length > 0) {
+    return { diagnostics, ok: false };
+  }
+
+  return { diagnostics: [], ok: true, value: file as BatchDefinitionFile };
+}
+
+export function normalizeApprovalPolicy(
+  policy: ApprovalPolicyInput,
+): ApprovalPolicy {
+  return {
+    ...policy,
+    preventSelfApproval: policy.preventSelfApproval ?? true,
+  };
+}
+
+export function validateApprovalPolicy(
+  policy: unknown,
+): FieldValidationDiagnostic[] {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(policy, "$", diagnostics);
+
+  if (!record) {
+    return diagnostics;
+  }
+
+  requireString(record, "policyId", diagnostics);
+  requireString(record, "name", diagnostics);
+  validatePositiveInteger(
+    record.requiredApprovals,
+    "requiredApprovals",
+    diagnostics,
+  );
+  validateApproverSelector(record.approvers, "approvers", diagnostics);
+  validateOptionalBoolean(
+    record.preventSelfApproval,
+    "preventSelfApproval",
+    diagnostics,
+  );
+  validateEnumArrayField(
+    record.appliesTo,
+    "appliesTo",
+    approvalSubjectTypeValues,
+    diagnostics,
+  );
+
+  return diagnostics;
+}
+
+export function validateApprovalPolicyFile(
+  file: unknown,
+): ValidationResult<ApprovalPolicyFile> {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(file, "$", diagnostics);
+
+  if (!record) {
+    return { diagnostics, ok: false };
+  }
+
+  validateExactValue(
+    record.apiVersion,
+    "apiVersion",
+    "batchtrail.io/v1",
+    diagnostics,
+  );
+  validateExactValue(record.kind, "kind", "ApprovalPolicy", diagnostics);
+
+  const metadata = requireRecord(record.metadata, "metadata", diagnostics);
+  const spec = requireRecord(record.spec, "spec", diagnostics);
+
+  if (metadata) {
+    requireString(metadata, "id", diagnostics, "metadata.id");
+    requireString(metadata, "name", diagnostics, "metadata.name");
+  }
+
+  if (spec) {
+    diagnostics.push(
+      ...validateApprovalPolicy(spec).map((diagnostic) => ({
+        ...diagnostic,
+        field: `spec.${diagnostic.field}`,
+      })),
+    );
+  }
+
+  if (diagnostics.length > 0) {
+    return { diagnostics, ok: false };
+  }
+
+  return { diagnostics: [], ok: true, value: file as ApprovalPolicyFile };
+}
+
+export function validateRoleMapping(
+  roleMapping: unknown,
+): FieldValidationDiagnostic[] {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(roleMapping, "$", diagnostics);
+
+  if (!record) {
+    return diagnostics;
+  }
+
+  const roles = requireRecord(record.roles, "roles", diagnostics);
+
+  if (!roles) {
+    return diagnostics;
+  }
+
+  Object.keys(roles)
+    .filter((role) => !roleMappingRoles.includes(role as RoleMappingRole))
+    .forEach((role) => {
+      diagnostics.push({
+        code: "unexpected_role",
+        field: `roles.${role}`,
+        message: `Role '${role}' is not a supported BatchTrail role.`,
+        severity: "error",
+      });
+    });
+
+  roleMappingRoles.forEach((role) => {
+    validateApproverSelector(roles[role], `roles.${role}`, diagnostics);
+  });
+
+  return diagnostics;
+}
+
+export function validateRoleMappingFile(
+  file: unknown,
+): ValidationResult<RoleMappingFile> {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(file, "$", diagnostics);
+
+  if (!record) {
+    return { diagnostics, ok: false };
+  }
+
+  validateExactValue(
+    record.apiVersion,
+    "apiVersion",
+    "batchtrail.io/v1",
+    diagnostics,
+  );
+  validateExactValue(record.kind, "kind", "RoleMapping", diagnostics);
+
+  const metadata = requireRecord(record.metadata, "metadata", diagnostics);
+  const spec = requireRecord(record.spec, "spec", diagnostics);
+
+  if (metadata) {
+    requireString(metadata, "id", diagnostics, "metadata.id");
+  }
+
+  if (spec) {
+    diagnostics.push(
+      ...validateRoleMapping(spec).map((diagnostic) => ({
+        ...diagnostic,
+        field: `spec.${diagnostic.field}`,
+      })),
+    );
+  }
+
+  if (diagnostics.length > 0) {
+    return { diagnostics, ok: false };
+  }
+
+  return { diagnostics: [], ok: true, value: file as RoleMappingFile };
+}
+
 export type YamlScalar = string | number | boolean | null;
 
 export type YamlValue =
@@ -508,4 +770,411 @@ function isYamlRecord(
 
 function countLeadingSpaces(value: string): number {
   return value.length - value.trimStart().length;
+}
+
+const batchStatusValues = ["ACTIVE", "INACTIVE"] as const;
+const criticalityValues = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+const repositoryRoleValues = ["admin", "maintain", "write", "triage"] as const;
+const approvalSubjectTypeValues = [
+  "BATCH_REGISTRATION",
+  "BATCH_CHANGE",
+  "EXECUTION_REQUEST",
+  "SCHEDULE_DEFINITION",
+] as const;
+const roleMappingRoles: RoleMappingRole[] = [
+  "requester",
+  "approver",
+  "maintainer",
+  "auditor",
+];
+
+type UnknownRecord = Record<string, unknown>;
+
+function requireRecord(
+  value: unknown,
+  field: string,
+  diagnostics: FieldValidationDiagnostic[],
+): UnknownRecord | undefined {
+  if (isRecord(value)) {
+    return value;
+  }
+
+  diagnostics.push({
+    code: value === undefined ? "required" : "invalid_type",
+    field,
+    message:
+      value === undefined
+        ? `${field} is required.`
+        : `${field} must be an object.`,
+    severity: "error",
+  });
+
+  return undefined;
+}
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function requireString(
+  record: UnknownRecord,
+  key: string,
+  diagnostics: FieldValidationDiagnostic[],
+  field = key,
+): string | undefined {
+  const value = record[key];
+
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+
+  diagnostics.push({
+    code: value === undefined || value === "" ? "required" : "invalid_type",
+    field,
+    message:
+      value === undefined || value === ""
+        ? `${field} is required.`
+        : `${field} must be a non-empty string.`,
+    severity: "error",
+  });
+
+  return undefined;
+}
+
+function validateExactValue(
+  value: unknown,
+  field: string,
+  expected: string,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (value === expected) {
+    return;
+  }
+
+  diagnostics.push({
+    code: value === undefined ? "required" : "invalid_value",
+    field,
+    message: `${field} must be '${expected}'.`,
+    severity: "error",
+  });
+}
+
+function validateEnumField<const T extends readonly string[]>(
+  value: unknown,
+  field: string,
+  allowedValues: T,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (typeof value === "string" && allowedValues.includes(value)) {
+    return;
+  }
+
+  diagnostics.push({
+    code: value === undefined || value === "" ? "required" : "invalid_value",
+    field,
+    message: `${field} must be one of: ${allowedValues.join(", ")}.`,
+    severity: "error",
+  });
+}
+
+function validateEnumArrayField<const T extends readonly string[]>(
+  value: unknown,
+  field: string,
+  allowedValues: T,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (!Array.isArray(value)) {
+    diagnostics.push({
+      code: value === undefined ? "required" : "invalid_type",
+      field,
+      message: `${field} must be a non-empty array.`,
+      severity: "error",
+    });
+    return;
+  }
+
+  if (value.length === 0) {
+    diagnostics.push({
+      code: "required",
+      field,
+      message: `${field} must include at least one value.`,
+      severity: "error",
+    });
+    return;
+  }
+
+  value.forEach((item, index) => {
+    if (typeof item === "string" && allowedValues.includes(item)) {
+      return;
+    }
+
+    diagnostics.push({
+      code: "invalid_value",
+      field: `${field}.${index}`,
+      message: `${field}.${index} must be one of: ${allowedValues.join(", ")}.`,
+      severity: "error",
+    });
+  });
+}
+
+function validatePositiveInteger(
+  value: unknown,
+  field: string,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (Number.isInteger(value) && Number(value) > 0) {
+    return;
+  }
+
+  diagnostics.push({
+    code: value === undefined ? "required" : "invalid_value",
+    field,
+    message: `${field} must be a positive integer.`,
+    severity: "error",
+  });
+}
+
+function validateOptionalBoolean(
+  value: unknown,
+  field: string,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (value === undefined || typeof value === "boolean") {
+    return;
+  }
+
+  diagnostics.push({
+    code: "invalid_type",
+    field,
+    message: `${field} must be a boolean when provided.`,
+    severity: "error",
+  });
+}
+
+function validateWorkflowTarget(
+  value: unknown,
+  field: string,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  const workflow = requireRecord(value, field, diagnostics);
+
+  if (!workflow) {
+    return;
+  }
+
+  const path = requireString(workflow, "path", diagnostics, `${field}.path`);
+  requireString(workflow, "ref", diagnostics, `${field}.ref`);
+
+  if (path && !/^\.github\/workflows\/[^/]+\.ya?ml$/u.test(path.trim())) {
+    diagnostics.push({
+      code: "invalid_workflow_path",
+      field: `${field}.path`,
+      message: `${field}.path must be a .yml or .yaml file directly under .github/workflows/.`,
+      severity: "error",
+    });
+  }
+}
+
+function validateGateRequired(
+  value: unknown,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (value === true) {
+    return;
+  }
+
+  diagnostics.push({
+    code: value === undefined ? "required" : "gate_required",
+    field: "gateRequired",
+    message: "gateRequired must be true for Repo Mode batches.",
+    severity: "error",
+  });
+}
+
+function validateOptionalExecution(
+  value: unknown,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (value === undefined) {
+    return;
+  }
+
+  const execution = requireRecord(value, "execution", diagnostics);
+
+  if (!execution) {
+    return;
+  }
+
+  validateRunnerLabel(execution.runsOn, "execution.runsOn", diagnostics);
+  requireString(execution, "command", diagnostics, "execution.command");
+
+  if (
+    execution.artifactPath !== undefined &&
+    typeof execution.artifactPath !== "string"
+  ) {
+    diagnostics.push({
+      code: "invalid_type",
+      field: "execution.artifactPath",
+      message: "execution.artifactPath must be a string when provided.",
+      severity: "error",
+    });
+  }
+}
+
+function validateRunnerLabel(
+  value: unknown,
+  field: string,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (typeof value === "string" && value.trim()) {
+    return;
+  }
+
+  if (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => typeof item === "string" && item.trim())
+  ) {
+    return;
+  }
+
+  diagnostics.push({
+    code: value === undefined ? "required" : "invalid_type",
+    field,
+    message: `${field} must be a non-empty string or string array.`,
+    severity: "error",
+  });
+}
+
+function validateOptionalStringArray(
+  value: unknown,
+  field: string,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (value === undefined) {
+    return;
+  }
+
+  validateStringArray(value, field, diagnostics, false);
+}
+
+function validateStringArray(
+  value: unknown,
+  field: string,
+  diagnostics: FieldValidationDiagnostic[],
+  requireNonEmpty: boolean,
+) {
+  if (!Array.isArray(value)) {
+    diagnostics.push({
+      code: value === undefined ? "required" : "invalid_type",
+      field,
+      message: `${field} must be an array of non-empty strings.`,
+      severity: "error",
+    });
+    return;
+  }
+
+  if (requireNonEmpty && value.length === 0) {
+    diagnostics.push({
+      code: "required",
+      field,
+      message: `${field} must include at least one value.`,
+      severity: "error",
+    });
+    return;
+  }
+
+  value.forEach((item, index) => {
+    if (typeof item === "string" && item.trim()) {
+      return;
+    }
+
+    diagnostics.push({
+      code: "invalid_type",
+      field: `${field}.${index}`,
+      message: `${field}.${index} must be a non-empty string.`,
+      severity: "error",
+    });
+  });
+}
+
+function validateApproverSelector(
+  value: unknown,
+  field: string,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  const selector = requireRecord(value, field, diagnostics);
+
+  if (!selector) {
+    return;
+  }
+
+  const hasGithubUsers =
+    Array.isArray(selector.githubUsers) && selector.githubUsers.length > 0;
+  const hasGithubTeams =
+    Array.isArray(selector.githubTeams) && selector.githubTeams.length > 0;
+  const hasRepositoryRoles =
+    Array.isArray(selector.repositoryRoles) &&
+    selector.repositoryRoles.length > 0;
+
+  if (!hasGithubUsers && !hasGithubTeams && !hasRepositoryRoles) {
+    diagnostics.push({
+      code: "selector_required",
+      field,
+      message: `${field} must define at least one of githubUsers, githubTeams, or repositoryRoles.`,
+      severity: "error",
+    });
+  }
+
+  if (selector.githubUsers !== undefined) {
+    validateStringArray(
+      selector.githubUsers,
+      `${field}.githubUsers`,
+      diagnostics,
+      true,
+    );
+  }
+
+  if (selector.githubTeams !== undefined) {
+    validateStringArray(
+      selector.githubTeams,
+      `${field}.githubTeams`,
+      diagnostics,
+      true,
+    );
+  }
+
+  if (selector.repositoryRoles !== undefined) {
+    validateEnumArrayField(
+      selector.repositoryRoles,
+      `${field}.repositoryRoles`,
+      repositoryRoleValues,
+      diagnostics,
+    );
+  }
+}
+
+function mapBatchDefinitionDiagnosticToFile(
+  diagnostic: FieldValidationDiagnostic,
+): FieldValidationDiagnostic {
+  if (diagnostic.field === "batchId") {
+    return { ...diagnostic, field: "metadata.id" };
+  }
+
+  if (diagnostic.field === "name") {
+    return { ...diagnostic, field: "metadata.name" };
+  }
+
+  if (diagnostic.field === "labels") {
+    return { ...diagnostic, field: "metadata.labels" };
+  }
+
+  if (diagnostic.field.startsWith("labels.")) {
+    return {
+      ...diagnostic,
+      field: `metadata.${diagnostic.field}`,
+    };
+  }
+
+  return { ...diagnostic, field: `spec.${diagnostic.field}` };
 }

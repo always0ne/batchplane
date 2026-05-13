@@ -2,12 +2,20 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   formatYamlDiagnostics,
+  normalizeApprovalPolicy,
   parseYamlDocument,
   serializeYamlDocument,
+  validateApprovalPolicy,
+  validateApprovalPolicyFile,
+  validateBatchDefinition,
+  validateBatchDefinitionFile,
+  validateRoleMapping,
+  validateRoleMappingFile,
 } from "./index";
 import type {
   ApprovalDecision,
   ApprovalPolicy,
+  ApprovalPolicyInput,
   ApprovalPolicyFile,
   AuditTimelineItem,
   BatchDefinition,
@@ -215,6 +223,184 @@ describe("domain model contracts", () => {
     expectTypeOf<ExecutionRequestPayload["spec"]["schedule"]>().toEqualTypeOf<
       ScheduleOccurrenceRef | undefined
     >();
+  });
+});
+
+describe("domain schema validation", () => {
+  it("returns field-level diagnostics when required batch fields are missing", () => {
+    expect(
+      validateBatchDefinition({ ...batchDefinition, batchId: "", owner: "" }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "required",
+          field: "batchId",
+        }),
+        expect.objectContaining({
+          code: "required",
+          field: "owner",
+        }),
+      ]),
+    );
+  });
+
+  it("validates active and inactive batch status values", () => {
+    expect(validateBatchDefinition(batchDefinition)).toEqual([]);
+    expect(
+      validateBatchDefinition({
+        ...batchDefinition,
+        status: "PAUSED",
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "invalid_value",
+          field: "status",
+        }),
+      ]),
+    );
+  });
+
+  it("validates workflow target fields and mandatory Gate usage", () => {
+    expect(
+      validateBatchDefinition({
+        ...batchDefinition,
+        gateRequired: false,
+        workflow: {
+          path: "workflows/payment.daily-close.yml",
+          ref: "",
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "invalid_workflow_path",
+          field: "workflow.path",
+        }),
+        expect.objectContaining({
+          code: "required",
+          field: "workflow.ref",
+        }),
+        expect.objectContaining({
+          code: "gate_required",
+          field: "gateRequired",
+        }),
+      ]),
+    );
+  });
+
+  it("validates batch definition repository files", () => {
+    const result = validateBatchDefinitionFile({
+      apiVersion: "batchtrail.io/v1",
+      kind: "BatchDefinition",
+      metadata: {
+        id: batchDefinition.batchId,
+        name: batchDefinition.name,
+      },
+      spec: {
+        criticality: batchDefinition.criticality,
+        domain: batchDefinition.domain,
+        environment: batchDefinition.environment,
+        gateRequired: true,
+        owner: batchDefinition.owner,
+        status: batchDefinition.status,
+        workflow: batchDefinition.workflow,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("parses approval selectors and defaults preventSelfApproval", () => {
+    const policyWithoutSelfApproval: ApprovalPolicyInput = {
+      appliesTo: ["EXECUTION_REQUEST"],
+      approvers: {
+        githubTeams: ["platform-ops"],
+        githubUsers: ["always0ne"],
+        repositoryRoles: ["maintain"],
+      },
+      name: "Execution approval",
+      policyId: "execution-approval",
+      requiredApprovals: 1,
+    };
+
+    expect(normalizeApprovalPolicy(policyWithoutSelfApproval)).toMatchObject({
+      preventSelfApproval: true,
+    });
+    expect(validateApprovalPolicy(policyWithoutSelfApproval)).toEqual([]);
+  });
+
+  it("rejects invalid approval policy repository roles", () => {
+    expect(
+      validateApprovalPolicy({
+        ...approvalPolicy,
+        approvers: {
+          repositoryRoles: ["read"],
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "invalid_value",
+          field: "approvers.repositoryRoles.0",
+        }),
+      ]),
+    );
+  });
+
+  it("validates approval policy repository files", () => {
+    const result = validateApprovalPolicyFile({
+      apiVersion: "batchtrail.io/v1",
+      kind: "ApprovalPolicy",
+      metadata: {
+        id: approvalPolicy.policyId,
+        name: approvalPolicy.name,
+      },
+      spec: approvalPolicy,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("validates role mapping selectors for all built-in roles", () => {
+    expect(validateRoleMapping(roleMapping)).toEqual([]);
+    expect(
+      validateRoleMapping({
+        roles: {
+          requester: {
+            repositoryRoles: ["write"],
+          },
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "required",
+          field: "roles.approver",
+        }),
+        expect.objectContaining({
+          code: "required",
+          field: "roles.maintainer",
+        }),
+        expect.objectContaining({
+          code: "required",
+          field: "roles.auditor",
+        }),
+      ]),
+    );
+  });
+
+  it("validates role mapping repository files", () => {
+    const result = validateRoleMappingFile({
+      apiVersion: "batchtrail.io/v1",
+      kind: "RoleMapping",
+      metadata: {
+        id: "default",
+      },
+      spec: roleMapping,
+    });
+
+    expect(result.ok).toBe(true);
   });
 });
 
