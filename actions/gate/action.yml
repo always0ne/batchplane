@@ -31,5 +31,5 @@ inputs:
     default: github-actions[bot]
     description: GitHub actor expected for dispatcher-triggered workflow runs
 runs:
-  using: node20
+  using: node24
   main: dist/index.js
