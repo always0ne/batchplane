@@ -86,6 +86,7 @@ describe("registration model", () => {
     expect(workflowYaml).toContain(
       "uses: always0ne/batchtrail/actions/gate@main",
     );
+    expect(workflowYaml).toContain("github-token: ${{ secrets.GITHUB_TOKEN }}");
     expect(workflowYaml).toContain("needs: batchtrail-gate");
     expect(workflowYaml).toContain("./scripts/daily-close.sh");
   });

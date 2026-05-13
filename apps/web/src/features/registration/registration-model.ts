@@ -156,6 +156,7 @@ export function buildBatchWorkflowYaml(
     "          approval-source: issue",
     "          approval-ref: ${{ inputs.request_id }}",
     "          request-digest: ${{ inputs.request_digest }}",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
     "",
     "  run-batch:",
     "    name: Run governed batch",

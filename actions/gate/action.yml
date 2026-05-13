@@ -23,6 +23,13 @@ inputs:
   request-digest:
     required: false
     description: Approved request digest
+  github-token:
+    required: false
+    description: GitHub token used to read execution request and approval evidence
+  dispatcher-actor:
+    required: false
+    default: github-actions[bot]
+    description: GitHub actor expected for dispatcher-triggered workflow runs
 runs:
   using: node20
   main: dist/index.js
