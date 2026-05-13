@@ -1,3 +1,20 @@
+const dispatcherLabels = {
+    dispatched: {
+        color: "16A34A",
+        description: "BatchTrail dispatcher completed workflow dispatch",
+        name: "batchtrail:dispatched",
+    },
+    dispatchFailed: {
+        color: "DC2626",
+        description: "BatchTrail dispatcher failed workflow dispatch",
+        name: "batchtrail:dispatch-failed",
+    },
+    dispatching: {
+        color: "2563EB",
+        description: "BatchTrail dispatcher is processing this execution request",
+        name: "batchtrail:dispatching",
+    },
+};
 export function parseDispatcherCommand(commentBody) {
     if (commentBody.startsWith("/bgcp approve ")) {
         return "approve";
@@ -40,7 +57,44 @@ export async function dispatchApprovedExecutionRequest({ apiBaseUrl = "https://a
             status: "failed",
         };
     }
-    await client.dispatchWorkflow(verification.dispatchPlan);
+    const dispatchState = findExistingDispatchState({
+        comments: await client.listIssueComments(issueNumber),
+        dispatchPlan: verification.dispatchPlan,
+        labels: issue.labels,
+    });
+    if (dispatchState.handled) {
+        return {
+            dispatchPlan: verification.dispatchPlan,
+            message: dispatchState.message,
+            reasonCode: dispatchState.reasonCode,
+            status: "ignored",
+        };
+    }
+    await client.ensureLabels([
+        dispatcherLabels.dispatching,
+        dispatcherLabels.dispatched,
+        dispatcherLabels.dispatchFailed,
+    ]);
+    await client.addIssueLabels(issueNumber, [dispatcherLabels.dispatching.name]);
+    await client.createIssueComment(issueNumber, buildDispatchingComment(verification.dispatchPlan));
+    try {
+        await client.dispatchWorkflow(verification.dispatchPlan);
+    }
+    catch (error) {
+        await client.addIssueLabels(issueNumber, [
+            dispatcherLabels.dispatchFailed.name,
+        ]);
+        await client.removeIssueLabel(issueNumber, dispatcherLabels.dispatching.name);
+        await client.createIssueComment(issueNumber, buildDispatchFailureComment(error instanceof Error ? error.message : String(error), "WORKFLOW_DISPATCH_FAILED", verification.dispatchPlan));
+        return {
+            dispatchPlan: verification.dispatchPlan,
+            message: error instanceof Error ? error.message : String(error),
+            reasonCode: "WORKFLOW_DISPATCH_FAILED",
+            status: "failed",
+        };
+    }
+    await client.addIssueLabels(issueNumber, [dispatcherLabels.dispatched.name]);
+    await client.removeIssueLabel(issueNumber, dispatcherLabels.dispatching.name);
     await client.createIssueComment(issueNumber, buildDispatchSuccessComment(verification.dispatchPlan));
     return {
         dispatchPlan: verification.dispatchPlan,
@@ -126,7 +180,7 @@ export function verifyDispatcherEvidence({ approvalCommentBody, issueBody, now =
     };
 }
 export function parseExecutionRequestEvidence(issueBody) {
-    const marker = parseBatchTrailMarker(issueBody, "execution-request");
+    const marker = parseBatchTrailMarker(issueBody, "execution-request") ?? new Map();
     const requestId = marker.get("requestId") ?? readMarkdownField(issueBody, "Request ID");
     const batchId = marker.get("batchId") ?? readMarkdownField(issueBody, "Batch ID");
     const requestDigest = marker.get("requestDigest") ??
@@ -150,7 +204,7 @@ export function parseExecutionRequestEvidence(issueBody) {
     };
 }
 export function parseExecutionApprovalEvidence(commentBody) {
-    const marker = parseBatchTrailMarker(commentBody, "execution-approval");
+    const marker = parseBatchTrailMarker(commentBody, "execution-approval") ?? new Map();
     const decision = marker.get("decision");
     const requestId = marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
     const batchId = marker.get("batchId") ?? readMarkdownField(commentBody, "Batch ID");
@@ -169,11 +223,35 @@ export function parseExecutionApprovalEvidence(commentBody) {
         requestId,
     };
 }
+export function parseDispatcherStatusEvidence(commentBody) {
+    const marker = parseBatchTrailMarker(commentBody, "bgcp:dispatcher") ??
+        parseBatchTrailMarker(commentBody, "execution-dispatch") ??
+        new Map();
+    const status = marker.get("status");
+    const requestId = marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
+    const batchId = marker.get("batchId") ?? readMarkdownField(commentBody, "Batch ID");
+    const requestDigest = marker.get("requestDigest") ??
+        readMarkdownField(commentBody, "Request digest");
+    if ((status !== "DISPATCHING" &&
+        status !== "DISPATCHED" &&
+        status !== "DISPATCH_FAILED") ||
+        !requestId ||
+        !batchId ||
+        !requestDigest) {
+        return null;
+    }
+    return {
+        batchId,
+        requestDigest,
+        requestId,
+        status,
+    };
+}
 function parseBatchTrailMarker(body, kind) {
     const marker = new Map();
     const match = body.match(new RegExp(`<!--\\s*batchtrail:${kind}\\s*([\\s\\S]*?)-->`));
     if (!match?.[1]) {
-        return marker;
+        return null;
     }
     for (const line of match[1].split("\n")) {
         const separatorIndex = line.indexOf("=");
@@ -241,7 +319,7 @@ function createDispatcherGitHubClient({ apiBaseUrl, fetcher, owner, repo, token,
             },
         });
         if (!response.ok) {
-            throw new Error(`GitHub API request failed: ${response.status} ${await response.text()}`);
+            throw new GitHubApiRequestError(`GitHub API request failed: ${response.status} ${await response.text()}`, response.status);
         }
         if (response.status === 204) {
             return null;
@@ -250,11 +328,32 @@ function createDispatcherGitHubClient({ apiBaseUrl, fetcher, owner, repo, token,
     }
     const repoPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
     return {
+        async addIssueLabels(issueNumber, labels) {
+            await request(`${repoPath}/issues/${issueNumber}/labels`, {
+                body: JSON.stringify({ labels }),
+                method: "POST",
+            });
+        },
         async createIssueComment(issueNumber, body) {
             await request(`${repoPath}/issues/${issueNumber}/comments`, {
                 body: JSON.stringify({ body }),
                 method: "POST",
             });
+        },
+        async ensureLabels(labels) {
+            for (const label of labels) {
+                try {
+                    await request(`${repoPath}/labels`, {
+                        body: JSON.stringify(label),
+                        method: "POST",
+                    });
+                }
+                catch (error) {
+                    if (!isGitHubApiStatus(error, 422)) {
+                        throw error;
+                    }
+                }
+            }
         },
         async dispatchWorkflow(dispatchPlan) {
             await request(`${repoPath}/actions/workflows/${encodeURIComponent(getWorkflowId(dispatchPlan.workflowPath))}/dispatches`, {
@@ -267,16 +366,102 @@ function createDispatcherGitHubClient({ apiBaseUrl, fetcher, owner, repo, token,
         },
         async getIssue(issueNumber) {
             const issue = await request(`${repoPath}/issues/${issueNumber}`);
-            return { body: issue?.body ?? "" };
+            return {
+                body: issue?.body ?? "",
+                labels: (issue?.labels ?? [])
+                    .map((label) => (typeof label === "string" ? label : label.name))
+                    .filter((label) => Boolean(label)),
+            };
         },
         async getIssueComment(commentId) {
             const comment = await request(`${repoPath}/issues/comments/${commentId}`);
             return { body: comment?.body ?? "" };
         },
+        async listIssueComments(issueNumber) {
+            const comments = [];
+            for (let page = 1; page <= 5; page += 1) {
+                const response = await request(`${repoPath}/issues/${issueNumber}/comments?per_page=100&page=${page}`);
+                if (!response?.length) {
+                    break;
+                }
+                comments.push(...response.map((comment) => comment.body ?? ""));
+            }
+            return comments;
+        },
+        async removeIssueLabel(issueNumber, label) {
+            try {
+                await request(`${repoPath}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`, {
+                    method: "DELETE",
+                });
+            }
+            catch (error) {
+                if (!isGitHubApiStatus(error, 404)) {
+                    throw error;
+                }
+            }
+        },
     };
 }
 function getWorkflowId(workflowPath) {
     return workflowPath.replace(/^\.github\/workflows\//, "");
+}
+function findExistingDispatchState({ comments, dispatchPlan, labels, }) {
+    const matchingStatus = comments
+        .map(parseDispatcherStatusEvidence)
+        .find((status) => status
+        ? status.requestId === dispatchPlan.requestId &&
+            status.batchId === dispatchPlan.batchId &&
+            status.requestDigest === dispatchPlan.requestDigest &&
+            (status.status === "DISPATCHING" || status.status === "DISPATCHED")
+        : false);
+    if (matchingStatus?.status === "DISPATCHED") {
+        return {
+            handled: true,
+            message: "Execution request has already been dispatched.",
+            reasonCode: "DISPATCH_ALREADY_HANDLED",
+        };
+    }
+    if (matchingStatus?.status === "DISPATCHING") {
+        return {
+            handled: true,
+            message: "Execution request dispatch is already in progress.",
+            reasonCode: "DISPATCH_IN_PROGRESS",
+        };
+    }
+    if (labels.includes(dispatcherLabels.dispatched.name)) {
+        return {
+            handled: true,
+            message: "Execution request has already been dispatched.",
+            reasonCode: "DISPATCH_ALREADY_HANDLED",
+        };
+    }
+    if (labels.includes(dispatcherLabels.dispatching.name)) {
+        return {
+            handled: true,
+            message: "Execution request dispatch is already in progress.",
+            reasonCode: "DISPATCH_IN_PROGRESS",
+        };
+    }
+    return { handled: false };
+}
+function buildDispatchingComment(dispatchPlan) {
+    return [
+        "## BatchTrail Dispatch",
+        "",
+        "- Status: DISPATCHING",
+        `- Request ID: \`${dispatchPlan.requestId}\``,
+        `- Batch ID: \`${dispatchPlan.batchId}\``,
+        `- Workflow: \`${dispatchPlan.workflowPath}\``,
+        `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
+        `- Request digest: \`${dispatchPlan.requestDigest}\``,
+        "",
+        "<!-- batchtrail:bgcp:dispatcher",
+        "status=DISPATCHING",
+        `requestId=${dispatchPlan.requestId}`,
+        `batchId=${dispatchPlan.batchId}`,
+        `requestDigest=${dispatchPlan.requestDigest}`,
+        "-->",
+    ].join("\n");
 }
 function buildDispatchSuccessComment(dispatchPlan) {
     return [
@@ -289,7 +474,7 @@ function buildDispatchSuccessComment(dispatchPlan) {
         `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
         `- Request digest: \`${dispatchPlan.requestDigest}\``,
         "",
-        "<!-- batchtrail:execution-dispatch",
+        "<!-- batchtrail:bgcp:dispatcher",
         "status=DISPATCHED",
         `requestId=${dispatchPlan.requestId}`,
         `batchId=${dispatchPlan.batchId}`,
@@ -297,19 +482,44 @@ function buildDispatchSuccessComment(dispatchPlan) {
         "-->",
     ].join("\n");
 }
-function buildDispatchFailureComment(message, reasonCode) {
+function buildDispatchFailureComment(message, reasonCode, dispatchPlan) {
     return [
         "## BatchTrail Dispatch",
         "",
         "- Status: DISPATCH_FAILED",
         `- Reason code: ${reasonCode}`,
         `- Message: ${message}`,
+        ...(dispatchPlan
+            ? [
+                `- Request ID: \`${dispatchPlan.requestId}\``,
+                `- Batch ID: \`${dispatchPlan.batchId}\``,
+                `- Request digest: \`${dispatchPlan.requestDigest}\``,
+            ]
+            : []),
         "",
-        "<!-- batchtrail:execution-dispatch",
+        "<!-- batchtrail:bgcp:dispatcher",
         "status=DISPATCH_FAILED",
         `reasonCode=${reasonCode}`,
+        ...(dispatchPlan
+            ? [
+                `requestId=${dispatchPlan.requestId}`,
+                `batchId=${dispatchPlan.batchId}`,
+                `requestDigest=${dispatchPlan.requestDigest}`,
+            ]
+            : []),
         "-->",
     ].join("\n");
+}
+class GitHubApiRequestError extends Error {
+    status;
+    constructor(message, status) {
+        super(message);
+        this.name = "GitHubApiRequestError";
+        this.status = status;
+    }
+}
+function isGitHubApiStatus(error, status) {
+    return error instanceof GitHubApiRequestError && error.status === status;
 }
 async function runDispatcherFromEnv() {
     const repository = getEnv("GITHUB_REPOSITORY");

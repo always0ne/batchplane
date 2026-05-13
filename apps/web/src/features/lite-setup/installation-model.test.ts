@@ -70,6 +70,10 @@ describe("Lite installation model", () => {
         if (path === liteDispatcherWorkflowPath) {
           expect(content).toContain("issue_comment:");
           expect(content).toContain("actions: write");
+          expect(content).toContain("concurrency:");
+          expect(content).toContain(
+            "group: batchtrail-dispatch-${{ github.event.issue.number }}",
+          );
           expect(content).toContain(
             "always0ne/batchtrail/actions/dispatcher@main",
           );
@@ -132,6 +136,9 @@ describe("Lite installation model", () => {
     );
     expect(buildDispatcherWorkflowYaml()).toContain(
       "github-token: ${{ secrets.GITHUB_TOKEN }}",
+    );
+    expect(buildDispatcherWorkflowYaml()).toContain(
+      "group: batchtrail-dispatch-${{ github.event.issue.number }}",
     );
   });
 });

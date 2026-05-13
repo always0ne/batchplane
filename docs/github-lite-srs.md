@@ -41,7 +41,9 @@ native permission model.
 The dispatcher workflow installed by the setup PR must listen to
 `issue_comment.created`, filter comments that start with `/bgcp approve `, and
 invoke `always0ne/batchtrail/actions/dispatcher@main` with the triggering issue
-number, comment ID, and repository `GITHUB_TOKEN`.
+number, comment ID, and repository `GITHUB_TOKEN`. It must serialize runs per
+execution request Issue using workflow `concurrency` so duplicate approval
+comments cannot dispatch the same request in parallel.
 
 ## Registration Requirements
 
@@ -165,6 +167,18 @@ If the target repository does not have the BatchTrail dispatcher workflow
 installed, approval records evidence but cannot dispatch the batch workflow.
 This must be treated as an installation/bootstrap gap, not as authorization to
 dispatch directly from the browser.
+
+The dispatcher must record dispatch state on the execution request Issue before
+and after `workflow_dispatch`:
+
+- `DISPATCHING` evidence and `batchtrail:dispatching` label before dispatch
+- `DISPATCHED` evidence and `batchtrail:dispatched` label after success
+- `DISPATCH_FAILED` evidence and `batchtrail:dispatch-failed` label after
+  failure
+
+The dispatcher must ignore duplicate approval comments when matching
+`DISPATCHING` or `DISPATCHED` evidence already exists for the same request ID,
+Batch ID, and request digest.
 
 ## Schedule Requirements
 
