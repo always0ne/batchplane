@@ -1,8 +1,4 @@
-import {
-  createGitHubLiteClient,
-  GitHubLiteApiError,
-  type GitHubPullRequest,
-} from "@batchtrail/github-lite";
+import type { RepositoryPullRequest } from "@batchtrail/domain";
 import {
   CheckCircle2,
   FileText,
@@ -17,6 +13,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../shared/components/PageHeader";
+import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
   readGitHubSession,
   type GitHubSession,
@@ -46,7 +44,7 @@ type ApprovalPageState =
       defaultBranch: string;
       executionRequests: ExecutionApprovalRequest[];
       login: string;
-      registrationRequests: GitHubPullRequest[];
+      registrationRequests: RepositoryPullRequest[];
       repository: string;
       session: GitHubSession;
     }
@@ -82,10 +80,10 @@ export function ApprovalsPage() {
       setState({ type: "loading" });
 
       try {
-        const client = createGitHubLiteClient({ token: session.token });
+        const runtime = createGitHubLiteRuntime(session);
         const [user, repository] = await Promise.all([
-          client.getCurrentUser(),
-          client.getRepository(session),
+          runtime.settings.getCurrentUser(),
+          runtime.settings.getRepository(),
         ]);
         const handoff = approvalHandoffRef.current;
         const immediateExecutionRequests = mergeExecutionApprovalRequests(
@@ -114,15 +112,10 @@ export function ApprovalsPage() {
         }
 
         const [pullRequests, issues] = await Promise.all([
-          client.listPullRequests({
-            ...session,
-            base: repository.defaultBranch,
-            state: "open",
+          runtime.approvals.listRegistrationRequests({
+            baseBranch: repository.defaultBranch,
           }),
-          client.listIssues({
-            ...session,
-            state: "open",
-          }),
+          runtime.approvals.listExecutionRequestIssues(),
         ]);
 
         if (!ignoreResult) {
@@ -167,7 +160,7 @@ export function ApprovalsPage() {
     };
   }, [reloadToken]);
 
-  async function approveAndMerge(pullRequest: GitHubPullRequest) {
+  async function approveAndMerge(pullRequest: RepositoryPullRequest) {
     if (state.type !== "loaded") {
       return;
     }
@@ -179,23 +172,16 @@ export function ApprovalsPage() {
     });
 
     try {
-      const client = createGitHubLiteClient({ token: state.session.token });
+      const runtime = createGitHubLiteRuntime(state.session);
 
-      await client.createIssueComment({
-        ...state.session,
-        issueNumber: pullRequest.number,
+      const mergeResult = await runtime.approvals.approveRegistration({
         body: buildRegistrationApprovalComment({
           approvedAt: new Date(),
           approver: state.login,
           pullRequest,
         }),
-      });
-
-      const mergeResult = await client.mergePullRequest({
-        ...state.session,
-        pullNumber: pullRequest.number,
         commitTitle: `${pullRequest.title} (#${pullRequest.number})`,
-        mergeMethod: "squash",
+        pullNumber: pullRequest.number,
       });
 
       if (!mergeResult.merged) {
@@ -214,7 +200,7 @@ export function ApprovalsPage() {
     }
   }
 
-  async function rejectAndClose(pullRequest: GitHubPullRequest) {
+  async function rejectAndClose(pullRequest: RepositoryPullRequest) {
     if (state.type !== "loaded") {
       return;
     }
@@ -226,20 +212,15 @@ export function ApprovalsPage() {
     });
 
     try {
-      const client = createGitHubLiteClient({ token: state.session.token });
+      const runtime = createGitHubLiteRuntime(state.session);
 
-      await client.createIssueComment({
-        ...state.session,
-        issueNumber: pullRequest.number,
+      await runtime.approvals.rejectRegistration({
         body: buildRegistrationRejectionComment({
           rejectedAt: new Date(),
           rejector: state.login,
           pullRequest,
         }),
-      });
-      await client.closeIssue({
-        ...state.session,
-        issueNumber: pullRequest.number,
+        pullNumber: pullRequest.number,
       });
 
       removeRegistrationRequest(pullRequest.number);
@@ -266,19 +247,14 @@ export function ApprovalsPage() {
     });
 
     try {
-      const client = createGitHubLiteClient({ token: state.session.token });
+      const runtime = createGitHubLiteRuntime(state.session);
 
-      await client.createIssueComment({
-        ...state.session,
-        issueNumber: request.issue.number,
+      await runtime.approvals.approveExecution({
         body: buildExecutionApprovalComment({
           approvedAt: new Date(),
           approver: state.login,
           request,
         }),
-      });
-      await client.closeIssue({
-        ...state.session,
         issueNumber: request.issue.number,
       });
 
@@ -306,19 +282,14 @@ export function ApprovalsPage() {
     });
 
     try {
-      const client = createGitHubLiteClient({ token: state.session.token });
+      const runtime = createGitHubLiteRuntime(state.session);
 
-      await client.createIssueComment({
-        ...state.session,
-        issueNumber: request.issue.number,
+      await runtime.approvals.rejectExecution({
         body: buildExecutionRejectionComment({
           rejectedAt: new Date(),
           rejector: state.login,
           request,
         }),
-      });
-      await client.closeIssue({
-        ...state.session,
         issueNumber: request.issue.number,
       });
 
@@ -417,9 +388,9 @@ function ApprovalContent({
 }: {
   actionState: ApprovalActionState;
   onApproveExecution: (request: ExecutionApprovalRequest) => void;
-  onApproveRegistration: (pullRequest: GitHubPullRequest) => void;
+  onApproveRegistration: (pullRequest: RepositoryPullRequest) => void;
   onRejectExecution: (request: ExecutionApprovalRequest) => void;
-  onRejectRegistration: (pullRequest: GitHubPullRequest) => void;
+  onRejectRegistration: (pullRequest: RepositoryPullRequest) => void;
   state: ApprovalPageState;
 }) {
   const { t } = useTranslation("approvals");
@@ -731,7 +702,7 @@ function StatusPanel({
   );
 }
 
-function registrationRequestKey(pullRequest: GitHubPullRequest): string {
+function registrationRequestKey(pullRequest: RepositoryPullRequest): string {
   return `registration:${pullRequest.number}`;
 }
 
@@ -740,13 +711,5 @@ function executionRequestKey(request: ExecutionApprovalRequest): string {
 }
 
 function formatApprovalError(error: unknown): string {
-  if (error instanceof GitHubLiteApiError) {
-    return error.message;
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Approval request failed.";
+  return formatRuntimeError(error, "Approval request failed.");
 }

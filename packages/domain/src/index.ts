@@ -157,6 +157,157 @@ export type AuditTimelineItem = {
 
 export type RuntimeMode = "mock" | "github-lite" | "server-api";
 
+export type RepositoryRef = {
+  owner: string;
+  repo: string;
+};
+
+export type RepositoryUser = {
+  login: string;
+};
+
+export type Repository = RepositoryRef & {
+  defaultBranch: string;
+  private: boolean;
+  url: string;
+};
+
+export type RepositoryIssueState = "open" | "closed" | "all";
+
+export type RepositoryIssue = {
+  number: number;
+  title: string;
+  body: string;
+  labels: string[];
+  url: string;
+  state: Exclude<RepositoryIssueState, "all">;
+  author: string;
+  isPullRequest: boolean;
+};
+
+export type RepositoryPullRequestState = "open" | "closed" | "all";
+
+export type RepositoryPullRequest = {
+  number: number;
+  title: string;
+  url: string;
+  head: string;
+  base: string;
+  state: Exclude<RepositoryPullRequestState, "all">;
+  author: string;
+  body: string;
+  merged: boolean;
+};
+
+export type RepositoryMergeResult = {
+  merged: boolean;
+  message: string;
+  sha: string;
+};
+
+export type RuntimeInstallationStatus = {
+  installed: boolean;
+  missingPaths: string[];
+  presentPaths: string[];
+  requiredPaths: string[];
+};
+
+export type RuntimeInstallationPullRequestResult = {
+  pullRequest: RepositoryPullRequest;
+  status: RuntimeInstallationStatus;
+};
+
+export type RegistrationArtifactInput = {
+  path: string;
+  content: string;
+  encoding?: "utf-8" | "base64";
+};
+
+export type RegistrationTargetStatus = {
+  batchDefinitionExists: boolean;
+  workflowExists: boolean;
+};
+
+export type CreateRegistrationPullRequestInput = {
+  artifact?: RegistrationArtifactInput;
+  baseBranch: string;
+  batchDefinitionPath: string;
+  batchDefinitionYaml: string;
+  body: string;
+  branch: string;
+  title: string;
+  workflowPath: string;
+  workflowYaml: string;
+};
+
+export type BatchPort = {
+  listBatchDefinitions(params: { ref: string }): Promise<BatchDefinition[]>;
+};
+
+export type RegistrationPort = {
+  checkRegistrationTargets(params: {
+    baseBranch: string;
+    batchDefinitionPath: string;
+    workflowPath: string;
+  }): Promise<RegistrationTargetStatus>;
+  createRegistrationPullRequest(
+    params: CreateRegistrationPullRequestInput,
+  ): Promise<RepositoryPullRequest>;
+};
+
+export type ExecutionPort = {
+  createExecutionRequest(params: {
+    body: string;
+    labels: string[];
+    title: string;
+  }): Promise<RepositoryIssue>;
+};
+
+export type ApprovalPort = {
+  listRegistrationRequests(params: {
+    baseBranch: string;
+  }): Promise<RepositoryPullRequest[]>;
+  listExecutionRequestIssues(): Promise<RepositoryIssue[]>;
+  approveRegistration(params: {
+    body: string;
+    commitTitle: string;
+    pullNumber: number;
+  }): Promise<RepositoryMergeResult>;
+  rejectRegistration(params: {
+    body: string;
+    pullNumber: number;
+  }): Promise<void>;
+  approveExecution(params: {
+    body: string;
+    issueNumber: number;
+  }): Promise<void>;
+  rejectExecution(params: { body: string; issueNumber: number }): Promise<void>;
+};
+
+export type AuditPort = {
+  listAuditTimeline(params?: { limit?: number }): Promise<AuditTimelineItem[]>;
+};
+
+export type SettingsPort = {
+  getCurrentUser(): Promise<RepositoryUser>;
+  getRepository(): Promise<Repository>;
+  checkInstallationStatus(params: {
+    ref: string;
+  }): Promise<RuntimeInstallationStatus>;
+  createInstallationPullRequest(params: {
+    defaultBranch: string;
+  }): Promise<RuntimeInstallationPullRequestResult>;
+};
+
+export type BatchTrailRuntimePorts = {
+  approvals: ApprovalPort;
+  audit: AuditPort;
+  batches: BatchPort;
+  executions: ExecutionPort;
+  registration: RegistrationPort;
+  settings: SettingsPort;
+};
+
 export type BatchGovernanceConfigFile = {
   apiVersion: BatchTrailApiVersion;
   kind: "BatchGovernanceConfig";

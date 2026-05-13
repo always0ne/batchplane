@@ -1,9 +1,12 @@
-import type { GitHubIssue, GitHubPullRequest } from "@batchtrail/github-lite";
+import type {
+  RepositoryIssue,
+  RepositoryPullRequest,
+} from "@batchtrail/domain";
 
 export type ExecutionApprovalRequest = {
   batchId: string;
   expiresAt: string;
-  issue: GitHubIssue;
+  issue: RepositoryIssue;
   requestDigest: string;
   requestedAt: string;
   requestedBy: string;
@@ -11,7 +14,7 @@ export type ExecutionApprovalRequest = {
 };
 
 export function isRegistrationApprovalRequest(
-  pullRequest: GitHubPullRequest,
+  pullRequest: RepositoryPullRequest,
 ): boolean {
   return (
     pullRequest.state === "open" &&
@@ -27,7 +30,7 @@ export function buildRegistrationApprovalComment({
 }: {
   approvedAt: Date;
   approver: string;
-  pullRequest: GitHubPullRequest;
+  pullRequest: RepositoryPullRequest;
 }): string {
   return [
     "## BatchTrail Registration Approval",
@@ -48,7 +51,7 @@ export function buildRegistrationRejectionComment({
 }: {
   rejectedAt: Date;
   rejector: string;
-  pullRequest: GitHubPullRequest;
+  pullRequest: RepositoryPullRequest;
 }): string {
   return [
     "## BatchTrail Registration Approval",
@@ -63,7 +66,7 @@ export function buildRegistrationRejectionComment({
 }
 
 export function parseExecutionApprovalRequest(
-  issue: GitHubIssue,
+  issue: RepositoryIssue,
 ): ExecutionApprovalRequest | null {
   if (
     issue.state !== "open" ||

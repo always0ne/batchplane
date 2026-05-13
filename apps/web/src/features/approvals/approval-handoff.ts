@@ -1,4 +1,7 @@
-import type { GitHubIssue, GitHubPullRequest } from "@batchtrail/github-lite";
+import type {
+  RepositoryIssue,
+  RepositoryPullRequest,
+} from "@batchtrail/domain";
 
 import {
   isRegistrationApprovalRequest,
@@ -7,8 +10,8 @@ import {
 } from "./approval-model";
 
 export type ApprovalHandoff = {
-  executionIssues: GitHubIssue[];
-  registrationRequests: GitHubPullRequest[];
+  executionIssues: RepositoryIssue[];
+  registrationRequests: RepositoryPullRequest[];
 };
 
 export type ApprovalNavigationState = {
@@ -16,7 +19,7 @@ export type ApprovalNavigationState = {
 };
 
 export function buildRegistrationApprovalHandoff(
-  pullRequest: GitHubPullRequest,
+  pullRequest: RepositoryPullRequest,
 ): ApprovalNavigationState {
   return {
     approvalHandoff: {
@@ -26,7 +29,7 @@ export function buildRegistrationApprovalHandoff(
 }
 
 export function buildExecutionApprovalHandoff(
-  issue: GitHubIssue,
+  issue: RepositoryIssue,
 ): ApprovalNavigationState {
   return {
     approvalHandoff: {
@@ -49,9 +52,9 @@ export function normalizeApprovalHandoff(routeState: unknown): ApprovalHandoff {
 }
 
 export function mergeRegistrationApprovalRequests(
-  listedRequests: GitHubPullRequest[],
-  handoffRequests: GitHubPullRequest[],
-): GitHubPullRequest[] {
+  listedRequests: RepositoryPullRequest[],
+  handoffRequests: RepositoryPullRequest[],
+): RepositoryPullRequest[] {
   const immediateRequests = handoffRequests.filter(
     isRegistrationApprovalRequest,
   );
@@ -69,7 +72,7 @@ export function mergeRegistrationApprovalRequests(
 
 export function mergeExecutionApprovalRequests(
   listedRequests: ExecutionApprovalRequest[],
-  handoffIssues: GitHubIssue[],
+  handoffIssues: RepositoryIssue[],
 ): ExecutionApprovalRequest[] {
   const immediateRequests = handoffIssues
     .map(parseExecutionApprovalRequest)

@@ -1,9 +1,8 @@
-import {
-  createGitHubLiteClient,
-  GitHubLiteApiError,
-  type GitHubPullRequest,
-} from "@batchtrail/github-lite";
-import type { BatchStatus, Criticality } from "@batchtrail/domain";
+import type {
+  BatchStatus,
+  Criticality,
+  RepositoryPullRequest,
+} from "@batchtrail/domain";
 import {
   AlertCircle,
   FileCode2,
@@ -25,6 +24,8 @@ import { useTranslation } from "react-i18next";
 import { buildRegistrationApprovalHandoff } from "../approvals/approval-handoff";
 import { readGitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
+import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
   buildBatchWorkflowYaml,
   buildRegistrationPullRequestBody,
@@ -42,7 +43,7 @@ import {
 type SubmissionState =
   | { type: "idle" }
   | { type: "submitting" }
-  | { type: "success"; pullRequest: GitHubPullRequest }
+  | { type: "success"; pullRequest: RepositoryPullRequest }
   | { type: "error"; message: string };
 
 type UploadedExecutionFile = {
@@ -170,22 +171,16 @@ export function BatchRegistrationPage() {
     setSubmissionState({ type: "submitting" });
 
     try {
-      const client = createGitHubLiteClient({ token: session.token });
-      const repository = await client.getRepository(session);
-      const [existingFile, existingWorkflowFile] = await Promise.all([
-        client.getFile({
-          ...session,
-          path: batchPath,
-          ref: repository.defaultBranch,
-        }),
-        client.getFile({
-          ...session,
-          path: workflowPath,
-          ref: repository.defaultBranch,
-        }),
-      ]);
+      const runtime = createGitHubLiteRuntime(session);
+      const repository = await runtime.settings.getRepository();
+      const registrationTargets =
+        await runtime.registration.checkRegistrationTargets({
+          baseBranch: repository.defaultBranch,
+          batchDefinitionPath: batchPath,
+          workflowPath,
+        });
 
-      if (existingFile) {
+      if (registrationTargets.batchDefinitionExists) {
         setSubmissionState({
           type: "error",
           message: t("errors.alreadyExists", { path: batchPath }),
@@ -193,7 +188,7 @@ export function BatchRegistrationPage() {
         return;
       }
 
-      if (existingWorkflowFile) {
+      if (registrationTargets.workflowExists) {
         setSubmissionState({
           type: "error",
           message: t("errors.workflowAlreadyExists", { path: workflowPath }),
@@ -201,44 +196,27 @@ export function BatchRegistrationPage() {
         return;
       }
 
-      const baseSha = await client.getBranchHeadSha({
-        ...session,
-        branch: repository.defaultBranch,
-      });
       const branch = createRegistrationBranchName(definition.batchId);
-
-      await client.createBranch({ ...session, branch, sha: baseSha });
-      await client.putFile({
-        ...session,
-        branch,
-        path: batchPath,
-        message: buildRegistrationPullRequestTitle(definition),
-        content: yaml,
-      });
-      await client.putFile({
-        ...session,
-        branch,
-        path: workflowPath,
-        message: buildRegistrationPullRequestTitle(definition),
-        content: generatedWorkflowYaml,
-      });
-      if (uploadedFile && uploadedFilePath) {
-        await client.putFile({
-          ...session,
+      const title = buildRegistrationPullRequestTitle(definition);
+      const pullRequest =
+        await runtime.registration.createRegistrationPullRequest({
+          artifact:
+            uploadedFile && uploadedFilePath
+              ? {
+                  content: uploadedFile.contentBase64,
+                  encoding: "base64",
+                  path: uploadedFilePath,
+                }
+              : undefined,
+          baseBranch: repository.defaultBranch,
+          batchDefinitionPath: batchPath,
+          batchDefinitionYaml: yaml,
+          body: buildRegistrationPullRequestBody(definition),
           branch,
-          path: uploadedFilePath,
-          message: buildRegistrationPullRequestTitle(definition),
-          content: uploadedFile.contentBase64,
-          encoding: "base64",
+          title,
+          workflowPath,
+          workflowYaml: generatedWorkflowYaml,
         });
-      }
-      const pullRequest = await client.createPullRequest({
-        ...session,
-        title: buildRegistrationPullRequestTitle(definition),
-        body: buildRegistrationPullRequestBody(definition),
-        head: branch,
-        base: repository.defaultBranch,
-      });
 
       setSubmissionState({ type: "success", pullRequest });
       navigate("/approvals", {
@@ -615,15 +593,7 @@ function SubmissionBanner({ state }: { state: SubmissionState }) {
 }
 
 function formatRegistrationError(error: unknown, fallback: string): string {
-  if (error instanceof GitHubLiteApiError) {
-    return error.message;
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return fallback;
+  return formatRuntimeError(error, fallback);
 }
 
 async function handleExecutionFileChange({

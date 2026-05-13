@@ -18,6 +18,7 @@ import type {
   ApprovalPolicyInput,
   ApprovalPolicyFile,
   AuditTimelineItem,
+  BatchTrailRuntimePorts,
   BatchDefinition,
   BatchDefinitionFile,
   BatchGovernanceConfigFile,
@@ -223,6 +224,95 @@ describe("domain model contracts", () => {
     expectTypeOf<ExecutionRequestPayload["spec"]["schedule"]>().toEqualTypeOf<
       ScheduleOccurrenceRef | undefined
     >();
+  });
+
+  it("defines runtime ports that can be implemented by adapters", () => {
+    const runtime: BatchTrailRuntimePorts = {
+      approvals: {
+        approveExecution: async () => undefined,
+        approveRegistration: async () => ({
+          merged: true,
+          message: "merged",
+          sha: "merge-sha",
+        }),
+        listExecutionRequestIssues: async () => [],
+        listRegistrationRequests: async () => [],
+        rejectExecution: async () => undefined,
+        rejectRegistration: async () => undefined,
+      },
+      audit: {
+        listAuditTimeline: async () => [],
+      },
+      batches: {
+        listBatchDefinitions: async () => [batchDefinition],
+      },
+      executions: {
+        createExecutionRequest: async () => ({
+          author: "requester",
+          body: "body",
+          isPullRequest: false,
+          labels: ["batchtrail:execution-request"],
+          number: 1,
+          state: "open",
+          title: "Run batch",
+          url: "https://github.com/always0ne/batch/issues/1",
+        }),
+      },
+      registration: {
+        checkRegistrationTargets: async () => ({
+          batchDefinitionExists: false,
+          workflowExists: false,
+        }),
+        createRegistrationPullRequest: async () => ({
+          author: "requester",
+          base: "main",
+          body: "body",
+          head: "batchtrail/register/payment.daily-close",
+          merged: false,
+          number: 2,
+          state: "open",
+          title: "Register batch payment.daily-close",
+          url: "https://github.com/always0ne/batch/pull/2",
+        }),
+      },
+      settings: {
+        checkInstallationStatus: async () => ({
+          installed: true,
+          missingPaths: [],
+          presentPaths: [".github/workflows/batchtrail-dispatcher.yml"],
+          requiredPaths: [".github/workflows/batchtrail-dispatcher.yml"],
+        }),
+        createInstallationPullRequest: async () => ({
+          pullRequest: {
+            author: "requester",
+            base: "main",
+            body: "body",
+            head: "batchtrail/install/repo-mode-20260514000000",
+            merged: false,
+            number: 3,
+            state: "open",
+            title: "Install BatchTrail Repo Mode",
+            url: "https://github.com/always0ne/batch/pull/3",
+          },
+          status: {
+            installed: false,
+            missingPaths: [".github/workflows/batchtrail-dispatcher.yml"],
+            presentPaths: [],
+            requiredPaths: [".github/workflows/batchtrail-dispatcher.yml"],
+          },
+        }),
+        getCurrentUser: async () => ({ login: "always0ne" }),
+        getRepository: async () => ({
+          defaultBranch: "main",
+          owner: "always0ne",
+          private: true,
+          repo: "batch",
+          url: "https://github.com/always0ne/batch",
+        }),
+      },
+    };
+
+    expect(runtime).toBeDefined();
   });
 });
 
