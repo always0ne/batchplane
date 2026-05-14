@@ -12,6 +12,47 @@
   "status": {
     "ready": "Ready",
     "pending": "Pending",
-    "blocked": "Blocked"
+    "blocked": "Blocked",
+    "batch": {
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive"
+    },
+    "criticality": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High",
+      "CRITICAL": "Critical"
+    },
+    "executionRequest": {
+      "REQUESTED": "Requested",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "CANCELED": "Canceled",
+      "DISPATCHING": "Dispatching",
+      "DISPATCHED": "Dispatched",
+      "DISPATCH_FAILED": "Dispatch failed"
+    },
+    "approvalDecision": {
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected"
+    },
+    "executionRun": {
+      "QUEUED": "Queued",
+      "RUNNING": "Running",
+      "SUCCEEDED": "Succeeded",
+      "FAILED": "Failed",
+      "BLOCKED": "Blocked",
+      "CANCELED": "Canceled"
+    },
+    "auditTimelineType": {
+      "BATCH_REGISTERED": "Batch registered",
+      "BATCH_CHANGED": "Batch changed",
+      "EXECUTION_REQUESTED": "Execution requested",
+      "APPROVAL_RECORDED": "Approval recorded",
+      "DISPATCH_RECORDED": "Dispatch recorded",
+      "GATE_DECIDED": "Gate decided",
+      "RUN_COMPLETED": "Run completed",
+      "SCHEDULE_OCCURRED": "Schedule occurred"
+    }
   }
 }
