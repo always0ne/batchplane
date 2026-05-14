@@ -621,6 +621,51 @@ describe("createMockGitHubLiteClient", () => {
       ]),
     );
   });
+
+  it("resets mutated mock state back to the initial fixture", async () => {
+    const client = createMockGitHubLiteClient();
+    const repo = { owner: "always0ne", repo: "batch" };
+    const initialIssueCount = client.state.issues.length;
+    const issue = await client.createIssue({
+      ...repo,
+      body: "body",
+      labels: ["batchtrail:execution-request"],
+      title: "Run batch reset-test",
+    });
+
+    expect(client.state.issues).toHaveLength(initialIssueCount + 1);
+
+    client.reset();
+
+    expect(client.state.issues).toHaveLength(initialIssueCount);
+    expect(
+      client.state.issues.some(
+        (candidate) => candidate.number === issue.number,
+      ),
+    ).toBe(false);
+  });
+
+  it("loads an extended fixture when reset receives explicit state", () => {
+    const client = createMockGitHubLiteClient();
+    const customState = createGitHubLiteMockState({
+      issueComments: [],
+      issues: [],
+      pullRequests: [],
+    });
+
+    client.reset(customState);
+
+    expect(client.state.issues).toEqual([]);
+    expect(client.state.issueComments).toEqual([]);
+    expect(client.state.pullRequests).toEqual([]);
+    expect(client.state.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ".github/workflows/batchtrail-dispatcher.yml",
+        }),
+      ]),
+    );
+  });
 });
 
 function base64ToBytes(value: string) {

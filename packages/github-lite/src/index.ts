@@ -144,6 +144,7 @@ export type GitHubLiteMockState = {
 
 export type MockGitHubLiteClient = GitHubLiteClient & {
   readonly state: GitHubLiteMockState;
+  reset(nextState?: GitHubLiteMockState): void;
 };
 
 export type CreateIssueParams = RepoRef & {
@@ -832,6 +833,7 @@ export function createGitHubLiteMockState(
 export function createMockGitHubLiteClient(
   initialState = createGitHubLiteMockState(),
 ): MockGitHubLiteClient {
+  const baselineState = cloneJson(initialState);
   const state = cloneJson(initialState);
   const client: GitHubLiteClient = {
     async addIssueLabels(params) {
@@ -1089,7 +1091,31 @@ export function createMockGitHubLiteClient(
     },
   };
 
-  return Object.assign(client, { state });
+  return Object.assign(client, {
+    reset(nextState = baselineState) {
+      replaceMockState(state, nextState);
+    },
+    state,
+  });
+}
+
+function replaceMockState(
+  target: GitHubLiteMockState,
+  nextState: GitHubLiteMockState,
+): void {
+  const replacement = cloneJson(nextState);
+
+  target.branches = replacement.branches;
+  target.currentUser = replacement.currentUser;
+  target.executionScenarios = replacement.executionScenarios;
+  target.files = replacement.files;
+  target.issueComments = replacement.issueComments;
+  target.issues = replacement.issues;
+  target.labels = replacement.labels;
+  target.pullRequests = replacement.pullRequests;
+  target.repository = replacement.repository;
+  target.workflowRuns = replacement.workflowRuns;
+  target.workflows = replacement.workflows;
 }
 
 function buildHeaders(token: string, initHeaders?: HeadersInit): Headers {
