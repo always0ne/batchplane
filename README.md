@@ -108,6 +108,7 @@ expiration window, and workflow target before it performs `workflow_dispatch`.
 See also:
 
 - `BRAND_GUIDELINES.md`
+- `docs/github-pages.md`
 - `docs/github-lite-srs.md`
 - `docs/github-lite-technical-spec.md`
 

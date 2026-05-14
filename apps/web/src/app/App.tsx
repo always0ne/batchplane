@@ -27,6 +27,7 @@ const navItems = [
   { icon: ListChecks, labelKey: "items.batches", to: "/batches" },
   { icon: ClipboardCheck, labelKey: "items.approvals", to: "/approvals" },
 ] as const;
+const compactMarkSrc = `${import.meta.env.BASE_URL}assets/batchtrail-compact-mark.svg`;
 
 export function App() {
   const { i18n, t } = useTranslation(["common", "navigation"]);
@@ -45,12 +46,16 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-bt-surface">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white p-5 lg:block">
+      <aside
+        aria-label={t("navigation:landmarks.desktopPrimary")}
+        className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white p-5 lg:block"
+      >
         <div className="flex items-center gap-3">
           <img
-            src="/assets/batchtrail-compact-mark.svg"
             alt=""
             className="h-11 w-11 rounded-xl"
+            data-testid="app-logo"
+            src={compactMarkSrc}
           />
           <div>
             <p className="text-lg font-bold text-bt-graphite">
@@ -62,26 +67,7 @@ export function App() {
           </div>
         </div>
         <nav className="mt-8 space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  [
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold",
-                    isActive
-                      ? "bg-bt-control text-white"
-                      : "text-bt-muted hover:bg-slate-100 hover:text-bt-graphite",
-                  ].join(" ")
-                }
-              >
-                <Icon className="h-4 w-4" aria-hidden="true" />
-                {t(`navigation:${item.labelKey}`)}
-              </NavLink>
-            );
-          })}
+          <NavigationLinks variant="desktop" />
         </nav>
       </aside>
 
@@ -109,8 +95,14 @@ export function App() {
               </select>
             </label>
           </div>
+          <nav
+            aria-label={t("navigation:landmarks.mobilePrimary")}
+            className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden"
+          >
+            <NavigationLinks variant="mobile" />
+          </nav>
         </header>
-        <div className="p-5">
+        <div className="p-4 sm:p-5">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
@@ -123,6 +115,39 @@ export function App() {
         </div>
       </main>
     </div>
+  );
+}
+
+function NavigationLinks({ variant }: { variant: "desktop" | "mobile" }) {
+  const { t } = useTranslation("navigation");
+
+  return (
+    <>
+      {navItems.map((item) => {
+        const Icon = item.icon;
+
+        return (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              [
+                "inline-flex items-center gap-2 rounded-lg text-sm font-semibold",
+                variant === "desktop"
+                  ? "w-full px-3 py-2"
+                  : "shrink-0 whitespace-nowrap px-3 py-2",
+                isActive
+                  ? "bg-bt-control text-white"
+                  : "text-bt-muted hover:bg-slate-100 hover:text-bt-graphite",
+              ].join(" ")
+            }
+          >
+            <Icon className="h-4 w-4" aria-hidden="true" />
+            {t(item.labelKey)}
+          </NavLink>
+        );
+      })}
+    </>
   );
 }
 

@@ -1,4 +1,8 @@
 {
+  "landmarks": {
+    "desktopPrimary": "Desktop primary navigation",
+    "mobilePrimary": "Mobile primary navigation"
+  },
   "items": {
     "dashboard": "Dashboard",
     "setup": "Repo Setup",

@@ -52,3 +52,6 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Build GitHub Pages static bundle
+        run: GITHUB_PAGES=true pnpm --filter @batchtrail/web build
