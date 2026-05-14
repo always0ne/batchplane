@@ -1,10 +1,58 @@
 {
   "title": "대시보드",
   "subtitle": "GitHub 증적 기반 Repo Mode 통제 요약입니다.",
+  "actions": {
+    "openSetup": "설정 열기",
+    "viewApprovals": "승인함 보기"
+  },
+  "states": {
+    "loading": "대시보드 요약을 불러오는 중...",
+    "noSession": "Repo Mode 통제 상태를 보려면 GitHub 저장소를 연결하세요.",
+    "error": "대시보드 요약을 불러오지 못했습니다."
+  },
+  "connection": {
+    "title": "연결된 저장소",
+    "connected": "연결됨",
+    "user": "사용자",
+    "defaultBranch": "기본 브랜치",
+    "batches": "배치"
+  },
+  "readiness": {
+    "title": "Governance 준비 상태",
+    "installed": "필수 Repo Mode 파일이 모두 존재합니다.",
+    "missing": "필수 파일 {{count}}개가 누락되어 있습니다.",
+    "missing_plural": "필수 파일 {{count}}개가 누락되어 있습니다.",
+    "paths": "필수 경로 {{total}}개 중 {{present}}개가 존재합니다."
+  },
+  "values": {
+    "ready": "준비됨",
+    "actionRequired": "조치 필요"
+  },
   "cards": {
     "repoReadiness": "Repository 준비 상태",
     "pendingApprovals": "승인 대기",
+    "failedRuns": "실패 실행",
     "gateBlocked": "Gate 차단 실행",
     "auditTrail": "감사 trail"
+  },
+  "cardHints": {
+    "repoReadiness": "설치 상태 확인",
+    "pendingApprovals": "승인함 열기",
+    "failedRuns": "실패 증적 검토",
+    "gateBlocked": "Gate 판단 검토",
+    "auditTrail": "최근 감사 trail로 이동"
+  },
+  "approvals": {
+    "title": "승인 업무",
+    "summary": "{{count}}건의 처리가 대기 중입니다.",
+    "summary_plural": "{{count}}건의 처리가 대기 중입니다.",
+    "empty": "현재 대기 중인 승인 업무가 없습니다.",
+    "registration": "등록 승인",
+    "execution": "실행 승인"
+  },
+  "audit": {
+    "title": "최근 감사 trail",
+    "subtitle": "현재 runtime에서 확인된 최신 증적입니다.",
+    "empty": "아직 감사 기록이 없습니다."
   }
 }
