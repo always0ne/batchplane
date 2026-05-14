@@ -113,6 +113,8 @@ export function readGateInputFromEnv(env = process.env) {
         mode: readActionInput(env, "mode"),
         batchId: readActionInput(env, "batch-id"),
         configPath: readActionInput(env, "config-path") || ".batch-governance",
+        ref: readOptionalActionInput(env, "ref"),
+        scheduleId: readOptionalActionInput(env, "schedule-id"),
         requestId: readOptionalActionInput(env, "request-id"),
         approvalSource: readOptionalActionInput(env, "approval-source"),
         approvalRef: readOptionalActionInput(env, "approval-ref"),

@@ -11,6 +11,12 @@ inputs:
     required: false
     default: .batch-governance
     description: BatchTrail repository config path
+  ref:
+    required: false
+    description: Repository ref that contains the governed batch definition
+  schedule-id:
+    required: false
+    description: Schedule identifier for schedule-triggered executions
   request-id:
     required: false
     description: Execution request ID for manual executions
