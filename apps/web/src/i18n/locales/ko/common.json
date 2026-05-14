@@ -12,6 +12,47 @@
   "status": {
     "ready": "준비됨",
     "pending": "대기",
-    "blocked": "차단"
+    "blocked": "차단",
+    "batch": {
+      "ACTIVE": "활성",
+      "INACTIVE": "비활성"
+    },
+    "criticality": {
+      "LOW": "낮음",
+      "MEDIUM": "보통",
+      "HIGH": "높음",
+      "CRITICAL": "긴급"
+    },
+    "executionRequest": {
+      "REQUESTED": "요청됨",
+      "APPROVED": "승인됨",
+      "REJECTED": "반려됨",
+      "CANCELED": "취소됨",
+      "DISPATCHING": "Dispatch 중",
+      "DISPATCHED": "Dispatch 완료",
+      "DISPATCH_FAILED": "Dispatch 실패"
+    },
+    "approvalDecision": {
+      "APPROVED": "승인",
+      "REJECTED": "반려"
+    },
+    "executionRun": {
+      "QUEUED": "대기 중",
+      "RUNNING": "실행 중",
+      "SUCCEEDED": "성공",
+      "FAILED": "실패",
+      "BLOCKED": "차단",
+      "CANCELED": "취소됨"
+    },
+    "auditTimelineType": {
+      "BATCH_REGISTERED": "배치 등록",
+      "BATCH_CHANGED": "배치 변경",
+      "EXECUTION_REQUESTED": "실행 요청",
+      "APPROVAL_RECORDED": "승인 기록",
+      "DISPATCH_RECORDED": "Dispatch 기록",
+      "GATE_DECIDED": "Gate 판단",
+      "RUN_COMPLETED": "실행 완료",
+      "SCHEDULE_OCCURRED": "스케줄 발생"
+    }
   }
 }

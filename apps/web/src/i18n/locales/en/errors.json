@@ -5,6 +5,33 @@
   },
   "gate": {
     "executionRequestRequired": "Execution request evidence is required.",
-    "requestDigestMismatch": "The request digest does not match the approved payload."
+    "requestDigestMismatch": "The request digest does not match the approved payload.",
+    "reasonCodes": {
+      "APPROVAL_EVIDENCE_MISMATCH": "Approval evidence does not match the request.",
+      "APPROVAL_EVIDENCE_NOT_FOUND": "Approval evidence was not found.",
+      "APPROVAL_EVIDENCE_REQUIRED": "Approval evidence is required.",
+      "APPROVAL_NOT_APPROVED": "The approval decision is not approved.",
+      "APPROVAL_NOT_FOUND": "Approval evidence was not found.",
+      "BATCH_ID_REQUIRED": "Batch ID is required.",
+      "DIGEST_MISMATCH": "The request digest does not match.",
+      "DIRECT_DISPATCH_NOT_AUTHORIZED": "Direct workflow dispatch is not authorized.",
+      "DISPATCH_ALREADY_HANDLED": "This request was already dispatched.",
+      "DISPATCH_IN_PROGRESS": "Dispatch is already in progress.",
+      "EXECUTION_REQUEST_REQUIRED": "Execution request evidence is required.",
+      "EXPIRED_REQUEST": "The execution request is expired.",
+      "GITHUB_EVIDENCE_LOOKUP_REQUIRED": "GitHub evidence lookup is required.",
+      "IGNORED_COMMENT": "The comment is not a BatchTrail dispatcher command.",
+      "REQUEST_DIGEST_REQUIRED": "Request digest is required.",
+      "REQUEST_EVIDENCE_MISMATCH": "Request evidence does not match the workflow inputs.",
+      "REQUEST_EVIDENCE_NOT_FOUND": "Request evidence was not found.",
+      "REQUEST_FIELD_MISMATCH": "Request fields do not match the approval evidence.",
+      "REQUEST_NOT_FOUND": "Execution request was not found.",
+      "REQUEST_NOT_REQUESTED": "The request is not in requested status.",
+      "RERUN_NOT_AUTHORIZED": "GitHub Actions rerun is not authorized.",
+      "UNKNOWN": "Unknown Gate denial reason.",
+      "UNSUPPORTED_MODE": "Unsupported Gate mode.",
+      "WORKFLOW_DISPATCH_FAILED": "Workflow dispatch failed.",
+      "WORKFLOW_NOT_FOUND": "Target workflow was not found."
+    }
   }
 }
