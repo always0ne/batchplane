@@ -59,6 +59,93 @@ export type GitHubMergeResult = {
   sha: string;
 };
 
+export type GitHubIssueComment = {
+  id: number;
+  issueNumber: number;
+  body: string;
+  author: string;
+  createdAt: string;
+};
+
+export type GitHubLabel = {
+  name: string;
+  color: string;
+  description?: string;
+};
+
+export type GitHubWorkflow = {
+  id: number;
+  name: string;
+  path: string;
+  state: "active" | "disabled";
+  url: string;
+};
+
+export type GitHubWorkflowRunStatus = "queued" | "in_progress" | "completed";
+
+export type GitHubWorkflowRunConclusion =
+  | "success"
+  | "failure"
+  | "cancelled"
+  | "skipped"
+  | "timed_out"
+  | "action_required"
+  | null;
+
+export type GitHubWorkflowRun = {
+  id: number;
+  workflowId: number;
+  name: string;
+  status: GitHubWorkflowRunStatus;
+  conclusion: GitHubWorkflowRunConclusion;
+  url: string;
+  event: "workflow_dispatch" | "issue_comment" | "schedule";
+  actor: string;
+  runAttempt: number;
+  batchId?: string;
+  requestId?: string;
+};
+
+export type GitHubLiteMockExecutionState =
+  | "requested"
+  | "approved"
+  | "dispatching"
+  | "dispatched"
+  | "rejected"
+  | "failed"
+  | "gate-blocked";
+
+export type GitHubLiteMockExecutionScenario = {
+  state: GitHubLiteMockExecutionState;
+  issueNumber: number;
+  batchId: string;
+  requestId: string;
+  requestDigest: string;
+  workflowRunId?: number;
+};
+
+export type GitHubMockFile = GitHubFile & {
+  branch: string;
+};
+
+export type GitHubLiteMockState = {
+  currentUser: GitHubUser;
+  repository: GitHubRepository;
+  branches: Record<string, string>;
+  files: GitHubMockFile[];
+  issues: GitHubIssue[];
+  issueComments: GitHubIssueComment[];
+  labels: GitHubLabel[];
+  pullRequests: GitHubPullRequest[];
+  workflows: GitHubWorkflow[];
+  workflowRuns: GitHubWorkflowRun[];
+  executionScenarios: GitHubLiteMockExecutionScenario[];
+};
+
+export type MockGitHubLiteClient = GitHubLiteClient & {
+  readonly state: GitHubLiteMockState;
+};
+
 export type CreateIssueParams = RepoRef & {
   title: string;
   body: string;
@@ -584,6 +671,427 @@ export function createGitHubLiteClient({
   };
 }
 
+export function createGitHubLiteMockState(
+  overrides: Partial<GitHubLiteMockState> = {},
+): GitHubLiteMockState {
+  const repository: GitHubRepository = overrides.repository ?? {
+    defaultBranch: "main",
+    owner: "always0ne",
+    private: true,
+    repo: "batch",
+    url: "https://github.com/always0ne/batch",
+  };
+  const currentUser = overrides.currentUser ?? { login: "maintainer" };
+  const batchId = "payment.daily-close";
+  const workflowId = 101;
+  const executionScenarios = createMockExecutionScenarios(batchId);
+  const issues = executionScenarios.map((scenario) =>
+    buildMockExecutionIssue(repository, scenario),
+  );
+  const issueComments = executionScenarios.flatMap((scenario) =>
+    buildMockExecutionComments(scenario, currentUser.login),
+  );
+  const workflowRuns = executionScenarios.flatMap((scenario) =>
+    buildMockWorkflowRuns(repository, workflowId, scenario),
+  );
+  const defaultState: GitHubLiteMockState = {
+    branches: {
+      main: "mock-main-sha",
+    },
+    currentUser,
+    executionScenarios,
+    files: [
+      {
+        branch: "main",
+        content: "BatchTrail Repo Mode dispatcher workflow\n",
+        path: ".github/workflows/batchtrail-dispatcher.yml",
+        sha: "mock-dispatcher-sha",
+      },
+      {
+        branch: "main",
+        content: buildMockBatchWorkflowYaml(batchId),
+        path: `.github/workflows/${batchId}.yml`,
+        sha: "mock-batch-workflow-sha",
+      },
+      {
+        branch: "main",
+        content: "# BatchTrail Governance\n",
+        path: ".batch-governance/README.md",
+        sha: "mock-governance-readme-sha",
+      },
+      {
+        branch: "main",
+        content: buildMockBatchDefinitionYaml(batchId),
+        path: `.batch-governance/batches/${batchId}.yml`,
+        sha: "mock-batch-definition-sha",
+      },
+      {
+        branch: "main",
+        content:
+          "Batch definitions created by BatchTrail Repo Mode live here.\n",
+        path: ".batch-governance/batches/.gitkeep",
+        sha: "mock-batches-gitkeep-sha",
+      },
+      {
+        branch: "main",
+        content:
+          "Schedule definitions created by BatchTrail Repo Mode live here.\n",
+        path: ".batch-governance/schedules/.gitkeep",
+        sha: "mock-schedules-gitkeep-sha",
+      },
+    ],
+    issueComments,
+    issues,
+    labels: [
+      {
+        color: "0F766E",
+        description: "BatchTrail execution request",
+        name: "batchtrail:execution-request",
+      },
+      {
+        color: "2563EB",
+        description: "BatchTrail request is dispatching",
+        name: "batchtrail:dispatching",
+      },
+      {
+        color: "059669",
+        description: "BatchTrail request was dispatched",
+        name: "batchtrail:dispatched",
+      },
+      {
+        color: "B91C1C",
+        description: "BatchTrail dispatch failed",
+        name: "batchtrail:dispatch-failed",
+      },
+      {
+        color: "F97316",
+        description: "BatchTrail Gate blocked execution",
+        name: "batchtrail:gate-blocked",
+      },
+      {
+        color: "7F1D1D",
+        description: "BatchTrail request was rejected",
+        name: "batchtrail:rejected",
+      },
+    ],
+    pullRequests: [
+      {
+        author: "developer",
+        base: "main",
+        body: "Register payment daily close batch.",
+        head: "batchtrail/register/payment.daily-close-20260514010203",
+        merged: false,
+        number: 12,
+        state: "open",
+        title: `Register batch ${batchId}`,
+        url: `${repository.url}/pull/12`,
+      },
+    ],
+    repository,
+    workflowRuns,
+    workflows: [
+      {
+        id: workflowId,
+        name: "BatchTrail - Daily Close",
+        path: `.github/workflows/${batchId}.yml`,
+        state: "active",
+        url: `${repository.url}/actions/workflows/${batchId}.yml`,
+      },
+      {
+        id: 102,
+        name: "BatchTrail Dispatcher",
+        path: ".github/workflows/batchtrail-dispatcher.yml",
+        state: "active",
+        url: `${repository.url}/actions/workflows/batchtrail-dispatcher.yml`,
+      },
+    ],
+  };
+  const state = {
+    ...defaultState,
+    ...overrides,
+    branches: {
+      ...defaultState.branches,
+      ...overrides.branches,
+    },
+    currentUser: overrides.currentUser ?? defaultState.currentUser,
+    executionScenarios:
+      overrides.executionScenarios ?? defaultState.executionScenarios,
+    files: overrides.files ?? defaultState.files,
+    issueComments: overrides.issueComments ?? defaultState.issueComments,
+    issues: overrides.issues ?? defaultState.issues,
+    labels: overrides.labels ?? defaultState.labels,
+    pullRequests: overrides.pullRequests ?? defaultState.pullRequests,
+    repository: overrides.repository ?? defaultState.repository,
+    workflowRuns: overrides.workflowRuns ?? defaultState.workflowRuns,
+    workflows: overrides.workflows ?? defaultState.workflows,
+  };
+
+  return cloneJson(state);
+}
+
+export function createMockGitHubLiteClient(
+  initialState = createGitHubLiteMockState(),
+): MockGitHubLiteClient {
+  const state = cloneJson(initialState);
+  const client: GitHubLiteClient = {
+    async addIssueLabels(params) {
+      assertMockRepository(state, params);
+
+      const issue = findMockIssue(state, params.issueNumber);
+      issue.labels = uniqueStrings([...issue.labels, ...params.labels]);
+      params.labels.forEach((label) => ensureMockLabel(state, label));
+    },
+
+    async closeIssue(params) {
+      assertMockRepository(state, params);
+
+      const issue = state.issues.find(
+        (candidate) => candidate.number === params.issueNumber,
+      );
+
+      if (issue) {
+        issue.state = "closed";
+        return;
+      }
+
+      const pullRequest = state.pullRequests.find(
+        (candidate) => candidate.number === params.issueNumber,
+      );
+
+      if (!pullRequest) {
+        throw new GitHubLiteApiError(
+          `GitHub issue not found: ${params.issueNumber}`,
+          "not-found",
+          404,
+        );
+      }
+
+      pullRequest.state = "closed";
+    },
+
+    async createBranch(params) {
+      assertMockRepository(state, params);
+
+      if (state.branches[params.branch]) {
+        throw new GitHubLiteApiError(
+          `GitHub branch already exists: ${params.branch}`,
+          "bad-request",
+          422,
+        );
+      }
+
+      state.branches[params.branch] = params.sha;
+    },
+
+    async createIssue(params) {
+      assertMockRepository(state, params);
+
+      const issueNumber = nextMockNumber([
+        ...state.issues.map((issue) => issue.number),
+        ...state.pullRequests.map((pullRequest) => pullRequest.number),
+      ]);
+      const issue: GitHubIssue = {
+        author: state.currentUser.login,
+        body: params.body,
+        isPullRequest: false,
+        labels: uniqueStrings(params.labels),
+        number: issueNumber,
+        state: "open",
+        title: params.title,
+        url: `${state.repository.url}/issues/${issueNumber}`,
+      };
+
+      issue.labels.forEach((label) => ensureMockLabel(state, label));
+      state.issues.push(issue);
+
+      return cloneJson(issue);
+    },
+
+    async createIssueComment(params) {
+      assertMockRepository(state, params);
+      assertMockIssueOrPullRequest(state, params.issueNumber);
+
+      const comment: GitHubIssueComment = {
+        author: state.currentUser.login,
+        body: params.body,
+        createdAt: new Date(0).toISOString(),
+        id: nextMockNumber(
+          state.issueComments.map((candidate) => candidate.id),
+        ),
+        issueNumber: params.issueNumber,
+      };
+
+      state.issueComments.push(comment);
+
+      return { body: comment.body, id: comment.id };
+    },
+
+    async createPullRequest(params) {
+      assertMockRepository(state, params);
+
+      const pullNumber = nextMockNumber([
+        ...state.issues.map((issue) => issue.number),
+        ...state.pullRequests.map((pullRequest) => pullRequest.number),
+      ]);
+      const pullRequest: GitHubPullRequest = {
+        author: state.currentUser.login,
+        base: params.base,
+        body: params.body,
+        head: params.head,
+        merged: false,
+        number: pullNumber,
+        state: "open",
+        title: params.title,
+        url: `${state.repository.url}/pull/${pullNumber}`,
+      };
+
+      state.pullRequests.push(pullRequest);
+
+      return cloneJson(pullRequest);
+    },
+
+    async getBranchHeadSha(params) {
+      assertMockRepository(state, params);
+
+      const sha = state.branches[params.branch];
+
+      if (!sha) {
+        throw new GitHubLiteApiError(
+          `GitHub branch not found: ${params.branch}`,
+          "not-found",
+          404,
+        );
+      }
+
+      return sha;
+    },
+
+    async getCurrentUser() {
+      return cloneJson(state.currentUser);
+    },
+
+    async getDirectory(params) {
+      assertMockRepository(state, params);
+
+      const branch = resolveMockBranch(state, params.ref);
+      const entries = getMockDirectoryEntries(state, params.path, branch);
+
+      return entries.length > 0 ? entries : null;
+    },
+
+    async getFile(params) {
+      assertMockRepository(state, params);
+
+      const branch = resolveMockBranch(state, params.ref);
+      const file = state.files.find(
+        (candidate) =>
+          candidate.branch === branch && candidate.path === params.path,
+      );
+
+      return file
+        ? {
+            content: file.content,
+            path: file.path,
+            sha: file.sha,
+          }
+        : null;
+    },
+
+    async getRepository(params) {
+      assertMockRepository(state, params);
+
+      return cloneJson(state.repository);
+    },
+
+    async listIssues(params) {
+      assertMockRepository(state, params);
+
+      const stateFilter = params.state ?? "open";
+
+      return state.issues
+        .filter((issue) => stateFilter === "all" || issue.state === stateFilter)
+        .map(cloneJson);
+    },
+
+    async listPullRequests(params) {
+      assertMockRepository(state, params);
+
+      const stateFilter = params.state ?? "open";
+
+      return state.pullRequests
+        .filter(
+          (pullRequest) =>
+            (stateFilter === "all" || pullRequest.state === stateFilter) &&
+            (!params.base || pullRequest.base === params.base) &&
+            (!params.head || pullRequest.head === params.head),
+        )
+        .map(cloneJson);
+    },
+
+    async mergePullRequest(params) {
+      assertMockRepository(state, params);
+
+      const pullRequest = state.pullRequests.find(
+        (candidate) => candidate.number === params.pullNumber,
+      );
+
+      if (!pullRequest) {
+        throw new GitHubLiteApiError(
+          `GitHub pull request not found: ${params.pullNumber}`,
+          "not-found",
+          404,
+        );
+      }
+
+      pullRequest.merged = true;
+      pullRequest.state = "closed";
+
+      return {
+        merged: true,
+        message: "Pull Request successfully merged",
+        sha: `mock-merge-sha-${params.pullNumber}`,
+      };
+    },
+
+    async putFile(params) {
+      assertMockRepository(state, params);
+
+      if (!state.branches[params.branch]) {
+        throw new GitHubLiteApiError(
+          `GitHub branch not found: ${params.branch}`,
+          "not-found",
+          404,
+        );
+      }
+
+      const existingFile = state.files.find(
+        (file) => file.branch === params.branch && file.path === params.path,
+      );
+      const sha = `mock-file-sha-${state.files.length + 1}`;
+      const content =
+        params.encoding === "base64"
+          ? decodeBase64(params.content)
+          : params.content;
+
+      if (existingFile) {
+        existingFile.content = content;
+        existingFile.sha = sha;
+      } else {
+        state.files.push({
+          branch: params.branch,
+          content,
+          path: params.path,
+          sha,
+        });
+      }
+
+      return { path: params.path, sha };
+    },
+  };
+
+  return Object.assign(client, { state });
+}
+
 function buildHeaders(token: string, initHeaders?: HeadersInit): Headers {
   const headers = new Headers(initHeaders);
 
@@ -703,4 +1211,462 @@ function mapStatusToErrorCode(status: number): GitHubLiteApiErrorCode {
   }
 
   return "unknown";
+}
+
+function assertMockRepository(state: GitHubLiteMockState, repo: RepoRef) {
+  if (
+    repo.owner === state.repository.owner &&
+    repo.repo === state.repository.repo
+  ) {
+    return;
+  }
+
+  throw new GitHubLiteApiError(
+    `GitHub repository not found: ${repo.owner}/${repo.repo}`,
+    "not-found",
+    404,
+  );
+}
+
+function assertMockIssueOrPullRequest(
+  state: GitHubLiteMockState,
+  issueNumber: number,
+) {
+  if (
+    state.issues.some((issue) => issue.number === issueNumber) ||
+    state.pullRequests.some((pullRequest) => pullRequest.number === issueNumber)
+  ) {
+    return;
+  }
+
+  throw new GitHubLiteApiError(
+    `GitHub issue not found: ${issueNumber}`,
+    "not-found",
+    404,
+  );
+}
+
+function findMockIssue(
+  state: GitHubLiteMockState,
+  issueNumber: number,
+): GitHubIssue {
+  const issue = state.issues.find(
+    (candidate) => candidate.number === issueNumber,
+  );
+
+  if (!issue) {
+    throw new GitHubLiteApiError(
+      `GitHub issue not found: ${issueNumber}`,
+      "not-found",
+      404,
+    );
+  }
+
+  return issue;
+}
+
+function resolveMockBranch(
+  state: GitHubLiteMockState,
+  ref = state.repository.defaultBranch,
+): string {
+  if (!state.branches[ref]) {
+    throw new GitHubLiteApiError(
+      `GitHub branch not found: ${ref}`,
+      "not-found",
+      404,
+    );
+  }
+
+  return ref;
+}
+
+function getMockDirectoryEntries(
+  state: GitHubLiteMockState,
+  directoryPath: string,
+  branch: string,
+): GitHubDirectoryEntry[] {
+  const prefix = directoryPath.replace(/\/$/u, "");
+  const entryByPath = new Map<string, GitHubDirectoryEntry>();
+
+  state.files
+    .filter((file) => file.branch === branch)
+    .forEach((file) => {
+      const relativePath = file.path.startsWith(`${prefix}/`)
+        ? file.path.slice(prefix.length + 1)
+        : "";
+
+      if (!relativePath) {
+        return;
+      }
+
+      const [name, ...rest] = relativePath.split("/");
+
+      if (!name) {
+        return;
+      }
+
+      const path = `${prefix}/${name}`;
+      const type = rest.length > 0 ? "dir" : "file";
+
+      if (!entryByPath.has(path)) {
+        entryByPath.set(path, {
+          name,
+          path,
+          sha: type === "file" ? file.sha : `mock-dir-sha-${path}`,
+          type,
+        });
+      }
+    });
+
+  return [...entryByPath.values()].sort((left, right) =>
+    left.path.localeCompare(right.path),
+  );
+}
+
+function ensureMockLabel(state: GitHubLiteMockState, name: string) {
+  if (state.labels.some((label) => label.name === name)) {
+    return;
+  }
+
+  state.labels.push({
+    color: "58616C",
+    name,
+  });
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function nextMockNumber(values: number[]): number {
+  return Math.max(0, ...values) + 1;
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function createMockExecutionScenarios(
+  batchId: string,
+): GitHubLiteMockExecutionScenario[] {
+  const states: GitHubLiteMockExecutionState[] = [
+    "requested",
+    "approved",
+    "dispatching",
+    "dispatched",
+    "rejected",
+    "failed",
+    "gate-blocked",
+  ];
+
+  return states.map((state, index) => {
+    const sequence = index + 1;
+
+    return {
+      batchId,
+      issueNumber: 100 + sequence,
+      requestDigest: createMockDigest(sequence),
+      requestId: `btr-20260514010${sequence}00-${batchId}-${String(
+        sequence,
+      ).padStart(8, "0")}`,
+      state,
+      workflowRunId:
+        state === "requested" || state === "approved"
+          ? undefined
+          : 200 + sequence,
+    };
+  });
+}
+
+function buildMockExecutionIssue(
+  repository: GitHubRepository,
+  scenario: GitHubLiteMockExecutionScenario,
+): GitHubIssue {
+  const labels = ["batchtrail:execution-request"];
+
+  if (scenario.state === "dispatching") {
+    labels.push("batchtrail:dispatching");
+  }
+
+  if (scenario.state === "dispatched") {
+    labels.push("batchtrail:dispatched");
+  }
+
+  if (scenario.state === "failed") {
+    labels.push("batchtrail:dispatch-failed");
+  }
+
+  if (scenario.state === "gate-blocked") {
+    labels.push("batchtrail:gate-blocked");
+  }
+
+  if (scenario.state === "rejected") {
+    labels.push("batchtrail:rejected");
+  }
+
+  return {
+    author: "developer",
+    body: buildMockExecutionIssueBody(scenario),
+    isPullRequest: false,
+    labels,
+    number: scenario.issueNumber,
+    state:
+      scenario.state === "dispatched" || scenario.state === "rejected"
+        ? "closed"
+        : "open",
+    title: `Run batch ${scenario.batchId} (${scenario.state})`,
+    url: `${repository.url}/issues/${scenario.issueNumber}`,
+  };
+}
+
+function buildMockExecutionIssueBody(
+  scenario: GitHubLiteMockExecutionScenario,
+): string {
+  const requestedAt = "2026-05-14T01:02:03.000Z";
+  const expiresAt = "2026-05-14T02:02:03.000Z";
+  const requestStatus =
+    scenario.state === "rejected" ? "REJECTED" : "REQUESTED";
+
+  return [
+    "## BatchTrail Execution Request",
+    "",
+    `- Request ID: \`${scenario.requestId}\``,
+    `- Batch ID: \`${scenario.batchId}\``,
+    "- Requested by: @developer",
+    `- Requested at: ${requestedAt}`,
+    `- Expires at: ${expiresAt}`,
+    `- Request digest: \`${scenario.requestDigest}\``,
+    `- Status: ${requestStatus}`,
+    "",
+    "<!-- batchtrail:execution-request",
+    `requestId=${scenario.requestId}`,
+    `batchId=${scenario.batchId}`,
+    `requestDigest=${scenario.requestDigest}`,
+    `status=${requestStatus}`,
+    "-->",
+  ].join("\n");
+}
+
+function buildMockExecutionComments(
+  scenario: GitHubLiteMockExecutionScenario,
+  approver: string,
+): GitHubIssueComment[] {
+  const comments: GitHubIssueComment[] = [];
+
+  if (
+    scenario.state === "approved" ||
+    scenario.state === "dispatching" ||
+    scenario.state === "dispatched" ||
+    scenario.state === "failed" ||
+    scenario.state === "gate-blocked"
+  ) {
+    comments.push({
+      author: approver,
+      body: [
+        `/bgcp approve requestDigest=${scenario.requestDigest}`,
+        "",
+        "## BatchTrail Execution Approval",
+        "",
+        "- Decision: APPROVED",
+        `- Approver: @${approver}`,
+        "- Approved at: 2026-05-14T01:05:00.000Z",
+        `- Request ID: \`${scenario.requestId}\``,
+        `- Batch ID: \`${scenario.batchId}\``,
+        `- Request digest: \`${scenario.requestDigest}\``,
+        "",
+        "<!-- batchtrail:execution-approval",
+        "decision=APPROVED",
+        `requestId=${scenario.requestId}`,
+        `batchId=${scenario.batchId}`,
+        `requestDigest=${scenario.requestDigest}`,
+        "-->",
+      ].join("\n"),
+      createdAt: "2026-05-14T01:05:00.000Z",
+      id: scenario.issueNumber * 10 + 1,
+      issueNumber: scenario.issueNumber,
+    });
+  }
+
+  if (scenario.state === "dispatching") {
+    comments.push(buildMockDispatcherComment(scenario, "DISPATCHING"));
+  }
+
+  if (scenario.state === "dispatched") {
+    comments.push(buildMockDispatcherComment(scenario, "DISPATCHED"));
+  }
+
+  if (scenario.state === "failed") {
+    comments.push(buildMockDispatcherComment(scenario, "DISPATCH_FAILED"));
+  }
+
+  if (scenario.state === "gate-blocked") {
+    comments.push({
+      author: "github-actions[bot]",
+      body: [
+        "## BatchTrail Gate Decision",
+        "",
+        "- Decision: BLOCKED",
+        "- Reason: RERUN_NOT_AUTHORIZED",
+        `- Request ID: \`${scenario.requestId}\``,
+        `- Batch ID: \`${scenario.batchId}\``,
+        `- Request digest: \`${scenario.requestDigest}\``,
+        "",
+        "<!-- batchtrail:gate-decision",
+        "allowed=false",
+        "reasonCode=RERUN_NOT_AUTHORIZED",
+        `requestId=${scenario.requestId}`,
+        `batchId=${scenario.batchId}`,
+        `requestDigest=${scenario.requestDigest}`,
+        "-->",
+      ].join("\n"),
+      createdAt: "2026-05-14T01:08:00.000Z",
+      id: scenario.issueNumber * 10 + 4,
+      issueNumber: scenario.issueNumber,
+    });
+  }
+
+  if (scenario.state === "rejected") {
+    comments.push({
+      author: approver,
+      body: [
+        "## BatchTrail Execution Approval",
+        "",
+        "- Decision: REJECTED",
+        `- Rejector: @${approver}`,
+        "- Rejected at: 2026-05-14T01:06:00.000Z",
+        `- Request ID: \`${scenario.requestId}\``,
+        `- Batch ID: \`${scenario.batchId}\``,
+        `- Request digest: \`${scenario.requestDigest}\``,
+        "",
+        "<!-- batchtrail:execution-approval",
+        "decision=REJECTED",
+        `requestId=${scenario.requestId}`,
+        `batchId=${scenario.batchId}`,
+        `requestDigest=${scenario.requestDigest}`,
+        "-->",
+      ].join("\n"),
+      createdAt: "2026-05-14T01:06:00.000Z",
+      id: scenario.issueNumber * 10 + 5,
+      issueNumber: scenario.issueNumber,
+    });
+  }
+
+  return comments;
+}
+
+function buildMockDispatcherComment(
+  scenario: GitHubLiteMockExecutionScenario,
+  status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED",
+): GitHubIssueComment {
+  return {
+    author: "github-actions[bot]",
+    body: [
+      `## BatchTrail Dispatcher ${status}`,
+      "",
+      `- Status: ${status}`,
+      `- Request ID: \`${scenario.requestId}\``,
+      `- Batch ID: \`${scenario.batchId}\``,
+      `- Request digest: \`${scenario.requestDigest}\``,
+      "",
+      "<!-- batchtrail:bgcp:dispatcher",
+      `status=${status}`,
+      `requestId=${scenario.requestId}`,
+      `batchId=${scenario.batchId}`,
+      `requestDigest=${scenario.requestDigest}`,
+      "-->",
+    ].join("\n"),
+    createdAt: "2026-05-14T01:07:00.000Z",
+    id:
+      scenario.issueNumber * 10 +
+      (status === "DISPATCHING" ? 2 : status === "DISPATCHED" ? 3 : 6),
+    issueNumber: scenario.issueNumber,
+  };
+}
+
+function buildMockWorkflowRuns(
+  repository: GitHubRepository,
+  workflowId: number,
+  scenario: GitHubLiteMockExecutionScenario,
+): GitHubWorkflowRun[] {
+  if (!scenario.workflowRunId) {
+    return [];
+  }
+
+  const status: GitHubWorkflowRunStatus =
+    scenario.state === "dispatching" ? "in_progress" : "completed";
+  const conclusion: GitHubWorkflowRunConclusion =
+    scenario.state === "dispatched"
+      ? "success"
+      : scenario.state === "dispatching"
+        ? null
+        : "failure";
+
+  return [
+    {
+      actor: "github-actions[bot]",
+      batchId: scenario.batchId,
+      conclusion,
+      event: "workflow_dispatch",
+      id: scenario.workflowRunId,
+      name: `Run ${scenario.batchId}`,
+      requestId: scenario.requestId,
+      runAttempt: scenario.state === "gate-blocked" ? 2 : 1,
+      status,
+      url: `${repository.url}/actions/runs/${scenario.workflowRunId}`,
+      workflowId,
+    },
+  ];
+}
+
+function buildMockBatchDefinitionYaml(batchId: string): string {
+  return [
+    'apiVersion: "batchtrail.io/v1"',
+    'kind: "BatchDefinition"',
+    "metadata:",
+    `  id: "${batchId}"`,
+    '  name: "Daily Close"',
+    "spec:",
+    '  owner: "ops-team"',
+    '  domain: "payments"',
+    '  environment: "PROD"',
+    '  criticality: "HIGH"',
+    '  status: "ACTIVE"',
+    "  workflow:",
+    `    path: ".github/workflows/${batchId}.yml"`,
+    '    ref: "main"',
+    "  gateRequired: true",
+    "",
+  ].join("\n");
+}
+
+function buildMockBatchWorkflowYaml(batchId: string): string {
+  return [
+    `name: "BatchTrail - ${batchId}"`,
+    "",
+    "on:",
+    "  workflow_dispatch:",
+    "    inputs:",
+    "      request_id:",
+    "        required: true",
+    "      batch_id:",
+    "        required: true",
+    "      request_digest:",
+    "        required: true",
+    "",
+    "jobs:",
+    "  batchtrail-gate:",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    "      - uses: always0ne/batchtrail/actions/gate@main",
+    "  run-batch:",
+    "    needs: batchtrail-gate",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    "      - run: echo mock batch",
+    "",
+  ].join("\n");
+}
+
+function createMockDigest(sequence: number): string {
+  return `sha256:${String(sequence).padStart(64, "0")}`;
 }

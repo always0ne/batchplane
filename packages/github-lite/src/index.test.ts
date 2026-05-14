@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createGitHubLiteClient } from "./index";
+import {
+  createGitHubLiteClient,
+  createGitHubLiteMockState,
+  createMockGitHubLiteClient,
+} from "./index";
 
 describe("createGitHubLiteClient", () => {
   it("adds GitHub auth headers and maps the current user", async () => {
@@ -435,6 +439,187 @@ describe("createGitHubLiteClient", () => {
       message: "Bad credentials",
       status: 401,
     });
+  });
+});
+
+describe("createMockGitHubLiteClient", () => {
+  it("provides execution fixtures for every BatchTrail request state", () => {
+    const state = createGitHubLiteMockState();
+
+    expect(
+      new Set(state.executionScenarios.map((scenario) => scenario.state)),
+    ).toEqual(
+      new Set([
+        "requested",
+        "approved",
+        "dispatching",
+        "dispatched",
+        "rejected",
+        "failed",
+        "gate-blocked",
+      ]),
+    );
+    expect(state.issues).toHaveLength(7);
+    expect(
+      state.issueComments.some((comment) =>
+        comment.body.startsWith("/bgcp approve "),
+      ),
+    ).toBe(true);
+    expect(state.labels.map((label) => label.name)).toEqual(
+      expect.arrayContaining([
+        "batchtrail:execution-request",
+        "batchtrail:dispatching",
+        "batchtrail:dispatched",
+        "batchtrail:dispatch-failed",
+        "batchtrail:gate-blocked",
+      ]),
+    );
+    expect(state.workflows.map((workflow) => workflow.path)).toEqual(
+      expect.arrayContaining([
+        ".github/workflows/batchtrail-dispatcher.yml",
+        ".github/workflows/payment.daily-close.yml",
+      ]),
+    );
+    expect(state.workflowRuns.map((run) => run.conclusion)).toEqual(
+      expect.arrayContaining(["success", "failure", null]),
+    );
+  });
+
+  it("implements repository, file, issue, pull request, label, and comment APIs in memory", async () => {
+    const client = createMockGitHubLiteClient();
+    const repo = { owner: "always0ne", repo: "batch" };
+
+    await expect(client.getCurrentUser()).resolves.toEqual({
+      login: "maintainer",
+    });
+    await expect(client.getRepository(repo)).resolves.toMatchObject({
+      defaultBranch: "main",
+      private: true,
+    });
+    await expect(
+      client.getDirectory({
+        ...repo,
+        path: ".batch-governance/batches",
+        ref: "main",
+      }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "payment.daily-close.yml",
+          type: "file",
+        }),
+      ]),
+    );
+    await expect(
+      client.getFile({
+        ...repo,
+        path: ".batch-governance/batches/payment.daily-close.yml",
+        ref: "main",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        content: expect.stringContaining('kind: "BatchDefinition"'),
+      }),
+    );
+
+    await client.createBranch({
+      ...repo,
+      branch: "batchtrail/register/mock",
+      sha: "mock-main-sha",
+    });
+    await client.putFile({
+      ...repo,
+      branch: "batchtrail/register/mock",
+      content: "mock: true\n",
+      message: "Add mock file",
+      path: ".batch-governance/batches/mock.yml",
+    });
+    await expect(
+      client.getFile({
+        ...repo,
+        path: ".batch-governance/batches/mock.yml",
+        ref: "batchtrail/register/mock",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        content: "mock: true\n",
+      }),
+    );
+
+    const issue = await client.createIssue({
+      ...repo,
+      body: "body",
+      labels: ["batchtrail:execution-request"],
+      title: "Run batch mock",
+    });
+
+    await client.addIssueLabels({
+      ...repo,
+      issueNumber: issue.number,
+      labels: ["batchtrail:dispatching"],
+    });
+    await client.createIssueComment({
+      ...repo,
+      body: "/bgcp approve requestDigest=sha256:mock",
+      issueNumber: issue.number,
+    });
+    await expect(
+      client.listIssues({ ...repo, state: "open" }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          labels: expect.arrayContaining(["batchtrail:dispatching"]),
+          number: issue.number,
+        }),
+      ]),
+    );
+    expect(client.state.issueComments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          body: "/bgcp approve requestDigest=sha256:mock",
+          issueNumber: issue.number,
+        }),
+      ]),
+    );
+
+    const pullRequest = await client.createPullRequest({
+      ...repo,
+      base: "main",
+      body: "body",
+      head: "batchtrail/register/mock",
+      title: "Register batch mock",
+    });
+
+    await expect(
+      client.listPullRequests({ ...repo, base: "main", state: "open" }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          number: pullRequest.number,
+          title: "Register batch mock",
+        }),
+      ]),
+    );
+    await expect(
+      client.mergePullRequest({
+        ...repo,
+        pullNumber: pullRequest.number,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        merged: true,
+      }),
+    );
+    await expect(
+      client.listPullRequests({ ...repo, state: "closed" }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          merged: true,
+          number: pullRequest.number,
+        }),
+      ]),
+    );
   });
 });
 
