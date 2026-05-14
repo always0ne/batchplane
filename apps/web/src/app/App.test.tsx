@@ -48,4 +48,42 @@ describe("App", () => {
       await screen.findByRole("heading", { name: "Page not found" }),
     ).toBeInTheDocument();
   });
+
+  it.each([
+    { height: 800, name: "mobile", width: 375 },
+    { height: 900, name: "desktop", width: 1280 },
+  ])("keeps the app shell stable at $name width", async ({ height, width }) => {
+    setViewportSize(width, height);
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", {
+        name: "Desktop primary navigation",
+      }),
+    ).toHaveClass("hidden", "lg:block");
+    expect(
+      screen.getByRole("navigation", { name: "Mobile primary navigation" }),
+    ).toHaveClass("overflow-x-auto", "lg:hidden");
+    expect(screen.getByRole("main")).toHaveClass("lg:pl-72");
+  });
 });
+
+function setViewportSize(width: number, height: number) {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: width,
+  });
+  Object.defineProperty(window, "innerHeight", {
+    configurable: true,
+    value: height,
+  });
+  window.dispatchEvent(new Event("resize"));
+}

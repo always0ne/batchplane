@@ -1,4 +1,8 @@
 {
+  "landmarks": {
+    "desktopPrimary": "데스크톱 주요 탐색",
+    "mobilePrimary": "모바일 주요 탐색"
+  },
   "items": {
     "dashboard": "대시보드",
     "setup": "Repo 설정",

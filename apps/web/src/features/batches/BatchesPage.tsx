@@ -1,11 +1,15 @@
 import type { BatchDefinition, RepositoryIssue } from "@batchtrail/domain";
 import { ExternalLink, Loader2, Play, Plus, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../shared/components/PageHeader";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../shared/components/PageState";
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
@@ -190,41 +194,34 @@ function BatchListContent({
   const { t } = useTranslation("batches");
 
   if (state.type === "loading") {
-    return (
-      <StatusPanel>
-        <Loader2 className="h-5 w-5 animate-spin text-bt-git" />
-        <span>{t("states.loading")}</span>
-      </StatusPanel>
-    );
+    return <LoadingState message={t("states.loading")} />;
   }
 
   if (state.type === "no-session") {
     return (
-      <StatusPanel>
-        <span>{t("states.noSession")}</span>
-        <Link
-          className="font-semibold text-bt-control underline"
-          to="/lite/setup"
-        >
-          {t("actions.openSetup")}
-        </Link>
-      </StatusPanel>
+      <EmptyState
+        action={
+          <Link
+            className="font-semibold text-bt-control underline"
+            to="/lite/setup"
+          >
+            {t("actions.openSetup")}
+          </Link>
+        }
+        message={t("states.noSession")}
+      />
     );
   }
 
   if (state.type === "error") {
-    return (
-      <StatusPanel tone="danger">
-        <span>{state.message}</span>
-      </StatusPanel>
-    );
+    return <ErrorState message={state.message} />;
   }
 
   if (state.batches.length === 0) {
     return (
-      <StatusPanel>
-        <span>{t("states.empty", { branch: state.defaultBranch })}</span>
-      </StatusPanel>
+      <EmptyState
+        message={t("states.empty", { branch: state.defaultBranch })}
+      />
     );
   }
 
@@ -346,27 +343,6 @@ function ExecutionRequestBanner({ state }: { state: ExecutionRequestState }) {
   }
 
   return null;
-}
-
-function StatusPanel({
-  children,
-  tone = "neutral",
-}: {
-  children: ReactNode;
-  tone?: "neutral" | "danger";
-}) {
-  const className =
-    tone === "danger"
-      ? "border-red-200 bg-red-50 text-red-800"
-      : "border-slate-200 bg-white text-bt-muted";
-
-  return (
-    <div
-      className={`flex flex-wrap items-center gap-3 rounded-lg border p-5 text-sm font-semibold shadow-sm ${className}`}
-    >
-      {children}
-    </div>
-  );
 }
 
 function formatBatchListError(error: unknown): string {
