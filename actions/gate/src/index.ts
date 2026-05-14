@@ -4,6 +4,8 @@ export type GateInput = {
   mode: GateMode | string;
   batchId: string;
   configPath: string;
+  ref?: string;
+  scheduleId?: string;
   requestId?: string;
   approvalSource?: string;
   approvalRef?: string;
@@ -166,6 +168,8 @@ export function readGateInputFromEnv(
     mode: readActionInput(env, "mode"),
     batchId: readActionInput(env, "batch-id"),
     configPath: readActionInput(env, "config-path") || ".batch-governance",
+    ref: readOptionalActionInput(env, "ref"),
+    scheduleId: readOptionalActionInput(env, "schedule-id"),
     requestId: readOptionalActionInput(env, "request-id"),
     approvalSource: readOptionalActionInput(env, "approval-source"),
     approvalRef: readOptionalActionInput(env, "approval-ref"),

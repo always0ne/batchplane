@@ -201,8 +201,10 @@ describe("Gate action runtime", () => {
         "INPUT_BATCH-ID": batchId,
         "INPUT_GITHUB-TOKEN": "ghs_test",
         INPUT_MODE: "lite",
+        INPUT_REF: "main",
         "INPUT_REQUEST-DIGEST": requestDigest,
         "INPUT_REQUEST-ID": requestId,
+        "INPUT_SCHEDULE-ID": "daily-close-prod",
       }),
     ).toEqual({
       actor: "github-actions[bot]",
@@ -217,7 +219,9 @@ describe("Gate action runtime", () => {
       repository: "always0ne/batch",
       requestDigest,
       requestId,
+      ref: "main",
       runAttempt: 1,
+      scheduleId: "daily-close-prod",
     });
   });
 
