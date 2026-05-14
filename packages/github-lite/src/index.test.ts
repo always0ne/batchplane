@@ -622,6 +622,141 @@ describe("createMockGitHubLiteClient", () => {
     );
   });
 
+  it("tracks execution request approval and dispatcher transitions in memory", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({
+        executionScenarios: [],
+        issueComments: [],
+        issues: [],
+        workflowRuns: [],
+      }),
+    );
+    const repo = { owner: "always0ne", repo: "batch" };
+    const request = createExecutionRequestFixture();
+    const issue = await client.createIssue({
+      ...repo,
+      body: buildExecutionRequestBody(request),
+      labels: ["batchtrail:execution-request"],
+      title: `Run batch ${request.batchId}`,
+    });
+
+    expect(findExecutionScenario(client, issue.number)?.state).toBe(
+      "requested",
+    );
+
+    const approvalComment = await client.createIssueComment({
+      ...repo,
+      body: buildExecutionApprovalComment(request),
+      issueNumber: issue.number,
+    });
+
+    expect(approvalComment.body).toMatch(
+      /^\/bgcp approve requestDigest=sha256:/,
+    );
+    expect(findExecutionScenario(client, issue.number)?.state).toBe("approved");
+
+    await client.createIssueComment({
+      ...repo,
+      body: buildDispatcherStatusComment(request, "DISPATCHING"),
+      issueNumber: issue.number,
+    });
+
+    expect(findExecutionScenario(client, issue.number)?.state).toBe(
+      "dispatching",
+    );
+    expect(findIssue(client, issue.number)?.labels).toEqual(
+      expect.arrayContaining(["batchtrail:dispatching"]),
+    );
+
+    await client.createIssueComment({
+      ...repo,
+      body: buildDispatcherStatusComment(request, "DISPATCHED"),
+      issueNumber: issue.number,
+    });
+
+    expect(findExecutionScenario(client, issue.number)?.state).toBe(
+      "dispatched",
+    );
+    expect(findIssue(client, issue.number)).toMatchObject({
+      labels: expect.arrayContaining(["batchtrail:dispatched"]),
+      state: "closed",
+    });
+    expect(findIssue(client, issue.number)?.labels).not.toContain(
+      "batchtrail:dispatching",
+    );
+    expect(
+      client.state.workflowRuns.find(
+        (workflowRun) => workflowRun.requestId === request.requestId,
+      ),
+    ).toMatchObject({
+      conclusion: "success",
+      status: "completed",
+    });
+  });
+
+  it("tracks execution request rejection comments in memory", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({
+        executionScenarios: [],
+        issueComments: [],
+        issues: [],
+      }),
+    );
+    const repo = { owner: "always0ne", repo: "batch" };
+    const request = createExecutionRequestFixture();
+    const issue = await client.createIssue({
+      ...repo,
+      body: buildExecutionRequestBody(request),
+      labels: ["batchtrail:execution-request"],
+      title: `Run batch ${request.batchId}`,
+    });
+
+    await client.createIssueComment({
+      ...repo,
+      body: buildExecutionRejectionComment(request),
+      issueNumber: issue.number,
+    });
+
+    expect(findExecutionScenario(client, issue.number)?.state).toBe("rejected");
+    expect(findIssue(client, issue.number)).toMatchObject({
+      labels: expect.arrayContaining(["batchtrail:rejected"]),
+      state: "closed",
+    });
+  });
+
+  it("does not treat label-only execution approval as approved", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({
+        executionScenarios: [],
+        issueComments: [],
+        issues: [],
+      }),
+    );
+    const repo = { owner: "always0ne", repo: "batch" };
+    const request = createExecutionRequestFixture();
+    const issue = await client.createIssue({
+      ...repo,
+      body: buildExecutionRequestBody(request),
+      labels: ["batchtrail:execution-request"],
+      title: `Run batch ${request.batchId}`,
+    });
+
+    await client.addIssueLabels({
+      ...repo,
+      issueNumber: issue.number,
+      labels: ["batchtrail:approved"],
+    });
+
+    expect(findExecutionScenario(client, issue.number)?.state).toBe(
+      "requested",
+    );
+    expect(
+      client.state.issueComments.some((comment) =>
+        comment.body.startsWith("/bgcp approve "),
+      ),
+    ).toBe(false);
+  });
+
   it("resets mutated mock state back to the initial fixture", async () => {
     const client = createMockGitHubLiteClient();
     const repo = { owner: "always0ne", repo: "batch" };
@@ -670,4 +805,129 @@ describe("createMockGitHubLiteClient", () => {
 
 function base64ToBytes(value: string) {
   return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+}
+
+function createExecutionRequestFixture() {
+  return {
+    batchId: "payment.daily-close",
+    requestDigest:
+      "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    requestId: "btr-20260514010203-payment.daily-close-abcdef12",
+  };
+}
+
+function buildExecutionRequestBody({
+  batchId,
+  requestDigest,
+  requestId,
+}: ReturnType<typeof createExecutionRequestFixture>): string {
+  return [
+    "## BatchTrail Execution Request",
+    "",
+    `- Request ID: \`${requestId}\``,
+    `- Batch ID: \`${batchId}\``,
+    "- Requested by: @developer",
+    "- Requested at: 2026-05-14T01:02:03.000Z",
+    "- Expires at: 2026-05-14T02:02:03.000Z",
+    `- Request digest: \`${requestDigest}\``,
+    "- Status: REQUESTED",
+    "",
+    "<!-- batchtrail:execution-request",
+    `requestId=${requestId}`,
+    `batchId=${batchId}`,
+    `requestDigest=${requestDigest}`,
+    "status=REQUESTED",
+    "-->",
+  ].join("\n");
+}
+
+function buildExecutionApprovalComment({
+  batchId,
+  requestDigest,
+  requestId,
+}: ReturnType<typeof createExecutionRequestFixture>): string {
+  return [
+    `/bgcp approve requestDigest=${requestDigest}`,
+    "",
+    "## BatchTrail Execution Approval",
+    "",
+    "- Decision: APPROVED",
+    "- Approver: @maintainer",
+    "- Approved at: 2026-05-14T01:05:00.000Z",
+    `- Request ID: \`${requestId}\``,
+    `- Batch ID: \`${batchId}\``,
+    `- Request digest: \`${requestDigest}\``,
+    "",
+    "<!-- batchtrail:execution-approval",
+    "decision=APPROVED",
+    `requestId=${requestId}`,
+    `batchId=${batchId}`,
+    `requestDigest=${requestDigest}`,
+    "-->",
+  ].join("\n");
+}
+
+function buildExecutionRejectionComment({
+  batchId,
+  requestDigest,
+  requestId,
+}: ReturnType<typeof createExecutionRequestFixture>): string {
+  return [
+    "## BatchTrail Execution Approval",
+    "",
+    "- Decision: REJECTED",
+    "- Rejector: @maintainer",
+    "- Rejected at: 2026-05-14T01:06:00.000Z",
+    `- Request ID: \`${requestId}\``,
+    `- Batch ID: \`${batchId}\``,
+    `- Request digest: \`${requestDigest}\``,
+    "",
+    "<!-- batchtrail:execution-approval",
+    "decision=REJECTED",
+    `requestId=${requestId}`,
+    `batchId=${batchId}`,
+    `requestDigest=${requestDigest}`,
+    "-->",
+  ].join("\n");
+}
+
+function buildDispatcherStatusComment(
+  {
+    batchId,
+    requestDigest,
+    requestId,
+  }: ReturnType<typeof createExecutionRequestFixture>,
+  status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED",
+): string {
+  return [
+    `## BatchTrail Dispatcher ${status}`,
+    "",
+    `- Status: ${status}`,
+    `- Request ID: \`${requestId}\``,
+    `- Batch ID: \`${batchId}\``,
+    `- Request digest: \`${requestDigest}\``,
+    "",
+    "<!-- batchtrail:bgcp:dispatcher",
+    `status=${status}`,
+    `requestId=${requestId}`,
+    `batchId=${batchId}`,
+    `requestDigest=${requestDigest}`,
+    "-->",
+  ].join("\n");
+}
+
+function findExecutionScenario(
+  client: ReturnType<typeof createMockGitHubLiteClient>,
+  issueNumber: number,
+) {
+  return client.state.executionScenarios.find(
+    (scenario) => scenario.issueNumber === issueNumber,
+  );
+}
+
+function findIssue(
+  client: ReturnType<typeof createMockGitHubLiteClient>,
+  issueNumber: number,
+) {
+  return client.state.issues.find((issue) => issue.number === issueNumber);
 }
