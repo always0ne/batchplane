@@ -905,6 +905,7 @@ export function createMockGitHubLiteClient(
 
       issue.labels.forEach((label) => ensureMockLabel(state, label));
       state.issues.push(issue);
+      trackMockExecutionRequest(state, issue);
 
       return cloneJson(issue);
     },
@@ -924,6 +925,7 @@ export function createMockGitHubLiteClient(
       };
 
       state.issueComments.push(comment);
+      applyMockExecutionCommentTransition(state, comment);
 
       return { body: comment.body, id: comment.id };
     },
@@ -1116,6 +1118,322 @@ function replaceMockState(
   target.repository = replacement.repository;
   target.workflowRuns = replacement.workflowRuns;
   target.workflows = replacement.workflows;
+}
+
+function trackMockExecutionRequest(
+  state: GitHubLiteMockState,
+  issue: GitHubIssue,
+): void {
+  if (
+    issue.isPullRequest ||
+    !issue.labels.includes("batchtrail:execution-request") ||
+    state.executionScenarios.some(
+      (scenario) => scenario.issueNumber === issue.number,
+    )
+  ) {
+    return;
+  }
+
+  const marker = parseMockBatchTrailMarker(issue.body, "execution-request");
+  const batchId = marker.get("batchId");
+  const requestDigest = marker.get("requestDigest");
+  const requestId = marker.get("requestId");
+
+  if (!batchId || !requestDigest || !requestId) {
+    return;
+  }
+
+  state.executionScenarios.push({
+    batchId,
+    issueNumber: issue.number,
+    requestDigest,
+    requestId,
+    state: marker.get("status") === "REJECTED" ? "rejected" : "requested",
+  });
+}
+
+function applyMockExecutionCommentTransition(
+  state: GitHubLiteMockState,
+  comment: GitHubIssueComment,
+): void {
+  const approval = parseMockExecutionApprovalComment(comment.body);
+
+  if (approval) {
+    applyMockExecutionApprovalTransition(state, comment.issueNumber, approval);
+    return;
+  }
+
+  const dispatcherStatus = parseMockDispatcherStatus(comment.body);
+
+  if (dispatcherStatus) {
+    applyMockDispatcherStatusTransition(
+      state,
+      comment.issueNumber,
+      dispatcherStatus,
+    );
+  }
+}
+
+function parseMockExecutionApprovalComment(body: string): {
+  decision: "APPROVED" | "REJECTED";
+  batchId: string;
+  requestDigest: string;
+  requestId: string;
+} | null {
+  const marker = parseMockBatchTrailMarker(body, "execution-approval");
+  const decision = marker.get("decision");
+  const batchId = marker.get("batchId");
+  const requestDigest = marker.get("requestDigest");
+  const requestId = marker.get("requestId");
+
+  if (decision !== "APPROVED" && decision !== "REJECTED") {
+    return null;
+  }
+
+  if (!batchId || !requestDigest || !requestId) {
+    return null;
+  }
+
+  if (
+    decision === "APPROVED" &&
+    parseMockApprovalCommandDigest(body) !== requestDigest
+  ) {
+    return null;
+  }
+
+  return {
+    batchId,
+    decision,
+    requestDigest,
+    requestId,
+  };
+}
+
+function parseMockApprovalCommandDigest(body: string): string | null {
+  const firstLine = body.split("\n", 1)[0]?.trim();
+  const match = firstLine?.match(/^\/bgcp approve\s+requestDigest=(\S+)$/);
+
+  return match?.[1] ?? null;
+}
+
+function parseMockDispatcherStatus(body: string): {
+  status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED";
+  batchId: string;
+  requestDigest: string;
+  requestId: string;
+} | null {
+  const marker = parseMockBatchTrailMarker(body, "bgcp:dispatcher");
+  const status = marker.get("status");
+  const batchId = marker.get("batchId");
+  const requestDigest = marker.get("requestDigest");
+  const requestId = marker.get("requestId");
+
+  if (
+    status !== "DISPATCHING" &&
+    status !== "DISPATCHED" &&
+    status !== "DISPATCH_FAILED"
+  ) {
+    return null;
+  }
+
+  if (!batchId || !requestDigest || !requestId) {
+    return null;
+  }
+
+  return {
+    batchId,
+    requestDigest,
+    requestId,
+    status,
+  };
+}
+
+function applyMockExecutionApprovalTransition(
+  state: GitHubLiteMockState,
+  issueNumber: number,
+  approval: {
+    decision: "APPROVED" | "REJECTED";
+    batchId: string;
+    requestDigest: string;
+    requestId: string;
+  },
+): void {
+  const scenario = findMatchingMockExecutionScenario(
+    state,
+    issueNumber,
+    approval,
+  );
+
+  if (!scenario) {
+    return;
+  }
+
+  const issue = findMockIssue(state, issueNumber);
+
+  if (approval.decision === "APPROVED") {
+    if (scenario.state === "requested") {
+      scenario.state = "approved";
+    }
+
+    return;
+  }
+
+  scenario.state = "rejected";
+  issue.labels = uniqueStrings([...issue.labels, "batchtrail:rejected"]);
+  ensureMockLabel(state, "batchtrail:rejected");
+  issue.state = "closed";
+}
+
+function applyMockDispatcherStatusTransition(
+  state: GitHubLiteMockState,
+  issueNumber: number,
+  dispatcherStatus: {
+    status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED";
+    batchId: string;
+    requestDigest: string;
+    requestId: string;
+  },
+): void {
+  const scenario = findMatchingMockExecutionScenario(
+    state,
+    issueNumber,
+    dispatcherStatus,
+  );
+
+  if (!scenario) {
+    return;
+  }
+
+  const issue = findMockIssue(state, issueNumber);
+  const { status } = dispatcherStatus;
+
+  if (status === "DISPATCHING") {
+    scenario.state = "dispatching";
+    issue.labels = uniqueStrings([...issue.labels, "batchtrail:dispatching"]);
+    ensureMockLabel(state, "batchtrail:dispatching");
+    ensureMockWorkflowRun(state, scenario, status);
+    return;
+  }
+
+  if (status === "DISPATCHED") {
+    scenario.state = "dispatched";
+    issue.labels = uniqueStrings([
+      ...issue.labels.filter((label) => label !== "batchtrail:dispatching"),
+      "batchtrail:dispatched",
+    ]);
+    ensureMockLabel(state, "batchtrail:dispatched");
+    issue.state = "closed";
+    ensureMockWorkflowRun(state, scenario, status);
+    return;
+  }
+
+  scenario.state = "failed";
+  issue.labels = uniqueStrings([
+    ...issue.labels.filter((label) => label !== "batchtrail:dispatching"),
+    "batchtrail:dispatch-failed",
+  ]);
+  ensureMockLabel(state, "batchtrail:dispatch-failed");
+  ensureMockWorkflowRun(state, scenario, status);
+}
+
+function findMatchingMockExecutionScenario(
+  state: GitHubLiteMockState,
+  issueNumber: number,
+  evidence: {
+    batchId: string;
+    requestDigest: string;
+    requestId: string;
+  },
+): GitHubLiteMockExecutionScenario | null {
+  return (
+    state.executionScenarios.find(
+      (scenario) =>
+        scenario.issueNumber === issueNumber &&
+        scenario.batchId === evidence.batchId &&
+        scenario.requestDigest === evidence.requestDigest &&
+        scenario.requestId === evidence.requestId,
+    ) ?? null
+  );
+}
+
+function ensureMockWorkflowRun(
+  state: GitHubLiteMockState,
+  scenario: GitHubLiteMockExecutionScenario,
+  status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED",
+): void {
+  const runStatus: GitHubWorkflowRunStatus =
+    status === "DISPATCHING" ? "in_progress" : "completed";
+  const conclusion: GitHubWorkflowRunConclusion =
+    status === "DISPATCHING"
+      ? null
+      : status === "DISPATCHED"
+        ? "success"
+        : "failure";
+  const workflowId =
+    state.workflows.find((workflow) =>
+      workflow.path.endsWith(`/${scenario.batchId}.yml`),
+    )?.id ??
+    state.workflows[0]?.id ??
+    0;
+
+  if (scenario.workflowRunId) {
+    const workflowRun = state.workflowRuns.find(
+      (candidate) => candidate.id === scenario.workflowRunId,
+    );
+
+    if (workflowRun) {
+      workflowRun.status = runStatus;
+      workflowRun.conclusion = conclusion;
+      return;
+    }
+  }
+
+  const workflowRunId = nextMockNumber(
+    state.workflowRuns.map((workflowRun) => workflowRun.id),
+  );
+  scenario.workflowRunId = workflowRunId;
+  state.workflowRuns.push({
+    actor: "github-actions[bot]",
+    batchId: scenario.batchId,
+    conclusion,
+    event: "workflow_dispatch",
+    id: workflowRunId,
+    name: `Run ${scenario.batchId}`,
+    requestId: scenario.requestId,
+    runAttempt: 1,
+    status: runStatus,
+    url: `${state.repository.url}/actions/runs/${workflowRunId}`,
+    workflowId,
+  });
+}
+
+function parseMockBatchTrailMarker(
+  body: string,
+  kind: string,
+): Map<string, string> {
+  const marker = new Map<string, string>();
+  const match = body.match(
+    new RegExp(`<!--\\s*batchtrail:${kind}\\s*([\\s\\S]*?)-->`),
+  );
+
+  if (!match?.[1]) {
+    return marker;
+  }
+
+  for (const line of match[1].split("\n")) {
+    const separatorIndex = line.indexOf("=");
+
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    marker.set(
+      line.slice(0, separatorIndex).trim(),
+      line.slice(separatorIndex + 1).trim(),
+    );
+  }
+
+  return marker;
 }
 
 function buildHeaders(token: string, initHeaders?: HeadersInit): Headers {
