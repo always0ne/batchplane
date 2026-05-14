@@ -22,9 +22,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { buildRegistrationApprovalHandoff } from "../approvals/approval-handoff";
-import { readGitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import {
+  createBatchTrailRuntime,
+  readRuntimeSession,
+} from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
   buildBatchWorkflowYaml,
@@ -158,7 +160,7 @@ export function BatchRegistrationPage() {
       return;
     }
 
-    const session = readGitHubSession();
+    const session = readRuntimeSession();
 
     if (!session) {
       setSubmissionState({
@@ -171,7 +173,7 @@ export function BatchRegistrationPage() {
     setSubmissionState({ type: "submitting" });
 
     try {
-      const runtime = createGitHubLiteRuntime(session);
+      const runtime = createBatchTrailRuntime(session);
       const repository = await runtime.settings.getRepository();
       const registrationTargets =
         await runtime.registration.checkRegistrationTargets({

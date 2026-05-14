@@ -4,6 +4,17 @@
     "edition": "Repo Mode",
     "tagline": "Git-native Batch Control & Audit"
   },
+  "devRuntime": {
+    "label": "Fixture",
+    "description": "Development-only runtime fixture selector.",
+    "options": {
+      "live": "Live GitHub",
+      "happy-path": "Happy path",
+      "approval-pending": "Approval pending",
+      "dispatch-failed": "Dispatch failed",
+      "gate-blocked": "Gate blocked"
+    }
+  },
   "actions": {
     "open": "Open",
     "refresh": "Refresh",

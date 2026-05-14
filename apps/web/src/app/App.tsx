@@ -5,7 +5,7 @@ import {
   ListChecks,
   Settings,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
@@ -20,6 +20,13 @@ import {
   type SupportedLocale,
 } from "../i18n/locales";
 import { writeStoredLocale } from "../i18n/locale-detector";
+import {
+  isRuntimeFixtureSwitcherEnabled,
+  readRuntimeFixtureSelection,
+  runtimeFixtureOptions,
+  type RuntimeFixtureId,
+  writeRuntimeFixtureSelection,
+} from "../runtime/runtime-fixtures";
 
 const navItems = [
   { icon: LayoutDashboard, labelKey: "items.dashboard", to: "/dashboard" },
@@ -31,6 +38,10 @@ const compactMarkSrc = `${import.meta.env.BASE_URL}assets/batchtrail-compact-mar
 
 export function App() {
   const { i18n, t } = useTranslation(["common", "navigation"]);
+  const [runtimeFixture, setRuntimeFixture] = useState(() =>
+    readRuntimeFixtureSelection(),
+  );
+  const showRuntimeFixtureSwitcher = isRuntimeFixtureSwitcherEnabled();
 
   const activeLocale = useMemo(() => {
     const language = i18n.resolvedLanguage ?? i18n.language;
@@ -42,6 +53,11 @@ export function App() {
   function changeLocale(locale: SupportedLocale) {
     writeStoredLocale(locale);
     void i18n.changeLanguage(locale);
+  }
+
+  function changeRuntimeFixture(fixtureId: RuntimeFixtureId) {
+    writeRuntimeFixtureSelection(fixtureId);
+    setRuntimeFixture(fixtureId);
   }
 
   return (
@@ -78,22 +94,47 @@ export function App() {
               <GitBranch className="h-4 w-4 text-bt-git" aria-hidden="true" />
               {t("common:app.tagline")}
             </div>
-            <label className="flex items-center gap-2 text-sm text-bt-muted">
-              <span>{t("settings:language")}</span>
-              <select
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-bt-graphite"
-                value={activeLocale}
-                onChange={(event) =>
-                  changeLocale(event.target.value as SupportedLocale)
-                }
-              >
-                {supportedLocales.map((locale) => (
-                  <option key={locale} value={locale}>
-                    {localeLabels[locale]}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              {showRuntimeFixtureSwitcher ? (
+                <label
+                  className="flex items-center gap-2 text-sm text-bt-muted"
+                  title={t("common:devRuntime.description")}
+                >
+                  <span>{t("common:devRuntime.label")}</span>
+                  <select
+                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-bt-graphite"
+                    value={runtimeFixture}
+                    onChange={(event) =>
+                      changeRuntimeFixture(
+                        event.target.value as RuntimeFixtureId,
+                      )
+                    }
+                  >
+                    {runtimeFixtureOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {t(`common:${option.labelKey}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <label className="flex items-center gap-2 text-sm text-bt-muted">
+                <span>{t("settings:language")}</span>
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-bt-graphite"
+                  value={activeLocale}
+                  onChange={(event) =>
+                    changeLocale(event.target.value as SupportedLocale)
+                  }
+                >
+                  {supportedLocales.map((locale) => (
+                    <option key={locale} value={locale}>
+                      {localeLabels[locale]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
           <nav
             aria-label={t("navigation:landmarks.mobilePrimary")}
@@ -102,7 +143,7 @@ export function App() {
             <NavigationLinks variant="mobile" />
           </nav>
         </header>
-        <div className="p-4 sm:p-5">
+        <div className="p-4 sm:p-5" key={runtimeFixture}>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />

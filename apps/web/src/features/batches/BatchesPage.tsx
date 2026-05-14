@@ -10,12 +10,12 @@ import {
   ErrorState,
   LoadingState,
 } from "../../shared/components/PageState";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
-import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
-  readGitHubSession,
-  type GitHubSession,
-} from "../lite-setup/github-session";
+  createBatchTrailRuntime,
+  readRuntimeSession,
+} from "../../runtime/runtime-fixtures";
+import { formatRuntimeError } from "../../runtime/runtime-errors";
+import type { GitHubSession } from "../lite-setup/github-session";
 import {
   addHours,
   buildExecutionRequestIssue,
@@ -57,7 +57,7 @@ export function BatchesPage() {
     let ignoreResult = false;
 
     async function loadBatches() {
-      const session = readGitHubSession();
+      const session = readRuntimeSession();
 
       if (!session) {
         setState({ type: "no-session" });
@@ -67,7 +67,7 @@ export function BatchesPage() {
       setState({ type: "loading" });
 
       try {
-        const runtime = createGitHubLiteRuntime(session);
+        const runtime = createBatchTrailRuntime(session);
         const [repository, user] = await Promise.all([
           runtime.settings.getRepository(),
           runtime.settings.getCurrentUser(),
@@ -122,7 +122,7 @@ export function BatchesPage() {
         requestedAt: now,
         requestedBy: state.login,
       });
-      const runtime = createGitHubLiteRuntime(state.session);
+      const runtime = createBatchTrailRuntime(state.session);
       const issue = await runtime.executions.createExecutionRequest({
         body: requestIssue.body,
         labels: requestIssue.labels,

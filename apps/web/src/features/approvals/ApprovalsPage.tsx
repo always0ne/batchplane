@@ -18,12 +18,12 @@ import {
   ErrorState,
   LoadingState,
 } from "../../shared/components/PageState";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
-import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
-  readGitHubSession,
-  type GitHubSession,
-} from "../lite-setup/github-session";
+  createBatchTrailRuntime,
+  readRuntimeSession,
+} from "../../runtime/runtime-fixtures";
+import { formatRuntimeError } from "../../runtime/runtime-errors";
+import type { GitHubSession } from "../lite-setup/github-session";
 import {
   buildExecutionApprovalComment,
   buildExecutionRejectionComment,
@@ -75,7 +75,7 @@ export function ApprovalsPage() {
     let ignoreResult = false;
 
     async function loadApprovalRequests() {
-      const session = readGitHubSession();
+      const session = readRuntimeSession();
 
       if (!session) {
         setState({ type: "no-session" });
@@ -85,7 +85,7 @@ export function ApprovalsPage() {
       setState({ type: "loading" });
 
       try {
-        const runtime = createGitHubLiteRuntime(session);
+        const runtime = createBatchTrailRuntime(session);
         const [user, repository] = await Promise.all([
           runtime.settings.getCurrentUser(),
           runtime.settings.getRepository(),
@@ -177,7 +177,7 @@ export function ApprovalsPage() {
     });
 
     try {
-      const runtime = createGitHubLiteRuntime(state.session);
+      const runtime = createBatchTrailRuntime(state.session);
 
       const mergeResult = await runtime.approvals.approveRegistration({
         body: buildRegistrationApprovalComment({
@@ -217,7 +217,7 @@ export function ApprovalsPage() {
     });
 
     try {
-      const runtime = createGitHubLiteRuntime(state.session);
+      const runtime = createBatchTrailRuntime(state.session);
 
       await runtime.approvals.rejectRegistration({
         body: buildRegistrationRejectionComment({
@@ -252,7 +252,7 @@ export function ApprovalsPage() {
     });
 
     try {
-      const runtime = createGitHubLiteRuntime(state.session);
+      const runtime = createBatchTrailRuntime(state.session);
 
       await runtime.approvals.approveExecution({
         body: buildExecutionApprovalComment({
@@ -287,7 +287,7 @@ export function ApprovalsPage() {
     });
 
     try {
-      const runtime = createGitHubLiteRuntime(state.session);
+      const runtime = createBatchTrailRuntime(state.session);
 
       await runtime.approvals.rejectExecution({
         body: buildExecutionRejectionComment({
