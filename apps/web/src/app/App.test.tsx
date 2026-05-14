@@ -49,6 +49,31 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders the development runtime fixture switcher", async () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Fixture")).toHaveValue("live");
+    expect(screen.getByRole("option", { name: "Happy path" })).toHaveValue(
+      "happy-path",
+    );
+    expect(
+      screen.getByRole("option", { name: "Approval pending" }),
+    ).toHaveValue("approval-pending");
+    expect(screen.getByRole("option", { name: "Dispatch failed" })).toHaveValue(
+      "dispatch-failed",
+    );
+    expect(screen.getByRole("option", { name: "Gate blocked" })).toHaveValue(
+      "gate-blocked",
+    );
+  });
+
   it.each([
     { height: 800, name: "mobile", width: 375 },
     { height: 900, name: "desktop", width: 1280 },

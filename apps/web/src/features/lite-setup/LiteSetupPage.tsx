@@ -16,11 +16,13 @@ import { type FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../shared/components/PageHeader";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import {
+  createBatchTrailRuntime,
+  readRuntimeSession,
+} from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
   clearGitHubSession,
-  readGitHubSession,
   redactGitHubToken,
   writeGitHubSession,
   type GitHubSession,
@@ -49,7 +51,7 @@ type InstallationCheckState =
 
 export function LiteSetupPage() {
   const { t } = useTranslation(["settings", "common"]);
-  const initialSession = useMemo(() => readGitHubSession(), []);
+  const initialSession = useMemo(() => readRuntimeSession(), []);
   const [owner, setOwner] = useState(initialSession?.owner ?? "");
   const [repo, setRepo] = useState(initialSession?.repo ?? "");
   const [token, setToken] = useState(initialSession?.token ?? "");
@@ -111,7 +113,7 @@ export function LiteSetupPage() {
     setInstallationState({ type: "checking" });
 
     try {
-      const runtime = createGitHubLiteRuntime(session);
+      const runtime = createBatchTrailRuntime(session);
       const [user, repository] = await Promise.all([
         runtime.settings.getCurrentUser(),
         runtime.settings.getRepository(),
@@ -172,7 +174,7 @@ export function LiteSetupPage() {
     setInstallationState({ type: "creating" });
 
     try {
-      const runtime = createGitHubLiteRuntime(session);
+      const runtime = createBatchTrailRuntime(session);
       const repository = await runtime.settings.getRepository();
       const { pullRequest } =
         await runtime.settings.createInstallationPullRequest({

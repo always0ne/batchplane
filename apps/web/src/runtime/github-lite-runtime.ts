@@ -7,6 +7,7 @@ import type {
 import {
   createGitHubLiteClient,
   type GitHubIssue,
+  type GitHubLiteClient,
   type GitHubLiteClientOptions,
   type GitHubPullRequest,
 } from "@batchtrail/github-lite";
@@ -23,6 +24,7 @@ import {
 } from "../features/batches/batch-repository";
 
 export type GitHubLiteRuntimeOptions = {
+  client?: GitHubLiteClient;
   fetcher?: GitHubLiteClientOptions["fetcher"];
 };
 
@@ -30,10 +32,12 @@ export function createGitHubLiteRuntime(
   session: GitHubSession,
   options: GitHubLiteRuntimeOptions = {},
 ): BatchTrailRuntimePorts {
-  const client = createGitHubLiteClient({
-    token: session.token,
-    fetcher: options.fetcher,
-  });
+  const client =
+    options.client ??
+    createGitHubLiteClient({
+      token: session.token,
+      fetcher: options.fetcher,
+    });
   const repositoryRef = {
     owner: session.owner,
     repo: session.repo,
