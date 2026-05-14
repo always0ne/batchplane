@@ -1,10 +1,58 @@
 {
   "title": "Dashboard",
   "subtitle": "Repo Mode control summary from GitHub artifacts.",
+  "actions": {
+    "openSetup": "Open setup",
+    "viewApprovals": "View approvals"
+  },
+  "states": {
+    "loading": "Loading dashboard summary...",
+    "noSession": "Connect a GitHub repository to view Repo Mode control status.",
+    "error": "Failed to load dashboard summary."
+  },
+  "connection": {
+    "title": "Connected repository",
+    "connected": "Connected",
+    "user": "User",
+    "defaultBranch": "Default branch",
+    "batches": "Batches"
+  },
+  "readiness": {
+    "title": "Governance readiness",
+    "installed": "Required Repo Mode files are present.",
+    "missing": "{{count}} required file is missing.",
+    "missing_plural": "{{count}} required files are missing.",
+    "paths": "{{present}} of {{total}} required paths are present."
+  },
+  "values": {
+    "ready": "Ready",
+    "actionRequired": "Action"
+  },
   "cards": {
     "repoReadiness": "Repository readiness",
     "pendingApprovals": "Pending approvals",
+    "failedRuns": "Failed runs",
     "gateBlocked": "Gate blocked runs",
     "auditTrail": "Audit trail"
+  },
+  "cardHints": {
+    "repoReadiness": "Open setup status",
+    "pendingApprovals": "Open approval inbox",
+    "failedRuns": "Review failed evidence",
+    "gateBlocked": "Review Gate decisions",
+    "auditTrail": "Jump to recent audit"
+  },
+  "approvals": {
+    "title": "Approval workload",
+    "summary": "{{count}} item is waiting for action.",
+    "summary_plural": "{{count}} items are waiting for action.",
+    "empty": "No approval work is currently waiting.",
+    "registration": "Registration approval",
+    "execution": "Execution approval"
+  },
+  "audit": {
+    "title": "Recent audit trail",
+    "subtitle": "Latest evidence captured through the active runtime.",
+    "empty": "No audit records are available yet."
   }
 }
