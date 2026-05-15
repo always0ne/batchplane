@@ -5,7 +5,10 @@
     "openSetup": "Open setup",
     "refresh": "Refresh",
     "register": "Register batch",
-    "requestRun": "Request run"
+    "requestChange": "Request change",
+    "requestRun": "Request run",
+    "backToBatches": "Back to batches",
+    "viewDetails": "Details"
   },
   "execution": {
     "errors": {
@@ -17,6 +20,9 @@
   },
   "states": {
     "empty": "No batch definitions are registered on {{branch}} yet.",
+    "detailError": "Failed to load batch detail.",
+    "detailLoading": "Loading batch detail...",
+    "detailNotFound": "Batch {{batchId}} was not found.",
     "loading": "Loading batch definitions...",
     "noSession": "Connect a GitHub repository before viewing governed batches."
   },
@@ -31,7 +37,58 @@
     "status": "Status"
   },
   "values": {
+    "none": "None",
     "off": "Off",
     "required": "Required"
+  },
+  "detail": {
+    "title": "Batch detail",
+    "fields": {
+      "criticality": "Criticality",
+      "defaultBranch": "Default branch",
+      "domain": "Domain",
+      "environment": "Environment",
+      "labels": "Labels",
+      "owner": "Owner"
+    },
+    "execution": {
+      "title": "Execution request",
+      "reason": "Reason",
+      "defaultReason": "Manual request from BatchTrail Repo Mode."
+    },
+    "workflow": {
+      "title": "Workflow target",
+      "path": "Workflow path",
+      "ref": "Workflow ref"
+    },
+    "gate": {
+      "title": "Gate requirement",
+      "required": "BatchTrail Gate is required before the batch command.",
+      "off": "Gate is disabled for this batch."
+    },
+    "approvalPolicy": {
+      "default": "Execution requests require repository maintainer approval evidence."
+    },
+    "change": {
+      "title": "Change request",
+      "placeholder": "Open the registration flow as the current change request placeholder."
+    },
+    "schedules": {
+      "title": "Schedules",
+      "empty": "No schedules are registered for this batch yet."
+    },
+    "recentRuns": {
+      "title": "Recent runs",
+      "empty": "No execution evidence is available yet.",
+      "status": {
+        "dispatchFailed": "Dispatch failed",
+        "dispatching": "Dispatching",
+        "dispatched": "Dispatched",
+        "gateBlocked": "Gate blocked",
+        "rejected": "Rejected",
+        "requested": "Approval requested",
+        "unknown": "Execution evidence"
+      }
+    }
   }
 }

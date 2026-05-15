@@ -256,7 +256,12 @@ function BatchListContent({
             return (
               <tr key={batch.batchId}>
                 <td className="px-4 py-4 font-mono text-sm text-bt-graphite">
-                  {batch.batchId}
+                  <Link
+                    className="font-semibold text-bt-control underline"
+                    to={`/batches/${encodeURIComponent(batch.batchId)}`}
+                  >
+                    {batch.batchId}
+                  </Link>
                 </td>
                 <td className="px-4 py-4 text-sm font-semibold text-bt-graphite">
                   {batch.name}
@@ -277,27 +282,35 @@ function BatchListContent({
                   {batch.gateRequired ? t("values.required") : t("values.off")}
                 </td>
                 <td className="px-4 py-4 text-sm text-bt-graphite">
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite disabled:cursor-not-allowed disabled:text-slate-400"
-                    disabled={isDisabled}
-                    onClick={() => onRequestExecution(batch)}
-                    title={
-                      batch.status === "ACTIVE"
-                        ? t("actions.requestRun")
-                        : t("execution.errors.inactive")
-                    }
-                    type="button"
-                  >
-                    {isRunning ? (
-                      <Loader2
-                        className="h-4 w-4 animate-spin"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <Play className="h-4 w-4" aria-hidden="true" />
-                    )}
-                    {t("actions.requestRun")}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                      to={`/batches/${encodeURIComponent(batch.batchId)}`}
+                    >
+                      {t("actions.viewDetails")}
+                    </Link>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite disabled:cursor-not-allowed disabled:text-slate-400"
+                      disabled={isDisabled}
+                      onClick={() => onRequestExecution(batch)}
+                      title={
+                        batch.status === "ACTIVE"
+                          ? t("actions.requestRun")
+                          : t("execution.errors.inactive")
+                      }
+                      type="button"
+                    >
+                      {isRunning ? (
+                        <Loader2
+                          className="h-4 w-4 animate-spin"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <Play className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      {t("actions.requestRun")}
+                    </button>
+                  </div>
                 </td>
               </tr>
             );

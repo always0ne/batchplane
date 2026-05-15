@@ -5,7 +5,10 @@
     "openSetup": "설정 열기",
     "refresh": "새로고침",
     "register": "배치 등록",
-    "requestRun": "실행 요청"
+    "requestChange": "변경 요청",
+    "requestRun": "실행 요청",
+    "backToBatches": "배치 목록으로",
+    "viewDetails": "상세"
   },
   "execution": {
     "errors": {
@@ -17,6 +20,9 @@
   },
   "states": {
     "empty": "{{branch}} 브랜치에 등록된 배치 정의가 아직 없습니다.",
+    "detailError": "배치 상세를 불러오지 못했습니다.",
+    "detailLoading": "배치 상세를 불러오는 중입니다...",
+    "detailNotFound": "{{batchId}} 배치를 찾을 수 없습니다.",
     "loading": "배치 정의를 불러오는 중입니다...",
     "noSession": "관리 대상 배치를 보려면 GitHub 저장소를 먼저 연결하세요."
   },
@@ -31,7 +37,58 @@
     "status": "상태"
   },
   "values": {
+    "none": "없음",
     "off": "미사용",
     "required": "필수"
+  },
+  "detail": {
+    "title": "배치 상세",
+    "fields": {
+      "criticality": "중요도",
+      "defaultBranch": "기본 브랜치",
+      "domain": "도메인",
+      "environment": "환경",
+      "labels": "Labels",
+      "owner": "소유자"
+    },
+    "execution": {
+      "title": "실행 요청",
+      "reason": "사유",
+      "defaultReason": "BatchTrail Repo Mode에서 수동 실행 요청."
+    },
+    "workflow": {
+      "title": "Workflow 대상",
+      "path": "Workflow 경로",
+      "ref": "Workflow ref"
+    },
+    "gate": {
+      "title": "Gate 필수 여부",
+      "required": "배치 명령 전에 BatchTrail Gate가 필수로 실행됩니다.",
+      "off": "이 배치는 Gate가 비활성화되어 있습니다."
+    },
+    "approvalPolicy": {
+      "default": "실행 요청에는 repository maintainer 승인 증적이 필요합니다."
+    },
+    "change": {
+      "title": "변경 요청",
+      "placeholder": "현재 변경 요청 placeholder로 등록 화면을 엽니다."
+    },
+    "schedules": {
+      "title": "스케줄",
+      "empty": "이 배치에 등록된 스케줄이 아직 없습니다."
+    },
+    "recentRuns": {
+      "title": "최근 실행",
+      "empty": "아직 실행 증적이 없습니다.",
+      "status": {
+        "dispatchFailed": "Dispatch 실패",
+        "dispatching": "Dispatch 중",
+        "dispatched": "Dispatch 완료",
+        "gateBlocked": "Gate 차단",
+        "rejected": "반려됨",
+        "requested": "승인 요청됨",
+        "unknown": "실행 증적"
+      }
+    }
   }
 }
