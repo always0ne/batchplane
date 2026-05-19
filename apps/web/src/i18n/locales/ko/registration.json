@@ -20,8 +20,32 @@
     "gateRequiredInline": "BatchTrail Gate는 업무 실행 명령 전에 항상 실행됩니다."
   },
   "preview": {
-    "title": "배치 정의 YAML",
+    "title": "YAML 미리보기",
+    "batchDefinitionTitle": "배치 정의 YAML",
     "workflowTitle": "Workflow YAML"
+  },
+  "review": {
+    "title": "PR 검토",
+    "subtitle": "GitHub Pull Request로 생성될 내용을 먼저 확인합니다.",
+    "files": {
+      "title": "생성 파일",
+      "batchDefinition": "배치 정의",
+      "workflow": "Workflow",
+      "executionFile": "실행 파일",
+      "noExecutionFile": "업로드된 실행 파일 없음",
+      "pending": "Batch ID를 입력하면 경로가 생성됩니다"
+    },
+    "checklist": {
+      "title": "통제 체크",
+      "batchDefinitionPath": "배치 정의 경로가 Batch ID 기준으로 생성됩니다.",
+      "workflowPath": "Workflow 경로가 Batch ID 기준으로 생성됩니다.",
+      "gateRequired": "BatchTrail Gate는 배치 명령 전에 반드시 실행됩니다.",
+      "runnerSelected": "실행 환경: {{runner}}",
+      "runnerMissing": "실행 환경은 필수입니다.",
+      "commandRecorded": "배치 명령이 배치 정의에 기록됩니다.",
+      "commandMissing": "PR 생성 전 배치 명령이 필요합니다."
+    },
+    "nextStep": "생성 후 BatchTrail은 PR을 승인함으로 라우팅합니다. GitHub 목록 반영에는 몇 초 지연이 있을 수 있습니다."
   },
   "actions": {
     "createPullRequest": "등록 PR 생성",

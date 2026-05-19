@@ -124,6 +124,22 @@ If the command field is empty when a file is uploaded, the UI may populate a
 default command that executes the uploaded artifact. The command must update if
 it was auto-generated and the Batch ID changes.
 
+### Registration Review UX
+
+Before creating the registration pull request, the UI must show a PR review
+panel with:
+
+- generated file paths for the batch definition, workflow, and optional
+  execution file
+- a governance checklist confirming Batch ID-derived paths, mandatory Gate,
+  selected execution environment, and recorded Batch command
+- a YAML preview for the batch definition and generated workflow
+- a short handoff note that creation routes the PR to approvals and GitHub list
+  results can lag briefly
+
+The review panel is the primary operator surface. YAML preview is supporting
+evidence, not the first thing the user should have to interpret.
+
 ## Execution Request Requirements
 
 Manual execution starts from a registered active batch.

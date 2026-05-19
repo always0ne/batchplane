@@ -2,9 +2,11 @@ import type {
   BatchStatus,
   Criticality,
   RepositoryPullRequest,
+  RunnerLabel,
 } from "@batchtrail/domain";
 import {
   AlertCircle,
+  CheckCircle2,
   FileCode2,
   FileText,
   GitPullRequest,
@@ -14,6 +16,7 @@ import {
 import {
   type ChangeEvent,
   type FormEvent,
+  type ReactNode,
   useEffect,
   useMemo,
   useState,
@@ -392,55 +395,232 @@ export function BatchRegistrationPage() {
         </div>
 
         <aside className="space-y-4">
-          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-bt-graphite">
-                  {t("preview.title")}
-                </h2>
-                <p className="mt-2 break-all text-sm text-bt-muted">
-                  {batchPath}
-                </p>
-              </div>
-              <FileText className="h-5 w-5 text-bt-git" aria-hidden="true" />
-            </div>
-            <pre className="mt-5 max-h-[32rem] overflow-auto rounded-md bg-bt-graphite p-4 text-xs leading-6 text-white">
-              <code>{yaml}</code>
-            </pre>
-          </article>
-
-          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-bt-graphite">
-                  {t("preview.workflowTitle")}
-                </h2>
-                <p className="mt-2 break-all text-sm text-bt-muted">
-                  {workflowPath}
-                </p>
-              </div>
-              <FileCode2 className="h-5 w-5 text-bt-git" aria-hidden="true" />
-            </div>
-            <pre className="mt-5 max-h-[32rem] overflow-auto rounded-md bg-bt-graphite p-4 text-xs leading-6 text-white">
-              <code>{generatedWorkflowYaml}</code>
-            </pre>
-          </article>
-
-          <button
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-bt-control px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-            disabled={!canSubmit}
-            type="submit"
-          >
-            {submissionState.type === "submitting" ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <GitPullRequest className="h-4 w-4" aria-hidden="true" />
-            )}
-            {t("actions.createPullRequest")}
-          </button>
+          <PullRequestReviewPanel
+            batchPath={batchPath}
+            canSubmit={canSubmit}
+            definition={definition}
+            missingFields={missingFields}
+            submissionState={submissionState}
+            uploadedFilePath={uploadedFilePath}
+            workflowPath={workflowPath}
+          />
+          <YamlPreviewPanel
+            batchPath={batchPath}
+            batchYaml={yaml}
+            workflowPath={workflowPath}
+            workflowYaml={generatedWorkflowYaml}
+          />
         </aside>
       </form>
     </section>
+  );
+}
+
+function PullRequestReviewPanel({
+  batchPath,
+  canSubmit,
+  definition,
+  missingFields,
+  submissionState,
+  uploadedFilePath,
+  workflowPath,
+}: {
+  batchPath: string;
+  canSubmit: boolean;
+  definition: ReturnType<typeof toBatchDefinition>;
+  missingFields: string[];
+  submissionState: SubmissionState;
+  uploadedFilePath: string | null;
+  workflowPath: string;
+}) {
+  const { t } = useTranslation("registration");
+  const execution = definition.execution;
+
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div>
+        <h2 className="text-lg font-semibold text-bt-graphite">
+          {t("review.title")}
+        </h2>
+        <p className="mt-2 text-sm text-bt-muted">{t("review.subtitle")}</p>
+      </div>
+
+      <section className="mt-5">
+        <h3 className="text-sm font-bold text-bt-graphite">
+          {t("review.files.title")}
+        </h3>
+        <dl className="mt-3 divide-y divide-slate-100 text-sm">
+          <ReviewFileRow
+            label={t("review.files.batchDefinition")}
+            value={batchPath || t("review.files.pending")}
+          />
+          <ReviewFileRow
+            label={t("review.files.workflow")}
+            value={workflowPath || t("review.files.pending")}
+          />
+          <ReviewFileRow
+            label={t("review.files.executionFile")}
+            value={uploadedFilePath || t("review.files.noExecutionFile")}
+          />
+        </dl>
+      </section>
+
+      <section className="mt-5">
+        <h3 className="text-sm font-bold text-bt-graphite">
+          {t("review.checklist.title")}
+        </h3>
+        <ul className="mt-3 space-y-2 text-sm">
+          <ReviewCheckItem
+            ready={Boolean(batchPath)}
+            text={t("review.checklist.batchDefinitionPath")}
+          />
+          <ReviewCheckItem
+            ready={Boolean(workflowPath)}
+            text={t("review.checklist.workflowPath")}
+          />
+          <ReviewCheckItem
+            ready={definition.gateRequired}
+            text={t("review.checklist.gateRequired")}
+          />
+          <ReviewCheckItem
+            ready={!missingFields.includes("runnerLabel")}
+            text={
+              execution?.runsOn
+                ? t("review.checklist.runnerSelected", {
+                    runner: formatRunnerLabelDisplay(execution.runsOn),
+                  })
+                : t("review.checklist.runnerMissing")
+            }
+          />
+          <ReviewCheckItem
+            ready={!missingFields.includes("runCommand")}
+            text={
+              missingFields.includes("runCommand")
+                ? t("review.checklist.commandMissing")
+                : t("review.checklist.commandRecorded")
+            }
+          />
+        </ul>
+      </section>
+
+      <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bt-muted">
+        {t("review.nextStep")}
+      </p>
+
+      <button
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-bt-control px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+        disabled={!canSubmit}
+        type="submit"
+      >
+        {submissionState.type === "submitting" ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <GitPullRequest className="h-4 w-4" aria-hidden="true" />
+        )}
+        {t("actions.createPullRequest")}
+      </button>
+    </article>
+  );
+}
+
+function ReviewFileRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-1 py-2 first:pt-0 last:pb-0">
+      <dt className="text-xs font-semibold uppercase text-bt-muted">{label}</dt>
+      <dd className="break-all font-mono text-xs font-semibold text-bt-graphite">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function ReviewCheckItem({ ready, text }: { ready: boolean; text: string }) {
+  const Icon = ready ? CheckCircle2 : AlertCircle;
+
+  return (
+    <li
+      className={`flex items-start gap-2 ${
+        ready ? "text-bt-graphite" : "text-amber-800"
+      }`}
+    >
+      <Icon
+        className={`mt-0.5 h-4 w-4 shrink-0 ${
+          ready ? "text-emerald-700" : "text-amber-700"
+        }`}
+        aria-hidden="true"
+      />
+      <span className="font-medium">{text}</span>
+    </li>
+  );
+}
+
+function YamlPreviewPanel({
+  batchPath,
+  batchYaml,
+  workflowPath,
+  workflowYaml,
+}: {
+  batchPath: string;
+  batchYaml: string;
+  workflowPath: string;
+  workflowYaml: string;
+}) {
+  const { t } = useTranslation("registration");
+
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-semibold text-bt-graphite">
+        {t("preview.title")}
+      </h2>
+      <div className="mt-4 divide-y divide-slate-100">
+        <PreviewDetails
+          icon={<FileText className="h-4 w-4 text-bt-git" aria-hidden />}
+          isOpen
+          path={batchPath || t("review.files.pending")}
+          title={t("preview.batchDefinitionTitle")}
+          yaml={batchYaml}
+        />
+        <PreviewDetails
+          icon={<FileCode2 className="h-4 w-4 text-bt-git" aria-hidden />}
+          path={workflowPath || t("review.files.pending")}
+          title={t("preview.workflowTitle")}
+          yaml={workflowYaml}
+        />
+      </div>
+    </article>
+  );
+}
+
+function PreviewDetails({
+  icon,
+  isOpen = false,
+  path,
+  title,
+  yaml,
+}: {
+  icon: ReactNode;
+  isOpen?: boolean;
+  path: string;
+  title: string;
+  yaml: string;
+}) {
+  return (
+    <details className="py-3 first:pt-0 last:pb-0" open={isOpen}>
+      <summary className="cursor-pointer list-none">
+        <div className="flex items-start gap-2">
+          {icon}
+          <div>
+            <span className="text-sm font-bold text-bt-graphite">{title}</span>
+            <p className="mt-1 break-all font-mono text-xs text-bt-muted">
+              {path}
+            </p>
+          </div>
+        </div>
+      </summary>
+      <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-bt-graphite p-4 text-xs leading-6 text-white">
+        <code>{yaml}</code>
+      </pre>
+    </details>
   );
 }
 
@@ -637,4 +817,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
 function buildExecutionFileCommand(path: string): string {
   return `chmod +x ${path}\n./${path}`;
+}
+
+function formatRunnerLabelDisplay(runsOn: RunnerLabel): string {
+  return Array.isArray(runsOn) ? runsOn.join(", ") : runsOn;
 }
