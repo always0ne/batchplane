@@ -11,8 +11,12 @@
     "viewDetails": "상세"
   },
   "execution": {
+    "blocked": "실행 불가",
     "errors": {
-      "inactive": "비활성 배치는 실행 요청할 수 없습니다."
+      "gateRequired": "BatchTrail Gate는 필수입니다. 이 배치 정의는 미준수 상태이므로 실행 요청할 수 없습니다.",
+      "inactive": "비활성 배치는 실행 요청할 수 없습니다.",
+      "missingCommand": "배치 정의에 배치 명령이 기록되어 있지 않습니다.",
+      "requestInProgress": "다른 실행 요청을 생성하는 중입니다."
     },
     "result": {
       "created": "실행 요청 {{requestId}}가 생성되었습니다."
@@ -37,8 +41,8 @@
     "status": "상태"
   },
   "values": {
+    "gateMissing": "미준수",
     "none": "없음",
-    "off": "미사용",
     "required": "필수"
   },
   "detail": {
@@ -56,30 +60,53 @@
       "reason": "사유",
       "defaultReason": "BatchTrail Repo Mode에서 수동 실행 요청."
     },
+    "requests": {
+      "title": "요청"
+    },
     "workflow": {
       "title": "Workflow 대상",
       "path": "Workflow 경로",
-      "ref": "Workflow ref"
+      "ref": "Workflow ref",
+      "runtime": "Runtime adapter",
+      "runtimeGithubActions": "GitHub Actions / BatchTrail Repo Mode"
+    },
+    "executionSpec": {
+      "title": "실행 사양",
+      "runsOn": "Runs on",
+      "command": "배치 명령",
+      "artifactPath": "실행 파일",
+      "noArtifact": "업로드된 실행 파일 없음",
+      "missing": "이 배치 정의에 실행 명령이 기록되어 있지 않습니다."
     },
     "gate": {
-      "title": "Gate 필수 여부",
-      "required": "배치 명령 전에 BatchTrail Gate가 필수로 실행됩니다.",
-      "off": "이 배치는 Gate가 비활성화되어 있습니다."
+      "title": "Gate 통제",
+      "required": "필수: BatchTrail Gate는 배치 명령 전에 항상 실행됩니다.",
+      "requiredShort": "Gate 필수",
+      "nonCompliantShort": "Gate 누락",
+      "nonCompliant": "미준수: 이 배치 정의에 BatchTrail Gate 필수 조건이 없습니다."
     },
     "approvalPolicy": {
+      "short": "승인 필요",
       "default": "실행 요청에는 repository maintainer 승인 증적이 필요합니다."
     },
     "change": {
       "title": "변경 요청",
-      "placeholder": "현재 변경 요청 placeholder로 등록 화면을 엽니다."
+      "description": "이 배치 정의와 생성 Workflow에 대한 통제된 변경 요청을 생성합니다."
     },
     "schedules": {
       "title": "스케줄",
       "empty": "이 배치에 등록된 스케줄이 아직 없습니다."
     },
     "recentRuns": {
-      "title": "최근 실행",
+      "title": "최근 실행 증적",
       "empty": "아직 실행 증적이 없습니다.",
+      "unknownValue": "알 수 없음",
+      "fields": {
+        "requestDigest": "Request digest",
+        "requestedAt": "요청 일시",
+        "requestedBy": "요청자",
+        "requestId": "Request ID"
+      },
       "status": {
         "dispatchFailed": "Dispatch 실패",
         "dispatching": "Dispatch 중",

@@ -40,6 +40,45 @@ const executionIssue: RepositoryIssue = {
     "- Request digest: `sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`",
     "- Status: REQUESTED",
     "",
+    "### Canonical payload",
+    "",
+    "```json",
+    JSON.stringify(
+      {
+        apiVersion: "batchtrail.io/v1",
+        kind: "ExecutionRequest",
+        metadata: {
+          batchId: "payment.daily-close",
+          requestId: "btr-20260509010203-payment.daily-close-abcdef12",
+        },
+        spec: {
+          batch: {
+            criticality: "HIGH",
+            domain: "payments",
+            environment: "PROD",
+            name: "Daily Close",
+            owner: "ops-team",
+          },
+          execution: {
+            command: "echo close payments",
+            gateRequired: true,
+            runsOn: "ubuntu-latest",
+          },
+          expiresAt: "2026-05-09T02:02:03.000Z",
+          reason: "Close payments after reconciliation.",
+          requestedAt: "2026-05-09T01:02:03.000Z",
+          requestedBy: "developer",
+          workflow: {
+            path: ".github/workflows/payment.daily-close.yml",
+            ref: "main",
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "```",
+    "",
     "<!-- batchtrail:execution-request",
     "requestId=btr-20260509010203-payment.daily-close-abcdef12",
     "batchId=payment.daily-close",
@@ -89,13 +128,23 @@ describe("approval model", () => {
   it("parses execution approval requests from Issue evidence", () => {
     expect(parseExecutionApprovalRequest(executionIssue)).toEqual({
       batchId: "payment.daily-close",
+      execution: {
+        command: "echo close payments",
+        gateRequired: true,
+        runsOn: "ubuntu-latest",
+      },
       expiresAt: "2026-05-09T02:02:03.000Z",
       issue: executionIssue,
+      reason: "Close payments after reconciliation.",
       requestDigest:
         "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
       requestedAt: "2026-05-09T01:02:03.000Z",
       requestedBy: "developer",
       requestId: "btr-20260509010203-payment.daily-close-abcdef12",
+      workflow: {
+        path: ".github/workflows/payment.daily-close.yml",
+        ref: "main",
+      },
     });
   });
 
@@ -113,6 +162,18 @@ describe("approval model", () => {
       parseExecutionApprovalRequest({
         ...executionIssue,
         isPullRequest: true,
+      }),
+    ).toBeNull();
+    expect(
+      parseExecutionApprovalRequest({
+        ...executionIssue,
+        labels: ["batchtrail:dispatch-failed"],
+      }),
+    ).toBeNull();
+    expect(
+      parseExecutionApprovalRequest({
+        ...executionIssue,
+        labels: ["batchtrail:gate-blocked"],
       }),
     ).toBeNull();
   });

@@ -21,9 +21,32 @@ describe("BatchDetailPage", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("payment.daily-close")).toHaveLength(2);
     expect(screen.getByText("Workflow target")).toBeInTheDocument();
-    expect(screen.getByText("Gate requirement")).toBeInTheDocument();
+    expect(screen.getByText("Execution spec")).toBeInTheDocument();
+    expect(
+      screen.getByText("GitHub Actions / BatchTrail Repo Mode"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("echo mock batch")).toBeInTheDocument();
+    expect(screen.getByText("Requests")).toBeInTheDocument();
+    expect(screen.getByText("Gate required")).toHaveAttribute(
+      "title",
+      "Mandatory: BatchTrail Gate always runs before the batch command.",
+    );
+    expect(screen.getByText("Approval required")).toHaveAttribute(
+      "title",
+      "Execution requests require repository maintainer approval evidence.",
+    );
+    expect(screen.getByText("Execution request")).toBeInTheDocument();
+    expect(screen.getByText("Change request")).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Mandatory: BatchTrail Gate always runs before the batch command.",
+      ),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Schedules")).toBeInTheDocument();
-    expect(screen.getByText("Recent runs")).toBeInTheDocument();
+    expect(screen.getByText("Recent execution evidence")).toBeInTheDocument();
+    expect(
+      screen.getByText("btr-20260514010100-payment.daily-close-00000001"),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Reason")).toHaveValue(
       "Manual request from BatchTrail Repo Mode.",
     );

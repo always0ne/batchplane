@@ -38,8 +38,8 @@
   "cardHints": {
     "repoReadiness": "설치 상태 확인",
     "pendingApprovals": "승인함 열기",
-    "failedRuns": "실패 증적 검토",
-    "gateBlocked": "Gate 판단 검토",
+    "failedRuns": "승인 업무가 아닌 조사 대상",
+    "gateBlocked": "승인 업무가 아닌 Gate 증적",
     "auditTrail": "최근 감사 trail로 이동"
   },
   "approvals": {

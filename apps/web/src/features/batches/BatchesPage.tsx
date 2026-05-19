@@ -112,6 +112,22 @@ export function BatchesPage() {
       return;
     }
 
+    if (!batch.gateRequired) {
+      setExecutionRequestState({
+        type: "error",
+        message: t("execution.errors.gateRequired"),
+      });
+      return;
+    }
+
+    if (!batch.execution?.command.trim()) {
+      setExecutionRequestState({
+        type: "error",
+        message: t("execution.errors.missingCommand"),
+      });
+      return;
+    }
+
     setExecutionRequestState({ type: "running", batchId: batch.batchId });
 
     try {
@@ -249,9 +265,13 @@ function BatchListContent({
             const isRunning =
               executionRequestState.type === "running" &&
               executionRequestState.batchId === batch.batchId;
-            const isDisabled =
-              executionRequestState.type === "running" ||
-              batch.status !== "ACTIVE";
+            const blockReason = getExecutionRequestBlockReason({
+              batch,
+              isRequestInProgress:
+                executionRequestState.type === "running" && !isRunning,
+              t,
+            });
+            const isDisabled = isRunning || blockReason !== null;
 
             return (
               <tr key={batch.batchId}>
@@ -279,10 +299,12 @@ function BatchListContent({
                   {batch.status}
                 </td>
                 <td className="px-4 py-4 text-sm text-bt-graphite">
-                  {batch.gateRequired ? t("values.required") : t("values.off")}
+                  {batch.gateRequired
+                    ? t("values.required")
+                    : t("values.gateMissing")}
                 </td>
                 <td className="px-4 py-4 text-sm text-bt-graphite">
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Link
                       className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
                       to={`/batches/${encodeURIComponent(batch.batchId)}`}
@@ -293,11 +315,7 @@ function BatchListContent({
                       className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite disabled:cursor-not-allowed disabled:text-slate-400"
                       disabled={isDisabled}
                       onClick={() => onRequestExecution(batch)}
-                      title={
-                        batch.status === "ACTIVE"
-                          ? t("actions.requestRun")
-                          : t("execution.errors.inactive")
-                      }
+                      title={blockReason ?? t("actions.requestRun")}
                       type="button"
                     >
                       {isRunning ? (
@@ -310,6 +328,14 @@ function BatchListContent({
                       )}
                       {t("actions.requestRun")}
                     </button>
+                    {blockReason ? (
+                      <span
+                        className="inline-flex rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800"
+                        title={blockReason}
+                      >
+                        {t("execution.blocked")}
+                      </span>
+                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -353,6 +379,34 @@ function ExecutionRequestBanner({ state }: { state: ExecutionRequestState }) {
         {state.message}
       </div>
     );
+  }
+
+  return null;
+}
+
+export function getExecutionRequestBlockReason({
+  batch,
+  isRequestInProgress,
+  t,
+}: {
+  batch: BatchDefinition;
+  isRequestInProgress: boolean;
+  t: (key: string) => string;
+}): string | null {
+  if (batch.status !== "ACTIVE") {
+    return t("execution.errors.inactive");
+  }
+
+  if (!batch.gateRequired) {
+    return t("execution.errors.gateRequired");
+  }
+
+  if (!batch.execution?.command.trim()) {
+    return t("execution.errors.missingCommand");
+  }
+
+  if (isRequestInProgress) {
+    return t("execution.errors.requestInProgress");
   }
 
   return null;

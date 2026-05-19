@@ -69,10 +69,10 @@ export function createGitHubLiteRuntime(
         });
       },
 
-      async listExecutionRequestIssues() {
+      async listExecutionRequestIssues({ state = "open" } = {}) {
         const issues = await client.listIssues({
           ...repositoryRef,
-          state: "open",
+          state,
         });
 
         return issues.map(toRepositoryIssue);

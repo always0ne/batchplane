@@ -553,6 +553,7 @@ function ApprovalContent({
                         value={request.requestDigest}
                       />
                     </dl>
+                    <ExecutionApprovalContext request={request} />
                   </div>
                   <a
                     className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
@@ -646,6 +647,83 @@ function ApprovalActions({
   );
 }
 
+function ExecutionApprovalContext({
+  request,
+}: {
+  request: ExecutionApprovalRequest;
+}) {
+  const { t } = useTranslation("approvals");
+
+  return (
+    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <h4 className="text-sm font-bold text-bt-graphite">
+        {t("context.executionTitle")}
+      </h4>
+      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="space-y-3">
+          <ApprovalContextText
+            label={t("fields.reason")}
+            value={request.reason || t("values.unknown")}
+          />
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-bt-muted">
+              {t("fields.command")}
+            </p>
+            <div className="mt-1">
+              <pre className="max-h-28 overflow-auto whitespace-pre-wrap rounded-md bg-bt-graphite p-3 text-xs leading-5 text-white">
+                {request.execution?.command || t("values.unknown")}
+              </pre>
+            </div>
+          </div>
+        </div>
+        <dl className="grid gap-2 text-sm">
+          <ApprovalMeta
+            label={t("fields.runsOn")}
+            value={
+              request.execution?.runsOn
+                ? formatRunnerLabel(request.execution.runsOn)
+                : t("values.unknown")
+            }
+          />
+          <ApprovalMeta
+            label={t("fields.workflow")}
+            value={
+              request.workflow
+                ? `${request.workflow.path}@${request.workflow.ref}`
+                : t("values.unknown")
+            }
+          />
+          <ApprovalMeta
+            label={t("fields.gate")}
+            value={
+              request.execution?.gateRequired === false
+                ? t("values.gateNonCompliant")
+                : t("values.gateRequired")
+            }
+          />
+        </dl>
+      </div>
+    </div>
+  );
+}
+
+function ApprovalContextText({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-normal text-bt-muted">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-medium text-bt-graphite">{value}</p>
+    </div>
+  );
+}
+
 function ApprovalMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-slate-50 px-3 py-2">
@@ -657,6 +735,12 @@ function ApprovalMeta({ label, value }: { label: string; value: string }) {
       </dd>
     </div>
   );
+}
+
+function formatRunnerLabel(
+  runsOn: NonNullable<ExecutionApprovalRequest["execution"]>["runsOn"],
+) {
+  return Array.isArray(runsOn) ? runsOn.join(", ") : runsOn;
 }
 
 function ActionBanner({ state }: { state: ApprovalActionState }) {

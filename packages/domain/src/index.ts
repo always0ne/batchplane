@@ -267,7 +267,9 @@ export type ApprovalPort = {
   listRegistrationRequests(params: {
     baseBranch: string;
   }): Promise<RepositoryPullRequest[]>;
-  listExecutionRequestIssues(): Promise<RepositoryIssue[]>;
+  listExecutionRequestIssues(params?: {
+    state?: RepositoryIssueState;
+  }): Promise<RepositoryIssue[]>;
   approveRegistration(params: {
     body: string;
     commitTitle: string;
@@ -401,6 +403,9 @@ export type ExecutionRequestPayload = {
       BatchDefinition,
       "name" | "owner" | "domain" | "environment" | "criticality"
     >;
+    execution?: NonNullable<BatchDefinition["execution"]> & {
+      gateRequired: boolean;
+    };
     workflow: WorkflowTarget;
     schedule?: ScheduleOccurrenceRef;
   };

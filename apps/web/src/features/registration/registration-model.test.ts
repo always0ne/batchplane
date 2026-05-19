@@ -11,9 +11,10 @@ import {
   serializeBatchDefinitionYaml,
   toBatchDefinition,
   validateBatchRegistration,
+  type BatchRegistrationFormValues,
 } from "./registration-model";
 
-const definition = toBatchDefinition({
+const registrationValues = {
   batchId: "payment.daily-close",
   name: "Daily Close",
   owner: "ops-team",
@@ -24,7 +25,8 @@ const definition = toBatchDefinition({
   runCommand: "./scripts/daily-close.sh",
   runnerLabel: "ubuntu-latest",
   workflowRef: "main",
-});
+} satisfies BatchRegistrationFormValues;
+const definition = toBatchDefinition(registrationValues);
 
 describe("registration model", () => {
   it("serializes a batch definition as deterministic YAML", () => {
@@ -36,6 +38,12 @@ describe("registration model", () => {
     );
     expect(serializeBatchDefinitionYaml(definition)).toContain(
       "  gateRequired: true",
+    );
+    expect(serializeBatchDefinitionYaml(definition)).toContain(
+      '    runsOn: "ubuntu-latest"',
+    );
+    expect(serializeBatchDefinitionYaml(definition)).toContain(
+      '    command: "./scripts/daily-close.sh"',
     );
   });
 
@@ -93,6 +101,12 @@ describe("registration model", () => {
 
   it("supports custom multi-label runners", () => {
     expect(
+      toBatchDefinition({
+        ...registrationValues,
+        runnerLabel: "self-hosted, linux, prod",
+      }).execution?.runsOn,
+    ).toEqual(["self-hosted", "linux", "prod"]);
+    expect(
       buildBatchWorkflowYaml(
         definition,
         "./scripts/daily-close.sh",
@@ -122,6 +136,12 @@ describe("registration model", () => {
     );
     expect(buildRegistrationPullRequestBody(definition)).toContain(
       "BatchTrail Gate: required",
+    );
+    expect(buildRegistrationPullRequestBody(definition)).toContain(
+      "Runtime: GitHub Actions / BatchTrail Repo Mode",
+    );
+    expect(buildRegistrationPullRequestBody(definition)).toContain(
+      "./scripts/daily-close.sh",
     );
   });
 });

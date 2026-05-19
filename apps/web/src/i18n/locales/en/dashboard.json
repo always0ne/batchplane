@@ -38,8 +38,8 @@
   "cardHints": {
     "repoReadiness": "Open setup status",
     "pendingApprovals": "Open approval inbox",
-    "failedRuns": "Review failed evidence",
-    "gateBlocked": "Review Gate decisions",
+    "failedRuns": "Investigation, not approval work",
+    "gateBlocked": "Gate evidence, not approval work",
     "auditTrail": "Jump to recent audit"
   },
   "approvals": {
