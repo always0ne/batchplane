@@ -17,6 +17,10 @@ const batch: BatchDefinition = {
   name: "Daily Close",
   owner: "ops-team",
   status: "ACTIVE",
+  execution: {
+    command: "echo close payments",
+    runsOn: "ubuntu-latest",
+  },
   workflow: {
     path: ".github/workflows/daily-close.yml",
     ref: "main",
@@ -64,5 +68,8 @@ describe("execution request model", () => {
       `requestDigest=${issue.request.requestDigest}`,
     );
     expect(issue.body).toContain('"kind": "ExecutionRequest"');
+    expect(issue.body).toContain('"command": "echo close payments"');
+    expect(issue.body).toContain('"runsOn": "ubuntu-latest"');
+    expect(issue.body).toContain('"gateRequired": true');
   });
 });

@@ -188,6 +188,11 @@ describe("domain model contracts", () => {
           name: batchDefinition.name,
           owner: batchDefinition.owner,
         },
+        execution: {
+          command: "echo close payments",
+          gateRequired: true,
+          runsOn: "ubuntu-latest",
+        },
         expiresAt: "2026-05-13T02:00:00.000Z",
         requestedAt: "2026-05-13T01:00:00.000Z",
         requestedBy: "developer",

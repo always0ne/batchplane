@@ -1782,6 +1782,45 @@ function buildMockExecutionIssueBody(
     `- Request digest: \`${scenario.requestDigest}\``,
     `- Status: ${requestStatus}`,
     "",
+    "### Canonical payload",
+    "",
+    "```json",
+    JSON.stringify(
+      {
+        apiVersion: "batchtrail.io/v1",
+        kind: "ExecutionRequest",
+        metadata: {
+          batchId: scenario.batchId,
+          requestId: scenario.requestId,
+        },
+        spec: {
+          batch: {
+            criticality: "HIGH",
+            domain: "payments",
+            environment: "PROD",
+            name: "Daily Close",
+            owner: "ops-team",
+          },
+          execution: {
+            command: "echo mock batch",
+            gateRequired: true,
+            runsOn: "ubuntu-latest",
+          },
+          expiresAt,
+          reason: "Manual request from BatchTrail Repo Mode.",
+          requestedAt,
+          requestedBy: "developer",
+          workflow: {
+            path: `.github/workflows/${scenario.batchId}.yml`,
+            ref: "main",
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "```",
+    "",
     "<!-- batchtrail:execution-request",
     `requestId=${scenario.requestId}`,
     `batchId=${scenario.batchId}`,
@@ -1979,6 +2018,9 @@ function buildMockBatchDefinitionYaml(batchId: string): string {
     `    path: ".github/workflows/${batchId}.yml"`,
     '    ref: "main"',
     "  gateRequired: true",
+    "  execution:",
+    '    runsOn: "ubuntu-latest"',
+    '    command: "echo mock batch"',
     "",
   ].join("\n");
 }

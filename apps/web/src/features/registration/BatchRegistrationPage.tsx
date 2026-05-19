@@ -76,7 +76,15 @@ export function BatchRegistrationPage() {
     useState<UploadedExecutionFile | null>(null);
   const [autoFileCommand, setAutoFileCommand] = useState<string | null>(null);
 
-  const definition = useMemo(() => toBatchDefinition(values), [values]);
+  const baseDefinition = useMemo(() => toBatchDefinition(values), [values]);
+  const uploadedFilePath =
+    uploadedFile && baseDefinition.batchId
+      ? getBatchArtifactPath(baseDefinition.batchId, uploadedFile.name)
+      : null;
+  const definition = useMemo(
+    () => toBatchDefinition(values, { artifactPath: uploadedFilePath }),
+    [uploadedFilePath, values],
+  );
   const yaml = useMemo(
     () => serializeBatchDefinitionYaml(definition),
     [definition],
@@ -101,10 +109,6 @@ export function BatchRegistrationPage() {
   }, [definition, values.runCommand, values.runnerLabel]);
   const batchPath = getBatchDefinitionPath(definition.batchId);
   const workflowPath = definition.workflow.path;
-  const uploadedFilePath =
-    uploadedFile && definition.batchId
-      ? getBatchArtifactPath(definition.batchId, uploadedFile.name)
-      : null;
   const nextAutoFileCommand = uploadedFilePath
     ? buildExecutionFileCommand(uploadedFilePath)
     : null;

@@ -14,12 +14,20 @@
     "author": "작성자",
     "base": "대상",
     "batchId": "Batch ID",
+    "command": "배치 명령",
     "expiresAt": "만료시각",
+    "gate": "Gate",
     "head": "요청 브랜치",
+    "reason": "사유",
     "requestDigest": "Request digest",
     "requestedBy": "요청자",
     "requestId": "Request ID",
-    "repository": "저장소"
+    "repository": "저장소",
+    "runsOn": "Runs on",
+    "workflow": "Workflow"
+  },
+  "context": {
+    "executionTitle": "실행 판단 정보"
   },
   "result": {
     "executionApproved": "실행 요청 {{requestId}}가 승인되었습니다.",
@@ -30,6 +38,11 @@
   "sections": {
     "execution": "실행 요청",
     "registration": "등록 변경"
+  },
+  "values": {
+    "gateNonCompliant": "미준수",
+    "gateRequired": "배치 명령 전 필수",
+    "unknown": "알 수 없음"
   },
   "states": {
     "empty": "{{branch}} 브랜치에 대기 중인 승인이 없습니다.",

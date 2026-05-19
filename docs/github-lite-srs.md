@@ -21,6 +21,12 @@ GitHub Lite must support:
 - BatchTrail Gate enforcement before any batch command runs.
 - Future schedule execution through occurrence-level execution requests.
 
+UI work must also follow the Repo Mode UX baseline in
+[`repo-mode-ui-ux-baseline.md`](./repo-mode-ui-ux-baseline.md). Screen-level
+implementation is not complete until the user can understand the controlled
+object, the next action, and whether the visible item is approval work,
+execution evidence, or failure follow-up.
+
 ## Installation Requirements
 
 The setup screen must inspect the connected repository before users rely on
@@ -141,9 +147,19 @@ The request payload includes:
 The request digest prevents approval evidence from being replayed against a
 different payload.
 
+Execution requests must carry enough context for approval judgment, including
+the reason, workflow path/ref, runner label, batch command, and Gate-required
+status. The digest is audit evidence; the UI must not make approvers rely on the
+digest as the primary decision material.
+
 ## Approval Requirements
 
 Execution approval happens in the approvals inbox.
+
+The approvals inbox must contain only approval-actionable requests. Failed,
+Gate-blocked, dispatching, dispatched, and rejected execution requests are
+execution evidence or follow-up work, not approval work, and must not be shown
+with approve/reject controls.
 
 Approving an execution request must write an approval comment that starts with:
 

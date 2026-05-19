@@ -145,6 +145,11 @@ Manual request payload:
       "environment": "PROD",
       "criticality": "HIGH"
     },
+    "execution": {
+      "runsOn": "ubuntu-latest",
+      "command": "echo mock batch",
+      "gateRequired": true
+    },
     "workflow": {
       "path": ".github/workflows/payment.daily-close.yml",
       "ref": "main"
@@ -154,6 +159,10 @@ Manual request payload:
 ```
 
 The request digest is computed over the canonical JSON payload.
+
+The approval UI reads the canonical payload to show the approver what will run.
+The execution context in the payload is therefore part of the approval evidence,
+not merely display metadata.
 
 ## Approval Comment Contract
 

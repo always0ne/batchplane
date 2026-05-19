@@ -1,17 +1,37 @@
 import type {
   RepositoryIssue,
   RepositoryPullRequest,
+  RunnerLabel,
 } from "@batchtrail/domain";
 
 export type ExecutionApprovalRequest = {
   batchId: string;
+  execution?: {
+    artifactPath?: string;
+    command: string;
+    gateRequired: boolean;
+    runsOn: RunnerLabel;
+  };
   expiresAt: string;
   issue: RepositoryIssue;
+  reason: string;
   requestDigest: string;
   requestedAt: string;
   requestedBy: string;
   requestId: string;
+  workflow?: {
+    path: string;
+    ref: string;
+  };
 };
+
+const nonActionableExecutionLabels = new Set([
+  "batchtrail:dispatch-failed",
+  "batchtrail:dispatched",
+  "batchtrail:dispatching",
+  "batchtrail:gate-blocked",
+  "batchtrail:rejected",
+]);
 
 export function isRegistrationApprovalRequest(
   pullRequest: RepositoryPullRequest,
@@ -71,12 +91,14 @@ export function parseExecutionApprovalRequest(
   if (
     issue.state !== "open" ||
     issue.isPullRequest ||
-    !issue.body.includes("batchtrail:execution-request")
+    !issue.body.includes("batchtrail:execution-request") ||
+    issue.labels.some((label) => nonActionableExecutionLabels.has(label))
   ) {
     return null;
   }
 
   const marker = parseBatchTrailMarker(issue.body, "execution-request");
+  const payload = parseCanonicalPayload(issue.body);
   const requestId =
     marker.get("requestId") ?? readMarkdownField(issue.body, "Request ID");
   const batchId =
@@ -99,8 +121,10 @@ export function parseExecutionApprovalRequest(
 
   return {
     batchId,
+    ...(payload?.spec?.execution ? { execution: payload.spec.execution } : {}),
     expiresAt: readMarkdownField(issue.body, "Expires at"),
     issue,
+    reason: payload?.spec?.reason ?? "",
     requestDigest,
     requestedAt: readMarkdownField(issue.body, "Requested at"),
     requestedBy: readMarkdownField(issue.body, "Requested by").replace(
@@ -108,6 +132,7 @@ export function parseExecutionApprovalRequest(
       "",
     ),
     requestId,
+    ...(payload?.spec?.workflow ? { workflow: payload.spec.workflow } : {}),
   };
 }
 
@@ -208,4 +233,36 @@ function readMarkdownField(body: string, label: string): string {
   const value = match?.[1]?.trim() ?? "";
 
   return value.replace(/^`|`$/g, "").trim();
+}
+
+type CanonicalExecutionPayload = {
+  spec?: {
+    execution?: {
+      artifactPath?: string;
+      command: string;
+      gateRequired: boolean;
+      runsOn: RunnerLabel;
+    };
+    reason?: string;
+    workflow?: {
+      path: string;
+      ref: string;
+    };
+  };
+};
+
+function parseCanonicalPayload(body: string): CanonicalExecutionPayload | null {
+  const match = body.match(
+    /### Canonical payload\s*```json\s*([\s\S]*?)\s*```/,
+  );
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(match[1]) as CanonicalExecutionPayload;
+  } catch {
+    return null;
+  }
 }

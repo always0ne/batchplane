@@ -14,12 +14,20 @@
     "author": "Author",
     "base": "Base",
     "batchId": "Batch ID",
+    "command": "Batch command",
     "expiresAt": "Expires at",
+    "gate": "Gate",
     "head": "Head",
+    "reason": "Reason",
     "requestDigest": "Request digest",
     "requestedBy": "Requested by",
     "requestId": "Request ID",
-    "repository": "Repository"
+    "repository": "Repository",
+    "runsOn": "Runs on",
+    "workflow": "Workflow"
+  },
+  "context": {
+    "executionTitle": "Execution context"
   },
   "result": {
     "executionApproved": "Execution request {{requestId}} was approved.",
@@ -30,6 +38,11 @@
   "sections": {
     "execution": "Execution requests",
     "registration": "Registration changes"
+  },
+  "values": {
+    "gateNonCompliant": "Non-compliant",
+    "gateRequired": "Required before batch command",
+    "unknown": "Unknown"
   },
   "states": {
     "empty": "No approvals are pending on {{branch}}.",

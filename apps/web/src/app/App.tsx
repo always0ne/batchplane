@@ -10,6 +10,7 @@ import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { BatchesPage } from "../features/batches/BatchesPage";
+import { BatchDetailPage } from "../features/batches/BatchDetailPage";
 import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
@@ -149,6 +150,7 @@ export function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/batches" element={<BatchesPage />} />
             <Route path="/batches/new" element={<BatchRegistrationPage />} />
+            <Route path="/batches/:batchId" element={<BatchDetailPage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
             <Route path="/lite/setup" element={<LiteSetupPage />} />
             <Route path="*" element={<NotFoundPage />} />

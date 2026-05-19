@@ -27,6 +27,10 @@ describe("DashboardPage", () => {
     expect(screen.getByText("always0ne/batch")).toBeInTheDocument();
     expect(screen.getByText("Repository readiness")).toBeInTheDocument();
     expect(screen.getByText("Gate blocked runs")).toBeInTheDocument();
+    expect(screen.getByText("Gate blocked runs").closest("a")).toBeNull();
+    expect(
+      screen.getByText("Gate evidence, not approval work"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Recent audit trail")).toBeInTheDocument();
     expect(
       screen.getByText("No audit records are available yet."),

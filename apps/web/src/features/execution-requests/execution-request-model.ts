@@ -1,5 +1,9 @@
 import { createRequestDigest, type CanonicalValue } from "@batchtrail/digest";
-import type { BatchDefinition, ExecutionRequest } from "@batchtrail/domain";
+import type {
+  BatchDefinition,
+  ExecutionRequest,
+  RunnerLabel,
+} from "@batchtrail/domain";
 
 export type ExecutionRequestPayload = {
   apiVersion: "batchtrail.io/v1";
@@ -19,6 +23,12 @@ export type ExecutionRequestPayload = {
       domain: string;
       environment: string;
       criticality: string;
+    };
+    execution: {
+      artifactPath?: string;
+      command: string;
+      gateRequired: boolean;
+      runsOn: RunnerLabel;
     };
     workflow: {
       path: string;
@@ -70,6 +80,14 @@ export async function buildExecutionRequestIssue({
         environment: batch.environment,
         name: batch.name,
         owner: batch.owner,
+      },
+      execution: {
+        ...(batch.execution?.artifactPath
+          ? { artifactPath: batch.execution.artifactPath }
+          : {}),
+        command: batch.execution?.command ?? "",
+        gateRequired: batch.gateRequired,
+        runsOn: batch.execution?.runsOn ?? "",
       },
       expiresAt: expiresAtIso,
       reason,

@@ -67,7 +67,7 @@ type DashboardCard = {
   icon: LucideIcon;
   key: string;
   tone: "danger" | "neutral" | "success" | "warning";
-  to: string;
+  to?: string;
   value: string | number;
 };
 
@@ -384,6 +384,8 @@ function DashboardFact({ label, value }: { label: string; value: string }) {
 function DashboardCardView({ card }: { card: DashboardCard }) {
   const { t } = useTranslation("dashboard");
   const Icon = card.icon;
+  const cardClassName =
+    "rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition";
   const toneClassName = {
     danger: "text-red-700",
     neutral: "text-bt-muted",
@@ -391,11 +393,8 @@ function DashboardCardView({ card }: { card: DashboardCard }) {
     warning: "text-amber-700",
   }[card.tone];
 
-  return (
-    <Link
-      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-bt-git hover:shadow-md"
-      to={card.to}
-    >
+  const content = (
+    <>
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-medium text-bt-muted">
           {t(`cards.${card.key}`)}
@@ -406,8 +405,21 @@ function DashboardCardView({ card }: { card: DashboardCard }) {
       <p className="mt-2 text-xs font-semibold text-bt-muted">
         {t(`cardHints.${card.key}`)}
       </p>
-    </Link>
+    </>
   );
+
+  if (card.to) {
+    return (
+      <Link
+        className={`${cardClassName} hover:border-bt-git hover:shadow-md`}
+        to={card.to}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return <article className={cardClassName}>{content}</article>;
 }
 
 function createDashboardCards(
@@ -439,14 +451,12 @@ function createDashboardCards(
       icon: AlertTriangle,
       key: "failedRuns",
       tone: summary.failedIssues.length > 0 ? "danger" : "neutral",
-      to: "/approvals",
       value: summary.failedIssues.length,
     },
     {
       icon: ShieldAlert,
       key: "gateBlocked",
       tone: summary.gateBlockedIssues.length > 0 ? "danger" : "neutral",
-      to: "/approvals",
       value: summary.gateBlockedIssues.length,
     },
     {

@@ -5,11 +5,18 @@
     "openSetup": "Open setup",
     "refresh": "Refresh",
     "register": "Register batch",
-    "requestRun": "Request run"
+    "requestChange": "Request change",
+    "requestRun": "Request run",
+    "backToBatches": "Back to batches",
+    "viewDetails": "Details"
   },
   "execution": {
+    "blocked": "Unavailable",
     "errors": {
-      "inactive": "Inactive batches cannot be requested for execution."
+      "gateRequired": "BatchTrail Gate is mandatory. This batch definition is non-compliant and cannot be requested for execution.",
+      "inactive": "Inactive batches cannot be requested for execution.",
+      "missingCommand": "The batch command is not recorded in the batch definition.",
+      "requestInProgress": "Another execution request is being created."
     },
     "result": {
       "created": "Execution request {{requestId}} was created."
@@ -17,6 +24,9 @@
   },
   "states": {
     "empty": "No batch definitions are registered on {{branch}} yet.",
+    "detailError": "Failed to load batch detail.",
+    "detailLoading": "Loading batch detail...",
+    "detailNotFound": "Batch {{batchId}} was not found.",
     "loading": "Loading batch definitions...",
     "noSession": "Connect a GitHub repository before viewing governed batches."
   },
@@ -31,7 +41,81 @@
     "status": "Status"
   },
   "values": {
-    "off": "Off",
+    "gateMissing": "Non-compliant",
+    "none": "None",
     "required": "Required"
+  },
+  "detail": {
+    "title": "Batch detail",
+    "fields": {
+      "criticality": "Criticality",
+      "defaultBranch": "Default branch",
+      "domain": "Domain",
+      "environment": "Environment",
+      "labels": "Labels",
+      "owner": "Owner"
+    },
+    "execution": {
+      "title": "Execution request",
+      "reason": "Reason",
+      "defaultReason": "Manual request from BatchTrail Repo Mode."
+    },
+    "requests": {
+      "title": "Requests"
+    },
+    "workflow": {
+      "title": "Workflow target",
+      "path": "Workflow path",
+      "ref": "Workflow ref",
+      "runtime": "Runtime adapter",
+      "runtimeGithubActions": "GitHub Actions / BatchTrail Repo Mode"
+    },
+    "executionSpec": {
+      "title": "Execution spec",
+      "runsOn": "Runs on",
+      "command": "Batch command",
+      "artifactPath": "Execution file",
+      "noArtifact": "No uploaded execution file",
+      "missing": "Execution command is not recorded in this batch definition."
+    },
+    "gate": {
+      "title": "Gate enforcement",
+      "required": "Mandatory: BatchTrail Gate always runs before the batch command.",
+      "requiredShort": "Gate required",
+      "nonCompliantShort": "Gate missing",
+      "nonCompliant": "Non-compliant: BatchTrail Gate is missing from this batch definition."
+    },
+    "approvalPolicy": {
+      "short": "Approval required",
+      "default": "Execution requests require repository maintainer approval evidence."
+    },
+    "change": {
+      "title": "Change request",
+      "description": "Create a governed change request for this batch definition and generated workflow."
+    },
+    "schedules": {
+      "title": "Schedules",
+      "empty": "No schedules are registered for this batch yet."
+    },
+    "recentRuns": {
+      "title": "Recent execution evidence",
+      "empty": "No execution evidence is available yet.",
+      "unknownValue": "Unknown",
+      "fields": {
+        "requestDigest": "Request digest",
+        "requestedAt": "Requested at",
+        "requestedBy": "Requested by",
+        "requestId": "Request ID"
+      },
+      "status": {
+        "dispatchFailed": "Dispatch failed",
+        "dispatching": "Dispatching",
+        "dispatched": "Dispatched",
+        "gateBlocked": "Gate blocked",
+        "rejected": "Rejected",
+        "requested": "Approval requested",
+        "unknown": "Execution evidence"
+      }
+    }
   }
 }
