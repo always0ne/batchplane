@@ -1,7 +1,7 @@
 import type { BatchDefinition } from "@batchtrail/domain";
 import { describe, expect, it } from "vitest";
 
-import { getExecutionRequestBlockReason } from "./BatchesPage";
+import { getExecutionRequestBlockReason } from "./batch-list-readiness";
 
 const messages: Record<string, string> = {
   "execution.errors.gateRequired": "Gate missing",

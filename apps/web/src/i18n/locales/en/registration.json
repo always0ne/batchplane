@@ -20,8 +20,32 @@
     "gateRequiredInline": "BatchTrail Gate always runs before the batch command."
   },
   "preview": {
-    "title": "Batch definition YAML",
+    "title": "YAML preview",
+    "batchDefinitionTitle": "Batch definition YAML",
     "workflowTitle": "Workflow YAML"
+  },
+  "review": {
+    "title": "PR review",
+    "subtitle": "Confirm the GitHub pull request contents before creating it.",
+    "files": {
+      "title": "Generated files",
+      "batchDefinition": "Batch definition",
+      "workflow": "Workflow",
+      "executionFile": "Execution file",
+      "noExecutionFile": "No uploaded execution file",
+      "pending": "Enter a Batch ID to generate the path"
+    },
+    "checklist": {
+      "title": "Governance checklist",
+      "batchDefinitionPath": "Batch definition path is generated from the Batch ID.",
+      "workflowPath": "Workflow path is generated from the Batch ID.",
+      "gateRequired": "BatchTrail Gate is mandatory before the batch command.",
+      "runnerSelected": "Execution environment: {{runner}}",
+      "runnerMissing": "Execution environment is required.",
+      "commandRecorded": "Batch command will be recorded in the batch definition.",
+      "commandMissing": "Batch command is required before PR creation."
+    },
+    "nextStep": "After creation, BatchTrail routes the PR to approvals. GitHub list results can take a few seconds to catch up."
   },
   "actions": {
     "createPullRequest": "Create registration PR",
