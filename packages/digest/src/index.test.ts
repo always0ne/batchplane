@@ -66,4 +66,25 @@ describe("canonicalize", () => {
       }),
     ).resolves.toBe(canonicalExecutionRequestDigestFixture);
   });
+
+  it("changes the digest when canonical payload fields are mutated", async () => {
+    const mutatedPayload = {
+      ...canonicalExecutionRequestPayloadFixture,
+      spec: {
+        ...(
+          canonicalExecutionRequestPayloadFixture as {
+            spec: Record<string, unknown>;
+          }
+        ).spec,
+        requestedBy: "ops-approver",
+      },
+    };
+
+    const originalDigest = await createRequestDigest(
+      canonicalExecutionRequestPayloadFixture,
+    );
+    const mutatedDigest = await createRequestDigest(mutatedPayload);
+
+    expect(mutatedDigest).not.toBe(originalDigest);
+  });
 });

@@ -8,91 +8,16 @@ import {
   parseExecutionRequestEvidence,
   verifyDispatcherEvidence,
 } from "./index";
-
-const requestDigest =
-  "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-const requestId = "btr-20260509010203-payment.daily-close-abcdef12";
-
-const issueBody = [
-  "## BatchTrail Execution Request",
-  "",
-  `- Request ID: \`${requestId}\``,
-  "- Batch ID: `payment.daily-close`",
-  "- Requested by: @developer",
-  "- Requested at: 2026-05-09T01:02:03.000Z",
-  "- Expires at: 2026-05-09T02:02:03.000Z",
-  `- Request digest: \`${requestDigest}\``,
-  "- Status: REQUESTED",
-  "",
-  "### Canonical payload",
-  "",
-  "```json",
-  JSON.stringify(
-    {
-      apiVersion: "batchtrail.io/v1",
-      kind: "ExecutionRequest",
-      metadata: {
-        batchId: "payment.daily-close",
-        requestId,
-      },
-      spec: {
-        expiresAt: "2026-05-09T02:02:03.000Z",
-        requestedAt: "2026-05-09T01:02:03.000Z",
-        requestedBy: "developer",
-        workflow: {
-          path: ".github/workflows/daily-close.yml",
-          ref: "main",
-        },
-      },
-    },
-    null,
-    2,
-  ),
-  "```",
-  "",
-  "<!-- batchtrail:execution-request",
-  `requestId=${requestId}`,
-  "batchId=payment.daily-close",
-  `requestDigest=${requestDigest}`,
-  "status=REQUESTED",
-  "-->",
-].join("\n");
-
-const approvalCommentBody = [
-  `/bgcp approve requestDigest=${requestDigest}`,
-  "",
-  "## BatchTrail Execution Approval",
-  "",
-  "- Decision: APPROVED",
-  "- Approver: @maintainer",
-  "- Approved at: 2026-05-09T01:20:03.000Z",
-  `- Request ID: \`${requestId}\``,
-  "- Batch ID: `payment.daily-close`",
-  `- Request digest: \`${requestDigest}\``,
-  "",
-  "<!-- batchtrail:execution-approval",
-  "decision=APPROVED",
-  `requestId=${requestId}`,
-  "batchId=payment.daily-close",
-  `requestDigest=${requestDigest}`,
-  "-->",
-].join("\n");
-
-const dispatchedCommentBody = [
-  "## BatchTrail Dispatch",
-  "",
-  "- Status: DISPATCHED",
-  `- Request ID: \`${requestId}\``,
-  "- Batch ID: `payment.daily-close`",
-  `- Request digest: \`${requestDigest}\``,
-  "",
-  "<!-- batchtrail:bgcp:dispatcher",
-  "status=DISPATCHED",
-  `requestId=${requestId}`,
-  "batchId=payment.daily-close",
-  `requestDigest=${requestDigest}`,
-  "-->",
-].join("\n");
+import {
+  buildDispatchedCommentBody,
+  buildExecutionApprovalCommentBody,
+  buildExecutionIssueBody,
+  sharedRequestDigest as requestDigest,
+  sharedRequestId as requestId,
+} from "../../../test/fixtures/execution-evidence";
+const issueBody = buildExecutionIssueBody();
+const approvalCommentBody = buildExecutionApprovalCommentBody();
+const dispatchedCommentBody = buildDispatchedCommentBody();
 
 describe("dispatcher verification", () => {
   it("keeps the legacy slash command parser", () => {
