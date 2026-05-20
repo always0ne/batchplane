@@ -888,13 +888,14 @@ export function createGitHubLiteClient({
     },
 
     async getRepositoryPermissionForUser({ owner, repo, username }) {
-      const permissionResponse = await request<GitHubRepositoryPermissionResponse>(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo,
-        )}/collaborators/${encodeURIComponent(username)}/permission`,
-        {},
-        { allowNotFound: true },
-      );
+      const permissionResponse =
+        await request<GitHubRepositoryPermissionResponse>(
+          `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+            repo,
+          )}/collaborators/${encodeURIComponent(username)}/permission`,
+          {},
+          { allowNotFound: true },
+        );
 
       if (!permissionResponse) {
         return {
