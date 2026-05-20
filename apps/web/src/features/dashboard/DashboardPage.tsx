@@ -4,6 +4,7 @@ import type {
   BatchTrailRuntimePorts,
   Repository,
   RepositoryIssue,
+  RepositoryIssueComment,
   RepositoryPullRequest,
   RepositoryUser,
   RuntimeInstallationStatus,
@@ -117,12 +118,23 @@ export function DashboardPage({
           runtime.audit.listAuditTimeline({ limit: 5 }),
         ]);
 
+        const executionIssueComments = await Promise.all(
+          executionIssues.map((issue) =>
+            runtime.approvals.listExecutionRequestComments({
+              issueNumber: issue.number,
+            }),
+          ),
+        );
+
         if (ignoreResult) {
           return;
         }
 
-        const pendingExecutionIssues = executionIssues.filter(
-          isPendingExecutionApprovalIssue,
+        const pendingExecutionIssues = executionIssues.filter((issue, index) =>
+          isPendingExecutionApprovalIssue(
+            issue,
+            executionIssueComments[index] ?? [],
+          ),
         );
         const pendingRegistrationRequests = registrationRequests.filter(
           isRegistrationApprovalRequest,
@@ -479,9 +491,12 @@ function calculateReadinessPercent(status: RuntimeInstallationStatus): number {
   );
 }
 
-function isPendingExecutionApprovalIssue(issue: RepositoryIssue): boolean {
+function isPendingExecutionApprovalIssue(
+  issue: RepositoryIssue,
+  comments: RepositoryIssueComment[],
+): boolean {
   return (
-    parseExecutionApprovalRequest(issue) !== null &&
+    parseExecutionApprovalRequest(issue, comments) !== null &&
     !issue.labels.some((label) =>
       [
         "batchtrail:dispatch-failed",

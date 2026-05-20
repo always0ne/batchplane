@@ -125,4 +125,65 @@ describe("createGitHubLiteRuntime", () => {
       }),
     ]);
   });
+
+  it("loads execution request comments through the ApprovalPort", async () => {
+    const fetcher: typeof fetch = async (input) => {
+      if (input.toString().endsWith("/issues/101/comments")) {
+        return Response.json([
+          {
+            body: "## BatchTrail Execution Approval",
+            created_at: "2026-05-14T01:05:00.000Z",
+            id: 1011,
+            user: { login: "maintainer" },
+          },
+        ]);
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const runtime = createGitHubLiteRuntime(session, { fetcher });
+
+    await expect(
+      runtime.approvals.listExecutionRequestComments({ issueNumber: 101 }),
+    ).resolves.toEqual([
+      {
+        author: "maintainer",
+        body: "## BatchTrail Execution Approval",
+        createdAt: "2026-05-14T01:05:00.000Z",
+        id: 1011,
+        issueNumber: 101,
+      },
+    ]);
+  });
+
+  it("records execution approval without closing the Issue", async () => {
+    const requests: Array<{ body: unknown; method: string; url: string }> = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({
+        body: init?.body ? JSON.parse(init.body.toString()) : null,
+        method: init?.method ?? "GET",
+        url: input.toString(),
+      });
+
+      if (input.toString().endsWith("/issues/101/comments")) {
+        return Response.json({ body: "approved", id: 1 });
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const runtime = createGitHubLiteRuntime(session, { fetcher });
+
+    await runtime.approvals.approveExecution({
+      body: "/bgcp approve requestDigest=sha256:abc",
+      issueNumber: 101,
+    });
+
+    expect(requests).toEqual([
+      expect.objectContaining({
+        body: { body: "/bgcp approve requestDigest=sha256:abc" },
+        method: "POST",
+        url: "https://api.github.com/repos/always0ne/batch/issues/101/comments",
+      }),
+    ]);
+  });
 });

@@ -209,6 +209,9 @@ export type GitHubLiteClient = {
   mergePullRequest(params: MergePullRequestParams): Promise<GitHubMergeResult>;
   createIssue(params: CreateIssueParams): Promise<GitHubIssue>;
   listIssues(params: ListIssuesParams): Promise<GitHubIssue[]>;
+  listIssueComments(
+    params: RepoRef & { issueNumber: number },
+  ): Promise<GitHubIssueComment[]>;
   createIssueComment(
     params: RepoRef & { issueNumber: number; body: string },
   ): Promise<{ id: number; body: string }>;
@@ -286,6 +289,10 @@ type GitHubIssueResponse = {
 type GitHubCommentResponse = {
   id: number;
   body: string;
+  user?: {
+    login: string;
+  } | null;
+  created_at?: string;
 };
 
 type GitHubRefResponse = {
@@ -622,6 +629,18 @@ export function createGitHubLiteClient({
       );
 
       return (issues ?? []).map(mapIssueResponse);
+    },
+
+    async listIssueComments({ owner, repo, issueNumber }) {
+      const comments = await request<GitHubCommentResponse[]>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/issues/${issueNumber}/comments`,
+      );
+
+      return (comments ?? []).map((comment) =>
+        mapIssueCommentResponse(comment, issueNumber),
+      );
     },
 
     async createIssueComment({ owner, repo, issueNumber, body }) {
@@ -1014,6 +1033,15 @@ export function createMockGitHubLiteClient(
 
       return state.issues
         .filter((issue) => stateFilter === "all" || issue.state === stateFilter)
+        .map(cloneJson);
+    },
+
+    async listIssueComments(params) {
+      assertMockRepository(state, params);
+      assertMockIssueOrPullRequest(state, params.issueNumber);
+
+      return state.issueComments
+        .filter((comment) => comment.issueNumber === params.issueNumber)
         .map(cloneJson);
     },
 
@@ -1463,6 +1491,19 @@ function mapIssueResponse(issue: GitHubIssueResponse | null): GitHubIssue {
     state: issue.state ?? "open",
     author: issue.user?.login ?? "",
     isPullRequest: Boolean(issue.pull_request),
+  };
+}
+
+function mapIssueCommentResponse(
+  comment: GitHubCommentResponse,
+  issueNumber: number,
+): GitHubIssueComment {
+  return {
+    author: comment.user?.login ?? "",
+    body: comment.body,
+    createdAt: comment.created_at ?? "",
+    id: comment.id,
+    issueNumber,
   };
 }
 

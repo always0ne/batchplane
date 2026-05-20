@@ -185,6 +185,14 @@ export type RepositoryIssue = {
   isPullRequest: boolean;
 };
 
+export type RepositoryIssueComment = {
+  id: number;
+  issueNumber: number;
+  body: string;
+  author: string;
+  createdAt: string;
+};
+
 export type RepositoryPullRequestState = "open" | "closed" | "all";
 
 export type RepositoryPullRequest = {
@@ -270,6 +278,9 @@ export type ApprovalPort = {
   listExecutionRequestIssues(params?: {
     state?: RepositoryIssueState;
   }): Promise<RepositoryIssue[]>;
+  listExecutionRequestComments(params: {
+    issueNumber: number;
+  }): Promise<RepositoryIssueComment[]>;
   approveRegistration(params: {
     body: string;
     commitTitle: string;

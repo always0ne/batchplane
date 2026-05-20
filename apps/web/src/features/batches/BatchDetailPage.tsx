@@ -2,13 +2,14 @@ import type {
   BatchDefinition,
   BatchTrailRuntimePorts,
   RepositoryIssue,
+  RepositoryIssueComment,
 } from "@batchtrail/domain";
 import { GitPullRequest, Play, ShieldCheck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { parseExecutionApprovalRequest } from "../approvals/approval-model";
+import { parseExecutionRequestDetail } from "../approvals/approval-model";
 import type { GitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
@@ -30,9 +31,14 @@ type BatchDetailState =
       type: "loaded";
       batch: BatchDefinition;
       defaultBranch: string;
-      recentIssues: RepositoryIssue[];
+      recentIssues: RecentExecutionIssue[];
     }
   | { type: "error"; message: string };
+
+type RecentExecutionIssue = {
+  comments: RepositoryIssueComment[];
+  issue: RepositoryIssue;
+};
 
 type BatchDetailPageProps = {
   createRuntime?: (session: GitHubSession) => BatchTrailRuntimePorts;
@@ -74,12 +80,29 @@ export function BatchDetailPage({
           (candidate) => candidate.batchId === decodedBatchId,
         );
 
-        if (ignoreResult) {
+        if (!batch) {
+          if (ignoreResult) {
+            return;
+          }
+
+          setState({ type: "not-found", batchId: decodedBatchId });
           return;
         }
 
-        if (!batch) {
-          setState({ type: "not-found", batchId: decodedBatchId });
+        const recentIssues = issues
+          .filter((issue) => issueContainsBatch(issue, batch.batchId))
+          .sort((left, right) => right.number - left.number)
+          .slice(0, 5);
+        const recentIssuesWithComments = await Promise.all(
+          recentIssues.map(async (issue) => ({
+            comments: await runtime.approvals.listExecutionRequestComments({
+              issueNumber: issue.number,
+            }),
+            issue,
+          })),
+        );
+
+        if (ignoreResult) {
           return;
         }
 
@@ -87,10 +110,7 @@ export function BatchDetailPage({
           type: "loaded",
           batch,
           defaultBranch: repository.defaultBranch,
-          recentIssues: issues
-            .filter((issue) => issueContainsBatch(issue, batch.batchId))
-            .sort((left, right) => right.number - left.number)
-            .slice(0, 5),
+          recentIssues: recentIssuesWithComments,
         });
       } catch (error) {
         if (!ignoreResult) {
@@ -380,7 +400,11 @@ function RequestActionsCard({
   );
 }
 
-function RecentExecutionEvidence({ issues }: { issues: RepositoryIssue[] }) {
+function RecentExecutionEvidence({
+  issues,
+}: {
+  issues: RecentExecutionIssue[];
+}) {
   const { t } = useTranslation("batches");
 
   return (
@@ -394,21 +418,19 @@ function RecentExecutionEvidence({ issues }: { issues: RepositoryIssue[] }) {
         </p>
       ) : (
         <ul className="mt-2 divide-y divide-slate-100">
-          {issues.map((issue) => {
+          {issues.map(({ comments, issue }) => {
             const evidence = getExecutionIssueEvidence(issue);
 
             return (
               <li className="py-3 first:pt-0 last:pb-0" key={issue.number}>
-                <a
+                <Link
                   className="text-sm font-semibold text-bt-graphite hover:text-bt-control"
-                  href={issue.url}
-                  rel="noreferrer"
-                  target="_blank"
+                  to={`/execution-requests/${issue.number}`}
                 >
                   #{issue.number} {issue.title}
-                </a>
+                </Link>
                 <p className="mt-1 text-xs font-semibold text-bt-muted">
-                  {getExecutionIssueStatusLabel(issue, t)}
+                  {getExecutionIssueStatusLabel(issue, comments, t)}
                 </p>
                 <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
                   <DetailFact
@@ -490,31 +512,27 @@ function readMarkdownField(body: string, label: string): string {
 
 function getExecutionIssueStatusLabel(
   issue: RepositoryIssue,
+  comments: RepositoryIssueComment[],
   t: (key: string) => string,
 ): string {
-  if (issue.labels.includes("batchtrail:gate-blocked")) {
-    return t("detail.recentRuns.status.gateBlocked");
-  }
+  const request = parseExecutionRequestDetail(issue, comments);
 
-  if (issue.labels.includes("batchtrail:dispatch-failed")) {
-    return t("detail.recentRuns.status.dispatchFailed");
+  switch (request?.status) {
+    case "APPROVED":
+      return t("detail.recentRuns.status.approved");
+    case "DISPATCH_FAILED":
+      return t("detail.recentRuns.status.dispatchFailed");
+    case "DISPATCHING":
+      return t("detail.recentRuns.status.dispatching");
+    case "DISPATCHED":
+      return t("detail.recentRuns.status.dispatched");
+    case "GATE_BLOCKED":
+      return t("detail.recentRuns.status.gateBlocked");
+    case "REJECTED":
+      return t("detail.recentRuns.status.rejected");
+    case "REQUESTED":
+      return t("detail.recentRuns.status.requested");
+    default:
+      return t("detail.recentRuns.status.unknown");
   }
-
-  if (issue.labels.includes("batchtrail:dispatching")) {
-    return t("detail.recentRuns.status.dispatching");
-  }
-
-  if (issue.labels.includes("batchtrail:dispatched")) {
-    return t("detail.recentRuns.status.dispatched");
-  }
-
-  if (issue.labels.includes("batchtrail:rejected")) {
-    return t("detail.recentRuns.status.rejected");
-  }
-
-  if (parseExecutionApprovalRequest(issue)) {
-    return t("detail.recentRuns.status.requested");
-  }
-
-  return t("detail.recentRuns.status.unknown");
 }

@@ -109,6 +109,7 @@
         "requestId": "Request ID"
       },
       "status": {
+        "approved": "Approval recorded",
         "dispatchFailed": "Dispatch failed",
         "dispatching": "Dispatching",
         "dispatched": "Dispatched",

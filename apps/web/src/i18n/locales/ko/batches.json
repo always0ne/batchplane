@@ -109,6 +109,7 @@
         "requestId": "Request ID"
       },
       "status": {
+        "approved": "승인 기록됨",
         "dispatchFailed": "Dispatch 실패",
         "dispatching": "Dispatch 중",
         "dispatched": "Dispatch 완료",
