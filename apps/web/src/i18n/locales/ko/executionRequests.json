@@ -1,0 +1,75 @@
+{
+  "title": "실행 요청",
+  "subtitle": "{{batchId}} 실행 승인을 요청합니다.",
+  "actions": {
+    "backToBatches": "배치 목록으로",
+    "createRequest": "실행 요청 생성",
+    "openSetup": "설정 열기"
+  },
+  "context": {
+    "command": "배치 명령",
+    "domain": "업무 도메인",
+    "environment": "환경",
+    "governed": "통제 대상",
+    "missingCommand": "배치 명령 없음",
+    "owner": "소유자",
+    "runsOn": "실행 환경",
+    "workflowPath": "Workflow 경로"
+  },
+  "form": {
+    "defaultReason": "BatchTrail Repo Mode에서 수동 실행 요청.",
+    "expiresIn": "승인 만료",
+    "expiresInOption": "{{hours}}시간",
+    "reason": "사유",
+    "title": "요청 내용",
+    "workflowRef": "Workflow ref"
+  },
+  "parameters": {
+    "add": "파라미터 추가",
+    "empty": "파라미터 없음",
+    "name": "이름",
+    "remove": "파라미터 삭제",
+    "sensitive": "민감값",
+    "sensitiveHint": "민감 파라미터 값은 GitHub Issue에 기록하지 않습니다. 감사 비교용 value digest만 저장합니다.",
+    "title": "파라미터",
+    "value": "값"
+  },
+  "payload": {
+    "idle": "요청 내용을 입력하면 canonical payload를 미리 볼 수 있습니다.",
+    "loading": "Digest 미리보기 갱신 중...",
+    "title": "Canonical payload"
+  },
+  "review": {
+    "commandReady": "배치 명령이 요청 payload에 포함됩니다.",
+    "digest": "Request digest",
+    "digestReady": "Request digest가 Issue marker에 기록됩니다.",
+    "expiresAt": "만료 시각",
+    "gateRequired": "BatchTrail Gate는 배치 명령 전에 반드시 실행됩니다.",
+    "nextStep": "생성 후 BatchTrail은 요청서를 승인함으로 라우팅합니다. GitHub 목록 반영에는 몇 초 지연이 있을 수 있습니다.",
+    "noDispatch": "Issue 생성만으로 Workflow를 실행하지 않습니다.",
+    "pending": "대기 중",
+    "requestId": "Request ID",
+    "runner": "실행 환경",
+    "title": "요청 검토",
+    "workflow": "Workflow"
+  },
+  "states": {
+    "completeForm": "Issue 생성 전에 요청 내용을 완료해주세요.",
+    "created": "실행 요청이 생성되었습니다.",
+    "error": "실행 요청 화면을 불러오지 못했습니다.",
+    "loading": "실행 요청 화면을 불러오는 중...",
+    "noSession": "실행 요청 전에 GitHub 저장소를 연결해주세요.",
+    "notFound": "배치 {{batchId}}를 찾을 수 없습니다.",
+    "previewError": "요청 미리보기를 갱신하지 못했습니다.",
+    "submitError": "실행 요청을 생성하지 못했습니다."
+  },
+  "validation": {
+    "expiresIn": "승인 만료 시간을 선택해야 합니다.",
+    "gateRequired": "BatchTrail Gate는 실행 요청 전에 필수입니다.",
+    "inactive": "비활성 배치는 실행 요청할 수 없습니다.",
+    "missingCommand": "배치 정의에 배치 명령이 기록되어 있지 않습니다.",
+    "parameterName": "값을 입력한 파라미터는 이름이 필요합니다.",
+    "reason": "사유는 필수입니다.",
+    "workflowRef": "Workflow ref는 필수입니다."
+  }
+}

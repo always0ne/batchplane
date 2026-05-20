@@ -3,18 +3,12 @@ import type {
   BatchTrailRuntimePorts,
   RepositoryIssue,
 } from "@batchtrail/domain";
-import { GitPullRequest, Loader2, Play, ShieldCheck } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { type FormEvent, useEffect, useState } from "react";
+import { GitPullRequest, Play, ShieldCheck } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { buildExecutionApprovalHandoff } from "../approvals/approval-handoff";
 import { parseExecutionApprovalRequest } from "../approvals/approval-model";
-import {
-  addHours,
-  buildExecutionRequestIssue,
-  type ExecutionRequestIssue,
-} from "../execution-requests/execution-request-model";
 import type { GitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
@@ -36,19 +30,7 @@ type BatchDetailState =
       type: "loaded";
       batch: BatchDefinition;
       defaultBranch: string;
-      login: string;
       recentIssues: RepositoryIssue[];
-      session: GitHubSession;
-    }
-  | { type: "error"; message: string };
-
-type ExecutionFormState =
-  | { type: "idle" }
-  | { type: "submitting" }
-  | {
-      type: "success";
-      issue: RepositoryIssue;
-      requestIssue: ExecutionRequestIssue;
     }
   | { type: "error"; message: string };
 
@@ -63,12 +45,7 @@ export function BatchDetailPage({
 }: BatchDetailPageProps = {}) {
   const { batchId = "" } = useParams();
   const { t } = useTranslation("batches");
-  const navigate = useNavigate();
   const [state, setState] = useState<BatchDetailState>({ type: "loading" });
-  const [executionState, setExecutionState] = useState<ExecutionFormState>({
-    type: "idle",
-  });
-  const [reason, setReason] = useState(t("detail.execution.defaultReason"));
   const decodedBatchId = decodeURIComponent(batchId);
 
   useEffect(() => {
@@ -86,10 +63,7 @@ export function BatchDetailPage({
 
       try {
         const runtime = createRuntime(session);
-        const [repository, user] = await Promise.all([
-          runtime.settings.getRepository(),
-          runtime.settings.getCurrentUser(),
-        ]);
+        const repository = await runtime.settings.getRepository();
         const [batches, issues] = await Promise.all([
           runtime.batches.listBatchDefinitions({
             ref: repository.defaultBranch,
@@ -113,12 +87,10 @@ export function BatchDetailPage({
           type: "loaded",
           batch,
           defaultBranch: repository.defaultBranch,
-          login: user.login,
           recentIssues: issues
             .filter((issue) => issueContainsBatch(issue, batch.batchId))
             .sort((left, right) => right.number - left.number)
             .slice(0, 5),
-          session,
         });
       } catch (error) {
         if (!ignoreResult) {
@@ -137,94 +109,15 @@ export function BatchDetailPage({
     };
   }, [createRuntime, decodedBatchId, readSession, t]);
 
-  async function requestExecution(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (state.type !== "loaded") {
-      return;
-    }
-
-    if (state.batch.status !== "ACTIVE") {
-      setExecutionState({
-        type: "error",
-        message: t("execution.errors.inactive"),
-      });
-      return;
-    }
-
-    if (!state.batch.gateRequired) {
-      setExecutionState({
-        type: "error",
-        message: t("execution.errors.gateRequired"),
-      });
-      return;
-    }
-
-    if (!state.batch.execution?.command.trim()) {
-      setExecutionState({
-        type: "error",
-        message: t("execution.errors.missingCommand"),
-      });
-      return;
-    }
-
-    setExecutionState({ type: "submitting" });
-
-    try {
-      const now = new Date();
-      const requestIssue = await buildExecutionRequestIssue({
-        batch: state.batch,
-        expiresAt: addHours(now, 1),
-        reason,
-        requestedAt: now,
-        requestedBy: state.login,
-      });
-      const runtime = createRuntime(state.session);
-      const issue = await runtime.executions.createExecutionRequest({
-        body: requestIssue.body,
-        labels: requestIssue.labels,
-        title: requestIssue.title,
-      });
-
-      setExecutionState({ type: "success", issue, requestIssue });
-      navigate("/approvals", {
-        state: buildExecutionApprovalHandoff(issue),
-      });
-    } catch (error) {
-      setExecutionState({
-        type: "error",
-        message: formatRuntimeError(error, t("states.detailError")),
-      });
-    }
-  }
-
   return (
     <section>
       <PageHeader title={t("detail.title")} subtitle={decodedBatchId} />
-      <BatchDetailContent
-        onReasonChange={setReason}
-        onRequestExecution={(event) => void requestExecution(event)}
-        reason={reason}
-        state={state}
-        executionState={executionState}
-      />
+      <BatchDetailContent state={state} />
     </section>
   );
 }
 
-function BatchDetailContent({
-  executionState,
-  onReasonChange,
-  onRequestExecution,
-  reason,
-  state,
-}: {
-  executionState: ExecutionFormState;
-  onReasonChange: (reason: string) => void;
-  onRequestExecution: (event: FormEvent<HTMLFormElement>) => void;
-  reason: string;
-  state: BatchDetailState;
-}) {
+function BatchDetailContent({ state }: { state: BatchDetailState }) {
   const { t } = useTranslation("batches");
 
   if (state.type === "loading") {
@@ -282,10 +175,6 @@ function BatchDetailContent({
         <RequestActionsCard
           batch={state.batch}
           canRequestExecution={canRequestExecution}
-          executionState={executionState}
-          onReasonChange={onReasonChange}
-          onRequestExecution={onRequestExecution}
-          reason={reason}
         />
       </section>
       <RecentExecutionEvidence issues={state.recentIssues} />
@@ -405,19 +294,14 @@ function BatchProfileCard({
 function RequestActionsCard({
   batch,
   canRequestExecution,
-  executionState,
-  onReasonChange,
-  onRequestExecution,
-  reason,
 }: {
   batch: BatchDefinition;
   canRequestExecution: boolean;
-  executionState: ExecutionFormState;
-  onReasonChange: (reason: string) => void;
-  onRequestExecution: (event: FormEvent<HTMLFormElement>) => void;
-  reason: string;
 }) {
   const { t } = useTranslation("batches");
+  const executionRequestPath = `/batches/${encodeURIComponent(
+    batch.batchId,
+  )}/execution-requests/new`;
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -452,37 +336,30 @@ function RequestActionsCard({
         </span>
       </div>
 
-      <form
-        className="mt-4 space-y-4 border-t border-slate-100 pt-4"
-        onSubmit={onRequestExecution}
-      >
+      <div className="mt-4 space-y-4 border-t border-slate-100 pt-4">
         <h3 className="text-sm font-bold text-bt-graphite">
           {t("detail.execution.title")}
         </h3>
-        <label className="block text-sm font-semibold text-bt-graphite">
-          {t("detail.execution.reason")}
-          <textarea
-            className="mt-2 min-h-24 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
-            onChange={(event) => onReasonChange(event.target.value)}
-            value={reason}
-          />
-        </label>
-        <button
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-          disabled={
-            executionState.type === "submitting" || !canRequestExecution
-          }
-          type="submit"
-        >
-          {executionState.type === "submitting" ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
+        {canRequestExecution ? (
+          <Link
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white"
+            to={executionRequestPath}
+          >
             <Play className="h-4 w-4" aria-hidden="true" />
-          )}
-          {t("actions.requestRun")}
-        </button>
-        <ExecutionFormMessage state={executionState} />
-      </form>
+            {t("actions.requestRun")}
+          </Link>
+        ) : (
+          <button
+            className="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-md bg-slate-300 px-4 py-2 text-sm font-semibold text-white"
+            disabled
+            title={t("detail.execution.unavailable")}
+            type="button"
+          >
+            <Play className="h-4 w-4" aria-hidden="true" />
+            {t("actions.requestRun")}
+          </button>
+        )}
+      </div>
 
       <div className="mt-5 border-t border-slate-100 pt-5">
         <h3 className="text-sm font-bold text-bt-graphite">
@@ -569,30 +446,6 @@ function RecentExecutionEvidence({ issues }: { issues: RepositoryIssue[] }) {
       )}
     </article>
   );
-}
-
-function ExecutionFormMessage({ state }: { state: ExecutionFormState }) {
-  const { t } = useTranslation("batches");
-
-  if (state.type === "success") {
-    return (
-      <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-        {t("execution.result.created", {
-          requestId: state.requestIssue.request.requestId,
-        })}
-      </p>
-    );
-  }
-
-  if (state.type === "error") {
-    return (
-      <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
-        {state.message}
-      </p>
-    );
-  }
-
-  return null;
 }
 
 function DetailFact({ label, value }: { label: string; value: string }) {

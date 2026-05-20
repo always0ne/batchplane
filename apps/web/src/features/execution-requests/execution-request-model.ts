@@ -1,4 +1,8 @@
-import { createRequestDigest, type CanonicalValue } from "@batchtrail/digest";
+import {
+  createParameterDigest,
+  createRequestDigest,
+  type CanonicalValue,
+} from "@batchtrail/digest";
 import type {
   BatchDefinition,
   ExecutionRequest,
@@ -30,6 +34,17 @@ export type ExecutionRequestPayload = {
       gateRequired: boolean;
       runsOn: RunnerLabel;
     };
+    parameters?: Record<
+      string,
+      | {
+          sensitive?: false;
+          value: string;
+        }
+      | {
+          sensitive: true;
+          valueDigest: string;
+        }
+    >;
     workflow: {
       path: string;
       ref: string;
@@ -40,10 +55,12 @@ export type ExecutionRequestPayload = {
 export type BuildExecutionRequestIssueParams = {
   batch: BatchDefinition;
   expiresAt: Date;
+  parameters?: ExecutionRequestParameterInput[];
   reason?: string;
   requestId?: string;
   requestedAt: Date;
   requestedBy: string;
+  workflowRef?: string;
 };
 
 export type ExecutionRequestIssue = {
@@ -54,18 +71,28 @@ export type ExecutionRequestIssue = {
   title: string;
 };
 
+export type ExecutionRequestParameterInput = {
+  name: string;
+  sensitive: boolean;
+  value: string;
+};
+
 export async function buildExecutionRequestIssue({
   batch,
   expiresAt,
+  parameters = [],
   reason = "Manual request from BatchTrail Repo Mode.",
   requestId,
   requestedAt,
   requestedBy,
+  workflowRef,
 }: BuildExecutionRequestIssueParams): Promise<ExecutionRequestIssue> {
   const effectiveRequestId =
     requestId ?? createExecutionRequestId(batch.batchId, requestedAt);
   const requestedAtIso = requestedAt.toISOString();
   const expiresAtIso = expiresAt.toISOString();
+  const parameterPayload = await buildParameterPayload(parameters);
+  const effectiveWorkflowRef = workflowRef?.trim() || batch.workflow.ref;
   const payload: ExecutionRequestPayload = {
     apiVersion: "batchtrail.io/v1",
     kind: "ExecutionRequest",
@@ -93,9 +120,12 @@ export async function buildExecutionRequestIssue({
       reason,
       requestedAt: requestedAtIso,
       requestedBy,
+      ...(Object.keys(parameterPayload).length > 0
+        ? { parameters: parameterPayload }
+        : {}),
       workflow: {
         path: batch.workflow.path,
-        ref: batch.workflow.ref,
+        ref: effectiveWorkflowRef,
       },
     },
   };
@@ -114,7 +144,7 @@ export async function buildExecutionRequestIssue({
 
   return {
     body: buildExecutionRequestBody({ payload, request }),
-    labels: [],
+    labels: ["batchtrail:execution-request"],
     payload,
     request,
     title: `Run batch ${batch.batchId}`,
@@ -189,4 +219,40 @@ function createEntropy(): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
     "",
   );
+}
+
+async function buildParameterPayload(
+  parameters: ExecutionRequestParameterInput[],
+): Promise<NonNullable<ExecutionRequestPayload["spec"]["parameters"]>> {
+  const entries = await Promise.all(
+    parameters
+      .map((parameter) => ({
+        name: parameter.name.trim(),
+        sensitive: parameter.sensitive,
+        value: parameter.value,
+      }))
+      .filter((parameter) => parameter.name.length > 0)
+      .map(async (parameter) => {
+        if (parameter.sensitive) {
+          return [
+            parameter.name,
+            {
+              sensitive: true,
+              valueDigest: await createParameterDigest({
+                [parameter.name]: parameter.value,
+              }),
+            },
+          ] as const;
+        }
+
+        return [
+          parameter.name,
+          {
+            value: parameter.value,
+          },
+        ] as const;
+      }),
+  );
+
+  return Object.fromEntries(entries);
 }

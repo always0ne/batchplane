@@ -1,6 +1,6 @@
-import type { BatchDefinition, RepositoryIssue } from "@batchtrail/domain";
-import { ExternalLink, Loader2, Play, Plus, RefreshCw } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import type { BatchDefinition } from "@batchtrail/domain";
+import { Loader2, Play, Plus, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -15,13 +15,6 @@ import {
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
-import type { GitHubSession } from "../lite-setup/github-session";
-import {
-  addHours,
-  buildExecutionRequestIssue,
-  type ExecutionRequestIssue,
-} from "../execution-requests/execution-request-model";
-import { buildExecutionApprovalHandoff } from "../approvals/approval-handoff";
 import { getExecutionRequestBlockReason } from "./batch-list-readiness";
 
 type BatchListState =
@@ -31,28 +24,13 @@ type BatchListState =
       type: "loaded";
       batches: BatchDefinition[];
       defaultBranch: string;
-      login: string;
-      session: GitHubSession;
-    }
-  | { type: "error"; message: string };
-
-type ExecutionRequestState =
-  | { type: "idle" }
-  | { type: "running"; batchId: string }
-  | {
-      type: "success";
-      issue: RepositoryIssue;
-      requestIssue: ExecutionRequestIssue;
     }
   | { type: "error"; message: string };
 
 export function BatchesPage() {
   const { t } = useTranslation("batches");
-  const navigate = useNavigate();
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<BatchListState>({ type: "loading" });
-  const [executionRequestState, setExecutionRequestState] =
-    useState<ExecutionRequestState>({ type: "idle" });
 
   useEffect(() => {
     let ignoreResult = false;
@@ -69,10 +47,7 @@ export function BatchesPage() {
 
       try {
         const runtime = createBatchTrailRuntime(session);
-        const [repository, user] = await Promise.all([
-          runtime.settings.getRepository(),
-          runtime.settings.getCurrentUser(),
-        ]);
+        const repository = await runtime.settings.getRepository();
         const batches = await runtime.batches.listBatchDefinitions({
           ref: repository.defaultBranch,
         });
@@ -82,8 +57,6 @@ export function BatchesPage() {
             type: "loaded",
             batches,
             defaultBranch: repository.defaultBranch,
-            login: user.login,
-            session,
           });
         }
       } catch (error) {
@@ -99,68 +72,6 @@ export function BatchesPage() {
       ignoreResult = true;
     };
   }, [reloadToken]);
-
-  async function requestExecution(batch: BatchDefinition) {
-    if (state.type !== "loaded") {
-      return;
-    }
-
-    if (batch.status !== "ACTIVE") {
-      setExecutionRequestState({
-        type: "error",
-        message: t("execution.errors.inactive"),
-      });
-      return;
-    }
-
-    if (!batch.gateRequired) {
-      setExecutionRequestState({
-        type: "error",
-        message: t("execution.errors.gateRequired"),
-      });
-      return;
-    }
-
-    if (!batch.execution?.command.trim()) {
-      setExecutionRequestState({
-        type: "error",
-        message: t("execution.errors.missingCommand"),
-      });
-      return;
-    }
-
-    setExecutionRequestState({ type: "running", batchId: batch.batchId });
-
-    try {
-      const now = new Date();
-      const requestIssue = await buildExecutionRequestIssue({
-        batch,
-        expiresAt: addHours(now, 1),
-        requestedAt: now,
-        requestedBy: state.login,
-      });
-      const runtime = createBatchTrailRuntime(state.session);
-      const issue = await runtime.executions.createExecutionRequest({
-        body: requestIssue.body,
-        labels: requestIssue.labels,
-        title: requestIssue.title,
-      });
-
-      setExecutionRequestState({
-        type: "success",
-        issue,
-        requestIssue,
-      });
-      navigate("/approvals", {
-        state: buildExecutionApprovalHandoff(issue),
-      });
-    } catch (error) {
-      setExecutionRequestState({
-        type: "error",
-        message: formatBatchListError(error),
-      });
-    }
-  }
 
   return (
     <section>
@@ -189,25 +100,12 @@ export function BatchesPage() {
           </Link>
         </div>
       </div>
-      <ExecutionRequestBanner state={executionRequestState} />
-      <BatchListContent
-        executionRequestState={executionRequestState}
-        onRequestExecution={(batch) => void requestExecution(batch)}
-        state={state}
-      />
+      <BatchListContent state={state} />
     </section>
   );
 }
 
-function BatchListContent({
-  executionRequestState,
-  onRequestExecution,
-  state,
-}: {
-  executionRequestState: ExecutionRequestState;
-  onRequestExecution: (batch: BatchDefinition) => void;
-  state: BatchListState;
-}) {
+function BatchListContent({ state }: { state: BatchListState }) {
   const { t } = useTranslation("batches");
 
   if (state.type === "loading") {
@@ -263,16 +161,14 @@ function BatchListContent({
         </thead>
         <tbody className="divide-y divide-slate-100">
           {state.batches.map((batch) => {
-            const isRunning =
-              executionRequestState.type === "running" &&
-              executionRequestState.batchId === batch.batchId;
             const blockReason = getExecutionRequestBlockReason({
               batch,
-              isRequestInProgress:
-                executionRequestState.type === "running" && !isRunning,
+              isRequestInProgress: false,
               t,
             });
-            const isDisabled = isRunning || blockReason !== null;
+            const requestPath = `/batches/${encodeURIComponent(
+              batch.batchId,
+            )}/execution-requests/new`;
 
             return (
               <tr key={batch.batchId}>
@@ -312,23 +208,26 @@ function BatchListContent({
                     >
                       {t("actions.viewDetails")}
                     </Link>
-                    <button
-                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite disabled:cursor-not-allowed disabled:text-slate-400"
-                      disabled={isDisabled}
-                      onClick={() => onRequestExecution(batch)}
-                      title={blockReason ?? t("actions.requestRun")}
-                      type="button"
-                    >
-                      {isRunning ? (
-                        <Loader2
-                          className="h-4 w-4 animate-spin"
-                          aria-hidden="true"
-                        />
-                      ) : (
+                    {blockReason ? (
+                      <button
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-400 disabled:cursor-not-allowed"
+                        disabled
+                        title={blockReason}
+                        type="button"
+                      >
                         <Play className="h-4 w-4" aria-hidden="true" />
-                      )}
-                      {t("actions.requestRun")}
-                    </button>
+                        {t("actions.requestRun")}
+                      </button>
+                    ) : (
+                      <Link
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                        title={t("actions.requestRun")}
+                        to={requestPath}
+                      >
+                        <Play className="h-4 w-4" aria-hidden="true" />
+                        {t("actions.requestRun")}
+                      </Link>
+                    )}
                     {blockReason ? (
                       <span
                         className="inline-flex rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800"
@@ -346,43 +245,6 @@ function BatchListContent({
       </table>
     </div>
   );
-}
-
-function ExecutionRequestBanner({ state }: { state: ExecutionRequestState }) {
-  const { t } = useTranslation("batches");
-
-  if (state.type === "success") {
-    return (
-      <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-        <p className="font-semibold">
-          {t("execution.result.created", {
-            requestId: state.requestIssue.request.requestId,
-          })}
-        </p>
-        <a
-          className="mt-2 inline-flex items-center gap-2 font-semibold underline"
-          href={state.issue.url}
-          rel="noreferrer"
-          target="_blank"
-        >
-          <ExternalLink className="h-4 w-4" aria-hidden="true" />
-          <span>
-            #{state.issue.number} {state.issue.title}
-          </span>
-        </a>
-      </div>
-    );
-  }
-
-  if (state.type === "error") {
-    return (
-      <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">
-        {state.message}
-      </div>
-    );
-  }
-
-  return null;
 }
 
 function formatBatchListError(error: unknown): string {

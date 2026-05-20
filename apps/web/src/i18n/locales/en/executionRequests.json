@@ -1,0 +1,75 @@
+{
+  "title": "Execution request",
+  "subtitle": "Create an approval request for {{batchId}}.",
+  "actions": {
+    "backToBatches": "Back to batches",
+    "createRequest": "Create execution request",
+    "openSetup": "Open setup"
+  },
+  "context": {
+    "command": "Batch command",
+    "domain": "Domain",
+    "environment": "Environment",
+    "governed": "Governed",
+    "missingCommand": "Batch command is missing",
+    "owner": "Owner",
+    "runsOn": "Runs on",
+    "workflowPath": "Workflow path"
+  },
+  "form": {
+    "defaultReason": "Manual request from BatchTrail Repo Mode.",
+    "expiresIn": "Approval expires",
+    "expiresInOption": "{{hours}} hour(s)",
+    "reason": "Reason",
+    "title": "Request details",
+    "workflowRef": "Workflow ref"
+  },
+  "parameters": {
+    "add": "Add parameter",
+    "empty": "No parameters",
+    "name": "Name",
+    "remove": "Remove parameter",
+    "sensitive": "Sensitive",
+    "sensitiveHint": "Sensitive values are never written to the GitHub Issue. BatchTrail stores only a value digest for audit comparison.",
+    "title": "Parameters",
+    "value": "Value"
+  },
+  "payload": {
+    "idle": "Complete the request details to preview the canonical payload.",
+    "loading": "Updating digest preview...",
+    "title": "Canonical payload"
+  },
+  "review": {
+    "commandReady": "Batch command is included in the request payload.",
+    "digest": "Request digest",
+    "digestReady": "Request digest will be written to the Issue marker.",
+    "expiresAt": "Expires at",
+    "gateRequired": "BatchTrail Gate is mandatory before the batch command.",
+    "nextStep": "After creation, BatchTrail routes this request to approvals. GitHub list results can take a few seconds to catch up.",
+    "noDispatch": "Creating the Issue does not dispatch the workflow.",
+    "pending": "Pending",
+    "requestId": "Request ID",
+    "runner": "Runner",
+    "title": "Request review",
+    "workflow": "Workflow"
+  },
+  "states": {
+    "completeForm": "Complete the request before creating an Issue.",
+    "created": "Execution request was created.",
+    "error": "Failed to load execution request form.",
+    "loading": "Loading execution request form...",
+    "noSession": "Connect a GitHub repository before requesting execution.",
+    "notFound": "Batch {{batchId}} was not found.",
+    "previewError": "Failed to update request preview.",
+    "submitError": "Failed to create execution request."
+  },
+  "validation": {
+    "expiresIn": "Expiration must be selected.",
+    "gateRequired": "BatchTrail Gate is mandatory before execution can be requested.",
+    "inactive": "Inactive batches cannot be requested for execution.",
+    "missingCommand": "The batch command is not recorded in the batch definition.",
+    "parameterName": "Parameter name is required when a value is entered.",
+    "reason": "Reason is required.",
+    "workflowRef": "Workflow ref is required."
+  }
+}

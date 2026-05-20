@@ -58,7 +58,8 @@
     "execution": {
       "title": "실행 요청",
       "reason": "사유",
-      "defaultReason": "BatchTrail Repo Mode에서 수동 실행 요청."
+      "defaultReason": "BatchTrail Repo Mode에서 수동 실행 요청.",
+      "unavailable": "이 배치는 실행 요청할 수 없습니다."
     },
     "requests": {
       "title": "요청"
