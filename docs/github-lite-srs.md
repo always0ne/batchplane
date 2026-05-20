@@ -197,6 +197,12 @@ request payload, approval evidence, dispatcher evidence, and Gate evidence when
 available. The detail screen is the primary place to explain why approval did or
 did not lead to dispatch.
 
+Registration pull requests must also have a BatchTrail detail screen reachable
+from the approvals inbox. The registration detail screen must show pull request
+metadata, review state, governance checklist, YAML change summary for governed
+files, refresh action, and GitHub pull request link. Approval wording on this
+screen must be explicit that approval merges the registration pull request.
+
 Approving an execution request must write an approval comment that starts with:
 
 ```text

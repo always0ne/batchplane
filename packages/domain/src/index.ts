@@ -213,6 +213,12 @@ export type RepositoryMergeResult = {
   sha: string;
 };
 
+export type RepositoryFile = {
+  content: string;
+  path: string;
+  ref: string;
+};
+
 export type RuntimeInstallationStatus = {
   installed: boolean;
   missingPaths: string[];
@@ -275,6 +281,10 @@ export type ApprovalPort = {
   listRegistrationRequests(params: {
     baseBranch: string;
   }): Promise<RepositoryPullRequest[]>;
+  readRegistrationRequestFile(params: {
+    path: string;
+    ref: string;
+  }): Promise<RepositoryFile | null>;
   listExecutionRequestIssues(params?: {
     state?: RepositoryIssueState;
   }): Promise<RepositoryIssue[]>;

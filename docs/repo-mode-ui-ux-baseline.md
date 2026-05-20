@@ -23,6 +23,8 @@ Repo Mode must read as one connected operational flow:
 - Registration shows what will be controlled, what will run, where it will run,
   and which files the pull request will create.
 - Approvals shows only work that can still be approved or rejected.
+- Registration approval detail shows PR metadata, review state, governance
+  checklist, and YAML change summary before merge/reject.
 - Execution request detail shows the full judgment record for one request:
   request status, requester, batch context, workflow/ref, runner, command,
   digest, canonical payload, approval evidence, dispatcher evidence, and Gate
@@ -77,3 +79,4 @@ For every UI screen PR:
 - Confirm that approval work is separated from failure or audit evidence.
 - Confirm that mandatory Gate language is not shown as optional.
 - Confirm English and Korean copy carry the same product meaning.
+- Confirm detail screens include refresh controls and explicit action wording.

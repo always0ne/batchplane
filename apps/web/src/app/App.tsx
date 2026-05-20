@@ -14,6 +14,7 @@ import { BatchDetailPage } from "../features/batches/BatchDetailPage";
 import { ExecutionRequestDetailPage } from "../features/execution-requests/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../features/execution-requests/ExecutionRequestPage";
 import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
+import { RegistrationApprovalDetailPage } from "../features/approvals/RegistrationApprovalDetailPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
 import { BatchRegistrationPage } from "../features/registration/BatchRegistrationPage";
@@ -162,6 +163,10 @@ export function App() {
               element={<ExecutionRequestDetailPage />}
             />
             <Route path="/approvals" element={<ApprovalsPage />} />
+            <Route
+              path="/approvals/registration/:pullNumber"
+              element={<RegistrationApprovalDetailPage />}
+            />
             <Route path="/lite/setup" element={<LiteSetupPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

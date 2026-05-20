@@ -499,14 +499,22 @@ function ApprovalContent({
                       />
                     </dl>
                   </div>
-                  <a
-                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
-                    href={pullRequest.url}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {t("actions.openPullRequest")}
-                  </a>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                      href={pullRequest.url}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {t("actions.openPullRequest")}
+                    </a>
+                    <Link
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                      to={`/approvals/registration/${pullRequest.number}`}
+                    >
+                      {t("actions.viewRegistrationDetails")}
+                    </Link>
+                  </div>
                 </div>
 
                 <ApprovalActions

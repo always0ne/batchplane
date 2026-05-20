@@ -13,7 +13,8 @@
     "reject": "반려",
     "rejectReason": "반려 사유",
     "rejectReasonPlaceholder": "이 실행 요청을 진행할 수 없는 이유를 입력하세요.",
-    "viewDetails": "상세 보기"
+    "viewDetails": "상세 보기",
+    "viewRegistrationDetails": "등록승인 상세"
   },
   "fields": {
     "author": "작성자",
@@ -54,5 +55,61 @@
     "empty": "{{branch}} 브랜치에 대기 중인 승인이 없습니다.",
     "loading": "승인 요청을 불러오는 중입니다...",
     "noSession": "승인 요청을 보려면 GitHub 저장소를 먼저 연결하세요."
+  },
+  "registrationDetail": {
+    "title": "등록승인 상세",
+    "subtitle": "PR #{{pullNumber}}",
+    "actions": {
+      "actionFailed": "등록 승인 처리 중 오류가 발생했습니다.",
+      "approve": "승인 후 PR 반영",
+      "backToApprovals": "승인함으로",
+      "closedTitle": "등록 검토 완료",
+      "note": "승인 시 Repo Mode 거버넌스 반영을 위해 등록 PR을 병합합니다.",
+      "title": "승인 처리"
+    },
+    "states": {
+      "error": "등록승인 상세를 불러오지 못했습니다.",
+      "loading": "등록승인 상세를 불러오는 중입니다...",
+      "noSession": "등록 승인을 검토하려면 GitHub 저장소를 먼저 연결하세요.",
+      "notFound": "현재 승인 대기열에서 등록 PR #{{pullNumber}}를 찾지 못했습니다."
+    },
+    "checklist": {
+      "title": "거버넌스 체크리스트",
+      "batchPaths": "Batch ID 기준으로 배치정의/워크플로우 경로가 생성되었는지 확인",
+      "gateRequired": "배치 명령 실행 전 BatchTrail Gate 필수 적용",
+      "runnerRecorded": "실행 환경(runs-on) 기록",
+      "commandRecorded": "배치 명령 기록"
+    },
+    "review": {
+      "title": "검토 상태",
+      "decision": "결정",
+      "actor": "처리자",
+      "decidedAt": "처리 시각",
+      "noEvidence": "아직 BatchTrail 검토 증적 코멘트가 없습니다.",
+      "states": {
+        "OPEN": "검토 대기",
+        "APPROVED_PENDING_MERGE": "승인됨, 병합 대기",
+        "MERGED": "병합 완료",
+        "REJECTED": "반려됨",
+        "CLOSED": "닫힘"
+      }
+    },
+    "fileSummary": {
+      "title": "YAML 변경 요약",
+      "subtitle": "기준 브랜치와 등록 브랜치의 거버넌스 파일 변경을 비교합니다.",
+      "preview": "등록 브랜치 내용 보기",
+      "status": {
+        "ADDED": "신규",
+        "UPDATED": "수정",
+        "UNCHANGED": "변경 없음",
+        "MISSING_HEAD": "누락"
+      },
+      "statusHelp": {
+        "ADDED": "등록 브랜치에만 존재하는 파일입니다.",
+        "UPDATED": "두 브랜치 모두 존재하지만 내용이 변경되었습니다.",
+        "UNCHANGED": "두 브랜치에 동일한 내용으로 존재합니다.",
+        "MISSING_HEAD": "등록 브랜치에서 파일을 찾지 못했습니다."
+      }
+    }
   }
 }

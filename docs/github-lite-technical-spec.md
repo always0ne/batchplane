@@ -258,6 +258,27 @@ The dispatcher writes state evidence as Issue labels and comments:
 - `batchtrail:dispatch-failed` with a `DISPATCH_FAILED`
   `batchtrail:bgcp:dispatcher` marker when dispatch fails
 
+## Registration Approval Detail Contract
+
+The registration approval detail screen reads registration pull requests from
+the approvals queue and shows governed file change summaries.
+
+For each governed path (batch definition, workflow, optional execution file),
+the UI compares:
+
+- base ref (`pullRequest.base`)
+- registration branch ref (`pullRequest.head`)
+
+and classifies each file as `ADDED`, `UPDATED`, `UNCHANGED`, or `MISSING_HEAD`.
+
+The screen must include:
+
+- pull request metadata and link
+- review state (open, approved pending merge, merged, rejected, closed)
+- governance checklist
+- file status summary and head revision preview
+- refresh action
+
 Duplicate approval comments for the same request ID, Batch ID, and request
 digest must not create a second `workflow_dispatch` call once `DISPATCHING` or
 `DISPATCHED` evidence exists.
