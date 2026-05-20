@@ -6,9 +6,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDispatcherWorkflowYaml,
+  buildSampleTargetWorkflowYaml,
   checkLiteInstallationStatus,
   createLiteInstallationPullRequest,
   liteDispatcherWorkflowPath,
+  liteSampleTargetWorkflowPath,
 } from "./installation-model";
 
 describe("Lite installation model", () => {
@@ -30,12 +32,14 @@ describe("Lite installation model", () => {
       installed: false,
       missingPaths: [
         liteDispatcherWorkflowPath,
+        liteSampleTargetWorkflowPath,
         ".batch-governance/batches/.gitkeep",
         ".batch-governance/schedules/.gitkeep",
       ],
       presentPaths: [".batch-governance/README.md"],
       requiredPaths: [
         liteDispatcherWorkflowPath,
+        liteSampleTargetWorkflowPath,
         ".batch-governance/README.md",
         ".batch-governance/batches/.gitkeep",
         ".batch-governance/schedules/.gitkeep",
@@ -78,6 +82,16 @@ describe("Lite installation model", () => {
             "always0ne/batchtrail/actions/dispatcher@main",
           );
         }
+        if (path === liteSampleTargetWorkflowPath) {
+          expect(content).toContain("workflow_dispatch:");
+          expect(content).toContain("request_id:");
+          expect(content).toContain("request_digest:");
+          expect(content).toContain("batchtrail-gate:");
+          expect(content).toContain("needs: batchtrail-gate");
+          expect(content).toContain(
+            "uses: always0ne/batchtrail/actions/gate@main",
+          );
+        }
         return { path, sha: `sha-${path}` };
       },
       createPullRequest: async ({ title, head, base }) => {
@@ -106,6 +120,7 @@ describe("Lite installation model", () => {
         installed: false,
         missingPaths: [
           liteDispatcherWorkflowPath,
+          liteSampleTargetWorkflowPath,
           ".batch-governance/README.md",
           ".batch-governance/batches/.gitkeep",
           ".batch-governance/schedules/.gitkeep",
@@ -113,6 +128,7 @@ describe("Lite installation model", () => {
         presentPaths: [],
         requiredPaths: [
           liteDispatcherWorkflowPath,
+          liteSampleTargetWorkflowPath,
           ".batch-governance/README.md",
           ".batch-governance/batches/.gitkeep",
           ".batch-governance/schedules/.gitkeep",
@@ -123,6 +139,7 @@ describe("Lite installation model", () => {
       "get-head:main",
       "create-branch:batchtrail/install/repo-mode-20260513010203:base-sha",
       `put-file:${liteDispatcherWorkflowPath}`,
+      `put-file:${liteSampleTargetWorkflowPath}`,
       "put-file:.batch-governance/README.md",
       "put-file:.batch-governance/batches/.gitkeep",
       "put-file:.batch-governance/schedules/.gitkeep",
@@ -140,5 +157,20 @@ describe("Lite installation model", () => {
     expect(buildDispatcherWorkflowYaml()).toContain(
       "group: batchtrail-dispatch-${{ github.event.issue.number }}",
     );
+  });
+
+  it("ships a sample target workflow that requires Gate approval evidence", () => {
+    expect(buildSampleTargetWorkflowYaml()).toContain("request_id:");
+    expect(buildSampleTargetWorkflowYaml()).toContain("request_digest:");
+    expect(buildSampleTargetWorkflowYaml()).toContain(
+      "request-id: ${{ inputs.request_id }}",
+    );
+    expect(buildSampleTargetWorkflowYaml()).toContain(
+      "request-digest: ${{ inputs.request_digest }}",
+    );
+    expect(buildSampleTargetWorkflowYaml()).toContain(
+      "approval-ref: ${{ inputs.request_id }}",
+    );
+    expect(buildSampleTargetWorkflowYaml()).toContain("needs: batchtrail-gate");
   });
 });

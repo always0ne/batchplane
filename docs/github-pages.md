@@ -2,6 +2,24 @@
 
 BatchTrail Repo Mode is a static React app, so the Lite UI can be hosted from GitHub Pages without a server. The runtime data still comes from the configured GitHub repository through the user's session token.
 
+## Repository Settings
+
+This repository deploys GitHub Pages through `.github/workflows/pages.yml`.
+
+In GitHub repository settings:
+
+1. Open `Settings` -> `Pages`
+2. Set `Build and deployment` source to `GitHub Actions`
+
+Deployments run on:
+
+- push to `main`
+- manual `workflow_dispatch` from the Actions tab
+
+After deployment, the expected URL for this repository is:
+
+- `https://always0ne.github.io/batchtrail/`
+
 ## Base Path
 
 Vite uses `/` for local development and custom domains by default. For the default repository Pages URL, build with `GITHUB_PAGES=true` so assets and routes are emitted under `/batchtrail/`.
