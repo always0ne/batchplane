@@ -658,6 +658,101 @@ describe("createGitHubLiteClient", () => {
     expect(requests[0]?.init?.method).toBe("DELETE");
   });
 
+  it("reads repository permission for a collaborator", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        permission: "write",
+        role_name: "maintain",
+        user: { login: "maintainer" },
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.getRepositoryPermissionForUser({
+        owner: "always0ne",
+        repo: "batchtrail",
+        username: "maintainer",
+      }),
+    ).resolves.toEqual({
+      permission: "maintain",
+      roleName: "maintain",
+      username: "maintainer",
+    });
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchtrail/collaborators/maintainer/permission",
+    );
+  });
+
+  it("maps missing collaborator permission lookup to none", async () => {
+    const fetcher: typeof fetch = async () =>
+      Response.json({ message: "Not Found" }, { status: 404 });
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.getRepositoryPermissionForUser({
+        owner: "always0ne",
+        repo: "batchtrail",
+        username: "contractor",
+      }),
+    ).resolves.toEqual({
+      permission: "none",
+      roleName: "none",
+      username: "contractor",
+    });
+  });
+
+  it("reads team membership and returns null when user is not in team", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+
+      if (requests.length === 1) {
+        return Response.json({
+          state: "active",
+          role: "maintainer",
+        });
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.getTeamMembershipForUser({
+        org: "always0ne",
+        teamSlug: "platform-ops",
+        username: "maintainer",
+      }),
+    ).resolves.toEqual({
+      org: "always0ne",
+      role: "maintainer",
+      state: "active",
+      teamSlug: "platform-ops",
+      username: "maintainer",
+    });
+
+    await expect(
+      client.getTeamMembershipForUser({
+        org: "always0ne",
+        teamSlug: "platform-ops",
+        username: "contractor",
+      }),
+    ).resolves.toBeNull();
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/orgs/always0ne/teams/platform-ops/memberships/maintainer",
+    );
+    expect(requests[1]?.input.toString()).toBe(
+      "https://api.github.com/orgs/always0ne/teams/platform-ops/memberships/contractor",
+    );
+  });
+
   it("maps GitHub API errors", async () => {
     const fetcher: typeof fetch = async () =>
       Response.json({ message: "Bad credentials" }, { status: 401 });
@@ -725,6 +820,46 @@ describe("createMockGitHubLiteClient", () => {
       defaultBranch: "main",
       private: true,
     });
+    await expect(
+      client.getRepositoryPermissionForUser({
+        ...repo,
+        username: "maintainer",
+      }),
+    ).resolves.toEqual({
+      permission: "maintain",
+      roleName: "maintain",
+      username: "maintainer",
+    });
+    await expect(
+      client.getRepositoryPermissionForUser({
+        ...repo,
+        username: "unknown-user",
+      }),
+    ).resolves.toEqual({
+      permission: "none",
+      roleName: "none",
+      username: "unknown-user",
+    });
+    await expect(
+      client.getTeamMembershipForUser({
+        org: "always0ne",
+        teamSlug: "platform-ops",
+        username: "maintainer",
+      }),
+    ).resolves.toEqual({
+      org: "always0ne",
+      role: "maintainer",
+      state: "active",
+      teamSlug: "platform-ops",
+      username: "maintainer",
+    });
+    await expect(
+      client.getTeamMembershipForUser({
+        org: "always0ne",
+        teamSlug: "platform-ops",
+        username: "unknown-user",
+      }),
+    ).resolves.toBeNull();
     await expect(
       client.getDirectory({
         ...repo,

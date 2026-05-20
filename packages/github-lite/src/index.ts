@@ -114,6 +114,32 @@ export type GitHubWorkflowRun = {
   requestId?: string;
 };
 
+export type GitHubRepositoryPermission =
+  | "admin"
+  | "maintain"
+  | "write"
+  | "triage"
+  | "read"
+  | "none";
+
+export type RepositoryPermission = {
+  username: string;
+  permission: GitHubRepositoryPermission;
+  roleName?: string;
+};
+
+export type GitHubTeamMembershipState = "active" | "pending";
+
+export type GitHubTeamMembershipRole = "member" | "maintainer";
+
+export type GitHubTeamMembership = {
+  org: string;
+  teamSlug: string;
+  username: string;
+  state: GitHubTeamMembershipState;
+  role: GitHubTeamMembershipRole;
+};
+
 export type GitHubLiteMockExecutionState =
   | "requested"
   | "approved"
@@ -140,6 +166,8 @@ export type GitHubLiteMockState = {
   currentUser: GitHubUser;
   repository: GitHubRepository;
   branches: Record<string, string>;
+  repositoryPermissions: RepositoryPermission[];
+  teamMemberships: GitHubTeamMembership[];
   files: GitHubMockFile[];
   issues: GitHubIssue[];
   issueComments: GitHubIssueComment[];
@@ -251,6 +279,14 @@ export type GitHubLiteClient = {
     params: RepoRef & { issueNumber: number; label: string },
   ): Promise<void>;
   closeIssue(params: RepoRef & { issueNumber: number }): Promise<void>;
+  getRepositoryPermissionForUser(
+    params: RepoRef & { username: string },
+  ): Promise<RepositoryPermission>;
+  getTeamMembershipForUser(params: {
+    org: string;
+    teamSlug: string;
+    username: string;
+  }): Promise<GitHubTeamMembership | null>;
 };
 
 export type GitHubLiteClientOptions = {
@@ -383,6 +419,19 @@ type GitHubMergeResponse = {
   merged: boolean;
   message: string;
   sha: string;
+};
+
+type GitHubRepositoryPermissionResponse = {
+  permission?: string | null;
+  role_name?: string | null;
+  user?: {
+    login?: string;
+  } | null;
+};
+
+type GitHubTeamMembershipResponse = {
+  state?: string | null;
+  role?: string | null;
 };
 
 export function createGitHubLiteClient({
@@ -838,6 +887,58 @@ export function createGitHubLiteClient({
       );
     },
 
+    async getRepositoryPermissionForUser({ owner, repo, username }) {
+      const permissionResponse = await request<GitHubRepositoryPermissionResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/collaborators/${encodeURIComponent(username)}/permission`,
+        {},
+        { allowNotFound: true },
+      );
+
+      if (!permissionResponse) {
+        return {
+          permission: "none",
+          roleName: "none",
+          username,
+        };
+      }
+
+      return {
+        permission: mapRepositoryPermissionValue(
+          permissionResponse.permission,
+          permissionResponse.role_name,
+        ),
+        roleName:
+          normalizeRepositoryPermissionName(permissionResponse.role_name) ??
+          normalizeRepositoryPermissionName(permissionResponse.permission) ??
+          "none",
+        username: permissionResponse.user?.login?.trim() || username,
+      };
+    },
+
+    async getTeamMembershipForUser({ org, teamSlug, username }) {
+      const membership = await request<GitHubTeamMembershipResponse>(
+        `/orgs/${encodeURIComponent(org)}/teams/${encodeURIComponent(
+          teamSlug,
+        )}/memberships/${encodeURIComponent(username)}`,
+        {},
+        { allowNotFound: true },
+      );
+
+      if (!membership) {
+        return null;
+      }
+
+      return {
+        org,
+        role: mapTeamMembershipRole(membership.role),
+        state: mapTeamMembershipState(membership.state),
+        teamSlug,
+        username,
+      };
+    },
+
     async closeIssue({ owner, repo, issueNumber }) {
       await request<GitHubIssueResponse>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
@@ -875,6 +976,23 @@ export function createGitHubLiteMockState(
   const workflowRuns = executionScenarios.flatMap((scenario) =>
     buildMockWorkflowRuns(repository, workflowId, scenario),
   );
+  const repositoryPermissions: RepositoryPermission[] = [
+    {
+      permission: "maintain",
+      roleName: "maintain",
+      username: currentUser.login,
+    },
+    {
+      permission: "write",
+      roleName: "write",
+      username: "developer",
+    },
+    {
+      permission: "read",
+      roleName: "read",
+      username: "auditor",
+    },
+  ];
   const defaultState: GitHubLiteMockState = {
     branches: {
       main: "mock-main-sha",
@@ -969,6 +1087,23 @@ export function createGitHubLiteMockState(
       },
     ],
     repository,
+    repositoryPermissions,
+    teamMemberships: [
+      {
+        org: repository.owner,
+        role: "maintainer",
+        state: "active",
+        teamSlug: "platform-ops",
+        username: currentUser.login,
+      },
+      {
+        org: repository.owner,
+        role: "member",
+        state: "active",
+        teamSlug: "batch-operators",
+        username: "developer",
+      },
+    ],
     workflowRuns,
     workflows: [
       {
@@ -1003,6 +1138,9 @@ export function createGitHubLiteMockState(
     labels: overrides.labels ?? defaultState.labels,
     pullRequests: overrides.pullRequests ?? defaultState.pullRequests,
     repository: overrides.repository ?? defaultState.repository,
+    repositoryPermissions:
+      overrides.repositoryPermissions ?? defaultState.repositoryPermissions,
+    teamMemberships: overrides.teamMemberships ?? defaultState.teamMemberships,
     workflowRuns: overrides.workflowRuns ?? defaultState.workflowRuns,
     workflows: overrides.workflows ?? defaultState.workflows,
   };
@@ -1234,6 +1372,33 @@ export function createMockGitHubLiteClient(
       return cloneJson(state.repository);
     },
 
+    async getRepositoryPermissionForUser(params) {
+      assertMockRepository(state, params);
+
+      const permission = state.repositoryPermissions.find(
+        (candidate) => candidate.username === params.username,
+      );
+
+      return cloneJson(
+        permission ?? {
+          permission: "none",
+          roleName: "none",
+          username: params.username,
+        },
+      );
+    },
+
+    async getTeamMembershipForUser(params) {
+      const membership = state.teamMemberships.find(
+        (candidate) =>
+          candidate.org === params.org &&
+          candidate.teamSlug === params.teamSlug &&
+          candidate.username === params.username,
+      );
+
+      return membership ? cloneJson(membership) : null;
+    },
+
     async listIssueEvents(params) {
       assertMockRepository(state, params);
       assertMockIssueOrPullRequest(state, params.issueNumber);
@@ -1442,6 +1607,8 @@ function replaceMockState(
   target.labels = replacement.labels;
   target.pullRequests = replacement.pullRequests;
   target.repository = replacement.repository;
+  target.repositoryPermissions = replacement.repositoryPermissions;
+  target.teamMemberships = replacement.teamMemberships;
   target.workflowRuns = replacement.workflowRuns;
   target.workflows = replacement.workflows;
 }
@@ -1839,6 +2006,75 @@ function mapPullRequestResponse(
     body: pullRequest.body ?? "",
     merged: pullRequest.merged ?? Boolean(pullRequest.merged_at),
   };
+}
+
+function mapRepositoryPermissionValue(
+  permission: string | null | undefined,
+  roleName: string | null | undefined,
+): GitHubRepositoryPermission {
+  const explicitRole = normalizeRepositoryPermissionName(roleName);
+
+  if (explicitRole) {
+    return explicitRole;
+  }
+
+  const basePermission = normalizeRepositoryPermissionName(permission);
+
+  if (basePermission) {
+    return basePermission;
+  }
+
+  return "none";
+}
+
+function normalizeRepositoryPermissionName(
+  value: string | null | undefined,
+): GitHubRepositoryPermission | null {
+  const normalized = value?.trim().toLowerCase();
+
+  switch (normalized) {
+    case "admin":
+    case "maintain":
+    case "write":
+    case "triage":
+    case "read":
+    case "none":
+      return normalized;
+    default:
+      return null;
+  }
+}
+
+function mapTeamMembershipState(
+  value: string | null | undefined,
+): GitHubTeamMembershipState {
+  const normalized = value?.trim().toLowerCase();
+
+  if (normalized === "active" || normalized === "pending") {
+    return normalized;
+  }
+
+  throw new GitHubLiteApiError(
+    `Unsupported GitHub team membership state: ${value ?? "unknown"}`,
+    "unknown",
+    500,
+  );
+}
+
+function mapTeamMembershipRole(
+  value: string | null | undefined,
+): GitHubTeamMembershipRole {
+  const normalized = value?.trim().toLowerCase();
+
+  if (normalized === "member" || normalized === "maintainer") {
+    return normalized;
+  }
+
+  throw new GitHubLiteApiError(
+    `Unsupported GitHub team membership role: ${value ?? "unknown"}`,
+    "unknown",
+    500,
+  );
 }
 
 function buildQuery(params: Record<string, string | undefined>): string {
