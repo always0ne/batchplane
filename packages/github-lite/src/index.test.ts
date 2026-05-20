@@ -429,6 +429,235 @@ describe("createGitHubLiteClient", () => {
     );
   });
 
+  it("updates an issue", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        number: 34,
+        title: "Run batch payment.daily-close (updated)",
+        body: "updated body",
+        labels: [{ name: "batchtrail:execution-request" }],
+        html_url: "https://github.com/always0ne/batchtrail/issues/34",
+        state: "open",
+        user: { login: "always0ne" },
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.updateIssue({
+        owner: "always0ne",
+        repo: "batchtrail",
+        issueNumber: 34,
+        title: "Run batch payment.daily-close (updated)",
+        body: "updated body",
+        labels: ["batchtrail:execution-request"],
+      }),
+    ).resolves.toEqual({
+      number: 34,
+      title: "Run batch payment.daily-close (updated)",
+      body: "updated body",
+      labels: ["batchtrail:execution-request"],
+      url: "https://github.com/always0ne/batchtrail/issues/34",
+      state: "open",
+      author: "always0ne",
+      isPullRequest: false,
+    });
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchtrail/issues/34",
+    );
+    expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
+      body: "updated body",
+      labels: ["batchtrail:execution-request"],
+      title: "Run batch payment.daily-close (updated)",
+    });
+  });
+
+  it("searches issues in repository scope", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        items: [
+          {
+            number: 34,
+            title: "Run batch payment.daily-close",
+            body: "body",
+            labels: [{ name: "batchtrail:execution-request" }],
+            html_url: "https://github.com/always0ne/batchtrail/issues/34",
+            state: "open",
+            user: { login: "always0ne" },
+          },
+        ],
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.searchIssues({
+        owner: "always0ne",
+        repo: "batchtrail",
+        query: "daily close",
+        state: "open",
+        labels: ["batchtrail:execution-request"],
+      }),
+    ).resolves.toEqual([
+      {
+        number: 34,
+        title: "Run batch payment.daily-close",
+        body: "body",
+        labels: ["batchtrail:execution-request"],
+        url: "https://github.com/always0ne/batchtrail/issues/34",
+        state: "open",
+        author: "always0ne",
+        isPullRequest: false,
+      },
+    ]);
+
+    expect(requests[0]?.input.toString()).toContain(
+      "https://api.github.com/search/issues?q=",
+    );
+    const requestUrl = new URL(requests[0]?.input.toString() ?? "");
+    expect(requestUrl.searchParams.get("q")).toBe(
+      "repo:always0ne/batchtrail is:issue state:open label:batchtrail:execution-request daily close",
+    );
+  });
+
+  it("lists issue events", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json([
+        {
+          id: 1,
+          event: "labeled",
+          created_at: "2026-05-14T01:05:00.000Z",
+          actor: { login: "maintainer" },
+          label: {
+            name: "batchtrail:dispatched",
+            color: "059669",
+            description: "BatchTrail request was dispatched",
+          },
+        },
+      ]);
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.listIssueEvents({
+        owner: "always0ne",
+        repo: "batchtrail",
+        issueNumber: 34,
+      }),
+    ).resolves.toEqual([
+      {
+        id: 1,
+        event: "labeled",
+        actor: "maintainer",
+        createdAt: "2026-05-14T01:05:00.000Z",
+        label: {
+          name: "batchtrail:dispatched",
+          color: "059669",
+          description: "BatchTrail request was dispatched",
+        },
+      },
+    ]);
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchtrail/issues/34/events",
+    );
+  });
+
+  it("lists and creates labels", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+
+      if (requests.length === 1) {
+        return Response.json([
+          {
+            name: "batchtrail:execution-request",
+            color: "0F766E",
+            description: "BatchTrail execution request",
+          },
+        ]);
+      }
+
+      return Response.json({
+        name: "batchtrail:dispatching",
+        color: "2563EB",
+        description: "BatchTrail request is dispatching",
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.listLabels({ owner: "always0ne", repo: "batchtrail" }),
+    ).resolves.toEqual([
+      {
+        name: "batchtrail:execution-request",
+        color: "0F766E",
+        description: "BatchTrail execution request",
+      },
+    ]);
+
+    await expect(
+      client.createLabel({
+        owner: "always0ne",
+        repo: "batchtrail",
+        name: "batchtrail:dispatching",
+        color: "2563EB",
+        description: "BatchTrail request is dispatching",
+      }),
+    ).resolves.toEqual({
+      name: "batchtrail:dispatching",
+      color: "2563EB",
+      description: "BatchTrail request is dispatching",
+    });
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchtrail/labels",
+    );
+    expect(requests[1]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchtrail/labels",
+    );
+    expect(JSON.parse(requests[1]?.init?.body?.toString() ?? "{}")).toEqual({
+      name: "batchtrail:dispatching",
+      color: "2563EB",
+      description: "BatchTrail request is dispatching",
+    });
+  });
+
+  it("removes an issue label", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({});
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.removeIssueLabel({
+        owner: "always0ne",
+        repo: "batchtrail",
+        issueNumber: 34,
+        label: "batchtrail:dispatching",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchtrail/issues/34/labels/batchtrail%3Adispatching",
+    );
+    expect(requests[0]?.init?.method).toBe("DELETE");
+  });
+
   it("maps GitHub API errors", async () => {
     const fetcher: typeof fetch = async () =>
       Response.json({ message: "Bad credentials" }, { status: 401 });
@@ -553,10 +782,24 @@ describe("createMockGitHubLiteClient", () => {
       title: "Run batch mock",
     });
 
+    await client.updateIssue({
+      ...repo,
+      issueNumber: issue.number,
+      body: "updated body",
+      title: "Run batch mock (updated)",
+    });
+
+    await client.createLabel({
+      ...repo,
+      color: "9333EA",
+      description: "Custom label",
+      name: "custom:one",
+    });
+
     await client.addIssueLabels({
       ...repo,
       issueNumber: issue.number,
-      labels: ["batchtrail:dispatching"],
+      labels: ["batchtrail:dispatching", "custom:one"],
     });
     await client.createIssueComment({
       ...repo,
@@ -568,8 +811,49 @@ describe("createMockGitHubLiteClient", () => {
     ).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          body: "updated body",
           labels: expect.arrayContaining(["batchtrail:dispatching"]),
           number: issue.number,
+          title: "Run batch mock (updated)",
+        }),
+      ]),
+    );
+    await expect(
+      client.searchIssues({
+        ...repo,
+        query: "updated body",
+        labels: ["custom:one"],
+        state: "open",
+      }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          number: issue.number,
+        }),
+      ]),
+    );
+    await expect(client.listLabels(repo)).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "custom:one" })]),
+    );
+    await expect(
+      client.listIssueEvents({ ...repo, issueNumber: issue.number }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ event: "commented" }),
+        expect.objectContaining({ event: "labeled" }),
+      ]),
+    );
+    await client.removeIssueLabel({
+      ...repo,
+      issueNumber: issue.number,
+      label: "custom:one",
+    });
+    await expect(
+      client.listIssues({ ...repo, state: "open" }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          labels: expect.not.arrayContaining(["custom:one"]),
         }),
       ]),
     );
