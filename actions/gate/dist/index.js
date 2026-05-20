@@ -1,5 +1,5 @@
 import { appendFileSync } from "node:fs";
-import { parseYamlDocument, validateBatchDefinitionFile, validateRoleMappingFile, } from "../../../packages/domain/dist/index.js";
+import { parseYamlDocument, validateBatchDefinitionFile, validateRoleMappingFile, } from "./gate-schema.js";
 export function verifyLiteInput(input) {
     if (input.mode !== "lite") {
         return {

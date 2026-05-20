@@ -5,7 +5,7 @@ import {
   type RoleMappingFile,
   validateBatchDefinitionFile,
   validateRoleMappingFile,
-} from "../../../packages/domain/dist/index.js";
+} from "./gate-schema.js";
 
 export type GateMode = "lite" | "server";
 
