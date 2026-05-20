@@ -7,11 +7,17 @@ import {
   verifyLiteAuthorization,
   verifyLiteInput,
 } from ".";
-
-const requestId = "btr-20260513010203-payment.daily-close-abcdef12";
-const batchId = "payment.daily-close";
-const requestDigest =
-  "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+import {
+  buildExecutionApprovalCommentBody,
+  buildExecutionIssueBody,
+  sharedBatchId as batchId,
+  sharedRequestDigest as requestDigest,
+  sharedRequestId as requestId,
+} from "../../../test/fixtures/execution-evidence";
+import {
+  parseExecutionApprovalEvidence,
+  parseExecutionRequestEvidence,
+} from "../../dispatcher/src";
 const workflowPath = ".github/workflows/payment.daily-close.yml";
 
 describe("Gate action runtime", () => {
@@ -113,6 +119,60 @@ describe("Gate action runtime", () => {
         batchId,
         configPath: ".batch-governance",
         fetcher: createGateFetchMock(),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message:
+        "Execution request, approval evidence, and batch policy are verified.",
+      result: "ALLOW",
+    });
+  });
+
+  it("keeps digest evidence aligned across UI issue body, dispatcher parser, and Gate verifier", async () => {
+    const issueBodyFromFixture = buildExecutionIssueBody({
+      batchId,
+      requestDigest,
+      requestId,
+      workflowPath,
+      workflowRef: "main",
+    });
+    const approvalBodyFromFixture = buildExecutionApprovalCommentBody({
+      approver: "maintainer",
+      batchId,
+      requestDigest,
+      requestId,
+    });
+    const parsedRequest = parseExecutionRequestEvidence(issueBodyFromFixture);
+    const parsedApproval = parseExecutionApprovalEvidence(
+      approvalBodyFromFixture,
+    );
+
+    expect(parsedRequest?.requestDigest).toBe(requestDigest);
+    expect(parsedApproval?.requestDigest).toBe(requestDigest);
+
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({
+          comments: [
+            {
+              body: approvalBodyFromFixture,
+              created_at: "2026-05-13T01:03:03.000Z",
+              updated_at: "2026-05-13T01:03:03.000Z",
+              user: { login: "maintainer" },
+            },
+          ],
+          requestIssueBody: issueBodyFromFixture,
+        }),
         githubToken: "ghs_test",
         mode: "lite",
         repository: "always0ne/batch",
@@ -478,6 +538,7 @@ function createGateFetchMock({
   batchStatus = "ACTIVE",
   comments = [buildApprovalComment()],
   includeBatchDefinition = true,
+  requestIssueBody,
   requestWorkflowRef = "main",
 }: {
   batchStatus?: "ACTIVE" | "INACTIVE";
@@ -488,9 +549,12 @@ function createGateFetchMock({
     user?: { login?: string };
   }>;
   includeBatchDefinition?: boolean;
+  requestIssueBody?: string;
   requestWorkflowRef?: string;
 } = {}): typeof fetch {
-  const issueBody = buildRequestIssueBody({ workflowRef: requestWorkflowRef });
+  const issueBody =
+    requestIssueBody ??
+    buildRequestIssueBody({ workflowRef: requestWorkflowRef });
   const batchDefinitionYaml = buildBatchDefinitionYaml({ status: batchStatus });
   const roleMappingYaml = buildRoleMappingYaml();
 
