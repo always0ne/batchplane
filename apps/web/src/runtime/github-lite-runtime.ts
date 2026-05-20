@@ -2,11 +2,13 @@ import type {
   BatchDefinition,
   BatchTrailRuntimePorts,
   RepositoryIssue,
+  RepositoryIssueComment,
   RepositoryPullRequest,
 } from "@batchtrail/domain";
 import {
   createGitHubLiteClient,
   type GitHubIssue,
+  type GitHubIssueComment,
   type GitHubLiteClient,
   type GitHubLiteClientOptions,
   type GitHubPullRequest,
@@ -51,7 +53,6 @@ export function createGitHubLiteRuntime(
           body,
           issueNumber,
         });
-        await client.closeIssue({ ...repositoryRef, issueNumber });
       },
 
       async approveRegistration({ body, commitTitle, pullNumber }) {
@@ -76,6 +77,15 @@ export function createGitHubLiteRuntime(
         });
 
         return issues.map(toRepositoryIssue);
+      },
+
+      async listExecutionRequestComments({ issueNumber }) {
+        const comments = await client.listIssueComments({
+          ...repositoryRef,
+          issueNumber,
+        });
+
+        return comments.map(toRepositoryIssueComment);
       },
 
       async listRegistrationRequests({ baseBranch }) {
@@ -278,6 +288,12 @@ function toRepositoryIssue(issue: GitHubIssue): RepositoryIssue {
     ...issue,
     state: issue.state === "all" ? "open" : issue.state,
   };
+}
+
+function toRepositoryIssueComment(
+  comment: GitHubIssueComment,
+): RepositoryIssueComment {
+  return comment;
 }
 
 function toRepositoryPullRequest(

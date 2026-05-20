@@ -40,6 +40,7 @@ import {
   removeExecutionApprovalHandoff,
   removeRegistrationApprovalHandoff,
 } from "./approval-handoff";
+import { ExecutionApprovalActions } from "./ExecutionApprovalActions";
 
 type ApprovalPageState =
   | { type: "loading" }
@@ -122,11 +123,20 @@ export function ApprovalsPage() {
           }),
           runtime.approvals.listExecutionRequestIssues(),
         ]);
+        const issueComments = await Promise.all(
+          issues.map((issue) =>
+            runtime.approvals.listExecutionRequestComments({
+              issueNumber: issue.number,
+            }),
+          ),
+        );
 
         if (!ignoreResult) {
           const currentHandoff = approvalHandoffRef.current;
           const listedExecutionRequests = issues
-            .map(parseExecutionApprovalRequest)
+            .map((issue, index) =>
+              parseExecutionApprovalRequest(issue, issueComments[index] ?? []),
+            )
             .filter(
               (request): request is ExecutionApprovalRequest =>
                 request !== null,
@@ -275,7 +285,10 @@ export function ApprovalsPage() {
     }
   }
 
-  async function rejectExecution(request: ExecutionApprovalRequest) {
+  async function rejectExecution(
+    request: ExecutionApprovalRequest,
+    reason: string,
+  ) {
     if (state.type !== "loaded") {
       return;
     }
@@ -293,6 +306,7 @@ export function ApprovalsPage() {
         body: buildExecutionRejectionComment({
           rejectedAt: new Date(),
           rejector: state.login,
+          reason,
           request,
         }),
         issueNumber: request.issue.number,
@@ -375,7 +389,9 @@ export function ApprovalsPage() {
         onApproveRegistration={(pullRequest) =>
           void approveAndMerge(pullRequest)
         }
-        onRejectExecution={(request) => void rejectExecution(request)}
+        onRejectExecution={(request, reason) =>
+          void rejectExecution(request, reason)
+        }
         onRejectRegistration={(pullRequest) => void rejectAndClose(pullRequest)}
         state={state}
       />
@@ -394,7 +410,10 @@ function ApprovalContent({
   actionState: ApprovalActionState;
   onApproveExecution: (request: ExecutionApprovalRequest) => void;
   onApproveRegistration: (pullRequest: RepositoryPullRequest) => void;
-  onRejectExecution: (request: ExecutionApprovalRequest) => void;
+  onRejectExecution: (
+    request: ExecutionApprovalRequest,
+    reason: string,
+  ) => void;
   onRejectRegistration: (pullRequest: RepositoryPullRequest) => void;
   state: ApprovalPageState;
 }) {
@@ -512,6 +531,10 @@ function ApprovalContent({
               actionState.type === "running" &&
               actionState.targetKey === executionRequestKey(request);
             const disabled = actionState.type === "running";
+            const selfApprovalBlocked =
+              request.requestedBy === state.login
+                ? t("values.selfApprovalBlocked")
+                : "";
 
             return (
               <article
@@ -563,15 +586,22 @@ function ApprovalContent({
                   >
                     {t("actions.openIssue")}
                   </a>
+                  <Link
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                    to={`/execution-requests/${request.issue.number}`}
+                  >
+                    {t("actions.viewDetails")}
+                  </Link>
                 </div>
 
-                <ApprovalActions
+                <ExecutionApprovalActions
                   approveLabel={t("actions.approveExecution")}
+                  approveDisabledReason={selfApprovalBlocked}
                   disabled={disabled}
                   isApproving={isBusy && actionState.action === "approve"}
                   isRejecting={isBusy && actionState.action === "reject"}
                   onApprove={() => onApproveExecution(request)}
-                  onReject={() => onRejectExecution(request)}
+                  onReject={(reason) => onRejectExecution(request, reason)}
                   rejectLabel={t("actions.reject")}
                 />
               </article>

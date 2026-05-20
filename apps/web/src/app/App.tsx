@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 
 import { BatchesPage } from "../features/batches/BatchesPage";
 import { BatchDetailPage } from "../features/batches/BatchDetailPage";
+import { ExecutionRequestDetailPage } from "../features/execution-requests/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../features/execution-requests/ExecutionRequestPage";
 import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
@@ -155,6 +156,10 @@ export function App() {
             <Route
               path="/batches/:batchId/execution-requests/new"
               element={<ExecutionRequestPage />}
+            />
+            <Route
+              path="/execution-requests/:issueNumber"
+              element={<ExecutionRequestDetailPage />}
             />
             <Route path="/approvals" element={<ApprovalsPage />} />
             <Route path="/lite/setup" element={<LiteSetupPage />} />

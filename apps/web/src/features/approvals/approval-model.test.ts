@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type {
   RepositoryIssue,
+  RepositoryIssueComment,
   RepositoryPullRequest,
 } from "@batchtrail/domain";
 
@@ -12,6 +13,7 @@ import {
   buildRegistrationRejectionComment,
   isRegistrationApprovalRequest,
   parseExecutionApprovalRequest,
+  parseExecutionRequestDetail,
 } from "./approval-model";
 
 const pullRequest: RepositoryPullRequest = {
@@ -93,6 +95,54 @@ const executionIssue: RepositoryIssue = {
   isPullRequest: false,
 };
 
+const approvalComment: RepositoryIssueComment = {
+  author: "maintainer",
+  body: [
+    "/bgcp approve requestDigest=sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "",
+    "## BatchTrail Execution Approval",
+    "",
+    "- Decision: APPROVED",
+    "- Approver: @maintainer",
+    "- Approved at: 2026-05-09T03:02:03.000Z",
+    "- Request ID: `btr-20260509010203-payment.daily-close-abcdef12`",
+    "- Batch ID: `payment.daily-close`",
+    "- Request digest: `sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`",
+    "",
+    "<!-- batchtrail:execution-approval",
+    "decision=APPROVED",
+    "requestId=btr-20260509010203-payment.daily-close-abcdef12",
+    "batchId=payment.daily-close",
+    "requestDigest=sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "-->",
+  ].join("\n"),
+  createdAt: "2026-05-09T03:02:03.000Z",
+  id: 1,
+  issueNumber: 34,
+};
+
+const dispatcherComment: RepositoryIssueComment = {
+  author: "github-actions[bot]",
+  body: [
+    "## BatchTrail Dispatcher DISPATCHED",
+    "",
+    "- Status: DISPATCHED",
+    "- Request ID: `btr-20260509010203-payment.daily-close-abcdef12`",
+    "- Batch ID: `payment.daily-close`",
+    "- Request digest: `sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`",
+    "",
+    "<!-- batchtrail:bgcp:dispatcher",
+    "status=DISPATCHED",
+    "requestId=btr-20260509010203-payment.daily-close-abcdef12",
+    "batchId=payment.daily-close",
+    "requestDigest=sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "-->",
+  ].join("\n"),
+  createdAt: "2026-05-09T03:03:03.000Z",
+  id: 2,
+  issueNumber: 34,
+};
+
 describe("approval model", () => {
   it("detects registration pull requests", () => {
     expect(isRegistrationApprovalRequest(pullRequest)).toBe(true);
@@ -141,10 +191,13 @@ describe("approval model", () => {
       requestedAt: "2026-05-09T01:02:03.000Z",
       requestedBy: "developer",
       requestId: "btr-20260509010203-payment.daily-close-abcdef12",
+      status: "REQUESTED",
       workflow: {
         path: ".github/workflows/payment.daily-close.yml",
         ref: "main",
       },
+      canonicalPayload: expect.any(Object),
+      comments: [],
     });
   });
 
@@ -205,8 +258,33 @@ describe("approval model", () => {
       buildExecutionRejectionComment({
         rejectedAt: new Date("2026-05-09T03:02:03.000Z"),
         rejector: "maintainer",
+        reason: "Missing reconciliation evidence.",
         request,
       }),
     ).toContain("decision=REJECTED");
+    expect(
+      buildExecutionRejectionComment({
+        rejectedAt: new Date("2026-05-09T03:02:03.000Z"),
+        rejector: "maintainer",
+        reason: "Missing reconciliation evidence.",
+        request,
+      }),
+    ).toContain("Reason: Missing reconciliation evidence.");
+  });
+
+  it("derives detail status from approval and dispatcher comments", () => {
+    expect(
+      parseExecutionApprovalRequest(executionIssue, [
+        approvalComment,
+        dispatcherComment,
+      ]),
+    ).toBeNull();
+
+    expect(
+      parseExecutionRequestDetail(executionIssue, [
+        approvalComment,
+        dispatcherComment,
+      ])?.status,
+    ).toBe("DISPATCHED");
   });
 });

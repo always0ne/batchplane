@@ -1,11 +1,24 @@
 import type {
   RepositoryIssue,
+  RepositoryIssueComment,
   RepositoryPullRequest,
   RunnerLabel,
 } from "@batchtrail/domain";
 
+export type ExecutionRequestDisplayStatus =
+  | "REQUESTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "DISPATCHING"
+  | "DISPATCHED"
+  | "DISPATCH_FAILED"
+  | "GATE_BLOCKED";
+
 export type ExecutionApprovalRequest = {
   batchId: string;
+  canonicalPayload: CanonicalExecutionPayload | null;
+  comments: RepositoryIssueComment[];
+  dispatcherStatus?: ExecutionDispatcherStatus;
   execution?: {
     artifactPath?: string;
     command: string;
@@ -13,25 +26,40 @@ export type ExecutionApprovalRequest = {
     runsOn: RunnerLabel;
   };
   expiresAt: string;
+  gateDecision?: ExecutionGateDecision;
   issue: RepositoryIssue;
   reason: string;
+  approvalDecision?: ExecutionApprovalDecision;
   requestDigest: string;
   requestedAt: string;
   requestedBy: string;
   requestId: string;
+  status: ExecutionRequestDisplayStatus;
   workflow?: {
     path: string;
     ref: string;
   };
 };
 
-const nonActionableExecutionLabels = new Set([
-  "batchtrail:dispatch-failed",
-  "batchtrail:dispatched",
-  "batchtrail:dispatching",
-  "batchtrail:gate-blocked",
-  "batchtrail:rejected",
-]);
+export type ExecutionApprovalDecision = {
+  decision: "APPROVED" | "REJECTED";
+  actor: string;
+  decidedAt: string;
+  reason: string;
+};
+
+export type ExecutionDispatcherStatus = {
+  actor: string;
+  createdAt: string;
+  status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED";
+};
+
+export type ExecutionGateDecision = {
+  actor: string;
+  allowed: boolean;
+  createdAt: string;
+  reasonCode: string;
+};
 
 export function isRegistrationApprovalRequest(
   pullRequest: RepositoryPullRequest,
@@ -87,12 +115,22 @@ export function buildRegistrationRejectionComment({
 
 export function parseExecutionApprovalRequest(
   issue: RepositoryIssue,
+  comments: RepositoryIssueComment[] = [],
+): ExecutionApprovalRequest | null {
+  const request = parseExecutionRequestDetail(issue, comments);
+
+  return issue.state === "open" && request?.status === "REQUESTED"
+    ? request
+    : null;
+}
+
+export function parseExecutionRequestDetail(
+  issue: RepositoryIssue,
+  comments: RepositoryIssueComment[] = [],
 ): ExecutionApprovalRequest | null {
   if (
-    issue.state !== "open" ||
     issue.isPullRequest ||
-    !issue.body.includes("batchtrail:execution-request") ||
-    issue.labels.some((label) => nonActionableExecutionLabels.has(label))
+    !issue.body.includes("batchtrail:execution-request")
   ) {
     return null;
   }
@@ -110,7 +148,7 @@ export function parseExecutionApprovalRequest(
     marker.get("status") ?? readMarkdownField(issue.body, "Status");
 
   if (
-    status !== "REQUESTED" ||
+    (status !== "REQUESTED" && status !== "REJECTED") ||
     !requestId ||
     !batchId ||
     !requestDigest ||
@@ -119,12 +157,28 @@ export function parseExecutionApprovalRequest(
     return null;
   }
 
+  const approvalDecision = findExecutionApprovalDecision(comments);
+  const dispatcherStatus = findLatestDispatcherStatus(comments);
+  const gateDecision = findLatestGateDecision(comments);
+  const displayStatus = getExecutionRequestDisplayStatus({
+    approvalDecision,
+    dispatcherStatus,
+    gateDecision,
+    issue,
+    markerStatus: status,
+  });
+
   return {
     batchId,
+    canonicalPayload: payload,
+    comments,
+    ...(dispatcherStatus ? { dispatcherStatus } : {}),
     ...(payload?.spec?.execution ? { execution: payload.spec.execution } : {}),
     expiresAt: readMarkdownField(issue.body, "Expires at"),
+    ...(gateDecision ? { gateDecision } : {}),
     issue,
     reason: payload?.spec?.reason ?? "",
+    ...(approvalDecision ? { approvalDecision } : {}),
     requestDigest,
     requestedAt: readMarkdownField(issue.body, "Requested at"),
     requestedBy: readMarkdownField(issue.body, "Requested by").replace(
@@ -132,6 +186,7 @@ export function parseExecutionApprovalRequest(
       "",
     ),
     requestId,
+    status: displayStatus,
     ...(payload?.spec?.workflow ? { workflow: payload.spec.workflow } : {}),
   };
 }
@@ -171,10 +226,12 @@ export function buildExecutionApprovalComment({
 export function buildExecutionRejectionComment({
   rejectedAt,
   rejector,
+  reason,
   request,
 }: {
   rejectedAt: Date;
   rejector: string;
+  reason: string;
   request: ExecutionApprovalRequest;
 }): string {
   return [
@@ -183,6 +240,7 @@ export function buildExecutionRejectionComment({
     "- Decision: REJECTED",
     `- Rejector: @${rejector}`,
     `- Rejected at: ${rejectedAt.toISOString()}`,
+    `- Reason: ${reason}`,
     `- Request ID: \`${request.requestId}\``,
     `- Batch ID: \`${request.batchId}\``,
     `- Request digest: \`${request.requestDigest}\``,
@@ -196,6 +254,162 @@ export function buildExecutionRejectionComment({
     `requestDigest=${request.requestDigest}`,
     "-->",
   ].join("\n");
+}
+
+function findExecutionApprovalDecision(
+  comments: RepositoryIssueComment[],
+): ExecutionApprovalDecision | undefined {
+  for (let index = comments.length - 1; index >= 0; index -= 1) {
+    const comment = comments[index];
+
+    if (!comment) {
+      continue;
+    }
+
+    const marker = parseBatchTrailMarker(comment.body, "execution-approval");
+    const decision = marker.get("decision");
+
+    if (decision !== "APPROVED" && decision !== "REJECTED") {
+      continue;
+    }
+
+    const actor =
+      readMarkdownField(
+        comment.body,
+        decision === "APPROVED" ? "Approver" : "Rejector",
+      ).replace(/^@/, "") || comment.author;
+    const decidedAt = readMarkdownField(
+      comment.body,
+      decision === "APPROVED" ? "Approved at" : "Rejected at",
+    );
+
+    return {
+      actor,
+      decidedAt,
+      decision,
+      reason: readMarkdownField(comment.body, "Reason"),
+    };
+  }
+
+  return undefined;
+}
+
+function findLatestDispatcherStatus(
+  comments: RepositoryIssueComment[],
+): ExecutionDispatcherStatus | undefined {
+  for (let index = comments.length - 1; index >= 0; index -= 1) {
+    const comment = comments[index];
+
+    if (!comment) {
+      continue;
+    }
+
+    const marker = parseBatchTrailMarker(comment.body, "bgcp:dispatcher");
+    const status = marker.get("status");
+
+    if (
+      status !== "DISPATCHING" &&
+      status !== "DISPATCHED" &&
+      status !== "DISPATCH_FAILED"
+    ) {
+      continue;
+    }
+
+    return {
+      actor: comment.author,
+      createdAt: comment.createdAt,
+      status,
+    };
+  }
+
+  return undefined;
+}
+
+function findLatestGateDecision(
+  comments: RepositoryIssueComment[],
+): ExecutionGateDecision | undefined {
+  for (let index = comments.length - 1; index >= 0; index -= 1) {
+    const comment = comments[index];
+
+    if (!comment) {
+      continue;
+    }
+
+    const marker = parseBatchTrailMarker(comment.body, "gate-decision");
+    const allowed = marker.get("allowed");
+    const reasonCode = marker.get("reasonCode");
+
+    if (allowed !== "true" && allowed !== "false") {
+      continue;
+    }
+
+    return {
+      actor: comment.author,
+      allowed: allowed === "true",
+      createdAt: comment.createdAt,
+      reasonCode: reasonCode || readMarkdownField(comment.body, "Reason"),
+    };
+  }
+
+  return undefined;
+}
+
+function getExecutionRequestDisplayStatus({
+  approvalDecision,
+  dispatcherStatus,
+  gateDecision,
+  issue,
+  markerStatus,
+}: {
+  approvalDecision?: ExecutionApprovalDecision;
+  dispatcherStatus?: ExecutionDispatcherStatus;
+  gateDecision?: ExecutionGateDecision;
+  issue: RepositoryIssue;
+  markerStatus: string;
+}): ExecutionRequestDisplayStatus {
+  const labels = new Set(issue.labels);
+
+  if (
+    markerStatus === "REJECTED" ||
+    labels.has("batchtrail:rejected") ||
+    approvalDecision?.decision === "REJECTED"
+  ) {
+    return "REJECTED";
+  }
+
+  if (
+    labels.has("batchtrail:gate-blocked") ||
+    gateDecision?.allowed === false
+  ) {
+    return "GATE_BLOCKED";
+  }
+
+  if (
+    labels.has("batchtrail:dispatch-failed") ||
+    dispatcherStatus?.status === "DISPATCH_FAILED"
+  ) {
+    return "DISPATCH_FAILED";
+  }
+
+  if (
+    labels.has("batchtrail:dispatched") ||
+    dispatcherStatus?.status === "DISPATCHED"
+  ) {
+    return "DISPATCHED";
+  }
+
+  if (
+    labels.has("batchtrail:dispatching") ||
+    dispatcherStatus?.status === "DISPATCHING"
+  ) {
+    return "DISPATCHING";
+  }
+
+  if (approvalDecision?.decision === "APPROVED") {
+    return "APPROVED";
+  }
+
+  return "REQUESTED";
 }
 
 function parseBatchTrailMarker(
@@ -237,6 +451,9 @@ function readMarkdownField(body: string, label: string): string {
 
 type CanonicalExecutionPayload = {
   spec?: {
+    batch?: {
+      environment?: string;
+    };
     execution?: {
       artifactPath?: string;
       command: string;

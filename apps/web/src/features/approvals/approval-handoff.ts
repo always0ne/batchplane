@@ -75,7 +75,7 @@ export function mergeExecutionApprovalRequests(
   handoffIssues: RepositoryIssue[],
 ): ExecutionApprovalRequest[] {
   const immediateRequests = handoffIssues
-    .map(parseExecutionApprovalRequest)
+    .map((issue) => parseExecutionApprovalRequest(issue))
     .filter((request): request is ExecutionApprovalRequest => request !== null);
   const immediateNumbers = new Set(
     immediateRequests.map((request) => request.issue.number),

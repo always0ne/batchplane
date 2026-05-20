@@ -4,11 +4,16 @@
   "actions": {
     "approveAndMerge": "Approve and merge",
     "approveExecution": "Approve execution",
+    "cancelReject": "Cancel",
+    "confirmReject": "Confirm rejection",
     "openIssue": "Open Issue",
     "openPullRequest": "Open PR",
     "openSetup": "Open setup",
     "refresh": "Refresh",
-    "reject": "Reject"
+    "reject": "Reject",
+    "rejectReason": "Rejection reason",
+    "rejectReasonPlaceholder": "Explain why this execution request cannot proceed.",
+    "viewDetails": "View details"
   },
   "fields": {
     "author": "Author",
@@ -42,6 +47,7 @@
   "values": {
     "gateNonCompliant": "Non-compliant",
     "gateRequired": "Required before batch command",
+    "selfApprovalBlocked": "Requester and approver must be different users.",
     "unknown": "Unknown"
   },
   "states": {

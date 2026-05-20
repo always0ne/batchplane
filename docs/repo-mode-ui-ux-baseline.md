@@ -23,6 +23,10 @@ Repo Mode must read as one connected operational flow:
 - Registration shows what will be controlled, what will run, where it will run,
   and which files the pull request will create.
 - Approvals shows only work that can still be approved or rejected.
+- Execution request detail shows the full judgment record for one request:
+  request status, requester, batch context, workflow/ref, runner, command,
+  digest, canonical payload, approval evidence, dispatcher evidence, and Gate
+  evidence.
 - Batch list is the operator's inventory and should eventually include recent
   execution state, pending request count, and failure signals.
 - Batch detail is the operator console for one batch. It must show control
@@ -44,6 +48,8 @@ Repo Mode must read as one connected operational flow:
   primary decision material.
 - Failed, Gate-blocked, dispatching, dispatched, and rejected execution issues
   are not approval work. They must not be shown with approve/reject controls.
+- Rejecting an execution request must require a reason.
+- Self-approval must be disabled with an explicit reason, not silently hidden.
 
 ## Gate UX Rules
 

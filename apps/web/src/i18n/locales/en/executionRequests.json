@@ -16,6 +16,89 @@
     "runsOn": "Runs on",
     "workflowPath": "Workflow path"
   },
+  "detail": {
+    "title": "Execution request detail",
+    "subtitle": "Review request {{requestId}} and record approval evidence.",
+    "actions": {
+      "approve": "Approve execution",
+      "backToApprovals": "Back to approvals",
+      "closedTitle": "No approval action",
+      "note": "Approval records Issue comment evidence. The browser never dispatches the workflow directly.",
+      "openIssue": "Open Issue",
+      "refresh": "Refresh",
+      "reject": "Reject",
+      "title": "Approval decision"
+    },
+    "dispatcher": {
+      "approvalEvidence": "Approval evidence",
+      "dispatcherEvidence": "Dispatcher evidence",
+      "gateEvidence": "Gate evidence",
+      "noBrowserDispatch": "BatchTrail UI records evidence only. The repository dispatcher workflow observes the approval comment and performs workflow_dispatch.",
+      "none": "No evidence yet",
+      "status": "Status",
+      "title": "Dispatcher"
+    },
+    "fields": {
+      "artifact": "Execution file",
+      "batchId": "Batch ID",
+      "command": "Batch command",
+      "environment": "Environment",
+      "expiresAt": "Expires at",
+      "issueState": "Issue state",
+      "reason": "Reason",
+      "repository": "Repository",
+      "requestDigest": "Request digest",
+      "requestedAt": "Requested at",
+      "requestedBy": "Requested by",
+      "runsOn": "Runs on",
+      "workflow": "Workflow"
+    },
+    "governance": {
+      "digest": "Request digest is present.",
+      "gateMissing": "BatchTrail Gate evidence is missing.",
+      "gateRequired": "BatchTrail Gate is mandatory before the batch command.",
+      "requester": "Requester evidence is present.",
+      "title": "Governance checks"
+    },
+    "material": {
+      "title": "Decision material"
+    },
+    "payload": {
+      "title": "Canonical request"
+    },
+    "result": {
+      "approved": "Approval evidence for {{requestId}} was recorded.",
+      "failed": "Failed to record approval decision.",
+      "rejected": "Rejection evidence for {{requestId}} was recorded."
+    },
+    "states": {
+      "error": "Failed to load execution request detail.",
+      "loading": "Loading execution request detail...",
+      "noSession": "Connect a GitHub repository before reviewing execution requests.",
+      "notFound": "Execution request Issue #{{issueNumber}} was not found."
+    },
+    "status": {
+      "APPROVED": "Approval recorded",
+      "DISPATCHED": "Dispatched",
+      "DISPATCHING": "Dispatching",
+      "DISPATCH_FAILED": "Dispatch failed",
+      "GATE_BLOCKED": "Gate blocked",
+      "REJECTED": "Rejected",
+      "REQUESTED": "Waiting for approval"
+    },
+    "statusHelp": {
+      "APPROVED": "Approval comment evidence exists. The dispatcher is expected to pick it up.",
+      "DISPATCHED": "Dispatcher evidence says the batch workflow was dispatched.",
+      "DISPATCHING": "Dispatcher evidence says workflow dispatch is in progress.",
+      "DISPATCH_FAILED": "Dispatcher evidence says workflow dispatch failed.",
+      "GATE_BLOCKED": "Gate evidence says the workflow run was blocked.",
+      "REJECTED": "The request was rejected and must not dispatch.",
+      "REQUESTED": "A maintainer approval comment is still required."
+    },
+    "values": {
+      "selfApprovalBlocked": "Requester and approver must be different users."
+    }
+  },
   "form": {
     "defaultReason": "Manual request from BatchTrail Repo Mode.",
     "expiresIn": "Approval expires",

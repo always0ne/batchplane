@@ -240,6 +240,7 @@ describe("domain model contracts", () => {
           message: "merged",
           sha: "merge-sha",
         }),
+        listExecutionRequestComments: async () => [],
         listExecutionRequestIssues: async () => [],
         listRegistrationRequests: async () => [],
         rejectExecution: async () => undefined,

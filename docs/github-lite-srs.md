@@ -190,6 +190,13 @@ Gate-blocked, dispatching, dispatched, and rejected execution requests are
 execution evidence or follow-up work, not approval work, and must not be shown
 with approve/reject controls.
 
+Each execution request must also have a BatchTrail detail screen. The detail
+screen must show request status, requester, batch, environment, workflow
+path/ref, runner, batch command, request digest, governance checks, canonical
+request payload, approval evidence, dispatcher evidence, and Gate evidence when
+available. The detail screen is the primary place to explain why approval did or
+did not lead to dispatch.
+
 Approving an execution request must write an approval comment that starts with:
 
 ```text
@@ -207,6 +214,18 @@ The same comment must also include BatchTrail approval evidence with:
 
 The dispatcher workflow uses the command line as the trigger signal and the
 BatchTrail marker as verification evidence.
+
+The UI must not close the execution request Issue on approval. Approval is an
+intermediate evidence state; dispatcher and Gate evidence must still be able to
+attach to the same request Issue.
+
+Rejecting an execution request must require a reason and write a rejection
+comment containing the rejector, rejected timestamp, request ID, batch ID,
+request digest, and rejection reason.
+
+Self-approval must be blocked in the UI. The requester may see the request
+detail, but the approval button must be disabled with an explicit reason when
+the current GitHub user is also the requester.
 
 If the target repository does not have the BatchTrail dispatcher workflow
 installed, approval records evidence but cannot dispatch the batch workflow.
