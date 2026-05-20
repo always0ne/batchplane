@@ -58,6 +58,7 @@ If Repo Mode is not installed, choose `Create installation PR` in `Setup`. The
 installation pull request adds:
 
 - `.github/workflows/batchtrail-dispatcher.yml`
+- `.github/workflows/batchtrail-sample-target.yml`
 - `.batch-governance/README.md`
 - `.batch-governance/batches/.gitkeep`
 - `.batch-governance/schedules/.gitkeep`

@@ -6,6 +6,8 @@ import type {
 
 export const liteDispatcherWorkflowPath =
   ".github/workflows/batchtrail-dispatcher.yml";
+export const liteSampleTargetWorkflowPath =
+  ".github/workflows/batchtrail-sample-target.yml";
 
 export type LiteInstallationFile = {
   content: string;
@@ -49,6 +51,10 @@ export function buildLiteInstallationFiles(): LiteInstallationFile[] {
     {
       path: liteDispatcherWorkflowPath,
       content: buildDispatcherWorkflowYaml(),
+    },
+    {
+      path: liteSampleTargetWorkflowPath,
+      content: buildSampleTargetWorkflowYaml(),
     },
     {
       path: ".batch-governance/README.md",
@@ -211,6 +217,60 @@ export function buildDispatcherWorkflowYaml(): string {
   ].join("\n");
 }
 
+export function buildSampleTargetWorkflowYaml(): string {
+  return [
+    "name: BatchTrail Sample Target",
+    "",
+    "on:",
+    "  workflow_dispatch:",
+    "    inputs:",
+    "      request_id:",
+    "        description: BatchTrail execution request ID",
+    "        required: true",
+    "        type: string",
+    "      batch_id:",
+    "        description: BatchTrail batch ID",
+    "        required: true",
+    "        type: string",
+    "      request_digest:",
+    "        description: BatchTrail approved request digest",
+    "        required: true",
+    "        type: string",
+    "",
+    "permissions:",
+    "  contents: read",
+    "  issues: read",
+    "",
+    "jobs:",
+    "  batchtrail-gate:",
+    "    name: BatchTrail Gate",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    "      - name: Verify approved execution evidence",
+    "        uses: always0ne/batchtrail/actions/gate@main",
+    "        with:",
+    "          mode: lite",
+    "          batch-id: ${{ inputs.batch_id }}",
+    "          config-path: .batch-governance",
+    "          request-id: ${{ inputs.request_id }}",
+    "          approval-source: issue",
+    "          approval-ref: ${{ inputs.request_id }}",
+    "          request-digest: ${{ inputs.request_digest }}",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "",
+    "  run-sample-batch:",
+    "    name: Run sample batch command",
+    "    runs-on: ubuntu-latest",
+    "    needs: batchtrail-gate",
+    "    steps:",
+    "      - name: Checkout",
+    "        uses: actions/checkout@v4",
+    "      - name: Sample command",
+    '        run: echo "BatchTrail approved sample execution"',
+    "",
+  ].join("\n");
+}
+
 function buildGovernanceReadme(): string {
   return [
     "# BatchTrail Governance",
@@ -219,6 +279,7 @@ function buildGovernanceReadme(): string {
     "",
     "- `batches/`: approved batch definitions and optional execution artifacts",
     "- `schedules/`: approved schedule definitions",
+    "- `.github/workflows/batchtrail-sample-target.yml`: sample governed target workflow",
     "",
   ].join("\n");
 }
