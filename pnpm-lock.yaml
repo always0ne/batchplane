@@ -67,7 +67,11 @@ importers:
 
   actions/dispatcher: {}
 
-  actions/gate: {}
+  actions/gate:
+    dependencies:
+      "@batchtrail/domain":
+        specifier: workspace:*
+        version: link:../../packages/domain
 
   apps/web:
     dependencies:
