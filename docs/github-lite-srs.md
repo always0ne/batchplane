@@ -151,14 +151,27 @@ Creating an execution request must:
 - Create a GitHub Issue with a BatchTrail execution request marker.
 - Route the UI to the approvals inbox after creation.
 
+The execution request UI must route users through a request form before Issue
+creation. Batch list and batch detail actions must not directly create a request
+with hidden defaults.
+
 The request payload includes:
 
 - `requestId`
 - `batchId`
 - requester and request timestamps
 - expiration timestamp
+- requested workflow ref
+- request reason
+- non-sensitive parameters
+- sensitive parameter value digests only
 - batch summary fields
 - workflow path and ref
+
+Sensitive parameter values must not be written to the GitHub Issue body,
+canonical payload, browser storage, or handoff state. The UI may keep the value
+only in transient form state before submission and must show that only the value
+digest is persisted.
 
 The request digest prevents approval evidence from being replayed against a
 different payload.

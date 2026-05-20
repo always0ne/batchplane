@@ -58,7 +58,8 @@
     "execution": {
       "title": "Execution request",
       "reason": "Reason",
-      "defaultReason": "Manual request from BatchTrail Repo Mode."
+      "defaultReason": "Manual request from BatchTrail Repo Mode.",
+      "unavailable": "Execution request is unavailable for this batch."
     },
     "requests": {
       "title": "Requests"

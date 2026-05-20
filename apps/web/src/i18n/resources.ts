@@ -4,6 +4,7 @@ import batchesEn from "./locales/en/batches.json";
 import commonEn from "./locales/en/common.json";
 import dashboardEn from "./locales/en/dashboard.json";
 import errorsEn from "./locales/en/errors.json";
+import executionRequestsEn from "./locales/en/executionRequests.json";
 import executionsEn from "./locales/en/executions.json";
 import failuresEn from "./locales/en/failures.json";
 import myWorkEn from "./locales/en/myWork.json";
@@ -16,6 +17,7 @@ import batchesKo from "./locales/ko/batches.json";
 import commonKo from "./locales/ko/common.json";
 import dashboardKo from "./locales/ko/dashboard.json";
 import errorsKo from "./locales/ko/errors.json";
+import executionRequestsKo from "./locales/ko/executionRequests.json";
 import executionsKo from "./locales/ko/executions.json";
 import failuresKo from "./locales/ko/failures.json";
 import myWorkKo from "./locales/ko/myWork.json";
@@ -32,6 +34,7 @@ export const namespaces = [
   "approvals",
   "batches",
   "registration",
+  "executionRequests",
   "executions",
   "failures",
   "myWork",
@@ -48,6 +51,7 @@ export const resources = {
     common: commonEn,
     dashboard: dashboardEn,
     errors: errorsEn,
+    executionRequests: executionRequestsEn,
     executions: executionsEn,
     failures: failuresEn,
     myWork: myWorkEn,
@@ -62,6 +66,7 @@ export const resources = {
     common: commonKo,
     dashboard: dashboardKo,
     errors: errorsKo,
+    executionRequests: executionRequestsKo,
     executions: executionsKo,
     failures: failuresKo,
     myWork: myWorkKo,

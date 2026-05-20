@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -47,8 +47,9 @@ describe("BatchDetailPage", () => {
     expect(
       screen.getByText("btr-20260514010100-payment.daily-close-00000001"),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Reason")).toHaveValue(
-      "Manual request from BatchTrail Repo Mode.",
+    expect(screen.getByRole("link", { name: "Request run" })).toHaveAttribute(
+      "href",
+      "/batches/payment.daily-close/execution-requests/new",
     );
     expect(
       screen.getByRole("link", { name: "Request change" }),
@@ -66,20 +67,6 @@ describe("BatchDetailPage", () => {
     expect(
       screen.getByRole("link", { name: "Back to batches" }),
     ).toHaveAttribute("href", "/batches");
-  });
-
-  it("updates the execution request reason field", async () => {
-    writeRuntimeFixtureSelection("approval-pending");
-
-    renderBatchDetailPage("/batches/payment.daily-close");
-
-    const reason = await screen.findByLabelText("Reason");
-
-    fireEvent.change(reason, {
-      target: { value: "Close payments after upstream reconciliation." },
-    });
-
-    expect(reason).toHaveValue("Close payments after upstream reconciliation.");
   });
 });
 

@@ -403,6 +403,17 @@ export type ExecutionRequestPayload = {
       BatchDefinition,
       "name" | "owner" | "domain" | "environment" | "criticality"
     >;
+    parameters?: Record<
+      string,
+      | {
+          sensitive?: false;
+          value: string;
+        }
+      | {
+          sensitive: true;
+          valueDigest: string;
+        }
+    >;
     execution?: NonNullable<BatchDefinition["execution"]> & {
       gateRequired: boolean;
     };
