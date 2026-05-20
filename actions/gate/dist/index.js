@@ -1,3 +1,5 @@
+import { appendFileSync } from "node:fs";
+import { parseYamlDocument, validateBatchDefinitionFile, validateRoleMappingFile, } from "./gate-schema.js";
 export function verifyLiteInput(input) {
     if (input.mode !== "lite") {
         return {
@@ -63,49 +65,90 @@ export async function verifyLiteAuthorization(input) {
             message: "GitHub token and repository are required to verify evidence.",
         };
     }
-    const evidence = await findGitHubApprovalEvidence(input);
+    const repository = parseRepository(input.repository);
+    const client = createGateGitHubClient({
+        apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
+        fetcher: input.fetcher ?? fetch,
+        owner: repository.owner,
+        repo: repository.repo,
+        token: input.githubToken,
+    });
+    let evidence;
+    try {
+        evidence = await findGitHubApprovalEvidence({
+            client,
+            requestId: input.requestId ?? "",
+        });
+    }
+    catch (error) {
+        return deny("GITHUB_EVIDENCE_LOOKUP_FAILED", `GitHub evidence lookup failed: ${toErrorMessage(error)}`);
+    }
     if (!evidence.request) {
-        return {
-            result: "DENY",
-            reasonCode: "REQUEST_EVIDENCE_NOT_FOUND",
-            message: "Execution request Issue evidence was not found.",
-        };
+        return deny("REQUEST_EVIDENCE_NOT_FOUND", "Execution request Issue evidence was not found.");
     }
     if (evidence.request.requestId !== input.requestId ||
         evidence.request.batchId !== input.batchId ||
         evidence.request.requestDigest !== input.requestDigest) {
-        return {
-            result: "DENY",
-            reasonCode: "REQUEST_EVIDENCE_MISMATCH",
-            message: "Execution request evidence does not match workflow inputs.",
-        };
+        return deny("REQUEST_EVIDENCE_MISMATCH", "Execution request evidence does not match workflow inputs.");
     }
     if (evidence.request.status !== "REQUESTED") {
-        return {
-            result: "DENY",
-            reasonCode: "REQUEST_NOT_REQUESTED",
-            message: `Execution request status is ${evidence.request.status}.`,
-        };
+        return deny("REQUEST_NOT_REQUESTED", `Execution request status is ${evidence.request.status}.`);
+    }
+    if (input.approvalSource !== "issue") {
+        return deny("APPROVAL_SOURCE_NOT_SUPPORTED", `Approval source ${input.approvalSource} is not supported.`);
+    }
+    if (input.approvalRef !== evidence.request.requestId) {
+        return deny("APPROVAL_REFERENCE_MISMATCH", "Approval reference does not match the execution request.");
+    }
+    const batchValidation = await validateBatchPolicyEvidence({
+        batchId: input.batchId,
+        client,
+        configPath: input.configPath,
+        inputRef: input.ref,
+        repository,
+        request: evidence.request,
+    });
+    if (batchValidation.result === "DENY") {
+        return batchValidation;
+    }
+    const scheduleValidation = validateScheduleMapping({
+        request: evidence.request,
+        scheduleId: input.scheduleId,
+    });
+    if (scheduleValidation.result === "DENY") {
+        return scheduleValidation;
     }
     if (!evidence.approval) {
-        return {
-            result: "DENY",
-            reasonCode: "APPROVAL_EVIDENCE_NOT_FOUND",
-            message: "Execution approval comment evidence was not found.",
-        };
+        return deny("EXECUTION_REQUEST_NOT_APPROVED", "Execution request does not have approved comment evidence.");
     }
-    if (evidence.approval.requestId !== input.requestId ||
-        evidence.approval.batchId !== input.batchId ||
-        evidence.approval.requestDigest !== input.requestDigest) {
-        return {
-            result: "DENY",
-            reasonCode: "APPROVAL_EVIDENCE_MISMATCH",
-            message: "Execution approval evidence does not match workflow inputs.",
-        };
+    if (evidence.approval.edited) {
+        return deny("APPROVAL_COMMENT_EDITED", "Execution approval comment was edited after creation.");
+    }
+    if (evidence.approval.commandDigest &&
+        evidence.approval.commandDigest !== evidence.request.requestDigest) {
+        return deny("REQUEST_DIGEST_MISMATCH", "Approval command digest does not match execution request digest.");
+    }
+    if (evidence.approval.requestDigest !== input.requestDigest ||
+        evidence.approval.requestDigest !== evidence.request.requestDigest) {
+        return deny("REQUEST_DIGEST_MISMATCH", "Execution approval digest does not match execution request digest.");
+    }
+    if (evidence.approval.approver === evidence.request.requestedBy) {
+        return deny("SELF_APPROVAL_NOT_ALLOWED", "Requester and approver must be different users.");
+    }
+    const approverAuthorized = await verifyApproverAuthorization({
+        approver: evidence.approval.approver,
+        client,
+        configPath: input.configPath,
+        ref: evidence.request.workflowRef || input.ref,
+        repository,
+    });
+    if (!approverAuthorized.allowed) {
+        return deny("APPROVER_NOT_AUTHORIZED", approverAuthorized.message ||
+            `Approver @${evidence.approval.approver} is not authorized.`);
     }
     return {
         result: "ALLOW",
-        message: "Execution request and approval evidence are verified.",
+        message: "Execution request, approval evidence, and batch policy are verified.",
     };
 }
 export function readGateInputFromEnv(env = process.env) {
@@ -128,7 +171,10 @@ export function readGateInputFromEnv(env = process.env) {
     };
 }
 export async function runGateFromEnv(env = process.env) {
-    const result = await verifyLiteAuthorization(readGateInputFromEnv(env));
+    const input = readGateInputFromEnv(env);
+    const result = await verifyLiteAuthorization(input);
+    writeGateOutputs(result, env);
+    writeGateSummary(result, input, env);
     if (result.result === "DENY") {
         console.error(`BatchTrail Gate denied execution: ${result.reasonCode}`);
         console.error(result.message);
@@ -151,16 +197,18 @@ function readRunAttempt(env) {
     const value = Number.parseInt(env.GITHUB_RUN_ATTEMPT ?? "1", 10);
     return Number.isFinite(value) && value > 0 ? value : 1;
 }
-async function findGitHubApprovalEvidence(input) {
-    const repository = parseRepository(input.repository ?? "");
-    const client = createGateGitHubClient({
-        apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
-        fetcher: input.fetcher ?? fetch,
-        owner: repository.owner,
-        repo: repository.repo,
-        token: input.githubToken ?? "",
-    });
-    const issue = await client.findExecutionRequestIssue(input.requestId ?? "");
+function deny(reasonCode, message) {
+    return {
+        message,
+        reasonCode,
+        result: "DENY",
+    };
+}
+function toErrorMessage(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+async function findGitHubApprovalEvidence({ client, requestId, }) {
+    const issue = await client.findExecutionRequestIssue(requestId);
     if (!issue) {
         return { approval: null, request: null };
     }
@@ -178,8 +226,128 @@ async function findGitHubApprovalEvidence(input) {
         : false) ?? null;
     return { approval, request };
 }
+async function validateBatchPolicyEvidence({ batchId, client, configPath, inputRef, repository, request, }) {
+    const effectiveConfigPath = configPath.replace(/\/+$/u, "");
+    const effectiveRef = inputRef || request.workflowRef;
+    const batchPath = `${effectiveConfigPath}/batches/${batchId}.yml`;
+    const batchFile = await client.getFile(batchPath, effectiveRef);
+    if (!batchFile) {
+        return deny("BATCH_NOT_FOUND", `Batch definition was not found: ${batchPath} (${effectiveRef || "default ref"}).`);
+    }
+    const snapshot = parseBatchDefinitionSnapshot(batchFile.content);
+    if (!snapshot) {
+        return deny("BATCH_DEFINITION_INVALID", `Batch definition is invalid: ${batchPath}.`);
+    }
+    if (snapshot.status !== "ACTIVE") {
+        return deny("BATCH_NOT_ACTIVE", `Batch ${batchId} is ${snapshot.status} and cannot run.`);
+    }
+    if (!snapshot.gateRequired) {
+        return deny("GATE_REQUIRED", `Batch ${batchId} does not enforce BatchTrail Gate.`);
+    }
+    if (request.workflowRef && snapshot.workflowRef) {
+        const requestRef = request.workflowRef.trim();
+        const registeredRef = snapshot.workflowRef.trim();
+        if (requestRef && registeredRef && requestRef !== registeredRef) {
+            return deny("REF_NOT_ALLOWED", `Workflow ref ${requestRef} is not allowed for batch ${batchId}; expected ${registeredRef}.`);
+        }
+    }
+    if (request.workflowPath && snapshot.workflowPath) {
+        const requestPath = request.workflowPath.trim();
+        const registeredPath = snapshot.workflowPath.trim();
+        if (requestPath && registeredPath && requestPath !== registeredPath) {
+            return deny("WORKFLOW_NOT_ALLOWED", `Workflow path ${requestPath} is not registered for batch ${batchId}.`);
+        }
+    }
+    if (!effectiveRef) {
+        return deny("REQUEST_EVIDENCE_MISMATCH", `Workflow ref information is missing for batch ${batchId} validation.`);
+    }
+    const roleMappingPath = `${effectiveConfigPath}/policies/role-mapping.yml`;
+    const roleMappingFile = await client.getFile(roleMappingPath, effectiveRef);
+    if (!roleMappingFile) {
+        return deny("ROLE_MAPPING_NOT_FOUND", `Role mapping file was not found: ${roleMappingPath}.`);
+    }
+    const roleMapping = parseApproverSelectorFromRoleMappingFile(roleMappingFile.content);
+    if (!roleMapping) {
+        return deny("ROLE_MAPPING_INVALID", `Role mapping file is invalid: ${roleMappingPath}.`);
+    }
+    const hasSelector = roleMapping.githubUsers.length > 0 ||
+        roleMapping.githubTeams.length > 0 ||
+        roleMapping.repositoryRoles.length > 0;
+    if (!hasSelector) {
+        return deny("ROLE_MAPPING_INVALID", `Approver selector is empty in role mapping file: ${roleMappingPath}.`);
+    }
+    if (repository.owner.trim() === "") {
+        return deny("UNKNOWN", "Repository owner is required for team validation.");
+    }
+    return { message: "Batch policy evidence is verified.", result: "ALLOW" };
+}
+function validateScheduleMapping({ request, scheduleId, }) {
+    if (!scheduleId) {
+        return { message: "Schedule mapping is not required.", result: "ALLOW" };
+    }
+    if (!request.scheduleId || request.scheduleId !== scheduleId) {
+        return deny("SCHEDULE_NOT_MAPPED", `Schedule ${scheduleId} is not mapped to this execution request.`);
+    }
+    return { message: "Schedule mapping is verified.", result: "ALLOW" };
+}
+async function verifyApproverAuthorization({ approver, client, configPath, ref, repository, }) {
+    const effectiveRef = ref?.trim();
+    if (!effectiveRef) {
+        return {
+            allowed: false,
+            message: "Workflow ref is required for approver authorization.",
+        };
+    }
+    const roleMappingPath = `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`;
+    const roleMappingFile = await client.getFile(roleMappingPath, effectiveRef);
+    if (!roleMappingFile) {
+        return {
+            allowed: false,
+            message: `Role mapping file was not found: ${roleMappingPath}.`,
+        };
+    }
+    const selector = parseApproverSelectorFromRoleMappingFile(roleMappingFile.content);
+    if (!selector) {
+        return {
+            allowed: false,
+            message: `Role mapping file is invalid: ${roleMappingPath}.`,
+        };
+    }
+    const normalizedApprover = approver.trim().toLowerCase();
+    if (selector.githubUsers.length > 0) {
+        const hasUserMatch = selector.githubUsers
+            .map((value) => value.toLowerCase())
+            .includes(normalizedApprover);
+        if (hasUserMatch) {
+            return { allowed: true };
+        }
+    }
+    if (selector.repositoryRoles.length > 0) {
+        const permission = await client.getRepositoryPermissionForUser(approver);
+        const normalizedRoles = selector.repositoryRoles.map((value) => value.toLowerCase());
+        const actualRole = permission.roleName?.toLowerCase() ?? "";
+        const fallbackRole = permission.permission.toLowerCase();
+        if (normalizedRoles.includes(actualRole) ||
+            normalizedRoles.includes(fallbackRole)) {
+            return { allowed: true };
+        }
+    }
+    if (selector.githubTeams.length > 0) {
+        for (const teamSlug of selector.githubTeams) {
+            const membership = await client.getTeamMembershipForUser({
+                org: repository.owner,
+                teamSlug,
+                username: approver,
+            });
+            if (membership?.state === "active") {
+                return { allowed: true };
+            }
+        }
+    }
+    return { allowed: false };
+}
 function createGateGitHubClient({ apiBaseUrl, fetcher, owner, repo, token, }) {
-    async function request(path) {
+    async function request(path, options = {}) {
         const response = await fetcher(`${apiBaseUrl.replace(/\/+$/, "")}${path}`, {
             headers: {
                 Accept: "application/vnd.github+json",
@@ -187,8 +355,14 @@ function createGateGitHubClient({ apiBaseUrl, fetcher, owner, repo, token, }) {
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         });
+        if (response.status === 404 && options.allowNotFound) {
+            return null;
+        }
         if (!response.ok) {
             throw new Error(`GitHub API request failed: ${response.status} ${await response.text()}`);
+        }
+        if (response.status === 204) {
+            return null;
         }
         return (await response.json());
     }
@@ -197,7 +371,7 @@ function createGateGitHubClient({ apiBaseUrl, fetcher, owner, repo, token, }) {
         async findExecutionRequestIssue(requestId) {
             for (let page = 1; page <= 5; page += 1) {
                 const issues = await request(`${repoPath}/issues?state=all&per_page=100&page=${page}`);
-                if (issues.length === 0) {
+                if (!issues?.length) {
                     return null;
                 }
                 const issue = issues.find((candidate) => {
@@ -220,12 +394,60 @@ function createGateGitHubClient({ apiBaseUrl, fetcher, owner, repo, token, }) {
             const comments = [];
             for (let page = 1; page <= 5; page += 1) {
                 const response = await request(`${repoPath}/issues/${issueNumber}/comments?per_page=100&page=${page}`);
-                if (response.length === 0) {
+                if (!response?.length) {
                     break;
                 }
-                comments.push(...response.map((comment) => comment.body ?? ""));
+                comments.push(...response.map((comment) => ({
+                    author: comment.user?.login?.trim() ?? "",
+                    body: comment.body ?? "",
+                    createdAt: comment.created_at ?? "",
+                    updatedAt: comment.updated_at ?? "",
+                })));
             }
             return comments;
+        },
+        async getFile(path, ref) {
+            const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+            const response = await request(`${repoPath}/contents/${encodePath(path)}${query}`, { allowNotFound: true });
+            if (!response) {
+                return null;
+            }
+            if (response.encoding !== "base64" || !response.content) {
+                throw new Error(`Unsupported GitHub file encoding for ${path}.`);
+            }
+            return {
+                content: decodeBase64(response.content),
+                path: response.path ?? path,
+            };
+        },
+        async getRepositoryPermissionForUser(username) {
+            const response = await request(`${repoPath}/collaborators/${encodeURIComponent(username)}/permission`, { allowNotFound: true });
+            if (!response) {
+                return {
+                    permission: "none",
+                    roleName: "none",
+                    username,
+                };
+            }
+            return {
+                permission: normalizePermissionValue(response.permission) ??
+                    normalizePermissionValue(response.role_name) ??
+                    "none",
+                roleName: normalizePermissionValue(response.role_name) ??
+                    normalizePermissionValue(response.permission) ??
+                    "none",
+                username: response.user?.login?.trim() || username,
+            };
+        },
+        async getTeamMembershipForUser({ org, teamSlug, username, }) {
+            const response = await request(`/orgs/${encodeURIComponent(org)}/teams/${encodeURIComponent(teamSlug)}/memberships/${encodeURIComponent(username)}`, { allowNotFound: true });
+            if (!response) {
+                return null;
+            }
+            return {
+                role: response.role ?? "",
+                state: response.state ?? "",
+            };
         },
     };
 }
@@ -243,20 +465,31 @@ function parseExecutionRequestEvidence(issueBody) {
     const requestDigest = marker.get("requestDigest") ??
         readMarkdownField(issueBody, "Request digest");
     const status = marker.get("status") ?? readMarkdownField(issueBody, "Status");
+    const payload = parseCanonicalPayload(issueBody);
+    const workflow = readWorkflowTarget(payload);
+    const requestedBy = readMarkdownField(issueBody, "Requested by").replace(/^@/, "") ||
+        readRequestedBy(payload);
+    const scheduleId = readScheduleId(payload);
     if (!requestId || !batchId || !requestDigest || !status) {
         return null;
     }
     return {
         batchId,
+        ...(scheduleId ? { scheduleId } : {}),
+        requestedBy,
         requestDigest,
         requestId,
         status,
+        workflowPath: workflow.path,
+        workflowRef: workflow.ref,
     };
 }
-function parseExecutionApprovalEvidence(commentBody) {
+function parseExecutionApprovalEvidence(comment) {
+    const commentBody = comment.body;
     if (!commentBody.startsWith("/bgcp approve ")) {
         return null;
     }
+    const command = parseApprovalCommand(commentBody);
     const marker = parseBatchTrailMarker(commentBody, "execution-approval");
     const decision = marker.get("decision");
     const requestId = marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
@@ -267,10 +500,166 @@ function parseExecutionApprovalEvidence(commentBody) {
         return null;
     }
     return {
+        approver: comment.author ||
+            readMarkdownField(commentBody, "Approver").replace(/^@/, ""),
         batchId,
+        commandDigest: command?.digest ?? null,
+        edited: isEditedComment(comment),
         requestDigest,
         requestId,
     };
+}
+function parseBatchDefinitionSnapshot(content) {
+    const parsed = parseYamlDocument(content);
+    if (!parsed.ok) {
+        return null;
+    }
+    const validated = validateBatchDefinitionFile(parsed.value);
+    if (!validated.ok) {
+        return null;
+    }
+    const value = validated.value;
+    return {
+        gateRequired: value.spec.gateRequired,
+        status: value.spec.status,
+        workflowPath: value.spec.workflow.path,
+        workflowRef: value.spec.workflow.ref,
+    };
+}
+function parseApproverSelectorFromRoleMappingFile(content) {
+    const parsed = parseYamlDocument(content);
+    if (!parsed.ok) {
+        return null;
+    }
+    const validated = validateRoleMappingFile(parsed.value);
+    if (!validated.ok) {
+        return null;
+    }
+    const approver = validated.value.spec.roles.approver;
+    return {
+        githubTeams: approver.githubTeams ?? [],
+        githubUsers: approver.githubUsers ?? [],
+        repositoryRoles: approver.repositoryRoles ?? [],
+    };
+}
+function parseCanonicalPayload(issueBody) {
+    const match = issueBody.match(/```json\s*([\s\S]*?)```/);
+    if (!match?.[1]) {
+        return null;
+    }
+    try {
+        return JSON.parse(match[1]);
+    }
+    catch {
+        return null;
+    }
+}
+function readWorkflowTarget(payload) {
+    if (!payload || typeof payload !== "object") {
+        return { path: "", ref: "" };
+    }
+    const spec = payload.spec;
+    if (!spec || typeof spec !== "object") {
+        return { path: "", ref: "" };
+    }
+    const workflow = spec.workflow;
+    if (!workflow || typeof workflow !== "object") {
+        return { path: "", ref: "" };
+    }
+    const path = workflow.path;
+    const ref = workflow.ref;
+    return {
+        path: typeof path === "string" ? path : "",
+        ref: typeof ref === "string" ? ref : "",
+    };
+}
+function readRequestedBy(payload) {
+    if (!payload || typeof payload !== "object") {
+        return "";
+    }
+    const spec = payload.spec;
+    if (!spec || typeof spec !== "object") {
+        return "";
+    }
+    const requestedBy = spec.requestedBy;
+    return typeof requestedBy === "string" ? requestedBy : "";
+}
+function readScheduleId(payload) {
+    if (!payload || typeof payload !== "object") {
+        return "";
+    }
+    const spec = payload.spec;
+    if (!spec || typeof spec !== "object") {
+        return "";
+    }
+    const schedule = spec.schedule;
+    if (!schedule || typeof schedule !== "object") {
+        return "";
+    }
+    const scheduleId = schedule.scheduleId;
+    return typeof scheduleId === "string" ? scheduleId : "";
+}
+function parseApprovalCommand(body) {
+    const firstLine = body.split("\n", 1)[0]?.trim();
+    const match = firstLine?.match(/^\/bgcp approve\s+requestDigest=(\S+)$/u);
+    if (!match?.[1]) {
+        return null;
+    }
+    return { digest: match[1] };
+}
+function isEditedComment(comment) {
+    if (!comment.createdAt || !comment.updatedAt) {
+        return false;
+    }
+    return comment.createdAt !== comment.updatedAt;
+}
+function encodePath(path) {
+    return path
+        .split("/")
+        .map((part) => encodeURIComponent(part))
+        .join("/");
+}
+function decodeBase64(value) {
+    return Buffer.from(value.replace(/\s/g, ""), "base64").toString("utf-8");
+}
+function normalizePermissionValue(value) {
+    const normalized = value?.trim().toLowerCase();
+    if (!normalized) {
+        return "";
+    }
+    return normalized;
+}
+function writeGateOutputs(result, env) {
+    const outputPath = env.GITHUB_OUTPUT;
+    if (!outputPath) {
+        return;
+    }
+    appendFileSync(outputPath, [
+        `result=${result.result}`,
+        `reason_code=${result.reasonCode ?? ""}`,
+        `message=${escapeOutputValue(result.message)}`,
+    ].join("\n") + "\n", "utf8");
+}
+function writeGateSummary(result, input, env) {
+    const summaryPath = env.GITHUB_STEP_SUMMARY;
+    if (!summaryPath) {
+        return;
+    }
+    const lines = [
+        "## BatchTrail Gate Result",
+        "",
+        `- Result: ${result.result}`,
+        `- Reason code: ${result.reasonCode ?? "N/A"}`,
+        `- Message: ${result.message}`,
+        `- Batch ID: ${input.batchId}`,
+        `- Request ID: ${input.requestId ?? ""}`,
+        `- Approval source: ${input.approvalSource ?? ""}`,
+        `- Approval ref: ${input.approvalRef ?? ""}`,
+    ];
+    appendFileSync(summaryPath, `${lines.join("\n")}\n`, "utf8");
+}
+function escapeOutputValue(value) {
+    return value.replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
 function parseBatchTrailMarker(body, kind) {
     const marker = new Map();

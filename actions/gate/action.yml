@@ -1,5 +1,12 @@
 name: BatchTrail Gate
 description: Verify BatchTrail execution authorization before business steps run.
+outputs:
+  result:
+    description: Gate decision (ALLOW or DENY)
+  reason_code:
+    description: Machine-readable denial reason code
+  message:
+    description: Human-readable decision message
 inputs:
   mode:
     required: true

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 
 import {
   readGateInputFromEnv,
@@ -11,43 +12,7 @@ const requestId = "btr-20260513010203-payment.daily-close-abcdef12";
 const batchId = "payment.daily-close";
 const requestDigest =
   "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-const requestIssueBody = [
-  "## BatchTrail Execution Request",
-  "",
-  `- Request ID: \`${requestId}\``,
-  `- Batch ID: \`${batchId}\``,
-  "- Requested by: @developer",
-  "- Requested at: 2026-05-13T01:02:03.000Z",
-  "- Expires at: 2026-05-13T02:02:03.000Z",
-  `- Request digest: \`${requestDigest}\``,
-  "- Status: REQUESTED",
-  "",
-  "<!-- batchtrail:execution-request",
-  `requestId=${requestId}`,
-  `batchId=${batchId}`,
-  `requestDigest=${requestDigest}`,
-  "status=REQUESTED",
-  "-->",
-].join("\n");
-const approvalCommentBody = [
-  `/bgcp approve requestDigest=${requestDigest}`,
-  "",
-  "## BatchTrail Execution Approval",
-  "",
-  "- Decision: APPROVED",
-  "- Approver: @maintainer",
-  "- Approved at: 2026-05-13T01:03:03.000Z",
-  `- Request ID: \`${requestId}\``,
-  `- Batch ID: \`${batchId}\``,
-  `- Request digest: \`${requestDigest}\``,
-  "",
-  "<!-- batchtrail:execution-approval",
-  "decision=APPROVED",
-  `requestId=${requestId}`,
-  `batchId=${batchId}`,
-  `requestDigest=${requestDigest}`,
-  "-->",
-].join("\n");
+const workflowPath = ".github/workflows/payment.daily-close.yml";
 
 describe("Gate action runtime", () => {
   afterEach(() => {
@@ -55,10 +20,10 @@ describe("Gate action runtime", () => {
     vi.restoreAllMocks();
   });
 
-  it("allows lite executions with request and approval evidence", () => {
+  it("allows lite executions with required input fields", () => {
     expect(
       verifyLiteInput({
-        approvalRef: "btr-20260513010203-payment.daily-close-abcdef12",
+        approvalRef: requestId,
         approvalSource: "issue",
         batchId,
         configPath: ".batch-governance",
@@ -68,15 +33,15 @@ describe("Gate action runtime", () => {
         runAttempt: 1,
       }),
     ).toEqual({
-      result: "ALLOW",
       message: "Execution request evidence is present.",
+      result: "ALLOW",
     });
   });
 
-  it("denies lite executions without a request digest", () => {
+  it("denies lite executions without request digest", () => {
     expect(
       verifyLiteInput({
-        approvalRef: "btr-20260513010203-payment.daily-close-abcdef12",
+        approvalRef: requestId,
         approvalSource: "issue",
         batchId,
         configPath: ".batch-governance",
@@ -84,16 +49,16 @@ describe("Gate action runtime", () => {
         requestId,
       }),
     ).toEqual({
-      result: "DENY",
-      reasonCode: "REQUEST_DIGEST_REQUIRED",
       message: "Approved request digest is required.",
+      reasonCode: "REQUEST_DIGEST_REQUIRED",
+      result: "DENY",
     });
   });
 
   it("denies GitHub Actions reruns by default", () => {
     expect(
       verifyLiteInput({
-        approvalRef: "btr-20260513010203-payment.daily-close-abcdef12",
+        approvalRef: requestId,
         approvalSource: "issue",
         batchId,
         configPath: ".batch-governance",
@@ -103,10 +68,10 @@ describe("Gate action runtime", () => {
         runAttempt: 2,
       }),
     ).toEqual({
-      result: "DENY",
-      reasonCode: "RERUN_NOT_AUTHORIZED",
       message:
         "GitHub Actions reruns are not authorized by BatchTrail. Create a new execution request or approved retry instead.",
+      reasonCode: "RERUN_NOT_AUTHORIZED",
+      result: "DENY",
     });
   });
 
@@ -130,15 +95,16 @@ describe("Gate action runtime", () => {
         runAttempt: 1,
       }),
     ).resolves.toEqual({
-      result: "DENY",
-      reasonCode: "DIRECT_DISPATCH_NOT_AUTHORIZED",
       message:
         "Workflow actor always0ne is not the BatchTrail dispatcher actor github-actions[bot].",
+      reasonCode: "DIRECT_DISPATCH_NOT_AUTHORIZED",
+      result: "DENY",
     });
+
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("verifies matching GitHub request and approval evidence", async () => {
+  it("verifies matching GitHub request, batch policy, and approval evidence", async () => {
     await expect(
       verifyLiteAuthorization({
         actor: "github-actions[bot]",
@@ -146,10 +112,7 @@ describe("Gate action runtime", () => {
         approvalSource: "issue",
         batchId,
         configPath: ".batch-governance",
-        fetcher: createGateFetchMock({
-          comments: [{ body: approvalCommentBody }],
-          issues: [{ body: requestIssueBody, number: 34 }],
-        }),
+        fetcher: createGateFetchMock(),
         githubToken: "ghs_test",
         mode: "lite",
         repository: "always0ne/batch",
@@ -158,12 +121,13 @@ describe("Gate action runtime", () => {
         runAttempt: 1,
       }),
     ).resolves.toEqual({
+      message:
+        "Execution request, approval evidence, and batch policy are verified.",
       result: "ALLOW",
-      message: "Execution request and approval evidence are verified.",
     });
   });
 
-  it("denies runs when GitHub approval evidence is missing", async () => {
+  it("returns BATCH_NOT_FOUND when batch definition file is missing", async () => {
     await expect(
       verifyLiteAuthorization({
         actor: "github-actions[bot]",
@@ -171,10 +135,73 @@ describe("Gate action runtime", () => {
         approvalSource: "issue",
         batchId,
         configPath: ".batch-governance",
-        fetcher: createGateFetchMock({
-          comments: [],
-          issues: [{ body: requestIssueBody, number: 34 }],
-        }),
+        fetcher: createGateFetchMock({ includeBatchDefinition: false }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toMatchObject({
+      reasonCode: "BATCH_NOT_FOUND",
+      result: "DENY",
+    });
+  });
+
+  it("returns BATCH_NOT_ACTIVE for inactive batches", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({ batchStatus: "INACTIVE" }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toMatchObject({
+      reasonCode: "BATCH_NOT_ACTIVE",
+      result: "DENY",
+    });
+  });
+
+  it("returns REF_NOT_ALLOWED for workflow ref mismatch", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({ requestWorkflowRef: "release" }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toMatchObject({
+      reasonCode: "REF_NOT_ALLOWED",
+      result: "DENY",
+    });
+  });
+
+  it("returns EXECUTION_REQUEST_NOT_APPROVED when label-only approval exists", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({ comments: [] }),
         githubToken: "ghs_test",
         mode: "lite",
         repository: "always0ne/batch",
@@ -183,9 +210,66 @@ describe("Gate action runtime", () => {
         runAttempt: 1,
       }),
     ).resolves.toEqual({
+      message: "Execution request does not have approved comment evidence.",
+      reasonCode: "EXECUTION_REQUEST_NOT_APPROVED",
       result: "DENY",
-      reasonCode: "APPROVAL_EVIDENCE_NOT_FOUND",
-      message: "Execution approval comment evidence was not found.",
+    });
+  });
+
+  it("returns APPROVAL_COMMENT_EDITED for edited approval comments", async () => {
+    const editedComment = buildApprovalComment({
+      updatedAt: "2026-05-13T01:04:03.000Z",
+    });
+
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({ comments: [editedComment] }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message: "Execution approval comment was edited after creation.",
+      reasonCode: "APPROVAL_COMMENT_EDITED",
+      result: "DENY",
+    });
+  });
+
+  it("returns REQUEST_DIGEST_MISMATCH when approval digest mismatches", async () => {
+    const mismatchedComment = buildApprovalComment({
+      commandDigest:
+        "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      markerDigest: requestDigest,
+    });
+
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({ comments: [mismatchedComment] }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message:
+        "Approval command digest does not match execution request digest.",
+      reasonCode: "REQUEST_DIGEST_MISMATCH",
+      result: "DENY",
     });
   });
 
@@ -225,49 +309,191 @@ describe("Gate action runtime", () => {
     });
   });
 
-  it("sets a failing exit code when Gate denies execution", async () => {
+  it("sets failing exit code and writes outputs when Gate denies execution", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const outputPath = `/tmp/batchtrail-gate-output-${Date.now()}.txt`;
+    const summaryPath = `/tmp/batchtrail-gate-summary-${Date.now()}.md`;
 
     await expect(
       runGateFromEnv({
+        GITHUB_OUTPUT: outputPath,
+        GITHUB_STEP_SUMMARY: summaryPath,
         "INPUT_BATCH-ID": batchId,
         INPUT_MODE: "lite",
       }),
     ).resolves.toMatchObject({
-      result: "DENY",
       reasonCode: "EXECUTION_REQUEST_REQUIRED",
-    });
-    expect(process.exitCode).toBe(1);
-  });
-
-  it("sets a failing exit code when a rerun reaches Gate", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    await expect(
-      runGateFromEnv({
-        GITHUB_RUN_ATTEMPT: "2",
-        "INPUT_APPROVAL-REF": requestId,
-        "INPUT_APPROVAL-SOURCE": "issue",
-        "INPUT_BATCH-ID": batchId,
-        INPUT_MODE: "lite",
-        "INPUT_REQUEST-DIGEST": requestDigest,
-        "INPUT_REQUEST-ID": requestId,
-      }),
-    ).resolves.toMatchObject({
       result: "DENY",
-      reasonCode: "RERUN_NOT_AUTHORIZED",
     });
+
     expect(process.exitCode).toBe(1);
+    expect(readFileSync(outputPath, "utf8")).toContain("result=DENY");
+    expect(readFileSync(summaryPath, "utf8")).toContain(
+      "## BatchTrail Gate Result",
+    );
   });
 });
 
-function createGateFetchMock({
-  comments,
-  issues,
+function buildRequestIssueBody({
+  status = "REQUESTED",
+  workflowRef = "main",
 }: {
-  comments: Array<{ body: string }>;
-  issues: Array<{ body: string; number: number }>;
-}): typeof fetch {
+  status?: "REQUESTED" | "REJECTED";
+  workflowRef?: string;
+} = {}): string {
+  return [
+    "## BatchTrail Execution Request",
+    "",
+    `- Request ID: \`${requestId}\``,
+    `- Batch ID: \`${batchId}\``,
+    "- Requested by: @developer",
+    "- Requested at: 2026-05-13T01:02:03.000Z",
+    "- Expires at: 2026-05-13T02:02:03.000Z",
+    `- Request digest: \`${requestDigest}\``,
+    `- Status: ${status}`,
+    "",
+    "```json",
+    JSON.stringify(
+      {
+        apiVersion: "batchtrail.io/v1",
+        kind: "ExecutionRequest",
+        metadata: { batchId, requestId },
+        spec: {
+          requestedBy: "developer",
+          workflow: {
+            path: workflowPath,
+            ref: workflowRef,
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "```",
+    "",
+    "<!-- batchtrail:execution-request",
+    `requestId=${requestId}`,
+    `batchId=${batchId}`,
+    `requestDigest=${requestDigest}`,
+    `status=${status}`,
+    "-->",
+  ].join("\n");
+}
+
+function buildApprovalComment({
+  approver = "maintainer",
+  commandDigest = requestDigest,
+  createdAt = "2026-05-13T01:03:03.000Z",
+  markerDigest = requestDigest,
+  updatedAt = "2026-05-13T01:03:03.000Z",
+}: {
+  approver?: string;
+  commandDigest?: string;
+  createdAt?: string;
+  markerDigest?: string;
+  updatedAt?: string;
+} = {}): {
+  body: string;
+  created_at: string;
+  updated_at: string;
+  user: { login: string };
+} {
+  return {
+    body: [
+      `/bgcp approve requestDigest=${commandDigest}`,
+      "",
+      "## BatchTrail Execution Approval",
+      "",
+      "- Decision: APPROVED",
+      `- Approver: @${approver}`,
+      "- Approved at: 2026-05-13T01:03:03.000Z",
+      `- Request ID: \`${requestId}\``,
+      `- Batch ID: \`${batchId}\``,
+      `- Request digest: \`${markerDigest}\``,
+      "",
+      "<!-- batchtrail:execution-approval",
+      "decision=APPROVED",
+      `requestId=${requestId}`,
+      `batchId=${batchId}`,
+      `requestDigest=${markerDigest}`,
+      "-->",
+    ].join("\n"),
+    created_at: createdAt,
+    updated_at: updatedAt,
+    user: { login: approver },
+  };
+}
+
+function buildBatchDefinitionYaml({
+  gateRequired = true,
+  status = "ACTIVE",
+  workflowRef = "main",
+}: {
+  gateRequired?: boolean;
+  status?: "ACTIVE" | "INACTIVE";
+  workflowRef?: string;
+} = {}): string {
+  return [
+    'apiVersion: "batchtrail.io/v1"',
+    'kind: "BatchDefinition"',
+    "metadata:",
+    `  id: ${JSON.stringify(batchId)}`,
+    '  name: "Daily Close"',
+    "spec:",
+    '  owner: "ops-team"',
+    '  domain: "payments"',
+    '  environment: "PROD"',
+    '  criticality: "HIGH"',
+    `  status: ${JSON.stringify(status)}`,
+    `  gateRequired: ${gateRequired ? "true" : "false"}`,
+    "  workflow:",
+    `    path: ${JSON.stringify(workflowPath)}`,
+    `    ref: ${JSON.stringify(workflowRef)}`,
+    "  execution:",
+    '    runsOn: "ubuntu-latest"',
+    '    command: "echo run"',
+  ].join("\n");
+}
+
+function buildRoleMappingYaml(): string {
+  return [
+    'apiVersion: "batchtrail.io/v1"',
+    'kind: "RoleMapping"',
+    "metadata:",
+    '  id: "default"',
+    "spec:",
+    "  roles:",
+    "    requester:",
+    '      githubUsers: ["developer"]',
+    "    approver:",
+    '      repositoryRoles: ["maintain"]',
+    "    maintainer:",
+    '      repositoryRoles: ["admin", "maintain"]',
+    "    auditor:",
+    '      repositoryRoles: ["triage"]',
+  ].join("\n");
+}
+
+function createGateFetchMock({
+  batchStatus = "ACTIVE",
+  comments = [buildApprovalComment()],
+  includeBatchDefinition = true,
+  requestWorkflowRef = "main",
+}: {
+  batchStatus?: "ACTIVE" | "INACTIVE";
+  comments?: Array<{
+    body: string;
+    created_at?: string;
+    updated_at?: string;
+    user?: { login?: string };
+  }>;
+  includeBatchDefinition?: boolean;
+  requestWorkflowRef?: string;
+} = {}): typeof fetch {
+  const issueBody = buildRequestIssueBody({ workflowRef: requestWorkflowRef });
+  const batchDefinitionYaml = buildBatchDefinitionYaml({ status: batchStatus });
+  const roleMappingYaml = buildRoleMappingYaml();
+
   return (async (input: RequestInfo | URL) => {
     const url = input.toString();
 
@@ -276,15 +502,15 @@ function createGateFetchMock({
         "/repos/always0ne/batch/issues?state=all&per_page=100&page=1",
       )
     ) {
-      return Response.json(
-        issues.map((issue) => ({
-          body: issue.body,
+      return Response.json([
+        {
+          body: issueBody,
           labels: [],
-          number: issue.number,
-          state: "closed",
+          number: 34,
+          state: "open",
           title: "Run batch payment.daily-close",
-        })),
-      );
+        },
+      ]);
     }
 
     if (
@@ -301,6 +527,58 @@ function createGateFetchMock({
       )
     ) {
       return Response.json([]);
+    }
+
+    if (
+      url.includes(
+        "/repos/always0ne/batch/contents/.batch-governance/batches/payment.daily-close.yml",
+      )
+    ) {
+      if (!includeBatchDefinition) {
+        return Response.json({ message: "Not Found" }, { status: 404 });
+      }
+
+      return Response.json({
+        content: Buffer.from(batchDefinitionYaml).toString("base64"),
+        encoding: "base64",
+        path: ".batch-governance/batches/payment.daily-close.yml",
+      });
+    }
+
+    if (
+      url.includes(
+        "/repos/always0ne/batch/contents/.batch-governance/policies/role-mapping.yml",
+      )
+    ) {
+      return Response.json({
+        content: Buffer.from(roleMappingYaml).toString("base64"),
+        encoding: "base64",
+        path: ".batch-governance/policies/role-mapping.yml",
+      });
+    }
+
+    if (
+      url.endsWith("/repos/always0ne/batch/collaborators/maintainer/permission")
+    ) {
+      return Response.json({
+        permission: "admin",
+        role_name: "maintain",
+        user: {
+          login: "maintainer",
+        },
+      });
+    }
+
+    if (
+      url.endsWith("/repos/always0ne/batch/collaborators/developer/permission")
+    ) {
+      return Response.json({
+        permission: "write",
+        role_name: "write",
+        user: {
+          login: "developer",
+        },
+      });
     }
 
     return Response.json(
