@@ -73,6 +73,14 @@ export type GitHubLabel = {
   description?: string;
 };
 
+export type GitHubIssueEvent = {
+  id: number;
+  event: string;
+  actor: string;
+  createdAt: string;
+  label?: GitHubLabel;
+};
+
 export type GitHubWorkflow = {
   id: number;
   name: string;
@@ -179,6 +187,20 @@ export type ListIssuesParams = RepoRef & {
   state?: GitHubIssueState;
 };
 
+export type SearchIssuesParams = RepoRef & {
+  query?: string;
+  state?: GitHubIssueState;
+  labels?: string[];
+};
+
+export type UpdateIssueParams = RepoRef & {
+  issueNumber: number;
+  title?: string;
+  body?: string;
+  state?: Exclude<GitHubIssueState, "all">;
+  labels?: string[];
+};
+
 export type MergePullRequestParams = RepoRef & {
   pullNumber: number;
   commitTitle?: string;
@@ -208,15 +230,25 @@ export type GitHubLiteClient = {
   ): Promise<GitHubPullRequest[]>;
   mergePullRequest(params: MergePullRequestParams): Promise<GitHubMergeResult>;
   createIssue(params: CreateIssueParams): Promise<GitHubIssue>;
+  updateIssue(params: UpdateIssueParams): Promise<GitHubIssue>;
   listIssues(params: ListIssuesParams): Promise<GitHubIssue[]>;
+  searchIssues(params: SearchIssuesParams): Promise<GitHubIssue[]>;
+  listIssueEvents(
+    params: RepoRef & { issueNumber: number },
+  ): Promise<GitHubIssueEvent[]>;
   listIssueComments(
     params: RepoRef & { issueNumber: number },
   ): Promise<GitHubIssueComment[]>;
+  listLabels(params: RepoRef): Promise<GitHubLabel[]>;
+  createLabel(params: RepoRef & GitHubLabel): Promise<GitHubLabel>;
   createIssueComment(
     params: RepoRef & { issueNumber: number; body: string },
   ): Promise<{ id: number; body: string }>;
   addIssueLabels(
     params: RepoRef & { issueNumber: number; labels: string[] },
+  ): Promise<void>;
+  removeIssueLabel(
+    params: RepoRef & { issueNumber: number; label: string },
   ): Promise<void>;
   closeIssue(params: RepoRef & { issueNumber: number }): Promise<void>;
 };
@@ -286,6 +318,10 @@ type GitHubIssueResponse = {
   pull_request?: unknown;
 };
 
+type GitHubIssueSearchResponse = {
+  items: GitHubIssueResponse[];
+};
+
 type GitHubCommentResponse = {
   id: number;
   body: string;
@@ -293,6 +329,22 @@ type GitHubCommentResponse = {
     login: string;
   } | null;
   created_at?: string;
+};
+
+type GitHubLabelResponse = {
+  name: string;
+  color: string;
+  description?: string | null;
+};
+
+type GitHubIssueEventResponse = {
+  id: number;
+  event: string;
+  created_at?: string;
+  actor?: {
+    login: string;
+  } | null;
+  label?: GitHubLabelResponse | null;
 };
 
 type GitHubRefResponse = {
@@ -620,6 +672,33 @@ export function createGitHubLiteClient({
       return mapIssueResponse(issue);
     },
 
+    async updateIssue({
+      owner,
+      repo,
+      issueNumber,
+      title,
+      body,
+      state,
+      labels,
+    }) {
+      const issue = await request<GitHubIssueResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/issues/${issueNumber}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            ...(body !== undefined ? { body } : {}),
+            ...(labels !== undefined ? { labels } : {}),
+            ...(state !== undefined ? { state } : {}),
+            ...(title !== undefined ? { title } : {}),
+          }),
+        },
+      );
+
+      return mapIssueResponse(issue);
+    },
+
     async listIssues({ owner, repo, state = "open" }) {
       const query = buildQuery({ state });
       const issues = await request<GitHubIssueResponse[]>(
@@ -629,6 +708,45 @@ export function createGitHubLiteClient({
       );
 
       return (issues ?? []).map(mapIssueResponse);
+    },
+
+    async searchIssues({
+      owner,
+      repo,
+      query = "",
+      state = "open",
+      labels = [],
+    }) {
+      const qualifierTerms = [`repo:${owner}/${repo}`, "is:issue"];
+      const trimmedQuery = query.trim();
+
+      if (state !== "all") {
+        qualifierTerms.push(`state:${state}`);
+      }
+
+      for (const label of labels.map((value) => value.trim()).filter(Boolean)) {
+        qualifierTerms.push(buildLabelSearchQualifier(label));
+      }
+
+      if (trimmedQuery) {
+        qualifierTerms.push(trimmedQuery);
+      }
+
+      const searchResponse = await request<GitHubIssueSearchResponse>(
+        `/search/issues${buildQuery({ q: qualifierTerms.join(" ") })}`,
+      );
+
+      return (searchResponse?.items ?? []).map(mapIssueResponse);
+    },
+
+    async listIssueEvents({ owner, repo, issueNumber }) {
+      const events = await request<GitHubIssueEventResponse[]>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/issues/${issueNumber}/events`,
+      );
+
+      return (events ?? []).map(mapIssueEventResponse);
     },
 
     async listIssueComments({ owner, repo, issueNumber }) {
@@ -641,6 +759,38 @@ export function createGitHubLiteClient({
       return (comments ?? []).map((comment) =>
         mapIssueCommentResponse(comment, issueNumber),
       );
+    },
+
+    async listLabels({ owner, repo }) {
+      const labels = await request<GitHubLabelResponse[]>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels`,
+      );
+
+      return (labels ?? []).map(mapLabelResponse);
+    },
+
+    async createLabel({ owner, repo, name, color, description }) {
+      const label = await request<GitHubLabelResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            color,
+            description,
+            name,
+          }),
+        },
+      );
+
+      if (!label) {
+        throw new GitHubLiteApiError(
+          "GitHub label response was empty.",
+          "unknown",
+          500,
+        );
+      }
+
+      return mapLabelResponse(label);
     },
 
     async createIssueComment({ owner, repo, issueNumber, body }) {
@@ -673,6 +823,17 @@ export function createGitHubLiteClient({
         {
           method: "POST",
           body: JSON.stringify({ labels }),
+        },
+      );
+    },
+
+    async removeIssueLabel({ owner, repo, issueNumber, label }) {
+      await request<unknown>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`,
+        {
+          method: "DELETE",
         },
       );
     },
@@ -863,6 +1024,28 @@ export function createMockGitHubLiteClient(
       params.labels.forEach((label) => ensureMockLabel(state, label));
     },
 
+    async createLabel(params) {
+      assertMockRepository(state, params);
+
+      if (state.labels.some((label) => label.name === params.name)) {
+        throw new GitHubLiteApiError(
+          `GitHub label already exists: ${params.name}`,
+          "bad-request",
+          422,
+        );
+      }
+
+      const label: GitHubLabel = {
+        color: params.color,
+        ...(params.description ? { description: params.description } : {}),
+        name: params.name,
+      };
+
+      state.labels.push(label);
+
+      return cloneJson(label);
+    },
+
     async closeIssue(params) {
       assertMockRepository(state, params);
 
@@ -925,6 +1108,31 @@ export function createMockGitHubLiteClient(
       issue.labels.forEach((label) => ensureMockLabel(state, label));
       state.issues.push(issue);
       trackMockExecutionRequest(state, issue);
+
+      return cloneJson(issue);
+    },
+
+    async updateIssue(params) {
+      assertMockRepository(state, params);
+
+      const issue = findMockIssue(state, params.issueNumber);
+
+      if (params.body !== undefined) {
+        issue.body = params.body;
+      }
+
+      if (params.labels !== undefined) {
+        issue.labels = uniqueStrings(params.labels);
+        params.labels.forEach((label) => ensureMockLabel(state, label));
+      }
+
+      if (params.state !== undefined) {
+        issue.state = params.state;
+      }
+
+      if (params.title !== undefined) {
+        issue.title = params.title;
+      }
 
       return cloneJson(issue);
     },
@@ -1026,6 +1234,41 @@ export function createMockGitHubLiteClient(
       return cloneJson(state.repository);
     },
 
+    async listIssueEvents(params) {
+      assertMockRepository(state, params);
+      assertMockIssueOrPullRequest(state, params.issueNumber);
+
+      const comments = state.issueComments
+        .filter((comment) => comment.issueNumber === params.issueNumber)
+        .map((comment) => ({
+          actor: comment.author,
+          createdAt: comment.createdAt,
+          event: "commented",
+          id: comment.id,
+        }));
+
+      const issue = state.issues.find(
+        (candidate) => candidate.number === params.issueNumber,
+      );
+      const nextId = nextMockNumber(comments.map((event) => event.id));
+      const labels =
+        issue?.labels.map((label, index) => ({
+          actor: "",
+          createdAt: "",
+          event: "labeled",
+          id: nextId + index,
+          label: state.labels.find((candidate) => candidate.name === label),
+        })) ?? [];
+
+      return cloneJson([
+        ...comments,
+        ...labels.map((event) => ({
+          ...event,
+          ...(event.label ? { label: event.label } : {}),
+        })),
+      ]);
+    },
+
     async listIssues(params) {
       assertMockRepository(state, params);
 
@@ -1036,6 +1279,38 @@ export function createMockGitHubLiteClient(
         .map(cloneJson);
     },
 
+    async searchIssues(params) {
+      assertMockRepository(state, params);
+
+      const normalizedQuery = params.query?.trim().toLowerCase() ?? "";
+      const labelFilters = (params.labels ?? [])
+        .map((label) => label.trim())
+        .filter(Boolean);
+      const stateFilter = params.state ?? "open";
+
+      return state.issues
+        .filter((issue) => {
+          if (stateFilter !== "all" && issue.state !== stateFilter) {
+            return false;
+          }
+
+          if (
+            labelFilters.length > 0 &&
+            !labelFilters.every((label) => issue.labels.includes(label))
+          ) {
+            return false;
+          }
+
+          if (!normalizedQuery) {
+            return true;
+          }
+
+          const text = `${issue.title}\n${issue.body}`.toLowerCase();
+          return text.includes(normalizedQuery);
+        })
+        .map(cloneJson);
+    },
+
     async listIssueComments(params) {
       assertMockRepository(state, params);
       assertMockIssueOrPullRequest(state, params.issueNumber);
@@ -1043,6 +1318,12 @@ export function createMockGitHubLiteClient(
       return state.issueComments
         .filter((comment) => comment.issueNumber === params.issueNumber)
         .map(cloneJson);
+    },
+
+    async listLabels(params) {
+      assertMockRepository(state, params);
+
+      return cloneJson(state.labels);
     },
 
     async listPullRequests(params) {
@@ -1083,6 +1364,23 @@ export function createMockGitHubLiteClient(
         message: "Pull Request successfully merged",
         sha: `mock-merge-sha-${params.pullNumber}`,
       };
+    },
+
+    async removeIssueLabel(params) {
+      assertMockRepository(state, params);
+
+      const issue = findMockIssue(state, params.issueNumber);
+      const hasLabel = issue.labels.includes(params.label);
+
+      if (!hasLabel) {
+        throw new GitHubLiteApiError(
+          `GitHub label not found on issue: ${params.label}`,
+          "not-found",
+          404,
+        );
+      }
+
+      issue.labels = issue.labels.filter((label) => label !== params.label);
     },
 
     async putFile(params) {
@@ -1507,6 +1805,26 @@ function mapIssueCommentResponse(
   };
 }
 
+function mapIssueEventResponse(
+  event: GitHubIssueEventResponse,
+): GitHubIssueEvent {
+  return {
+    actor: event.actor?.login ?? "",
+    createdAt: event.created_at ?? "",
+    event: event.event,
+    id: event.id,
+    ...(event.label ? { label: mapLabelResponse(event.label) } : {}),
+  };
+}
+
+function mapLabelResponse(label: GitHubLabelResponse): GitHubLabel {
+  return {
+    color: label.color,
+    ...(label.description ? { description: label.description } : {}),
+    name: label.name,
+  };
+}
+
 function mapPullRequestResponse(
   pullRequest: GitHubPullRequestResponse,
 ): GitHubPullRequest {
@@ -1535,6 +1853,12 @@ function buildQuery(params: Record<string, string | undefined>): string {
   const serializedQuery = query.toString();
 
   return serializedQuery ? `?${serializedQuery}` : "";
+}
+
+function buildLabelSearchQualifier(label: string): string {
+  return /\s/u.test(label)
+    ? `label:"${label.replace(/"/g, '\\"')}"`
+    : `label:${label}`;
 }
 
 function encodePath(path: string): string {

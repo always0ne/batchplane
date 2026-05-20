@@ -56,11 +56,13 @@ describe("ExecutionRequestPage", () => {
     fireEvent.change(screen.getByLabelText("Reason"), {
       target: { value: "Close payments after upstream reconciliation." },
     });
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Create execution request",
-      }),
-    );
+    const createButton = await screen.findByRole("button", {
+      name: "Create execution request",
+    });
+    await waitFor(() => {
+      expect(createButton).toBeEnabled();
+    });
+    fireEvent.click(createButton);
 
     expect(await screen.findByText("Execution requests")).toBeInTheDocument();
     expect(
