@@ -37,7 +37,7 @@ describe("createGitHubLiteClient", () => {
     const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
 
     await expect(
-      client.getFile({ owner: "always0ne", repo: "batchtrail", path: "x.yml" }),
+      client.getFile({ owner: "always0ne", repo: "batchplane", path: "x.yml" }),
     ).resolves.toBeNull();
   });
 
@@ -54,7 +54,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.getFile({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         path: "batchtrail.yml",
       }),
     ).resolves.toEqual({
@@ -79,7 +79,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.getDirectory({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         path: ".batch-governance/batches",
         ref: "main",
       }),
@@ -105,14 +105,14 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.createBranch({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         branch: "batchplane/register/demo",
         sha: "base-sha",
       }),
     ).resolves.toBeUndefined();
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/git/refs",
+      "https://api.github.com/repos/always0ne/batchplane/git/refs",
     );
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       ref: "refs/heads/batchplane/register/demo",
@@ -137,7 +137,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.putFile({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         path: ".batch-governance/batches/demo.yml",
         branch: "batchplane/register/demo",
         message: "Register batch demo",
@@ -173,7 +173,7 @@ describe("createGitHubLiteClient", () => {
 
     await client.putFile({
       owner: "always0ne",
-      repo: "batchtrail",
+      repo: "batchplane",
       path: ".batch-governance/batches/demo/artifacts/app.bin",
       branch: "batchplane/register/demo",
       message: "Register batch demo",
@@ -193,7 +193,7 @@ describe("createGitHubLiteClient", () => {
       Response.json({
         number: 12,
         title: "Register batch demo",
-        html_url: "https://github.com/always0ne/batchtrail/pull/12",
+        html_url: "https://github.com/always0ne/batchplane/pull/12",
         body: "body",
         state: "open",
         merged: false,
@@ -206,7 +206,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.createPullRequest({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         title: "Register batch demo",
         body: "body",
         head: "batchplane/register/demo",
@@ -215,7 +215,7 @@ describe("createGitHubLiteClient", () => {
     ).resolves.toEqual({
       number: 12,
       title: "Register batch demo",
-      url: "https://github.com/always0ne/batchtrail/pull/12",
+      url: "https://github.com/always0ne/batchplane/pull/12",
       head: "batchplane/register/demo",
       base: "main",
       state: "open",
@@ -234,7 +234,7 @@ describe("createGitHubLiteClient", () => {
         {
           number: 12,
           title: "Register batch demo",
-          html_url: "https://github.com/always0ne/batchtrail/pull/12",
+          html_url: "https://github.com/always0ne/batchplane/pull/12",
           body: null,
           state: "open",
           merged: false,
@@ -249,7 +249,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.listPullRequests({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         state: "open",
         base: "main",
       }),
@@ -257,7 +257,7 @@ describe("createGitHubLiteClient", () => {
       {
         number: 12,
         title: "Register batch demo",
-        url: "https://github.com/always0ne/batchtrail/pull/12",
+        url: "https://github.com/always0ne/batchplane/pull/12",
         head: "batchplane/register/demo",
         base: "main",
         state: "open",
@@ -268,7 +268,7 @@ describe("createGitHubLiteClient", () => {
     ]);
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/pulls?base=main&state=open",
+      "https://api.github.com/repos/always0ne/batchplane/pulls?base=main&state=open",
     );
   });
 
@@ -288,7 +288,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.mergePullRequest({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         pullNumber: 12,
         commitTitle: "Register batch demo (#12)",
       }),
@@ -299,7 +299,7 @@ describe("createGitHubLiteClient", () => {
     });
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/pulls/12/merge",
+      "https://api.github.com/repos/always0ne/batchplane/pulls/12/merge",
     );
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       commit_title: "Register batch demo (#12)",
@@ -317,7 +317,7 @@ describe("createGitHubLiteClient", () => {
         title: "Register batch demo",
         body: null,
         labels: [],
-        html_url: "https://github.com/always0ne/batchtrail/pull/12",
+        html_url: "https://github.com/always0ne/batchplane/pull/12",
         state: "closed",
         user: { login: "always0ne" },
       });
@@ -327,13 +327,13 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.closeIssue({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         issueNumber: 12,
       }),
     ).resolves.toBeUndefined();
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/issues/12",
+      "https://api.github.com/repos/always0ne/batchplane/issues/12",
     );
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       state: "closed",
@@ -350,7 +350,7 @@ describe("createGitHubLiteClient", () => {
         title: "Run batch payment.daily-close",
         body: "body",
         labels: [],
-        html_url: "https://github.com/always0ne/batchtrail/issues/34",
+        html_url: "https://github.com/always0ne/batchplane/issues/34",
         state: "open",
         user: { login: "always0ne" },
       });
@@ -360,7 +360,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.createIssue({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         title: "Run batch payment.daily-close",
         body: "body",
         labels: [],
@@ -370,14 +370,14 @@ describe("createGitHubLiteClient", () => {
       title: "Run batch payment.daily-close",
       body: "body",
       labels: [],
-      url: "https://github.com/always0ne/batchtrail/issues/34",
+      url: "https://github.com/always0ne/batchplane/issues/34",
       state: "open",
       author: "always0ne",
       isPullRequest: false,
     });
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/issues",
+      "https://api.github.com/repos/always0ne/batchplane/issues",
     );
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       body: "body",
@@ -397,7 +397,7 @@ describe("createGitHubLiteClient", () => {
           title: "Run batch payment.daily-close",
           body: "body",
           labels: [],
-          html_url: "https://github.com/always0ne/batchtrail/issues/34",
+          html_url: "https://github.com/always0ne/batchplane/issues/34",
           state: "open",
           user: { login: "always0ne" },
         },
@@ -408,7 +408,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.listIssues({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         state: "open",
       }),
     ).resolves.toEqual([
@@ -417,7 +417,7 @@ describe("createGitHubLiteClient", () => {
         title: "Run batch payment.daily-close",
         body: "body",
         labels: [],
-        url: "https://github.com/always0ne/batchtrail/issues/34",
+        url: "https://github.com/always0ne/batchplane/issues/34",
         state: "open",
         author: "always0ne",
         isPullRequest: false,
@@ -425,7 +425,7 @@ describe("createGitHubLiteClient", () => {
     ]);
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/issues?state=open",
+      "https://api.github.com/repos/always0ne/batchplane/issues?state=open",
     );
   });
 
@@ -439,7 +439,7 @@ describe("createGitHubLiteClient", () => {
         title: "Run batch payment.daily-close (updated)",
         body: "updated body",
         labels: [{ name: "batchplane:execution-request" }],
-        html_url: "https://github.com/always0ne/batchtrail/issues/34",
+        html_url: "https://github.com/always0ne/batchplane/issues/34",
         state: "open",
         user: { login: "always0ne" },
       });
@@ -449,7 +449,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.updateIssue({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         issueNumber: 34,
         title: "Run batch payment.daily-close (updated)",
         body: "updated body",
@@ -460,14 +460,14 @@ describe("createGitHubLiteClient", () => {
       title: "Run batch payment.daily-close (updated)",
       body: "updated body",
       labels: ["batchplane:execution-request"],
-      url: "https://github.com/always0ne/batchtrail/issues/34",
+      url: "https://github.com/always0ne/batchplane/issues/34",
       state: "open",
       author: "always0ne",
       isPullRequest: false,
     });
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/issues/34",
+      "https://api.github.com/repos/always0ne/batchplane/issues/34",
     );
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       body: "updated body",
@@ -488,7 +488,7 @@ describe("createGitHubLiteClient", () => {
             title: "Run batch payment.daily-close",
             body: "body",
             labels: [{ name: "batchplane:execution-request" }],
-            html_url: "https://github.com/always0ne/batchtrail/issues/34",
+            html_url: "https://github.com/always0ne/batchplane/issues/34",
             state: "open",
             user: { login: "always0ne" },
           },
@@ -500,7 +500,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.searchIssues({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         query: "daily close",
         state: "open",
         labels: ["batchplane:execution-request"],
@@ -511,7 +511,7 @@ describe("createGitHubLiteClient", () => {
         title: "Run batch payment.daily-close",
         body: "body",
         labels: ["batchplane:execution-request"],
-        url: "https://github.com/always0ne/batchtrail/issues/34",
+        url: "https://github.com/always0ne/batchplane/issues/34",
         state: "open",
         author: "always0ne",
         isPullRequest: false,
@@ -523,7 +523,7 @@ describe("createGitHubLiteClient", () => {
     );
     const requestUrl = new URL(requests[0]?.input.toString() ?? "");
     expect(requestUrl.searchParams.get("q")).toBe(
-      "repo:always0ne/batchtrail is:issue state:open label:batchplane:execution-request daily close",
+      "repo:always0ne/batchplane is:issue state:open label:batchplane:execution-request daily close",
     );
   });
 
@@ -551,7 +551,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.listIssueEvents({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         issueNumber: 34,
       }),
     ).resolves.toEqual([
@@ -569,7 +569,7 @@ describe("createGitHubLiteClient", () => {
     ]);
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/issues/34/events",
+      "https://api.github.com/repos/always0ne/batchplane/issues/34/events",
     );
   });
 
@@ -598,7 +598,7 @@ describe("createGitHubLiteClient", () => {
     const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
 
     await expect(
-      client.listLabels({ owner: "always0ne", repo: "batchtrail" }),
+      client.listLabels({ owner: "always0ne", repo: "batchplane" }),
     ).resolves.toEqual([
       {
         name: "batchplane:execution-request",
@@ -610,7 +610,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.createLabel({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         name: "batchplane:dispatching",
         color: "2563EB",
         description: "BatchPlane request is dispatching",
@@ -622,10 +622,10 @@ describe("createGitHubLiteClient", () => {
     });
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/labels",
+      "https://api.github.com/repos/always0ne/batchplane/labels",
     );
     expect(requests[1]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/labels",
+      "https://api.github.com/repos/always0ne/batchplane/labels",
     );
     expect(JSON.parse(requests[1]?.init?.body?.toString() ?? "{}")).toEqual({
       name: "batchplane:dispatching",
@@ -646,14 +646,14 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.removeIssueLabel({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         issueNumber: 34,
         label: "batchplane:dispatching",
       }),
     ).resolves.toBeUndefined();
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/issues/34/labels/batchplane%3Adispatching",
+      "https://api.github.com/repos/always0ne/batchplane/issues/34/labels/batchplane%3Adispatching",
     );
     expect(requests[0]?.init?.method).toBe("DELETE");
   });
@@ -674,7 +674,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.getRepositoryPermissionForUser({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         username: "maintainer",
       }),
     ).resolves.toEqual({
@@ -684,7 +684,7 @@ describe("createGitHubLiteClient", () => {
     });
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/collaborators/maintainer/permission",
+      "https://api.github.com/repos/always0ne/batchplane/collaborators/maintainer/permission",
     );
   });
 
@@ -696,7 +696,7 @@ describe("createGitHubLiteClient", () => {
     await expect(
       client.getRepositoryPermissionForUser({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batchplane",
         username: "contractor",
       }),
     ).resolves.toEqual({

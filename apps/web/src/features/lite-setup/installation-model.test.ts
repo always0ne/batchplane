@@ -79,7 +79,7 @@ describe("Lite installation model", () => {
             "group: batchplane-dispatch-${{ github.event.issue.number }}",
           );
           expect(content).toContain(
-            "always0ne/batchtrail/actions/dispatcher@main",
+            "always0ne/batchplane/actions/dispatcher@main",
           );
         }
         if (path === liteSampleTargetWorkflowPath) {
@@ -89,7 +89,7 @@ describe("Lite installation model", () => {
           expect(content).toContain("batchplane-gate:");
           expect(content).toContain("needs: batchplane-gate");
           expect(content).toContain(
-            "uses: always0ne/batchtrail/actions/gate@main",
+            "uses: always0ne/batchplane/actions/gate@main",
           );
         }
         return { path, sha: `sha-${path}` };

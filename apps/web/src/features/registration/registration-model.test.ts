@@ -92,7 +92,7 @@ describe("registration model", () => {
     expect(workflowYaml).toContain("uses: actions/checkout@v4");
     expect(workflowYaml).toContain("batchplane-gate:");
     expect(workflowYaml).toContain(
-      "uses: always0ne/batchtrail/actions/gate@main",
+      "uses: always0ne/batchplane/actions/gate@main",
     );
     expect(workflowYaml).toContain("github-token: ${{ secrets.GITHUB_TOKEN }}");
     expect(workflowYaml).toContain("needs: batchplane-gate");

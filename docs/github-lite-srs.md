@@ -46,14 +46,15 @@ native permission model.
 
 The dispatcher workflow installed by the setup PR must listen to
 `issue_comment.created`, filter comments that start with `/bgcp approve `, and
-invoke `always0ne/batchtrail/actions/dispatcher@main` with the triggering issue
+invoke `always0ne/batchplane/actions/dispatcher@main` with the triggering issue
 number, comment ID, and repository `GITHUB_TOKEN`. It must serialize runs per
 execution request Issue using workflow `concurrency` so duplicate approval
 comments cannot dispatch the same request in parallel.
 
-The action repository reference remains `always0ne/batchtrail` until the GitHub
-project repository is explicitly renamed. After that operation, new generated
-workflows must use `always0ne/batchplane`.
+New generated workflows must use the renamed action repository reference
+`always0ne/batchplane`. Legacy target repositories that still reference
+`always0ne/batchtrail` rely on GitHub repository redirects until they regenerate
+their setup artifacts.
 
 ## Registration Requirements
 
