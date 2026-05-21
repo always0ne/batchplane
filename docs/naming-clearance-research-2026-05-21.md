@@ -126,6 +126,71 @@ These should be rejected or lowered unless the project owner strongly prefers th
 | OpsWarrant      | Exact string appears in public agenda/warrant-register documents.               |
 | OpsAttest       | Exact-like lowercase `opsattest` appears in unrelated language/dictionary hits. |
 
+## BatchControlHub Refinement Pass
+
+The owner asked to refine the `BatchControlHub` direction because it maps directly to
+the Korean financial-domain term "배치통제". This pass expands around that root and
+checks whether a nearby name is cleaner.
+
+### Findings
+
+- `BatchControlHub` exact-name search is currently clean.
+- `batchcontrolhub.com`, `.org`, `.io`, `.dev`, `.app`, `.net`, and `.co` returned no
+  RDAP registration in the point-in-time checks.
+- npm/PyPI exact checks for `batchcontrolhub` and `batch-control-hub` were clean.
+- GitHub exact repository-name search returned no direct hits for `BatchControlHub`.
+- The base `batchcontrol.com` is registered.
+- `BATCHCONTROL PRO` appears as a 2026 trademark application for batching systems with
+  computer hardware/software, so `BatchControl*` names have some industrial/manufacturing
+  adjacency risk.
+- `ControlHub` is an active procurement software brand and has trademark/search presence,
+  so `*ControlHub` suffixes have additional component-word risk even when the full exact
+  phrase is clean.
+
+### Variant Comparison
+
+| Candidate            | Exact search hygiene | Availability hygiene           | Product fit                                            | Risk note                                                 |
+| -------------------- | -------------------- | ------------------------------ | ------------------------------------------------------ | --------------------------------------------------------- |
+| BatchControlHub      | Clean                | `.com/.org/.io/.dev` clean     | Best direct match for 금융권 "배치통제"; product-like. | Contains both `BatchControl` and `ControlHub` components. |
+| BatchControlPlane    | Clean                | `.com/.org/.io/.dev` clean     | Strong architecture/platform meaning for adapters.     | More infra-heavy; less friendly as a public brand.        |
+| BatchControlConsole  | Clean                | `.com/.org/.io/.dev` clean     | Good UI/admin surface meaning.                         | Sounds like one screen/tool, not whole platform.          |
+| BatchControlBoard    | Clean                | `.com/.org/.io/.dev` clean     | Good approval board / work board feel.                 | Could feel task-board-like.                               |
+| BatchControlDesk     | Clean                | `.com/.org/.io/.dev` clean     | Good operations desk feel.                             | Helpdesk/service-desk association.                        |
+| BatchControlGate     | Clean                | `.com/.org/.io/.dev` clean     | Very clear execution-blocking meaning.                 | Better component name than umbrella product name.         |
+| BatchControlAudit    | Clean                | `.com/.org/.io/.dev` clean     | Direct audit/control meaning.                          | Less complete than approval + execution + audit product.  |
+| BatchControlLedger   | Clean                | `.com` clean in automated pass | Strong audit trail meaning.                            | Ledger has finance/blockchain associations.               |
+| BatchControlRegistry | Clean                | `.com` clean in automated pass | Good for registered batch definitions.                 | More catalog than control.                                |
+| BatchControlVault    | Clean                | `.com` clean in automated pass | Strong evidence retention/security meaning.            | Vault may imply secrets/storage.                          |
+| BatchControlCore     | Clean                | `.com` clean in automated pass | Platform core feel.                                    | Generic and less market-facing.                           |
+| BatchControlCenter   | Noisy                | `.com/.org/.io/.dev` clean     | Understandable.                                        | Search hit: Santander/F1rst `#BatchControlCenter`.        |
+| BatchControlTower    | Noisy                | `.com/.org/.io/.dev` clean     | Operational command-center metaphor.                   | Search hit in industrial/concrete batch-control context.  |
+| BatchControlPanel    | Noisy                | `.com/.org/.io/.dev` clean     | UI-oriented.                                           | Existing software class/UI snippets use this wording.     |
+| BatchGovernanceHub   | Clean                | `.com/.org/.io/.dev` clean     | Avoids `BatchControl` root; governance-oriented.       | Less direct than "배치통제".                              |
+| BatchPolicyHub       | Clean                | `.com/.org/.io/.dev` clean     | Policy-as-code / approval rules hub.                   | Weaker batch-control business wording.                    |
+| BatchRunControl      | Clean                | `.com/.org/.io/.dev` clean     | Very execution-focused.                                | Less registration/change approval meaning.                |
+
+### Refined Recommendation
+
+If the priority is 금융권 사용자에게 즉시 이해되는 이름, keep `BatchControlHub` as the
+lead candidate, with this brand structure:
+
+- Product: `BatchControlHub`
+- GitHub Pages edition: `BatchControlHub Lite`
+- Future server edition: `BatchControlHub Server`
+- Gate/action component: `BatchControlGate`
+- UI/admin component wording: `BatchControlConsole`
+
+If the priority is lower component-word conflict risk, move the lead candidate to
+`BatchControlPlane` or `BatchGovernanceHub`:
+
+- `BatchControlPlane`: technically strong and exact-search clean, but more infra-heavy.
+- `BatchGovernanceHub`: cleaner from `BatchControl`/`ControlHub` component risk, but less
+  direct for the financial "배치통제" phrase.
+
+Current product judgment: `BatchControlHub` is the best meaning fit, but it should receive
+formal legal review because `BatchControl` and `ControlHub` both have adjacent market or
+trademark presence.
+
 ## Stronger Candidate Pool
 
 These names passed the current `.com + npm + PyPI` knockout check and are still worth
