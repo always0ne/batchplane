@@ -112,6 +112,7 @@ export function RegistrationApprovalDetailPage({
         const [pullRequests, user] = await Promise.all([
           runtime.approvals.listRegistrationRequests({
             baseBranch: repository.defaultBranch,
+            state: "all",
           }),
           runtime.settings.getCurrentUser(),
         ]);
@@ -313,31 +314,36 @@ export function RegistrationApprovalDetailPage({
           })}
           title={t("registrationDetail.title")}
         />
-        <div className="flex flex-wrap gap-2">
-          <Link
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
-            to="/approvals"
-          >
-            {t("registrationDetail.actions.backToApprovals")}
-          </Link>
-          <a
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
-            href={state.pullRequest.url}
-            rel="noreferrer"
-            target="_blank"
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            {t("actions.openPullRequest")}
-          </a>
-          <button
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
-            disabled={isBusy}
-            onClick={() => setReloadToken((current) => current + 1)}
-            type="button"
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            {t("actions.refresh")}
-          </button>
+        <div className="space-y-1 text-right">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+              to="/approvals"
+            >
+              {t("registrationDetail.actions.backToApprovals")}
+            </Link>
+            <a
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+              href={state.pullRequest.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              {t("actions.openPullRequest")}
+            </a>
+            <button
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+              disabled={isBusy}
+              onClick={() => setReloadToken((current) => current + 1)}
+              type="button"
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              {t("actions.refresh")}
+            </button>
+          </div>
+          <p className="text-xs text-bt-muted">
+            {t("registrationDetail.states.githubLagHint")}
+          </p>
         </div>
       </div>
 
@@ -465,14 +471,23 @@ function RegistrationFileSummaryPanel({
             <p className="mt-2 text-xs text-bt-muted">
               {t(`registrationDetail.fileSummary.statusHelp.${file.status}`)}
             </p>
-            {file.headContent ? (
+            {file.baseContent || file.headContent ? (
               <details className="mt-2">
                 <summary className="cursor-pointer text-xs font-semibold text-bt-control">
                   {t("registrationDetail.fileSummary.preview")}
                 </summary>
-                <pre className="mt-2 max-h-52 overflow-auto whitespace-pre-wrap rounded-md bg-bt-graphite p-3 text-xs leading-5 text-white">
-                  {file.headContent}
-                </pre>
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <RevisionPreview
+                    content={file.baseContent}
+                    emptyText={t("registrationDetail.fileSummary.emptyBase")}
+                    title={t("registrationDetail.fileSummary.baseRevision")}
+                  />
+                  <RevisionPreview
+                    content={file.headContent}
+                    emptyText={t("registrationDetail.fileSummary.emptyHead")}
+                    title={t("registrationDetail.fileSummary.headRevision")}
+                  />
+                </div>
               </details>
             ) : null}
           </section>
@@ -692,6 +707,29 @@ function FileStatusBadge({
     >
       {t(`registrationDetail.fileSummary.status.${status}`)}
     </span>
+  );
+}
+
+function RevisionPreview({
+  content,
+  emptyText,
+  title,
+}: {
+  content: string;
+  emptyText: string;
+  title: string;
+}) {
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-2">
+      <h4 className="text-xs font-semibold text-bt-muted">{title}</h4>
+      {content ? (
+        <pre className="mt-1 max-h-52 overflow-auto whitespace-pre-wrap rounded-md bg-bt-graphite p-2 text-xs leading-5 text-white">
+          {content}
+        </pre>
+      ) : (
+        <p className="mt-1 text-xs text-bt-muted">{emptyText}</p>
+      )}
+    </section>
   );
 }
 

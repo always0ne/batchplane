@@ -202,6 +202,8 @@ from the approvals inbox. The registration detail screen must show pull request
 metadata, review state, governance checklist, YAML change summary for governed
 files, refresh action, and GitHub pull request link. Approval wording on this
 screen must be explicit that approval merges the registration pull request.
+Registration approve/reject actions are executed from this detail screen, not
+directly from the approvals list card.
 
 Approving an execution request must write an approval comment that starts with:
 

@@ -46,6 +46,7 @@
     "registration": "Registration changes"
   },
   "values": {
+    "gateApprovalBlocked": "Gate non-compliant requests cannot be approved.",
     "gateNonCompliant": "Non-compliant",
     "gateRequired": "Required before batch command",
     "selfApprovalBlocked": "Requester and approver must be different users.",
@@ -53,8 +54,10 @@
   },
   "states": {
     "empty": "No approvals are pending on {{branch}}.",
+    "githubLagHint": "GitHub issue/PR updates can take a few seconds to appear.",
     "loading": "Loading approval requests...",
-    "noSession": "Connect a GitHub repository before reviewing approvals."
+    "noSession": "Connect a GitHub repository before reviewing approvals.",
+    "registrationReviewHint": "Open registration detail to review checklist and decide merge or rejection."
   },
   "registrationDetail": {
     "title": "Registration approval detail",
@@ -69,9 +72,10 @@
     },
     "states": {
       "error": "Failed to load registration approval detail.",
+      "githubLagHint": "Recent GitHub updates can take a few seconds to appear.",
       "loading": "Loading registration approval detail...",
       "noSession": "Connect a GitHub repository before reviewing registration approvals.",
-      "notFound": "Registration PR #{{pullNumber}} was not found in the current approvals queue."
+      "notFound": "Registration PR #{{pullNumber}} was not found in this repository."
     },
     "checklist": {
       "title": "Governance checklist",
@@ -97,7 +101,11 @@
     "fileSummary": {
       "title": "YAML diff summary",
       "subtitle": "Compare base and head revisions for governed registration files.",
-      "preview": "Preview head revision",
+      "preview": "Compare revisions",
+      "baseRevision": "Base revision",
+      "headRevision": "Registration branch revision",
+      "emptyBase": "No file on base branch.",
+      "emptyHead": "No file on registration branch.",
       "status": {
         "ADDED": "Added",
         "UPDATED": "Updated",

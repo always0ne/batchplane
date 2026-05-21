@@ -280,6 +280,7 @@ export type ExecutionPort = {
 export type ApprovalPort = {
   listRegistrationRequests(params: {
     baseBranch: string;
+    state?: RepositoryPullRequestState;
   }): Promise<RepositoryPullRequest[]>;
   readRegistrationRequestFile(params: {
     path: string;

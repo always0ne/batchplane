@@ -89,11 +89,11 @@ export function createGitHubLiteRuntime(
         return comments.map(toRepositoryIssueComment);
       },
 
-      async listRegistrationRequests({ baseBranch }) {
+      async listRegistrationRequests({ baseBranch, state = "open" }) {
         const pullRequests = await client.listPullRequests({
           ...repositoryRef,
           base: baseBranch,
-          state: "open",
+          state,
         });
 
         return pullRequests.map(toRepositoryPullRequest);
