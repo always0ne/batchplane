@@ -232,17 +232,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch approved BatchPlane execution
-        uses: always0ne/batchtrail/actions/dispatcher@main
+        uses: always0ne/batchplane/actions/dispatcher@main
         with:
           issue-number: ${{ github.event.issue.number }}
           comment-id: ${{ github.event.comment.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-`always0ne/batchtrail` is the current action repository reference until the
-GitHub repository is explicitly renamed. After the rename, new generated
-workflows must switch the centralized action reference to
-`always0ne/batchplane`.
+`always0ne/batchplane` is the current action repository reference. Legacy target
+repositories that still reference `always0ne/batchtrail` depend on GitHub
+repository redirects until their setup artifacts are regenerated.
 
 The browser UI must not directly dispatch governed batch workflows in Lite mode.
 

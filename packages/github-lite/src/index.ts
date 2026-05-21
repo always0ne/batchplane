@@ -2664,7 +2664,7 @@ function buildMockBatchWorkflowYaml(batchId: string): string {
     "  batchplane-gate:",
     "    runs-on: ubuntu-latest",
     "    steps:",
-    "      - uses: always0ne/batchtrail/actions/gate@main",
+    "      - uses: always0ne/batchplane/actions/gate@main",
     "  run-batch:",
     "    needs: batchplane-gate",
     "    runs-on: ubuntu-latest",

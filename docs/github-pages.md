@@ -20,8 +20,7 @@ After the repository rename, the expected URL is:
 
 - `https://always0ne.github.io/batchplane/`
 
-Before the GitHub repository is renamed, the same workflow still deploys under
-the current repository path:
+Before the repository rename, the historical Pages path was:
 
 - `https://always0ne.github.io/batchtrail/`
 
@@ -34,7 +33,6 @@ the actual repository name before and after rename.
 ```bash
 pnpm --filter @batchplane/web build
 VITE_BASE_PATH=/batchplane/ pnpm --filter @batchplane/web build
-VITE_BASE_PATH=/batchtrail/ pnpm --filter @batchplane/web build
 VITE_BASE_PATH=/your-repo/ pnpm --filter @batchplane/web build
 ```
 

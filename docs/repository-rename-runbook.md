@@ -1,12 +1,11 @@
 # Repository Rename Runbook
 
 BatchPlane was selected after the BatchTrail name conflict review. The GitHub
-repository may be renamed from `always0ne/batchtrail` to
-`always0ne/batchplane`, but the rename must be performed as an explicit release
-operation because target repositories embed this repository in generated
-GitHub Actions workflows.
+repository has been renamed from `always0ne/batchtrail` to
+`always0ne/batchplane`. This document remains as the operational record because
+target repositories embed this repository in generated GitHub Actions workflows.
 
-## Pre-Rename State
+## Current State
 
 The codebase now emits BatchPlane-facing identifiers for new Lite artifacts:
 
@@ -26,26 +25,29 @@ Compatibility readers still accept legacy BatchTrail evidence:
 - `.github/workflows/batchtrail-dispatcher.yml`
 - `.github/workflows/batchtrail-sample-target.yml`
 
-The generated action reference intentionally remains centralized as
-`always0ne/batchtrail` until the GitHub repository is actually renamed.
+The generated action reference is centralized as `always0ne/batchplane`.
+Legacy target repositories that still reference `always0ne/batchtrail` depend on
+GitHub repository redirects until their setup artifacts are regenerated.
 
-## Rename Steps
+## Rename Completion Checklist
 
-1. Rename the GitHub repository to `batchplane` in GitHub repository settings.
-2. Confirm GitHub Pages is still configured to deploy through GitHub Actions.
-3. Verify the Pages deployment URL changes to:
+1. Confirm the GitHub repository is `always0ne/batchplane`.
+2. Confirm the local `origin` remote points at
+   `https://github.com/always0ne/batchplane.git`.
+3. Confirm GitHub Pages is still configured to deploy through GitHub Actions.
+4. Verify the Pages deployment URL is:
 
    ```text
    https://always0ne.github.io/batchplane/
    ```
 
-4. Change `batchPlaneActionRepository` in
-   `apps/web/src/shared/github-action-references.ts` from
-   `always0ne/batchtrail` to `always0ne/batchplane`.
-5. Rebuild and run the full local CI-equivalent checks.
-6. Test a fresh private target repository installation and one execution
+5. Keep `batchPlaneActionRepository` in
+   `apps/web/src/shared/github-action-references.ts` set to
+   `always0ne/batchplane`.
+6. Rebuild and run the full local CI-equivalent checks.
+7. Test a fresh private target repository installation and one execution
    approval cycle.
-7. Add a release note telling existing Lite users that old generated workflows
+8. Add a release note telling existing Lite users that old generated workflows
    can keep working through GitHub redirects, but new installation PRs emit
    BatchPlane identifiers.
 
