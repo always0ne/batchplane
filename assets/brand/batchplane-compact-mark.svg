@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">BatchPlane compact mark</title>
+  <desc id="desc">Compact BatchPlane mark with layered control planes and approved execution path.</desc>
+  <rect width="512" height="512" rx="96" fill="#20242A"/>
+  <path d="M256 88 L402 158 L256 228 L110 158 Z" fill="#119C8D"/>
+  <path d="M110 214 L256 284 L402 214 L402 264 L256 334 L110 264 Z" fill="#F5B841"/>
+  <path d="M110 320 L256 390 L402 320 L402 360 L256 430 L110 360 Z" fill="#58616C"/>
+  <path d="M132 158 C184 158 191 228 256 228 C321 228 328 320 380 320" fill="none" stroke="#E4572E" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="132" cy="158" r="24" fill="#F5B841"/>
+  <circle cx="256" cy="228" r="24" fill="#FFFFFF"/>
+  <circle cx="380" cy="320" r="24" fill="#119C8D"/>
+  <path d="M219 228 L247 256 L300 196" fill="none" stroke="#20242A" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

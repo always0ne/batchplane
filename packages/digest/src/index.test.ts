@@ -61,7 +61,7 @@ describe("canonicalize", () => {
       createRequestDigest({
         comments: ["looks good", "approved"],
         labels: ["batchtrail:execution-request", "priority:p0"],
-        markdownBody: "## BatchTrail Execution Request",
+        markdownBody: "## BatchPlane Execution Request",
         payload: canonicalExecutionRequestPayloadFixture,
       }),
     ).resolves.toBe(canonicalExecutionRequestDigestFixture);

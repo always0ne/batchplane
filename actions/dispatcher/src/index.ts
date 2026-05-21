@@ -90,17 +90,17 @@ export type DispatcherVerificationResult =
 const dispatcherLabels = {
   dispatched: {
     color: "16A34A",
-    description: "BatchTrail dispatcher completed workflow dispatch",
+    description: "BatchPlane dispatcher completed workflow dispatch",
     name: "batchtrail:dispatched",
   },
   dispatchFailed: {
     color: "DC2626",
-    description: "BatchTrail dispatcher failed workflow dispatch",
+    description: "BatchPlane dispatcher failed workflow dispatch",
     name: "batchtrail:dispatch-failed",
   },
   dispatching: {
     color: "2563EB",
-    description: "BatchTrail dispatcher is processing this execution request",
+    description: "BatchPlane dispatcher is processing this execution request",
     name: "batchtrail:dispatching",
   },
 } as const;
@@ -142,7 +142,7 @@ export async function dispatchApprovedExecutionRequest({
 
   if (command === "ignore") {
     return {
-      message: "Comment is not a BatchTrail dispatcher command.",
+      message: "Comment is not a BatchPlane dispatcher command.",
       reasonCode: "IGNORED_COMMENT",
       status: "ignored",
     };
@@ -246,7 +246,7 @@ export function verifyDispatcherEvidence({
   if (!request) {
     return {
       ok: false,
-      message: "BatchTrail execution request evidence was not found.",
+      message: "BatchPlane execution request evidence was not found.",
       reasonCode: "REQUEST_NOT_FOUND",
     };
   }
@@ -280,7 +280,7 @@ export function verifyDispatcherEvidence({
   if (!approval) {
     return {
       ok: false,
-      message: "BatchTrail execution approval evidence was not found.",
+      message: "BatchPlane execution approval evidence was not found.",
       reasonCode: "APPROVAL_NOT_FOUND",
     };
   }
@@ -335,7 +335,7 @@ export function parseExecutionRequestEvidence(
   issueBody: string,
 ): ExecutionRequestEvidence | null {
   const marker =
-    parseBatchTrailMarker(issueBody, "execution-request") ?? new Map();
+    parseBatchPlaneMarker(issueBody, "execution-request") ?? new Map();
   const requestId =
     marker.get("requestId") ?? readMarkdownField(issueBody, "Request ID");
   const batchId =
@@ -368,7 +368,7 @@ export function parseExecutionApprovalEvidence(
   commentBody: string,
 ): ExecutionApprovalEvidence | null {
   const marker =
-    parseBatchTrailMarker(commentBody, "execution-approval") ?? new Map();
+    parseBatchPlaneMarker(commentBody, "execution-approval") ?? new Map();
   const decision = marker.get("decision");
   const requestId =
     marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
@@ -399,8 +399,8 @@ export function parseDispatcherStatusEvidence(
   commentBody: string,
 ): DispatcherStatusEvidence | null {
   const marker =
-    parseBatchTrailMarker(commentBody, "bgcp:dispatcher") ??
-    parseBatchTrailMarker(commentBody, "execution-dispatch") ??
+    parseBatchPlaneMarker(commentBody, "bgcp:dispatcher") ??
+    parseBatchPlaneMarker(commentBody, "execution-dispatch") ??
     new Map<string, string>();
   const status = marker.get("status");
   const requestId =
@@ -430,7 +430,7 @@ export function parseDispatcherStatusEvidence(
   };
 }
 
-function parseBatchTrailMarker(
+function parseBatchPlaneMarker(
   body: string,
   kind: string,
 ): Map<string, string> | null {
@@ -746,7 +746,7 @@ function findExistingDispatchState({
 
 function buildDispatchingComment(dispatchPlan: DispatcherDispatchPlan): string {
   return [
-    "## BatchTrail Dispatch",
+    "## BatchPlane Dispatch",
     "",
     "- Status: DISPATCHING",
     `- Request ID: \`${dispatchPlan.requestId}\``,
@@ -768,7 +768,7 @@ function buildDispatchSuccessComment(
   dispatchPlan: DispatcherDispatchPlan,
 ): string {
   return [
-    "## BatchTrail Dispatch",
+    "## BatchPlane Dispatch",
     "",
     "- Status: DISPATCHED",
     `- Request ID: \`${dispatchPlan.requestId}\``,
@@ -792,7 +792,7 @@ function buildDispatchFailureComment(
   dispatchPlan?: DispatcherDispatchPlan,
 ) {
   return [
-    "## BatchTrail Dispatch",
+    "## BatchPlane Dispatch",
     "",
     "- Status: DISPATCH_FAILED",
     `- Reason code: ${reasonCode}`,

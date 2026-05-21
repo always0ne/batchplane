@@ -1,4 +1,4 @@
-import type { BatchTrailRuntimePorts } from "@batchtrail/domain";
+import type { BatchPlaneRuntimePorts } from "@batchtrail/domain";
 import {
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
@@ -84,9 +84,9 @@ export function readRuntimeSession(): GitHubSession | null {
     : mockRuntimeSession;
 }
 
-export function createBatchTrailRuntime(
+export function createBatchPlaneRuntime(
   session: GitHubSession,
-): BatchTrailRuntimePorts {
+): BatchPlaneRuntimePorts {
   const fixtureId = readRuntimeFixtureSelection();
 
   if (fixtureId === "live") {

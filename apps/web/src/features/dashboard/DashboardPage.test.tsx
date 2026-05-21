@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import type { BatchTrailRuntimePorts } from "@batchtrail/domain";
+import type { BatchPlaneRuntimePorts } from "@batchtrail/domain";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -46,7 +46,7 @@ describe("DashboardPage", () => {
 
     expect(
       await screen.findByText(
-        "Connect a GitHub repository to view Repo Mode control status.",
+        "Connect a GitHub repository to view Lite control status.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open setup" })).toHaveAttribute(
@@ -69,7 +69,7 @@ describe("DashboardPage", () => {
           url: "https://github.com/always0ne/batch",
         }),
       },
-    } as unknown as BatchTrailRuntimePorts;
+    } as unknown as BatchPlaneRuntimePorts;
 
     render(
       <MemoryRouter>

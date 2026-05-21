@@ -2,7 +2,7 @@
   "name": "batchtrail",
   "version": "0.0.0",
   "private": true,
-  "description": "Git-native batch control and audit platform. Repo Mode first, Control Plane later.",
+  "description": "BatchPlane batch control and audit platform. Git-backed Lite first, scheduler adapters later.",
   "packageManager": "pnpm@10.14.0",
   "engines": {
     "node": ">=20"

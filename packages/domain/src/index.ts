@@ -1,4 +1,4 @@
-export type BatchTrailApiVersion = "batchtrail.io/v1";
+export type BatchPlaneApiVersion = "batchtrail.io/v1";
 
 export type BatchStatus = "ACTIVE" | "INACTIVE";
 
@@ -312,7 +312,7 @@ export type SettingsPort = {
   }): Promise<RuntimeInstallationPullRequestResult>;
 };
 
-export type BatchTrailRuntimePorts = {
+export type BatchPlaneRuntimePorts = {
   approvals: ApprovalPort;
   audit: AuditPort;
   batches: BatchPort;
@@ -322,7 +322,7 @@ export type BatchTrailRuntimePorts = {
 };
 
 export type BatchGovernanceConfigFile = {
-  apiVersion: BatchTrailApiVersion;
+  apiVersion: BatchPlaneApiVersion;
   kind: "BatchGovernanceConfig";
   metadata: {
     repository?: string;
@@ -339,7 +339,7 @@ export type BatchGovernanceConfigFile = {
 };
 
 export type BatchDefinitionFile = {
-  apiVersion: BatchTrailApiVersion;
+  apiVersion: BatchPlaneApiVersion;
   kind: "BatchDefinition";
   metadata: {
     id: string;
@@ -363,7 +363,7 @@ export type BatchDefinitionFile = {
 };
 
 export type ApprovalPolicyFile = {
-  apiVersion: BatchTrailApiVersion;
+  apiVersion: BatchPlaneApiVersion;
   kind: "ApprovalPolicy";
   metadata: {
     id: string;
@@ -373,7 +373,7 @@ export type ApprovalPolicyFile = {
 };
 
 export type RoleMappingFile = {
-  apiVersion: BatchTrailApiVersion;
+  apiVersion: BatchPlaneApiVersion;
   kind: "RoleMapping";
   metadata: {
     id: string;
@@ -382,7 +382,7 @@ export type RoleMappingFile = {
 };
 
 export type ScheduleDefinitionFile = {
-  apiVersion: BatchTrailApiVersion;
+  apiVersion: BatchPlaneApiVersion;
   kind: "ScheduleDefinition";
   metadata: {
     id: string;
@@ -398,7 +398,7 @@ export type ScheduleDefinitionFile = {
 };
 
 export type ExecutionRequestPayload = {
-  apiVersion: BatchTrailApiVersion;
+  apiVersion: BatchPlaneApiVersion;
   kind: "ExecutionRequest";
   metadata: {
     requestId: string;
@@ -650,7 +650,7 @@ export function validateRoleMapping(
       diagnostics.push({
         code: "unexpected_role",
         field: `roles.${role}`,
-        message: `Role '${role}' is not a supported BatchTrail role.`,
+        message: `Role '${role}' is not a supported BatchPlane role.`,
         severity: "error",
       });
     });
@@ -750,7 +750,7 @@ export function parseYamlDocument(input: string): YamlParseResult {
       diagnostics.push({
         column: rawLine.indexOf("\t") + 1,
         line: lineNumber,
-        message: "Tabs are not supported in BatchTrail YAML indentation.",
+        message: "Tabs are not supported in BatchPlane YAML indentation.",
       });
       return;
     }
@@ -1164,7 +1164,7 @@ function validateGateRequired(
   diagnostics.push({
     code: value === undefined ? "required" : "gate_required",
     field: "gateRequired",
-    message: "gateRequired must be true for Repo Mode batches.",
+    message: "gateRequired must be true for Lite batches.",
     severity: "error",
   });
 }

@@ -5,7 +5,7 @@
   "tokenPolicy": "GitHub tokens are kept in sessionStorage only.",
   "github": {
     "title": "GitHub repository",
-    "subtitle": "Connect the repository that stores BatchTrail Repo Mode files.",
+    "subtitle": "Connect the repository that stores BatchPlane Lite files.",
     "owner": "Repository owner",
     "repo": "Repository name",
     "token": "GitHub token",
@@ -26,11 +26,11 @@
     "token": "Token"
   },
   "installation": {
-    "title": "Repo Mode installation",
+    "title": "Lite installation",
     "subtitle": "Install the dispatcher workflow and governance folders into the connected repository.",
     "idle": "Check the GitHub connection to inspect installation status.",
-    "checking": "Checking BatchTrail installation...",
-    "installed": "BatchTrail Repo Mode is installed.",
+    "checking": "Checking BatchPlane installation...",
+    "installed": "BatchPlane Lite is installed.",
     "missing": "Installation files are missing.",
     "creating": "Creating installation pull request...",
     "createPullRequest": "Create installation PR",

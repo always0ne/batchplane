@@ -29,7 +29,7 @@ export const canonicalExecutionRequestPayloadFixture: CanonicalValue = {
       owner: "ops-team",
     },
     expiresAt: "2026-05-13T02:00:00.000Z",
-    reason: "Manual request from BatchTrail Repo Mode.",
+    reason: "Manual request from BatchPlane Lite.",
     requestedAt: "2026-05-13T01:00:00.000Z",
     requestedBy: "developer",
     workflow: {
@@ -40,7 +40,7 @@ export const canonicalExecutionRequestPayloadFixture: CanonicalValue = {
 };
 
 export const canonicalExecutionRequestDigestFixture =
-  "sha256:c049d17f2ddf592f3fbedcd2adaff2cfcbe7fcc925a4532d0cbce4392e6806fe";
+  "sha256:1d03f50ceb52c2233a7ecf60c739c275f11975a7a156677fccc34f6f102cf9a9";
 
 export function canonicalize(value: CanonicalValue): string {
   return JSON.stringify(normalize(value));

@@ -92,7 +92,7 @@ export function parseYamlDocument(input: string): YamlParseResult {
       diagnostics.push({
         column: rawLine.indexOf("\t") + 1,
         line: lineNumber,
-        message: "Tabs are not supported in BatchTrail YAML indentation.",
+        message: "Tabs are not supported in BatchPlane YAML indentation.",
       });
       return;
     }

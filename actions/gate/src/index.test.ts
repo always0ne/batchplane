@@ -75,7 +75,7 @@ describe("Gate action runtime", () => {
       }),
     ).toEqual({
       message:
-        "GitHub Actions reruns are not authorized by BatchTrail. Create a new execution request or approved retry instead.",
+        "GitHub Actions reruns are not authorized by BatchPlane. Create a new execution request or approved retry instead.",
       reasonCode: "RERUN_NOT_AUTHORIZED",
       result: "DENY",
     });
@@ -102,7 +102,7 @@ describe("Gate action runtime", () => {
       }),
     ).resolves.toEqual({
       message:
-        "Workflow actor always0ne is not the BatchTrail dispatcher actor github-actions[bot].",
+        "Workflow actor always0ne is not the BatchPlane dispatcher actor github-actions[bot].",
       reasonCode: "DIRECT_DISPATCH_NOT_AUTHORIZED",
       result: "DENY",
     });
@@ -389,7 +389,7 @@ describe("Gate action runtime", () => {
     expect(process.exitCode).toBe(1);
     expect(readFileSync(outputPath, "utf8")).toContain("result=DENY");
     expect(readFileSync(summaryPath, "utf8")).toContain(
-      "## BatchTrail Gate Result",
+      "## BatchPlane Gate Result",
     );
   });
 });
@@ -402,7 +402,7 @@ function buildRequestIssueBody({
   workflowRef?: string;
 } = {}): string {
   return [
-    "## BatchTrail Execution Request",
+    "## BatchPlane Execution Request",
     "",
     `- Request ID: \`${requestId}\``,
     `- Batch ID: \`${batchId}\``,
@@ -462,7 +462,7 @@ function buildApprovalComment({
     body: [
       `/bgcp approve requestDigest=${commandDigest}`,
       "",
-      "## BatchTrail Execution Approval",
+      "## BatchPlane Execution Approval",
       "",
       "- Decision: APPROVED",
       `- Approver: @${approver}`,

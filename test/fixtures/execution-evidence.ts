@@ -24,7 +24,7 @@ export function buildExecutionIssueBody({
   workflowRef?: string;
 } = {}): string {
   return [
-    "## BatchTrail Execution Request",
+    "## BatchPlane Execution Request",
     "",
     `- Request ID: \`${requestId}\``,
     `- Batch ID: \`${batchId}\``,
@@ -83,7 +83,7 @@ export function buildExecutionApprovalCommentBody({
   return [
     `/bgcp approve requestDigest=${requestDigest}`,
     "",
-    "## BatchTrail Execution Approval",
+    "## BatchPlane Execution Approval",
     "",
     "- Decision: APPROVED",
     `- Approver: @${approver}`,
@@ -113,7 +113,7 @@ export function buildDispatchedCommentBody({
   status?: "DISPATCHED" | "DISPATCHING" | "DISPATCH_FAILED";
 } = {}): string {
   return [
-    "## BatchTrail Dispatch",
+    "## BatchPlane Dispatch",
     "",
     `- Status: ${status}`,
     `- Request ID: \`${requestId}\``,

@@ -1,7 +1,7 @@
 import type {
   AuditTimelineItem,
   BatchDefinition,
-  BatchTrailRuntimePorts,
+  BatchPlaneRuntimePorts,
   Repository,
   RepositoryIssue,
   RepositoryIssueComment,
@@ -34,7 +34,7 @@ import {
   LoadingState,
 } from "../../shared/components/PageState";
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
@@ -60,7 +60,7 @@ type DashboardSummary = {
 };
 
 type DashboardPageProps = {
-  createRuntime?: (session: GitHubSession) => BatchTrailRuntimePorts;
+  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   readSession?: () => GitHubSession | null;
 };
 
@@ -73,7 +73,7 @@ type DashboardCard = {
 };
 
 export function DashboardPage({
-  createRuntime = createBatchTrailRuntime,
+  createRuntime = createBatchPlaneRuntime,
   readSession = readRuntimeSession,
 }: DashboardPageProps = {}) {
   const { t } = useTranslation("dashboard");
@@ -197,7 +197,7 @@ function DashboardContent({ state }: { state: DashboardState }) {
       <EmptyState
         action={
           <Link
-            className="font-semibold text-bt-control underline"
+            className="font-semibold text-bp-control underline"
             to="/lite/setup"
           >
             {t("actions.openSetup")}
@@ -231,10 +231,10 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
         <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-bt-graphite">
+              <h2 className="text-lg font-semibold text-bp-graphite">
                 {t("connection.title")}
               </h2>
-              <p className="mt-2 text-sm text-bt-muted">
+              <p className="mt-2 text-sm text-bp-muted">
                 {summary.repository.owner}/{summary.repository.repo}
               </p>
             </div>
@@ -259,10 +259,10 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
           </dl>
         </article>
         <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-bt-graphite">
+          <h2 className="text-lg font-semibold text-bp-graphite">
             {t("readiness.title")}
           </h2>
-          <p className="mt-2 text-sm text-bt-muted">
+          <p className="mt-2 text-sm text-bp-muted">
             {summary.installationStatus.installed
               ? t("readiness.installed")
               : t("readiness.missing", {
@@ -271,13 +271,13 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
           </p>
           <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100">
             <div
-              className="h-full rounded-full bg-bt-control"
+              className="h-full rounded-full bg-bp-control"
               style={{
                 width: `${calculateReadinessPercent(summary.installationStatus)}%`,
               }}
             />
           </div>
-          <p className="mt-3 text-xs font-semibold text-bt-muted">
+          <p className="mt-3 text-xs font-semibold text-bp-muted">
             {t("readiness.paths", {
               present: summary.installationStatus.presentPaths.length,
               total: summary.installationStatus.requiredPaths.length,
@@ -296,22 +296,22 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
         <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-bt-graphite">
+              <h2 className="text-lg font-semibold text-bp-graphite">
                 {t("approvals.title")}
               </h2>
-              <p className="mt-2 text-sm text-bt-muted">
+              <p className="mt-2 text-sm text-bp-muted">
                 {t("approvals.summary", { count: pendingApprovals })}
               </p>
             </div>
             <Link
-              className="text-sm font-semibold text-bt-control underline"
+              className="text-sm font-semibold text-bp-control underline"
               to="/approvals"
             >
               {t("actions.viewApprovals")}
             </Link>
           </div>
           {pendingApprovals === 0 ? (
-            <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-sm font-medium text-bt-muted">
+            <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-sm font-medium text-bp-muted">
               {t("approvals.empty")}
             </p>
           ) : (
@@ -334,14 +334,14 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
                 .map((item) => (
                   <li className="py-3" key={item.key}>
                     <a
-                      className="text-sm font-semibold text-bt-graphite hover:text-bt-control"
+                      className="text-sm font-semibold text-bp-graphite hover:text-bp-control"
                       href={item.url}
                       rel="noreferrer"
                       target="_blank"
                     >
                       {item.title}
                     </a>
-                    <p className="mt-1 text-xs font-semibold text-bt-muted">
+                    <p className="mt-1 text-xs font-semibold text-bp-muted">
                       {item.meta}
                     </p>
                   </li>
@@ -354,22 +354,22 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
           className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
           id="recent-audit"
         >
-          <h2 className="text-lg font-semibold text-bt-graphite">
+          <h2 className="text-lg font-semibold text-bp-graphite">
             {t("audit.title")}
           </h2>
-          <p className="mt-2 text-sm text-bt-muted">{t("audit.subtitle")}</p>
+          <p className="mt-2 text-sm text-bp-muted">{t("audit.subtitle")}</p>
           {summary.auditItems.length === 0 ? (
-            <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-sm font-medium text-bt-muted">
+            <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-sm font-medium text-bp-muted">
               {t("audit.empty")}
             </p>
           ) : (
             <ul className="mt-5 divide-y divide-slate-100">
               {summary.auditItems.map((item) => (
                 <li className="py-3" key={item.itemId}>
-                  <p className="text-sm font-semibold text-bt-graphite">
+                  <p className="text-sm font-semibold text-bp-graphite">
                     {item.summary}
                   </p>
-                  <p className="mt-1 text-xs font-semibold text-bt-muted">
+                  <p className="mt-1 text-xs font-semibold text-bp-muted">
                     {item.actor} - {item.occurredAt}
                   </p>
                 </li>
@@ -385,8 +385,8 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
 function DashboardFact({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase text-bt-muted">{label}</dt>
-      <dd className="mt-1 truncate text-sm font-bold text-bt-graphite">
+      <dt className="text-xs font-semibold uppercase text-bp-muted">{label}</dt>
+      <dd className="mt-1 truncate text-sm font-bold text-bp-graphite">
         {value}
       </dd>
     </div>
@@ -400,7 +400,7 @@ function DashboardCardView({ card }: { card: DashboardCard }) {
     "rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition";
   const toneClassName = {
     danger: "text-red-700",
-    neutral: "text-bt-muted",
+    neutral: "text-bp-muted",
     success: "text-emerald-700",
     warning: "text-amber-700",
   }[card.tone];
@@ -408,13 +408,13 @@ function DashboardCardView({ card }: { card: DashboardCard }) {
   const content = (
     <>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-bt-muted">
+        <p className="text-sm font-medium text-bp-muted">
           {t(`cards.${card.key}`)}
         </p>
         <Icon className={`h-5 w-5 ${toneClassName}`} aria-hidden="true" />
       </div>
-      <p className="mt-4 text-3xl font-bold text-bt-graphite">{card.value}</p>
-      <p className="mt-2 text-xs font-semibold text-bt-muted">
+      <p className="mt-4 text-3xl font-bold text-bp-graphite">{card.value}</p>
+      <p className="mt-2 text-xs font-semibold text-bp-muted">
         {t(`cardHints.${card.key}`)}
       </p>
     </>
@@ -423,7 +423,7 @@ function DashboardCardView({ card }: { card: DashboardCard }) {
   if (card.to) {
     return (
       <Link
-        className={`${cardClassName} hover:border-bt-git hover:shadow-md`}
+        className={`${cardClassName} hover:border-bp-git hover:shadow-md`}
         to={card.to}
       >
         {content}

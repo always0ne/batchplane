@@ -1,5 +1,5 @@
-name: BatchTrail Dispatcher
-description: Dispatch approved BatchTrail Repo Mode execution requests.
+name: BatchPlane Dispatcher
+description: Dispatch approved BatchPlane Lite execution requests.
 inputs:
   issue-number:
     required: true
@@ -10,7 +10,7 @@ inputs:
   config-path:
     required: false
     default: .batch-governance
-    description: BatchTrail repository config path
+    description: BatchPlane repository config path
   github-token:
     required: true
     description: GitHub token used by the dispatcher workflow

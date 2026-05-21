@@ -1,4 +1,4 @@
-import type { BatchTrailRuntimePorts } from "@batchtrail/domain";
+import type { BatchPlaneRuntimePorts } from "@batchtrail/domain";
 import {
   CheckCircle2,
   ExternalLink,
@@ -26,13 +26,13 @@ import {
   LoadingState,
 } from "../../shared/components/PageState";
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
 
 type ExecutionRequestDetailPageProps = {
-  createRuntime?: (session: GitHubSession) => BatchTrailRuntimePorts;
+  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   readSession?: () => GitHubSession | null;
 };
 
@@ -56,7 +56,7 @@ type ActionState =
   | { type: "error"; message: string };
 
 export function ExecutionRequestDetailPage({
-  createRuntime = createBatchTrailRuntime,
+  createRuntime = createBatchPlaneRuntime,
   readSession = readRuntimeSession,
 }: ExecutionRequestDetailPageProps = {}) {
   const { issueNumber = "" } = useParams();
@@ -227,7 +227,7 @@ export function ExecutionRequestDetailPage({
       <EmptyState
         action={
           <Link
-            className="font-semibold text-bt-control underline"
+            className="font-semibold text-bp-control underline"
             to="/lite/setup"
           >
             {t("actions.openSetup")}
@@ -243,7 +243,7 @@ export function ExecutionRequestDetailPage({
       <EmptyState
         action={
           <Link
-            className="font-semibold text-bt-control underline"
+            className="font-semibold text-bp-control underline"
             to="/approvals"
           >
             {t("detail.actions.backToApprovals")}
@@ -277,13 +277,13 @@ export function ExecutionRequestDetailPage({
         />
         <div className="flex flex-wrap gap-2">
           <Link
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
             to="/approvals"
           >
             {t("detail.actions.backToApprovals")}
           </Link>
           <a
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
             href={request.issue.url}
             rel="noreferrer"
             target="_blank"
@@ -292,7 +292,7 @@ export function ExecutionRequestDetailPage({
             {t("detail.actions.openIssue")}
           </a>
           <button
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
             disabled={isBusy}
             onClick={() => setReloadToken((current) => current + 1)}
             type="button"
@@ -318,10 +318,10 @@ export function ExecutionRequestDetailPage({
 
           {isActionable ? (
             <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-bt-graphite">
+              <h2 className="text-base font-bold text-bp-graphite">
                 {t("detail.actions.title")}
               </h2>
-              <p className="mt-2 text-sm text-bt-muted">
+              <p className="mt-2 text-sm text-bp-muted">
                 {t("detail.actions.note")}
               </p>
               <ExecutionApprovalActions
@@ -343,10 +343,10 @@ export function ExecutionRequestDetailPage({
             </article>
           ) : (
             <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-bt-graphite">
+              <h2 className="text-base font-bold text-bp-graphite">
                 {t("detail.actions.closedTitle")}
               </h2>
-              <p className="mt-2 text-sm font-semibold text-bt-muted">
+              <p className="mt-2 text-sm font-semibold text-bp-muted">
                 {t(`detail.statusHelp.${request.status}`)}
               </p>
             </article>
@@ -370,8 +370,8 @@ function SummaryPanel({
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-bt-git" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-bt-graphite">
+          <FileText className="h-5 w-5 text-bp-git" aria-hidden="true" />
+          <h2 className="text-lg font-semibold text-bp-graphite">
             #{request.issue.number} {request.issue.title}
           </h2>
         </div>
@@ -421,7 +421,7 @@ function DecisionMaterial({ request }: { request: ExecutionApprovalRequest }) {
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bt-graphite">
+      <h2 className="text-base font-bold text-bp-graphite">
         {t("detail.material.title")}
       </h2>
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -431,10 +431,10 @@ function DecisionMaterial({ request }: { request: ExecutionApprovalRequest }) {
             value={request.reason || "-"}
           />
           <div>
-            <p className="text-xs font-semibold uppercase text-bt-muted">
+            <p className="text-xs font-semibold uppercase text-bp-muted">
               {t("detail.fields.command")}
             </p>
-            <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap rounded-md bg-bt-graphite p-3 text-xs leading-5 text-white">
+            <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap rounded-md bg-bp-graphite p-3 text-xs leading-5 text-white">
               {request.execution?.command || "-"}
             </pre>
           </div>
@@ -468,7 +468,7 @@ function GovernancePanel({ request }: { request: ExecutionApprovalRequest }) {
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bt-graphite">
+      <h2 className="text-base font-bold text-bp-graphite">
         {t("detail.governance.title")}
       </h2>
       <ul className="mt-4 space-y-2 text-sm">
@@ -498,10 +498,10 @@ function DispatcherPanel({ request }: { request: ExecutionApprovalRequest }) {
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bt-graphite">
+      <h2 className="text-base font-bold text-bp-graphite">
         {t("detail.dispatcher.title")}
       </h2>
-      <p className="mt-2 text-sm text-bt-muted">
+      <p className="mt-2 text-sm text-bp-muted">
         {t("detail.dispatcher.noBrowserDispatch")}
       </p>
       <dl className="mt-4 grid gap-3 text-sm">
@@ -532,7 +532,7 @@ function DispatcherPanel({ request }: { request: ExecutionApprovalRequest }) {
           />
         ) : null}
       </dl>
-      <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bt-muted">
+      <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bp-muted">
         {t(`detail.statusHelp.${request.status}`)}
       </p>
     </article>
@@ -548,10 +548,10 @@ function CanonicalPayloadPanel({
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bt-graphite">
+      <h2 className="text-base font-bold text-bp-graphite">
         {t("detail.payload.title")}
       </h2>
-      <pre className="mt-4 max-h-96 overflow-auto rounded-md bg-bt-graphite p-4 text-xs leading-6 text-white">
+      <pre className="mt-4 max-h-96 overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
         <code>
           {request.canonicalPayload
             ? JSON.stringify(request.canonicalPayload, null, 2)
@@ -565,10 +565,10 @@ function CanonicalPayloadPanel({
 function DetailFact({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-slate-50 px-3 py-2">
-      <dt className="text-xs font-semibold uppercase tracking-normal text-bt-muted">
+      <dt className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
         {label}
       </dt>
-      <dd className="mt-1 break-all font-mono text-xs font-semibold text-bt-graphite">
+      <dd className="mt-1 break-all font-mono text-xs font-semibold text-bp-graphite">
         {value}
       </dd>
     </div>
@@ -578,8 +578,8 @@ function DetailFact({ label, value }: { label: string; value: string }) {
 function TextBlock({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase text-bt-muted">{label}</p>
-      <p className="mt-1 text-sm font-medium text-bt-graphite">{value}</p>
+      <p className="text-xs font-semibold uppercase text-bp-muted">{label}</p>
+      <p className="mt-1 text-sm font-medium text-bp-graphite">{value}</p>
     </div>
   );
 }
@@ -589,7 +589,7 @@ function CheckRow({ ok, text }: { ok: boolean; text: string }) {
 
   return (
     <li
-      className={`flex items-start gap-2 ${ok ? "text-bt-graphite" : "text-red-800"}`}
+      className={`flex items-start gap-2 ${ok ? "text-bp-graphite" : "text-red-800"}`}
     >
       <Icon
         className={`mt-0.5 h-4 w-4 shrink-0 ${ok ? "text-emerald-700" : "text-red-700"}`}

@@ -62,12 +62,11 @@ export function buildLiteInstallationFiles(): LiteInstallationFile[] {
     },
     {
       path: ".batch-governance/batches/.gitkeep",
-      content: "Batch definitions created by BatchTrail Repo Mode live here.\n",
+      content: "Batch definitions created by BatchPlane Lite live here.\n",
     },
     {
       path: ".batch-governance/schedules/.gitkeep",
-      content:
-        "Schedule definitions created by BatchTrail Repo Mode live here.\n",
+      content: "Schedule definitions created by BatchPlane Lite live here.\n",
     },
   ];
 }
@@ -112,7 +111,7 @@ export async function createLiteInstallationPullRequest({
   });
 
   if (status.installed) {
-    throw new Error("BatchTrail Repo Mode is already installed.");
+    throw new Error("BatchPlane Lite is already installed.");
   }
 
   const branch = createLiteInstallationBranchName(date);
@@ -168,26 +167,26 @@ export function createLiteInstallationBranchName(date = new Date()): string {
 }
 
 export function buildLiteInstallationPullRequestTitle(): string {
-  return "Install BatchTrail Repo Mode";
+  return "Install BatchPlane Lite";
 }
 
 export function buildLiteInstallationPullRequestBody(missingPaths: string[]) {
   return [
-    "## BatchTrail Repo Mode Installation",
+    "## BatchPlane Lite Installation",
     "",
-    "This pull request installs the repository-side files required by BatchTrail GitHub Lite.",
+    "This pull request installs the repository-side files required by BatchPlane GitHub Lite.",
     "",
     "### Added files",
     "",
     ...missingPaths.map((path) => `- \`${path}\``),
     "",
-    "After this pull request is merged, BatchTrail approval comments can trigger the repository dispatcher workflow. The browser UI still creates requests and approval evidence; runtime dispatch remains owned by this repository workflow.",
+    "After this pull request is merged, BatchPlane approval comments can trigger the repository dispatcher workflow. The browser UI still creates requests and approval evidence; runtime dispatch remains owned by this repository workflow.",
   ].join("\n");
 }
 
 export function buildDispatcherWorkflowYaml(): string {
   return [
-    "name: BatchTrail Dispatcher",
+    "name: BatchPlane Dispatcher",
     "",
     "on:",
     "  issue_comment:",
@@ -207,7 +206,7 @@ export function buildDispatcherWorkflowYaml(): string {
     "    if: startsWith(github.event.comment.body, '/bgcp approve ')",
     "    runs-on: ubuntu-latest",
     "    steps:",
-    "      - name: Dispatch approved BatchTrail execution",
+    "      - name: Dispatch approved BatchPlane execution",
     "        uses: always0ne/batchtrail/actions/dispatcher@main",
     "        with:",
     "          issue-number: ${{ github.event.issue.number }}",
@@ -219,21 +218,21 @@ export function buildDispatcherWorkflowYaml(): string {
 
 export function buildSampleTargetWorkflowYaml(): string {
   return [
-    "name: BatchTrail Sample Target",
+    "name: BatchPlane Sample Target",
     "",
     "on:",
     "  workflow_dispatch:",
     "    inputs:",
     "      request_id:",
-    "        description: BatchTrail execution request ID",
+    "        description: BatchPlane execution request ID",
     "        required: true",
     "        type: string",
     "      batch_id:",
-    "        description: BatchTrail batch ID",
+    "        description: BatchPlane batch ID",
     "        required: true",
     "        type: string",
     "      request_digest:",
-    "        description: BatchTrail approved request digest",
+    "        description: BatchPlane approved request digest",
     "        required: true",
     "        type: string",
     "",
@@ -243,7 +242,7 @@ export function buildSampleTargetWorkflowYaml(): string {
     "",
     "jobs:",
     "  batchtrail-gate:",
-    "    name: BatchTrail Gate",
+    "    name: BatchPlane Gate",
     "    runs-on: ubuntu-latest",
     "    steps:",
     "      - name: Verify approved execution evidence",
@@ -266,16 +265,16 @@ export function buildSampleTargetWorkflowYaml(): string {
     "      - name: Checkout",
     "        uses: actions/checkout@v4",
     "      - name: Sample command",
-    '        run: echo "BatchTrail approved sample execution"',
+    '        run: echo "BatchPlane approved sample execution"',
     "",
   ].join("\n");
 }
 
 function buildGovernanceReadme(): string {
   return [
-    "# BatchTrail Governance",
+    "# BatchPlane Governance",
     "",
-    "This directory stores BatchTrail Repo Mode definitions and audit evidence that are reviewed through GitHub pull requests and issues.",
+    "This directory stores BatchPlane Lite definitions and audit evidence that are reviewed through GitHub pull requests and issues.",
     "",
     "- `batches/`: approved batch definitions and optional execution artifacts",
     "- `schedules/`: approved schedule definitions",

@@ -32,7 +32,7 @@ const executionIssue: RepositoryIssue = {
   number: 34,
   title: "Run batch payment.daily-close",
   body: [
-    "## BatchTrail Execution Request",
+    "## BatchPlane Execution Request",
     "",
     "- Request ID: `btr-20260509010203-payment.daily-close-abcdef12`",
     "- Batch ID: `payment.daily-close`",
@@ -100,7 +100,7 @@ const approvalComment: RepositoryIssueComment = {
   body: [
     "/bgcp approve requestDigest=sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
     "",
-    "## BatchTrail Execution Approval",
+    "## BatchPlane Execution Approval",
     "",
     "- Decision: APPROVED",
     "- Approver: @maintainer",
@@ -124,7 +124,7 @@ const approvalComment: RepositoryIssueComment = {
 const dispatcherComment: RepositoryIssueComment = {
   author: "github-actions[bot]",
   body: [
-    "## BatchTrail Dispatcher DISPATCHED",
+    "## BatchPlane Dispatcher DISPATCHED",
     "",
     "- Status: DISPATCHED",
     "- Request ID: `btr-20260509010203-payment.daily-close-abcdef12`",

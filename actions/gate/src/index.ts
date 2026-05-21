@@ -72,7 +72,7 @@ export function verifyLiteInput(input: GateInput): GateResult {
       result: "DENY",
       reasonCode: "RERUN_NOT_AUTHORIZED",
       message:
-        "GitHub Actions reruns are not authorized by BatchTrail. Create a new execution request or approved retry instead.",
+        "GitHub Actions reruns are not authorized by BatchPlane. Create a new execution request or approved retry instead.",
     };
   }
 
@@ -118,7 +118,7 @@ export async function verifyLiteAuthorization(
     return {
       result: "DENY",
       reasonCode: "DIRECT_DISPATCH_NOT_AUTHORIZED",
-      message: `Workflow actor ${input.actor} is not the BatchTrail dispatcher actor ${expectedActor}.`,
+      message: `Workflow actor ${input.actor} is not the BatchPlane dispatcher actor ${expectedActor}.`,
     };
   }
 
@@ -311,13 +311,13 @@ export async function runGateFromEnv(
   writeGateSummary(result, input, env);
 
   if (result.result === "DENY") {
-    console.error(`BatchTrail Gate denied execution: ${result.reasonCode}`);
+    console.error(`BatchPlane Gate denied execution: ${result.reasonCode}`);
     console.error(result.message);
     process.exitCode = 1;
     return result;
   }
 
-  console.log(`BatchTrail Gate allowed execution: ${result.message}`);
+  console.log(`BatchPlane Gate allowed execution: ${result.message}`);
   return result;
 }
 
@@ -512,7 +512,7 @@ async function validateBatchPolicyEvidence({
   if (!snapshot.gateRequired) {
     return deny(
       "GATE_REQUIRED",
-      `Batch ${batchId} does not enforce BatchTrail Gate.`,
+      `Batch ${batchId} does not enforce BatchPlane Gate.`,
     );
   }
 
@@ -886,7 +886,7 @@ function parseRepository(repository: string): { owner: string; repo: string } {
 function parseExecutionRequestEvidence(
   issueBody: string,
 ): ExecutionRequestEvidence | null {
-  const marker = parseBatchTrailMarker(issueBody, "execution-request");
+  const marker = parseBatchPlaneMarker(issueBody, "execution-request");
   const requestId =
     marker.get("requestId") ?? readMarkdownField(issueBody, "Request ID");
   const batchId =
@@ -928,7 +928,7 @@ function parseExecutionApprovalEvidence(
   }
 
   const command = parseApprovalCommand(commentBody);
-  const marker = parseBatchTrailMarker(commentBody, "execution-approval");
+  const marker = parseBatchPlaneMarker(commentBody, "execution-approval");
   const decision = marker.get("decision");
   const requestId =
     marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
@@ -1154,7 +1154,7 @@ function writeGateSummary(
   }
 
   const lines = [
-    "## BatchTrail Gate Result",
+    "## BatchPlane Gate Result",
     "",
     `- Result: ${result.result}`,
     `- Reason code: ${result.reasonCode ?? "N/A"}`,
@@ -1172,7 +1172,7 @@ function escapeOutputValue(value: string): string {
   return value.replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
 
-function parseBatchTrailMarker(
+function parseBatchPlaneMarker(
   body: string,
   kind: string,
 ): Map<string, string> {

@@ -1,8 +1,8 @@
 {
   "app": {
-    "name": "BatchTrail",
-    "edition": "Repo Mode",
-    "tagline": "Git-native Batch Control & Audit"
+    "name": "BatchPlane",
+    "edition": "Lite",
+    "tagline": "Git-backed batch control and audit"
   },
   "devRuntime": {
     "label": "Fixture",

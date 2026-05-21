@@ -541,7 +541,7 @@ describe("createGitHubLiteClient", () => {
           label: {
             name: "batchtrail:dispatched",
             color: "059669",
-            description: "BatchTrail request was dispatched",
+            description: "BatchPlane request was dispatched",
           },
         },
       ]);
@@ -563,7 +563,7 @@ describe("createGitHubLiteClient", () => {
         label: {
           name: "batchtrail:dispatched",
           color: "059669",
-          description: "BatchTrail request was dispatched",
+          description: "BatchPlane request was dispatched",
         },
       },
     ]);
@@ -584,7 +584,7 @@ describe("createGitHubLiteClient", () => {
           {
             name: "batchtrail:execution-request",
             color: "0F766E",
-            description: "BatchTrail execution request",
+            description: "BatchPlane execution request",
           },
         ]);
       }
@@ -592,7 +592,7 @@ describe("createGitHubLiteClient", () => {
       return Response.json({
         name: "batchtrail:dispatching",
         color: "2563EB",
-        description: "BatchTrail request is dispatching",
+        description: "BatchPlane request is dispatching",
       });
     };
     const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
@@ -603,7 +603,7 @@ describe("createGitHubLiteClient", () => {
       {
         name: "batchtrail:execution-request",
         color: "0F766E",
-        description: "BatchTrail execution request",
+        description: "BatchPlane execution request",
       },
     ]);
 
@@ -613,12 +613,12 @@ describe("createGitHubLiteClient", () => {
         repo: "batchtrail",
         name: "batchtrail:dispatching",
         color: "2563EB",
-        description: "BatchTrail request is dispatching",
+        description: "BatchPlane request is dispatching",
       }),
     ).resolves.toEqual({
       name: "batchtrail:dispatching",
       color: "2563EB",
-      description: "BatchTrail request is dispatching",
+      description: "BatchPlane request is dispatching",
     });
 
     expect(requests[0]?.input.toString()).toBe(
@@ -630,7 +630,7 @@ describe("createGitHubLiteClient", () => {
     expect(JSON.parse(requests[1]?.init?.body?.toString() ?? "{}")).toEqual({
       name: "batchtrail:dispatching",
       color: "2563EB",
-      description: "BatchTrail request is dispatching",
+      description: "BatchPlane request is dispatching",
     });
   });
 
@@ -767,7 +767,7 @@ describe("createGitHubLiteClient", () => {
 });
 
 describe("createMockGitHubLiteClient", () => {
-  it("provides execution fixtures for every BatchTrail request state", () => {
+  it("provides execution fixtures for every BatchPlane request state", () => {
     const state = createGitHubLiteMockState();
 
     expect(
@@ -1241,7 +1241,7 @@ function buildExecutionRequestBody({
   requestId,
 }: ReturnType<typeof createExecutionRequestFixture>): string {
   return [
-    "## BatchTrail Execution Request",
+    "## BatchPlane Execution Request",
     "",
     `- Request ID: \`${requestId}\``,
     `- Batch ID: \`${batchId}\``,
@@ -1268,7 +1268,7 @@ function buildExecutionApprovalComment({
   return [
     `/bgcp approve requestDigest=${requestDigest}`,
     "",
-    "## BatchTrail Execution Approval",
+    "## BatchPlane Execution Approval",
     "",
     "- Decision: APPROVED",
     "- Approver: @maintainer",
@@ -1292,7 +1292,7 @@ function buildExecutionRejectionComment({
   requestId,
 }: ReturnType<typeof createExecutionRequestFixture>): string {
   return [
-    "## BatchTrail Execution Approval",
+    "## BatchPlane Execution Approval",
     "",
     "- Decision: REJECTED",
     "- Rejector: @maintainer",
@@ -1319,7 +1319,7 @@ function buildDispatcherStatusComment(
   status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED",
 ): string {
   return [
-    `## BatchTrail Dispatcher ${status}`,
+    `## BatchPlane Dispatcher ${status}`,
     "",
     `- Status: ${status}`,
     `- Request ID: \`${requestId}\``,

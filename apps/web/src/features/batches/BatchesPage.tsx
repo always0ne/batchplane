@@ -11,7 +11,7 @@ import {
   LoadingState,
 } from "../../shared/components/PageState";
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
@@ -46,7 +46,7 @@ export function BatchesPage() {
       setState({ type: "loading" });
 
       try {
-        const runtime = createBatchTrailRuntime(session);
+        const runtime = createBatchPlaneRuntime(session);
         const repository = await runtime.settings.getRepository();
         const batches = await runtime.batches.listBatchDefinitions({
           ref: repository.defaultBranch,
@@ -79,7 +79,7 @@ export function BatchesPage() {
         <PageHeader title={t("title")} subtitle={t("subtitle")} />
         <div className="flex flex-wrap gap-3">
           <button
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bt-graphite disabled:cursor-not-allowed disabled:text-slate-400"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bp-graphite disabled:cursor-not-allowed disabled:text-slate-400"
             disabled={state.type === "loading"}
             onClick={() => setReloadToken((current) => current + 1)}
             type="button"
@@ -92,7 +92,7 @@ export function BatchesPage() {
             {t("actions.refresh")}
           </button>
           <Link
-            className="inline-flex items-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-2 rounded-md bg-bp-control px-4 py-2 text-sm font-semibold text-white"
             to="/batches/new"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -117,7 +117,7 @@ function BatchListContent({ state }: { state: BatchListState }) {
       <EmptyState
         action={
           <Link
-            className="font-semibold text-bt-control underline"
+            className="font-semibold text-bp-control underline"
             to="/lite/setup"
           >
             {t("actions.openSetup")}
@@ -143,7 +143,7 @@ function BatchListContent({ state }: { state: BatchListState }) {
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-[1040px] border-collapse text-left">
-        <thead className="bg-slate-50 text-sm text-bt-muted">
+        <thead className="bg-slate-50 text-sm text-bp-muted">
           <tr>
             <th className="px-4 py-3 font-semibold">{t("table.batchId")}</th>
             <th className="px-4 py-3 font-semibold">{t("table.name")}</th>
@@ -172,38 +172,38 @@ function BatchListContent({ state }: { state: BatchListState }) {
 
             return (
               <tr key={batch.batchId}>
-                <td className="px-4 py-4 font-mono text-sm text-bt-graphite">
+                <td className="px-4 py-4 font-mono text-sm text-bp-graphite">
                   <Link
-                    className="font-semibold text-bt-control underline"
+                    className="font-semibold text-bp-control underline"
                     to={`/batches/${encodeURIComponent(batch.batchId)}`}
                   >
                     {batch.batchId}
                   </Link>
                 </td>
-                <td className="px-4 py-4 text-sm font-semibold text-bt-graphite">
+                <td className="px-4 py-4 text-sm font-semibold text-bp-graphite">
                   {batch.name}
                 </td>
-                <td className="px-4 py-4 text-sm text-bt-graphite">
+                <td className="px-4 py-4 text-sm text-bp-graphite">
                   {batch.owner}
                 </td>
-                <td className="px-4 py-4 text-sm text-bt-graphite">
+                <td className="px-4 py-4 text-sm text-bp-graphite">
                   {batch.environment}
                 </td>
-                <td className="px-4 py-4 text-sm text-bt-graphite">
+                <td className="px-4 py-4 text-sm text-bp-graphite">
                   {batch.criticality}
                 </td>
-                <td className="px-4 py-4 text-sm text-bt-graphite">
+                <td className="px-4 py-4 text-sm text-bp-graphite">
                   {batch.status}
                 </td>
-                <td className="px-4 py-4 text-sm text-bt-graphite">
+                <td className="px-4 py-4 text-sm text-bp-graphite">
                   {batch.gateRequired
                     ? t("values.required")
                     : t("values.gateMissing")}
                 </td>
-                <td className="px-4 py-4 text-sm text-bt-graphite">
+                <td className="px-4 py-4 text-sm text-bp-graphite">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
-                      className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                      className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
                       to={`/batches/${encodeURIComponent(batch.batchId)}`}
                     >
                       {t("actions.viewDetails")}
@@ -220,7 +220,7 @@ function BatchListContent({ state }: { state: BatchListState }) {
                       </button>
                     ) : (
                       <Link
-                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
                         title={t("actions.requestRun")}
                         to={requestPath}
                       >

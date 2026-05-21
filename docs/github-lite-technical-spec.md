@@ -28,7 +28,7 @@ must not persist placeholder paths such as `new-batch.yml`.
 
 GitHub Lite is installed into a target repository by a setup pull request. The
 browser UI creates the setup branch and pull request; a repository maintainer
-reviews and merges it through GitHub. BatchTrail execution control starts after
+reviews and merges it through GitHub. BatchPlane execution control starts after
 that installation PR is merged.
 
 The setup flow checks these required files on the default branch:
@@ -49,7 +49,7 @@ batchtrail/install/repo-mode-{yyyyMMddHHmmss}
 and open a pull request titled:
 
 ```text
-Install BatchTrail Repo Mode
+Install BatchPlane Lite
 ```
 
 The browser UI must not directly write installation files to the default branch.
@@ -106,7 +106,7 @@ available after checkout.
 
 The Gate action must deny direct GitHub Actions reruns by default. When
 `GITHUB_RUN_ATTEMPT` is greater than `1`, Gate returns
-`RERUN_NOT_AUTHORIZED`. Retrying a governed batch requires a new BatchTrail
+`RERUN_NOT_AUTHORIZED`. Retrying a governed batch requires a new BatchPlane
 execution request or a future explicit retry-approval flow.
 
 The Gate action must not trust `workflow_dispatch` inputs alone. The generated
@@ -137,7 +137,7 @@ Manual request payload:
     "requestedBy": "developer",
     "requestedAt": "2026-05-09T01:02:03.000Z",
     "expiresAt": "2026-05-09T02:02:03.000Z",
-    "reason": "Manual request from BatchTrail Repo Mode.",
+    "reason": "Manual request from BatchPlane Lite.",
     "batch": {
       "name": "Daily Close",
       "owner": "ops-team",
@@ -205,7 +205,7 @@ comments and invokes `actions/dispatcher`.
 Minimum dispatcher workflow:
 
 ```yaml
-name: BatchTrail Dispatcher
+name: BatchPlane Dispatcher
 
 on:
   issue_comment:
@@ -225,7 +225,7 @@ jobs:
     if: startsWith(github.event.comment.body, '/bgcp approve ')
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch approved BatchTrail execution
+      - name: Dispatch approved BatchPlane execution
         uses: always0ne/batchtrail/actions/dispatcher@main
         with:
           issue-number: ${{ github.event.issue.number }}
@@ -239,7 +239,7 @@ The dispatcher workflow is responsible for:
 
 - reading the triggering issue comment
 - reading the execution request issue body
-- verifying BatchTrail evidence
+- verifying BatchPlane evidence
 - serializing dispatch attempts for the same execution request issue
 - ignoring requests that already have `batchtrail:dispatching` or
   `batchtrail:dispatched` state evidence
