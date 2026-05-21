@@ -84,6 +84,9 @@ describe("Lite installation model", () => {
         }
         if (path === liteSampleTargetWorkflowPath) {
           expect(content).toContain("workflow_dispatch:");
+          expect(content).toContain(
+            "run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}",
+          );
           expect(content).toContain("request_id:");
           expect(content).toContain("request_digest:");
           expect(content).toContain("batchplane-gate:");

@@ -48,6 +48,7 @@ describe("runtime fixtures", () => {
   it.each([
     { fixture: "happy-path", expectedState: "dispatched" },
     { fixture: "approval-pending", expectedState: "requested" },
+    { fixture: "business-failed", expectedState: "business-failed" },
     { fixture: "dispatch-failed", expectedState: "failed" },
     { fixture: "gate-blocked", expectedState: "gate-blocked" },
   ] as const)(

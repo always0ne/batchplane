@@ -139,16 +139,32 @@ export type GateDecision = {
   decidedAt: string;
 };
 
+export type ExecutionRunJob = {
+  jobId: string;
+  name: string;
+  status: ExecutionRunStatus;
+  conclusion?: string;
+  startedAt?: string;
+  completedAt?: string;
+  url?: string;
+};
+
 export type ExecutionRun = {
   runId: string;
   requestId: string;
   batchId: string;
   status: ExecutionRunStatus;
+  actor?: string;
   startedAt?: string;
   completedAt?: string;
+  event?: string;
+  runAttempt?: number;
+  workflowName?: string;
+  workflowPath?: string;
   workflowRunId?: string;
   workflowRunUrl?: string;
   gateDecision?: GateDecision;
+  jobs?: ExecutionRunJob[];
 };
 
 export type AuditTimelineItemType =
@@ -292,6 +308,13 @@ export type ExecutionPort = {
     labels: string[];
     title: string;
   }): Promise<RepositoryIssue>;
+  getExecutionRun(params: { runId: string }): Promise<ExecutionRun | null>;
+  listExecutionRuns(params?: {
+    batchId?: string;
+    limit?: number;
+    requestId?: string;
+    workflowPath?: string;
+  }): Promise<ExecutionRun[]>;
 };
 
 export type ApprovalPort = {

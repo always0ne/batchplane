@@ -35,8 +35,10 @@
       "gateEvidence": "Gate evidence",
       "noBrowserDispatch": "BatchPlane UI records evidence only. The repository dispatcher workflow observes the approval comment and performs workflow_dispatch.",
       "none": "No evidence yet",
+      "noWorkflowRun": "No correlated workflow run yet",
       "status": "Status",
-      "title": "Dispatcher"
+      "title": "Dispatcher",
+      "workflowRun": "Workflow run"
     },
     "fields": {
       "artifact": "Execution file",
@@ -97,6 +99,72 @@
     },
     "values": {
       "selfApprovalBlocked": "Requester and approver must be different users."
+    }
+  },
+  "runDetail": {
+    "title": "Execution run detail",
+    "subtitle": "Inspect workflow run {{runId}} evidence.",
+    "actions": {
+      "openBatch": "Open batch",
+      "openGitHubRun": "Open GitHub run"
+    },
+    "business": {
+      "current": "Business execution status: {{status}}.",
+      "failed": "The batch command or business job failed after Gate allowed the run.",
+      "notReached": "The batch command did not run because Gate blocked execution.",
+      "title": "Business execution"
+    },
+    "fields": {
+      "actor": "Actor",
+      "batchId": "Batch ID",
+      "completedAt": "Completed at",
+      "decidedAt": "Decided at",
+      "event": "Event",
+      "reasonCode": "Reason code",
+      "requestId": "Request ID",
+      "runAttempt": "Attempt",
+      "runId": "Run ID",
+      "startedAt": "Started at",
+      "workflow": "Workflow"
+    },
+    "gate": {
+      "allowedMessage": "Gate allowed this run before the batch command.",
+      "blockedMessage": "Gate blocked this run before the batch command. Treat this separately from business failure.",
+      "blockedTitle": "Gate blocked",
+      "noEvidence": "Gate job evidence is not available yet.",
+      "title": "Gate control"
+    },
+    "jobs": {
+      "empty": "No job summary is available for this run yet.",
+      "title": "Job conclusion summary"
+    },
+    "jobStatus": {
+      "BLOCKED": "Blocked",
+      "CANCELED": "Canceled",
+      "FAILED": "Failed",
+      "QUEUED": "Queued",
+      "RUNNING": "Running",
+      "SUCCEEDED": "Succeeded"
+    },
+    "states": {
+      "error": "Failed to load execution run detail.",
+      "loading": "Loading execution run detail...",
+      "noSession": "Connect a GitHub repository before viewing execution runs.",
+      "notFound": "Execution run {{runId}} was not found."
+    },
+    "status": {
+      "BLOCKED": "Gate blocked",
+      "CANCELED": "Canceled",
+      "FAILED": "Business failed",
+      "QUEUED": "Queued",
+      "RUNNING": "Running",
+      "SUCCEEDED": "Succeeded"
+    },
+    "values": {
+      "inProgress": "In progress",
+      "none": "None",
+      "unknown": "Unknown",
+      "unknownWorkflow": "GitHub Actions workflow"
     }
   },
   "form": {

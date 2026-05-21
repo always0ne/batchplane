@@ -11,6 +11,7 @@
       "live": "Live GitHub",
       "happy-path": "Happy path",
       "approval-pending": "Approval pending",
+      "business-failed": "Business failed",
       "dispatch-failed": "Dispatch failed",
       "gate-blocked": "Gate blocked"
     }

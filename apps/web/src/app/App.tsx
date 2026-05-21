@@ -13,6 +13,7 @@ import { BatchesPage } from "../features/batches/BatchesPage";
 import { BatchDetailPage } from "../features/batches/BatchDetailPage";
 import { ExecutionRequestDetailPage } from "../features/execution-requests/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../features/execution-requests/ExecutionRequestPage";
+import { ExecutionRunDetailPage } from "../features/execution-requests/ExecutionRunDetailPage";
 import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { RegistrationApprovalDetailPage } from "../features/approvals/RegistrationApprovalDetailPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
@@ -161,6 +162,10 @@ export function App() {
             <Route
               path="/execution-requests/:issueNumber"
               element={<ExecutionRequestDetailPage />}
+            />
+            <Route
+              path="/execution-runs/:runId"
+              element={<ExecutionRunDetailPage />}
             />
             <Route path="/approvals" element={<ApprovalsPage />} />
             <Route

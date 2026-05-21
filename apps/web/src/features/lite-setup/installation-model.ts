@@ -263,6 +263,7 @@ export function buildDispatcherWorkflowYaml(): string {
 export function buildSampleTargetWorkflowYaml(): string {
   return [
     "name: BatchPlane Sample Target",
+    "run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}",
     "",
     "on:",
     "  workflow_dispatch:",

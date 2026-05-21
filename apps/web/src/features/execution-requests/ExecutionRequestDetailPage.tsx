@@ -1,4 +1,4 @@
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import type { BatchPlaneRuntimePorts, ExecutionRun } from "@batchplane/domain";
 import {
   CheckCircle2,
   ExternalLink,
@@ -45,6 +45,7 @@ type PageState =
       login: string;
       repository: string;
       request: ExecutionApprovalRequest;
+      runs: ExecutionRun[];
       session: GitHubSession;
     }
   | { type: "error"; message: string };
@@ -122,11 +123,14 @@ export function ExecutionRequestDetailPage({
           return;
         }
 
+        const runs = await loadRelatedRuns(runtime, request);
+
         setState({
           type: "loaded",
           login: user.login,
           repository: `${repository.owner}/${repository.repo}`,
           request,
+          runs,
           session,
         });
       } catch (error) {
@@ -314,7 +318,7 @@ export function ExecutionRequestDetailPage({
 
         <aside className="space-y-4">
           <GovernancePanel request={request} />
-          <DispatcherPanel request={request} />
+          <DispatcherPanel request={request} runs={state.runs} />
 
           {isActionable ? (
             <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -493,8 +497,31 @@ function GovernancePanel({ request }: { request: ExecutionApprovalRequest }) {
   );
 }
 
-function DispatcherPanel({ request }: { request: ExecutionApprovalRequest }) {
+async function loadRelatedRuns(
+  runtime: BatchPlaneRuntimePorts,
+  request: ExecutionApprovalRequest,
+): Promise<ExecutionRun[]> {
+  try {
+    return await runtime.executions.listExecutionRuns({
+      batchId: request.batchId,
+      limit: 10,
+      requestId: request.requestId,
+      workflowPath: request.workflow?.path,
+    });
+  } catch {
+    return [];
+  }
+}
+
+function DispatcherPanel({
+  request,
+  runs,
+}: {
+  request: ExecutionApprovalRequest;
+  runs: ExecutionRun[];
+}) {
   const { t } = useTranslation("executionRequests");
+  const latestRun = runs[0];
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -531,6 +558,23 @@ function DispatcherPanel({ request }: { request: ExecutionApprovalRequest }) {
             value={`${request.gateDecision.allowed ? "ALLOWED" : "BLOCKED"} ${request.gateDecision.reasonCode}`}
           />
         ) : null}
+        <div className="rounded-md bg-slate-50 px-3 py-2">
+          <dt className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
+            {t("detail.dispatcher.workflowRun")}
+          </dt>
+          <dd className="mt-1 text-xs font-semibold text-bp-graphite">
+            {latestRun ? (
+              <Link
+                className="font-mono text-bp-control underline"
+                to={`/execution-runs/${latestRun.runId}`}
+              >
+                #{latestRun.runId} {t(`runDetail.status.${latestRun.status}`)}
+              </Link>
+            ) : (
+              t("detail.dispatcher.noWorkflowRun")
+            )}
+          </dd>
+        </div>
       </dl>
       <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bp-muted">
         {t(`detail.statusHelp.${request.status}`)}
