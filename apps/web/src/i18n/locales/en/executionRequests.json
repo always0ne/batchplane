@@ -33,7 +33,7 @@
       "approvalEvidence": "Approval evidence",
       "dispatcherEvidence": "Dispatcher evidence",
       "gateEvidence": "Gate evidence",
-      "noBrowserDispatch": "BatchTrail UI records evidence only. The repository dispatcher workflow observes the approval comment and performs workflow_dispatch.",
+      "noBrowserDispatch": "BatchPlane UI records evidence only. The repository dispatcher workflow observes the approval comment and performs workflow_dispatch.",
       "none": "No evidence yet",
       "status": "Status",
       "title": "Dispatcher"
@@ -55,8 +55,8 @@
     },
     "governance": {
       "digest": "Request digest is present.",
-      "gateMissing": "BatchTrail Gate evidence is missing.",
-      "gateRequired": "BatchTrail Gate is mandatory before the batch command.",
+      "gateMissing": "BatchPlane Gate evidence is missing.",
+      "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
       "requester": "Requester evidence is present.",
       "title": "Governance checks"
     },
@@ -100,7 +100,7 @@
     }
   },
   "form": {
-    "defaultReason": "Manual request from BatchTrail Repo Mode.",
+    "defaultReason": "Manual request from BatchPlane Lite.",
     "expiresIn": "Approval expires",
     "expiresInOption": "{{hours}} hour(s)",
     "reason": "Reason",
@@ -113,7 +113,7 @@
     "name": "Name",
     "remove": "Remove parameter",
     "sensitive": "Sensitive",
-    "sensitiveHint": "Sensitive values are never written to the GitHub Issue. BatchTrail stores only a value digest for audit comparison.",
+    "sensitiveHint": "Sensitive values are never written to the GitHub Issue. BatchPlane stores only a value digest for audit comparison.",
     "title": "Parameters",
     "value": "Value"
   },
@@ -127,8 +127,8 @@
     "digest": "Request digest",
     "digestReady": "Request digest will be written to the Issue marker.",
     "expiresAt": "Expires at",
-    "gateRequired": "BatchTrail Gate is mandatory before the batch command.",
-    "nextStep": "After creation, BatchTrail routes this request to approvals. GitHub list results can take a few seconds to catch up.",
+    "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
+    "nextStep": "After creation, BatchPlane routes this request to approvals. GitHub list results can take a few seconds to catch up.",
     "noDispatch": "Creating the Issue does not dispatch the workflow.",
     "pending": "Pending",
     "requestId": "Request ID",
@@ -148,7 +148,7 @@
   },
   "validation": {
     "expiresIn": "Expiration must be selected.",
-    "gateRequired": "BatchTrail Gate is mandatory before execution can be requested.",
+    "gateRequired": "BatchPlane Gate is mandatory before execution can be requested.",
     "inactive": "Inactive batches cannot be requested for execution.",
     "missingCommand": "The batch command is not recorded in the batch definition.",
     "parameterName": "Parameter name is required when a value is entered.",

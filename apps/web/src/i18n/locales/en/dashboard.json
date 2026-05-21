@@ -1,13 +1,13 @@
 {
   "title": "Dashboard",
-  "subtitle": "Repo Mode control summary from GitHub artifacts.",
+  "subtitle": "Lite control summary from GitHub artifacts.",
   "actions": {
     "openSetup": "Open setup",
     "viewApprovals": "View approvals"
   },
   "states": {
     "loading": "Loading dashboard summary...",
-    "noSession": "Connect a GitHub repository to view Repo Mode control status.",
+    "noSession": "Connect a GitHub repository to view Lite control status.",
     "error": "Failed to load dashboard summary."
   },
   "connection": {
@@ -19,7 +19,7 @@
   },
   "readiness": {
     "title": "Governance readiness",
-    "installed": "Required Repo Mode files are present.",
+    "installed": "Required Lite files are present.",
     "missing": "{{count}} required file is missing.",
     "missing_plural": "{{count}} required files are missing.",
     "paths": "{{present}} of {{total}} required paths are present."

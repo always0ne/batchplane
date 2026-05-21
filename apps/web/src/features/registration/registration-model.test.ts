@@ -74,7 +74,7 @@ describe("registration model", () => {
     expect(getBatchArtifactPath("", "close.sh")).toBe("");
   });
 
-  it("always requires the BatchTrail Gate", () => {
+  it("always requires the BatchPlane Gate", () => {
     expect(definition.gateRequired).toBe(true);
   });
 
@@ -135,10 +135,10 @@ describe("registration model", () => {
       "Batch ID: `payment.daily-close`",
     );
     expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "BatchTrail Gate: required",
+      "BatchPlane Gate: required",
     );
     expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "Runtime: GitHub Actions / BatchTrail Repo Mode",
+      "Runtime: GitHub Actions / BatchPlane Lite",
     );
     expect(buildRegistrationPullRequestBody(definition)).toContain(
       "./scripts/daily-close.sh",

@@ -22,7 +22,7 @@ describe("App", () => {
     expect(
       await screen.findByRole("heading", { name: heading }),
     ).toBeInTheDocument();
-    expect(screen.getByText("BatchTrail")).toBeInTheDocument();
+    expect(screen.getByText("BatchPlane")).toBeInTheDocument();
   });
 
   it("redirects the root route to the dashboard", async () => {

@@ -21,8 +21,8 @@ export function PageState({
   const toneClassName =
     tone === "danger"
       ? "border-red-200 bg-red-50 text-red-800"
-      : "border-slate-200 bg-white text-bt-muted";
-  const iconClassName = tone === "danger" ? "text-red-700" : "text-bt-git";
+      : "border-slate-200 bg-white text-bp-muted";
+  const iconClassName = tone === "danger" ? "text-red-700" : "text-bp-git";
 
   return (
     <div
@@ -33,7 +33,7 @@ export function PageState({
       {icon ? <span className={iconClassName}>{icon}</span> : null}
       <div className="min-w-0 flex-1">
         {title ? (
-          <p className="text-base font-bold text-bt-graphite">{title}</p>
+          <p className="text-base font-bold text-bp-graphite">{title}</p>
         ) : null}
         <div className={title ? "mt-1" : undefined}>{message}</div>
       </div>

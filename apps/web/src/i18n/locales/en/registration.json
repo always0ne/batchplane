@@ -1,6 +1,6 @@
 {
   "title": "Registration",
-  "subtitle": "Create a pull request for a governed batch definition and its BatchTrail-protected workflow.",
+  "subtitle": "Create a pull request for a governed batch definition and its BatchPlane-protected workflow.",
   "form": {
     "definition": "Batch definition",
     "workflow": "Workflow",
@@ -17,7 +17,7 @@
     "customRunnerLabel": "Custom runner label",
     "executionFile": "Execution file",
     "runCommand": "Batch command",
-    "gateRequiredInline": "BatchTrail Gate always runs before the batch command."
+    "gateRequiredInline": "BatchPlane Gate always runs before the batch command."
   },
   "preview": {
     "title": "YAML preview",
@@ -39,13 +39,13 @@
       "title": "Governance checklist",
       "batchDefinitionPath": "Batch definition path is generated from the Batch ID.",
       "workflowPath": "Workflow path is generated from the Batch ID.",
-      "gateRequired": "BatchTrail Gate is mandatory before the batch command.",
+      "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
       "runnerSelected": "Execution environment: {{runner}}",
       "runnerMissing": "Execution environment is required.",
       "commandRecorded": "Batch command will be recorded in the batch definition.",
       "commandMissing": "Batch command is required before PR creation."
     },
-    "nextStep": "After creation, BatchTrail routes the PR to approvals. GitHub list results can take a few seconds to catch up."
+    "nextStep": "After creation, BatchPlane routes the PR to approvals. GitHub list results can take a few seconds to catch up."
   },
   "actions": {
     "createPullRequest": "Create registration PR",

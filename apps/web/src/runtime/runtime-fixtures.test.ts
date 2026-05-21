@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   createRuntimeFixtureMockState,
   readRuntimeFixtureSelection,
   readRuntimeSession,
@@ -57,7 +57,7 @@ describe("runtime fixtures", () => {
   it("switches runtime behavior between approval and failure fixtures", async () => {
     writeRuntimeFixtureSelection("approval-pending");
 
-    const approvalRuntime = createBatchTrailRuntime(
+    const approvalRuntime = createBatchPlaneRuntime(
       readRuntimeSessionOrThrow(),
     );
     await expect(
@@ -71,7 +71,7 @@ describe("runtime fixtures", () => {
 
     writeRuntimeFixtureSelection("dispatch-failed");
 
-    const failedRuntime = createBatchTrailRuntime(readRuntimeSessionOrThrow());
+    const failedRuntime = createBatchPlaneRuntime(readRuntimeSessionOrThrow());
     await expect(
       failedRuntime.approvals.listExecutionRequestIssues(),
     ).resolves.toEqual([

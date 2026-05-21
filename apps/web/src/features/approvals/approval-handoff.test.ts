@@ -30,7 +30,7 @@ const registrationPullRequest: RepositoryPullRequest = {
 const executionIssue: RepositoryIssue = {
   author: "developer",
   body: [
-    "## BatchTrail Execution Request",
+    "## BatchPlane Execution Request",
     "",
     "- Request ID: `btr-20260509010203-payment.daily-close-abcdef12`",
     "- Batch ID: `payment.daily-close`",

@@ -31,7 +31,7 @@ export function ExecutionApprovalActions({
     <div className="mt-5 space-y-3">
       <div className="flex flex-wrap gap-3">
         <button
-          className="inline-flex items-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="inline-flex items-center gap-2 rounded-md bg-bp-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           disabled={approveDisabled}
           onClick={onApprove}
           title={approveDisabledReason || undefined}
@@ -70,7 +70,7 @@ export function ExecutionApprovalActions({
           <label className="block text-sm font-semibold text-red-900">
             {t("actions.rejectReason")}
             <textarea
-              className="mt-2 min-h-20 w-full resize-y rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-bt-graphite outline-none focus:border-red-400 focus:ring-2 focus:ring-red-200"
+              className="mt-2 min-h-20 w-full resize-y rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-bp-graphite outline-none focus:border-red-400 focus:ring-2 focus:ring-red-200"
               onChange={(event) => setRejectReason(event.target.value)}
               placeholder={t("actions.rejectReasonPlaceholder")}
               value={rejectReason}
@@ -91,7 +91,7 @@ export function ExecutionApprovalActions({
               {t("actions.confirmReject")}
             </button>
             <button
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
               onClick={() => {
                 setRejectOpen(false);
                 setRejectReason("");

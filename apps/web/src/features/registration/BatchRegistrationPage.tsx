@@ -27,7 +27,7 @@ import { useTranslation } from "react-i18next";
 import { buildRegistrationApprovalHandoff } from "../approvals/approval-handoff";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
@@ -180,7 +180,7 @@ export function BatchRegistrationPage() {
     setSubmissionState({ type: "submitting" });
 
     try {
-      const runtime = createBatchTrailRuntime(session);
+      const runtime = createBatchPlaneRuntime(session);
       const repository = await runtime.settings.getRepository();
       const registrationTargets =
         await runtime.registration.checkRegistrationTargets({
@@ -248,7 +248,7 @@ export function BatchRegistrationPage() {
       >
         <div className="space-y-4">
           <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-bt-graphite">
+            <h2 className="text-lg font-semibold text-bp-graphite">
               {t("form.definition")}
             </h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -308,7 +308,7 @@ export function BatchRegistrationPage() {
           </article>
 
           <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-bt-graphite">
+            <h2 className="text-lg font-semibold text-bp-graphite">
               {t("form.workflow")}
             </h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -439,14 +439,14 @@ function PullRequestReviewPanel({
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div>
-        <h2 className="text-lg font-semibold text-bt-graphite">
+        <h2 className="text-lg font-semibold text-bp-graphite">
           {t("review.title")}
         </h2>
-        <p className="mt-2 text-sm text-bt-muted">{t("review.subtitle")}</p>
+        <p className="mt-2 text-sm text-bp-muted">{t("review.subtitle")}</p>
       </div>
 
       <section className="mt-5">
-        <h3 className="text-sm font-bold text-bt-graphite">
+        <h3 className="text-sm font-bold text-bp-graphite">
           {t("review.files.title")}
         </h3>
         <dl className="mt-3 divide-y divide-slate-100 text-sm">
@@ -466,7 +466,7 @@ function PullRequestReviewPanel({
       </section>
 
       <section className="mt-5">
-        <h3 className="text-sm font-bold text-bt-graphite">
+        <h3 className="text-sm font-bold text-bp-graphite">
           {t("review.checklist.title")}
         </h3>
         <ul className="mt-3 space-y-2 text-sm">
@@ -503,12 +503,12 @@ function PullRequestReviewPanel({
         </ul>
       </section>
 
-      <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bt-muted">
+      <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bp-muted">
         {t("review.nextStep")}
       </p>
 
       <button
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-bt-control px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-bp-control px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
         disabled={!canSubmit}
         type="submit"
       >
@@ -526,8 +526,8 @@ function PullRequestReviewPanel({
 function ReviewFileRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid gap-1 py-2 first:pt-0 last:pb-0">
-      <dt className="text-xs font-semibold uppercase text-bt-muted">{label}</dt>
-      <dd className="break-all font-mono text-xs font-semibold text-bt-graphite">
+      <dt className="text-xs font-semibold uppercase text-bp-muted">{label}</dt>
+      <dd className="break-all font-mono text-xs font-semibold text-bp-graphite">
         {value}
       </dd>
     </div>
@@ -540,7 +540,7 @@ function ReviewCheckItem({ ready, text }: { ready: boolean; text: string }) {
   return (
     <li
       className={`flex items-start gap-2 ${
-        ready ? "text-bt-graphite" : "text-amber-800"
+        ready ? "text-bp-graphite" : "text-amber-800"
       }`}
     >
       <Icon
@@ -569,19 +569,19 @@ function YamlPreviewPanel({
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold text-bt-graphite">
+      <h2 className="text-lg font-semibold text-bp-graphite">
         {t("preview.title")}
       </h2>
       <div className="mt-4 divide-y divide-slate-100">
         <PreviewDetails
-          icon={<FileText className="h-4 w-4 text-bt-git" aria-hidden />}
+          icon={<FileText className="h-4 w-4 text-bp-git" aria-hidden />}
           isOpen
           path={batchPath || t("review.files.pending")}
           title={t("preview.batchDefinitionTitle")}
           yaml={batchYaml}
         />
         <PreviewDetails
-          icon={<FileCode2 className="h-4 w-4 text-bt-git" aria-hidden />}
+          icon={<FileCode2 className="h-4 w-4 text-bp-git" aria-hidden />}
           path={workflowPath || t("review.files.pending")}
           title={t("preview.workflowTitle")}
           yaml={workflowYaml}
@@ -610,14 +610,14 @@ function PreviewDetails({
         <div className="flex items-start gap-2">
           {icon}
           <div>
-            <span className="text-sm font-bold text-bt-graphite">{title}</span>
-            <p className="mt-1 break-all font-mono text-xs text-bt-muted">
+            <span className="text-sm font-bold text-bp-graphite">{title}</span>
+            <p className="mt-1 break-all font-mono text-xs text-bp-muted">
               {path}
             </p>
           </div>
         </div>
       </summary>
-      <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-bt-graphite p-4 text-xs leading-6 text-white">
+      <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
         <code>{yaml}</code>
       </pre>
     </details>
@@ -636,10 +636,10 @@ function TextField({
   value: string;
 }) {
   return (
-    <label className="block text-sm font-semibold text-bt-graphite">
+    <label className="block text-sm font-semibold text-bp-graphite">
       {label}
       <input
-        className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+        className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
         onChange={onChange}
         placeholder={placeholder}
         value={value}
@@ -660,16 +660,16 @@ function FileUploadField({
   onChange: (file: File | null) => void;
 }) {
   return (
-    <label className="mt-5 block text-sm font-semibold text-bt-graphite">
+    <label className="mt-5 block text-sm font-semibold text-bp-graphite">
       {label}
       <input
-        className="mt-2 block w-full text-sm text-bt-muted file:mr-4 file:rounded-md file:border-0 file:bg-bt-control file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-2 block w-full text-sm text-bp-muted file:mr-4 file:rounded-md file:border-0 file:bg-bp-control file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white disabled:cursor-not-allowed disabled:opacity-50"
         disabled={disabled}
         onChange={(event) => onChange(event.target.files?.[0] ?? null)}
         type="file"
       />
       {filePath ? (
-        <code className="mt-2 block break-all text-xs font-normal text-bt-muted">
+        <code className="mt-2 block break-all text-xs font-normal text-bp-muted">
           {filePath}
         </code>
       ) : null}
@@ -679,9 +679,9 @@ function FileUploadField({
 
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="block text-sm font-semibold text-bt-graphite">
+    <div className="block text-sm font-semibold text-bp-graphite">
       {label}
-      <code className="mt-2 block min-h-10 break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-normal text-bt-graphite">
+      <code className="mt-2 block min-h-10 break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-normal text-bp-graphite">
         {value}
       </code>
     </div>
@@ -700,10 +700,10 @@ function TextAreaField({
   value: string;
 }) {
   return (
-    <label className="mt-5 block text-sm font-semibold text-bt-graphite">
+    <label className="mt-5 block text-sm font-semibold text-bp-graphite">
       {label}
       <textarea
-        className="mt-2 min-h-36 w-full resize-y rounded-md border border-slate-300 px-3 py-2 font-mono text-sm font-normal text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+        className="mt-2 min-h-36 w-full resize-y rounded-md border border-slate-300 px-3 py-2 font-mono text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
         onChange={onChange}
         placeholder={placeholder}
         spellCheck={false}
@@ -725,10 +725,10 @@ function SelectField({
   value: string;
 }) {
   return (
-    <label className="block text-sm font-semibold text-bt-graphite">
+    <label className="block text-sm font-semibold text-bp-graphite">
       {label}
       <select
-        className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+        className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
         onChange={onChange}
         value={value}
       >

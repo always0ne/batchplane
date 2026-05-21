@@ -18,7 +18,7 @@ import type {
   ApprovalPolicyInput,
   ApprovalPolicyFile,
   AuditTimelineItem,
-  BatchTrailRuntimePorts,
+  BatchPlaneRuntimePorts,
   BatchDefinition,
   BatchDefinitionFile,
   BatchGovernanceConfigFile,
@@ -232,7 +232,7 @@ describe("domain model contracts", () => {
   });
 
   it("defines runtime ports that can be implemented by adapters", () => {
-    const runtime: BatchTrailRuntimePorts = {
+    const runtime: BatchPlaneRuntimePorts = {
       approvals: {
         approveExecution: async () => undefined,
         approveRegistration: async () => ({
@@ -297,7 +297,7 @@ describe("domain model contracts", () => {
             merged: false,
             number: 3,
             state: "open",
-            title: "Install BatchTrail Repo Mode",
+            title: "Install BatchPlane Lite",
             url: "https://github.com/always0ne/batch/pull/3",
           },
           status: {
@@ -500,8 +500,8 @@ describe("domain schema validation", () => {
   });
 });
 
-describe("BatchTrail YAML utilities", () => {
-  it("serializes and parses valid BatchTrail YAML fixtures", () => {
+describe("BatchPlane YAML utilities", () => {
+  it("serializes and parses valid BatchPlane YAML fixtures", () => {
     const yaml = serializeYamlDocument({
       apiVersion: "batchtrail.io/v1",
       kind: "BatchDefinition",

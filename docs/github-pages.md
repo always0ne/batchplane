@@ -1,6 +1,6 @@
 # GitHub Pages Hosting
 
-BatchTrail Repo Mode is a static React app, so the Lite UI can be hosted from GitHub Pages without a server. The runtime data still comes from the configured GitHub repository through the user's session token.
+BatchPlane Lite is a static React app, so the Lite UI can be hosted from GitHub Pages without a server. The runtime data still comes from the configured GitHub repository through the user's session token.
 
 ## Repository Settings
 

@@ -57,7 +57,7 @@ describe("Lite installation model", () => {
       merged: false,
       number: 41,
       state: "open",
-      title: "Install BatchTrail Repo Mode",
+      title: "Install BatchPlane Lite",
       url: "https://github.com/always0ne/batch/pull/41",
     };
     const client = {
@@ -143,7 +143,7 @@ describe("Lite installation model", () => {
       "put-file:.batch-governance/README.md",
       "put-file:.batch-governance/batches/.gitkeep",
       "put-file:.batch-governance/schedules/.gitkeep",
-      "create-pr:Install BatchTrail Repo Mode:batchtrail/install/repo-mode-20260513010203:main",
+      "create-pr:Install BatchPlane Lite:batchtrail/install/repo-mode-20260513010203:main",
     ]);
   });
 

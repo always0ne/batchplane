@@ -33,7 +33,7 @@
       "approvalEvidence": "승인 증적",
       "dispatcherEvidence": "Dispatcher 증적",
       "gateEvidence": "Gate 증적",
-      "noBrowserDispatch": "BatchTrail UI는 증적만 기록합니다. 저장소 dispatcher workflow가 승인 comment를 감지해 workflow_dispatch를 수행합니다.",
+      "noBrowserDispatch": "BatchPlane UI는 증적만 기록합니다. 저장소 dispatcher workflow가 승인 comment를 감지해 workflow_dispatch를 수행합니다.",
       "none": "증적 없음",
       "status": "상태",
       "title": "Dispatcher"
@@ -55,8 +55,8 @@
     },
     "governance": {
       "digest": "Request digest가 존재합니다.",
-      "gateMissing": "BatchTrail Gate 증적이 누락되었습니다.",
-      "gateRequired": "BatchTrail Gate는 배치 명령 전에 반드시 실행됩니다.",
+      "gateMissing": "BatchPlane Gate 증적이 누락되었습니다.",
+      "gateRequired": "BatchPlane Gate는 배치 명령 전에 반드시 실행됩니다.",
       "requester": "요청자 증적이 존재합니다.",
       "title": "통제 점검"
     },
@@ -100,7 +100,7 @@
     }
   },
   "form": {
-    "defaultReason": "BatchTrail Repo Mode에서 수동 실행 요청.",
+    "defaultReason": "BatchPlane Lite에서 수동 실행 요청.",
     "expiresIn": "승인 만료",
     "expiresInOption": "{{hours}}시간",
     "reason": "사유",
@@ -127,8 +127,8 @@
     "digest": "Request digest",
     "digestReady": "Request digest가 Issue marker에 기록됩니다.",
     "expiresAt": "만료 시각",
-    "gateRequired": "BatchTrail Gate는 배치 명령 전에 반드시 실행됩니다.",
-    "nextStep": "생성 후 BatchTrail은 요청서를 승인함으로 라우팅합니다. GitHub 목록 반영에는 몇 초 지연이 있을 수 있습니다.",
+    "gateRequired": "BatchPlane Gate는 배치 명령 전에 반드시 실행됩니다.",
+    "nextStep": "생성 후 BatchPlane은 요청서를 승인함으로 라우팅합니다. GitHub 목록 반영에는 몇 초 지연이 있을 수 있습니다.",
     "noDispatch": "Issue 생성만으로 Workflow를 실행하지 않습니다.",
     "pending": "대기 중",
     "requestId": "Request ID",
@@ -148,7 +148,7 @@
   },
   "validation": {
     "expiresIn": "승인 만료 시간을 선택해야 합니다.",
-    "gateRequired": "BatchTrail Gate는 실행 요청 전에 필수입니다.",
+    "gateRequired": "BatchPlane Gate는 실행 요청 전에 필수입니다.",
     "inactive": "비활성 배치는 실행 요청할 수 없습니다.",
     "missingCommand": "배치 정의에 배치 명령이 기록되어 있지 않습니다.",
     "parameterName": "값을 입력한 파라미터는 이름이 필요합니다.",

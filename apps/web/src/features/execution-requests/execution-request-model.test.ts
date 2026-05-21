@@ -74,7 +74,7 @@ describe("execution request model", () => {
       status: "REQUESTED",
     });
     expect(issue.request.requestDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
-    expect(issue.body).toContain("## BatchTrail Execution Request");
+    expect(issue.body).toContain("## BatchPlane Execution Request");
     expect(issue.body).toContain("batchtrail:execution-request");
     expect(issue.body).toContain("requestId=btr-20260509010203");
     expect(issue.body).toContain(

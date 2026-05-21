@@ -1,5 +1,5 @@
-name: BatchTrail Gate
-description: Verify BatchTrail execution authorization before business steps run.
+name: BatchPlane Gate
+description: Verify BatchPlane execution authorization before business steps run.
 outputs:
   result:
     description: Gate decision (ALLOW or DENY)
@@ -17,7 +17,7 @@ inputs:
   config-path:
     required: false
     default: .batch-governance
-    description: BatchTrail repository config path
+    description: BatchPlane repository config path
   ref:
     required: false
     description: Repository ref that contains the governed batch definition

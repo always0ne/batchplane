@@ -81,14 +81,14 @@ export function buildRegistrationApprovalComment({
   pullRequest: RepositoryPullRequest;
 }): string {
   return [
-    "## BatchTrail Registration Approval",
+    "## BatchPlane Registration Approval",
     "",
     `- Decision: APPROVED`,
     `- Approver: @${approver}`,
     `- Approved at: ${approvedAt.toISOString()}`,
     `- Pull request: #${pullRequest.number}`,
     "",
-    "This approval evidence was recorded by BatchTrail Repo Mode.",
+    "This approval evidence was recorded by BatchPlane Lite.",
   ].join("\n");
 }
 
@@ -102,14 +102,14 @@ export function buildRegistrationRejectionComment({
   pullRequest: RepositoryPullRequest;
 }): string {
   return [
-    "## BatchTrail Registration Approval",
+    "## BatchPlane Registration Approval",
     "",
     `- Decision: REJECTED`,
     `- Rejector: @${rejector}`,
     `- Rejected at: ${rejectedAt.toISOString()}`,
     `- Pull request: #${pullRequest.number}`,
     "",
-    "This rejection evidence was recorded by BatchTrail Repo Mode.",
+    "This rejection evidence was recorded by BatchPlane Lite.",
   ].join("\n");
 }
 
@@ -135,7 +135,7 @@ export function parseExecutionRequestDetail(
     return null;
   }
 
-  const marker = parseBatchTrailMarker(issue.body, "execution-request");
+  const marker = parseBatchPlaneMarker(issue.body, "execution-request");
   const payload = parseCanonicalPayload(issue.body);
   const requestId =
     marker.get("requestId") ?? readMarkdownField(issue.body, "Request ID");
@@ -203,7 +203,7 @@ export function buildExecutionApprovalComment({
   return [
     `/bgcp approve requestDigest=${request.requestDigest}`,
     "",
-    "## BatchTrail Execution Approval",
+    "## BatchPlane Execution Approval",
     "",
     "- Decision: APPROVED",
     `- Approver: @${approver}`,
@@ -212,7 +212,7 @@ export function buildExecutionApprovalComment({
     `- Batch ID: \`${request.batchId}\``,
     `- Request digest: \`${request.requestDigest}\``,
     "",
-    "This approval evidence was recorded by BatchTrail Repo Mode.",
+    "This approval evidence was recorded by BatchPlane Lite.",
     "",
     "<!-- batchtrail:execution-approval",
     "decision=APPROVED",
@@ -235,7 +235,7 @@ export function buildExecutionRejectionComment({
   request: ExecutionApprovalRequest;
 }): string {
   return [
-    "## BatchTrail Execution Approval",
+    "## BatchPlane Execution Approval",
     "",
     "- Decision: REJECTED",
     `- Rejector: @${rejector}`,
@@ -245,7 +245,7 @@ export function buildExecutionRejectionComment({
     `- Batch ID: \`${request.batchId}\``,
     `- Request digest: \`${request.requestDigest}\``,
     "",
-    "This rejection evidence was recorded by BatchTrail Repo Mode.",
+    "This rejection evidence was recorded by BatchPlane Lite.",
     "",
     "<!-- batchtrail:execution-approval",
     "decision=REJECTED",
@@ -266,7 +266,7 @@ function findExecutionApprovalDecision(
       continue;
     }
 
-    const marker = parseBatchTrailMarker(comment.body, "execution-approval");
+    const marker = parseBatchPlaneMarker(comment.body, "execution-approval");
     const decision = marker.get("decision");
 
     if (decision !== "APPROVED" && decision !== "REJECTED") {
@@ -304,7 +304,7 @@ function findLatestDispatcherStatus(
       continue;
     }
 
-    const marker = parseBatchTrailMarker(comment.body, "bgcp:dispatcher");
+    const marker = parseBatchPlaneMarker(comment.body, "bgcp:dispatcher");
     const status = marker.get("status");
 
     if (
@@ -335,7 +335,7 @@ function findLatestGateDecision(
       continue;
     }
 
-    const marker = parseBatchTrailMarker(comment.body, "gate-decision");
+    const marker = parseBatchPlaneMarker(comment.body, "gate-decision");
     const allowed = marker.get("allowed");
     const reasonCode = marker.get("reasonCode");
 
@@ -412,7 +412,7 @@ function getExecutionRequestDisplayStatus({
   return "REQUESTED";
 }
 
-function parseBatchTrailMarker(
+function parseBatchPlaneMarker(
   body: string,
   kind: string,
 ): Map<string, string> {

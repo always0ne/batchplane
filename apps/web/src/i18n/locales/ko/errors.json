@@ -1,7 +1,7 @@
 {
   "notFound": {
     "title": "페이지를 찾을 수 없습니다",
-    "message": "요청한 BatchTrail 페이지가 없습니다."
+    "message": "요청한 BatchPlane 페이지가 없습니다."
   },
   "gate": {
     "executionRequestRequired": "실행 요청 승인 증적이 필요합니다.",
@@ -27,10 +27,10 @@
       "EXECUTION_REQUEST_NOT_APPROVED": "실행 요청이 승인되지 않았습니다.",
       "EXECUTION_REQUEST_REQUIRED": "실행 요청 증적이 필요합니다.",
       "EXPIRED_REQUEST": "실행 요청이 만료되었습니다.",
-      "GATE_REQUIRED": "BatchTrail Gate 필수 설정이 필요합니다.",
+      "GATE_REQUIRED": "BatchPlane Gate 필수 설정이 필요합니다.",
       "GITHUB_EVIDENCE_LOOKUP_FAILED": "GitHub 증적 조회에 실패했습니다.",
       "GITHUB_EVIDENCE_LOOKUP_REQUIRED": "GitHub 증적 조회가 필요합니다.",
-      "IGNORED_COMMENT": "BatchTrail dispatcher 명령 comment가 아닙니다.",
+      "IGNORED_COMMENT": "BatchPlane dispatcher 명령 comment가 아닙니다.",
       "REF_NOT_ALLOWED": "요청된 workflow ref는 허용되지 않습니다.",
       "ROLE_MAPPING_INVALID": "역할 매핑 설정이 유효하지 않습니다.",
       "ROLE_MAPPING_NOT_FOUND": "역할 매핑 설정 파일을 찾을 수 없습니다.",

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+  <title id="title">BatchPlane Lite lockup</title>
+  <desc id="desc">BatchPlane Lite logo with layered control planes and Git-backed execution evidence.</desc>
+  <rect width="960" height="360" rx="28" fill="#F7F8FA"/>
+  <g transform="translate(72 62)">
+    <rect x="0" y="0" width="236" height="236" rx="42" fill="#20242A"/>
+    <path d="M118 38 L200 78 L118 118 L36 78 Z" fill="#119C8D"/>
+    <path d="M36 114 L118 154 L200 114 L200 144 L118 184 L36 144 Z" fill="#F5B841"/>
+    <path d="M36 176 L118 216 L200 176 L200 202 L118 242 L36 202 Z" fill="#58616C"/>
+    <path d="M52 78 C84 78 83 118 118 118 C153 118 152 176 184 176" fill="none" stroke="#E4572E" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="52" cy="78" r="11" fill="#F5B841"/>
+    <circle cx="118" cy="118" r="11" fill="#FFFFFF"/>
+    <circle cx="184" cy="176" r="11" fill="#119C8D"/>
+    <path d="M101 118 L115 132 L140 102" fill="none" stroke="#20242A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(154 154)">
+      <rect x="0" y="0" width="72" height="72" rx="22" fill="#F7F8FA"/>
+      <path d="M24 20 V50" stroke="#E4572E" stroke-width="6" stroke-linecap="round"/>
+      <path d="M24 34 C39 34 38 20 50 20" fill="none" stroke="#E4572E" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="24" cy="20" r="8" fill="#F5B841"/>
+      <circle cx="24" cy="50" r="8" fill="#F5B841"/>
+      <circle cx="50" cy="20" r="8" fill="#119C8D"/>
+    </g>
+  </g>
+  <g transform="translate(354 98)">
+    <text x="0" y="72" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="72" font-weight="760" letter-spacing="0" fill="#20242A">BatchPlane</text>
+    <text x="4" y="122" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="26" font-weight="540" letter-spacing="0" fill="#58616C">Git-backed batch control and audit</text>
+    <g transform="translate(4 158)">
+      <rect x="0" y="0" width="82" height="38" rx="19" fill="#119C8D"/>
+      <text x="20" y="25" font-family="Inter, ui-sans-serif, system-ui" font-size="17" font-weight="760" fill="#FFFFFF">LITE</text>
+      <rect x="96" y="0" width="94" height="38" rx="19" fill="#20242A"/>
+      <text x="116" y="25" font-family="Inter, ui-sans-serif, system-ui" font-size="17" font-weight="760" fill="#FFFFFF">GIT</text>
+      <rect x="204" y="0" width="112" height="38" rx="19" fill="#F5B841"/>
+      <text x="225" y="25" font-family="Inter, ui-sans-serif, system-ui" font-size="17" font-weight="780" fill="#20242A">AUDIT</text>
+    </g>
+  </g>
+</svg>

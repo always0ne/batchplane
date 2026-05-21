@@ -81,7 +81,7 @@ export async function buildExecutionRequestIssue({
   batch,
   expiresAt,
   parameters = [],
-  reason = "Manual request from BatchTrail Repo Mode.",
+  reason = "Manual request from BatchPlane Lite.",
   requestId,
   requestedAt,
   requestedBy,
@@ -186,7 +186,7 @@ function buildExecutionRequestBody({
   request: ExecutionRequest;
 }): string {
   return [
-    "## BatchTrail Execution Request",
+    "## BatchPlane Execution Request",
     "",
     `- Request ID: \`${request.requestId}\``,
     `- Batch ID: \`${request.batchId}\``,

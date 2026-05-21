@@ -5,7 +5,7 @@
   "tokenPolicy": "GitHub token은 sessionStorage에만 보관합니다.",
   "github": {
     "title": "GitHub 저장소",
-    "subtitle": "BatchTrail Repo Mode 파일을 보관할 저장소를 연결합니다.",
+    "subtitle": "BatchPlane Lite 파일을 보관할 저장소를 연결합니다.",
     "owner": "저장소 소유자",
     "repo": "저장소 이름",
     "token": "GitHub token",
@@ -26,11 +26,11 @@
     "token": "Token"
   },
   "installation": {
-    "title": "Repo Mode 설치",
+    "title": "Lite 설치",
     "subtitle": "연결한 저장소에 dispatcher workflow와 governance 폴더를 설치합니다.",
     "idle": "GitHub 연결을 확인하면 설치 상태를 점검합니다.",
-    "checking": "BatchTrail 설치 상태를 확인하는 중...",
-    "installed": "BatchTrail Repo Mode가 설치되어 있습니다.",
+    "checking": "BatchPlane 설치 상태를 확인하는 중...",
+    "installed": "BatchPlane Lite가 설치되어 있습니다.",
     "missing": "설치 파일이 누락되어 있습니다.",
     "creating": "설치 Pull Request를 생성하는 중...",
     "createPullRequest": "설치 PR 생성",

@@ -1,6 +1,6 @@
 import type {
   BatchDefinition,
-  BatchTrailRuntimePorts,
+  BatchPlaneRuntimePorts,
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
@@ -33,7 +33,7 @@ export type GitHubLiteRuntimeOptions = {
 export function createGitHubLiteRuntime(
   session: GitHubSession,
   options: GitHubLiteRuntimeOptions = {},
-): BatchTrailRuntimePorts {
+): BatchPlaneRuntimePorts {
   const client =
     options.client ??
     createGitHubLiteClient({

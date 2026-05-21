@@ -131,7 +131,7 @@ describe("createGitHubLiteRuntime", () => {
       if (input.toString().endsWith("/issues/101/comments")) {
         return Response.json([
           {
-            body: "## BatchTrail Execution Approval",
+            body: "## BatchPlane Execution Approval",
             created_at: "2026-05-14T01:05:00.000Z",
             id: 1011,
             user: { login: "maintainer" },
@@ -148,7 +148,7 @@ describe("createGitHubLiteRuntime", () => {
     ).resolves.toEqual([
       {
         author: "maintainer",
-        body: "## BatchTrail Execution Approval",
+        body: "## BatchPlane Execution Approval",
         createdAt: "2026-05-14T01:05:00.000Z",
         id: 1011,
         issueNumber: 101,
