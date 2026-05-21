@@ -191,6 +191,111 @@ Current product judgment: `BatchControlHub` is the best meaning fit, but it shou
 formal legal review because `BatchControl` and `ControlHub` both have adjacent market or
 trademark presence.
 
+## Brandability Pivot Pass
+
+The owner rejected the latest clean-but-descriptive candidates because they were hard to
+brand. That feedback changes the naming target:
+
+- The umbrella product is not Git-native. GitHub Pages is only the Lite edition.
+- The umbrella product is an integrated batch control and audit platform that should work
+  with GitHub Actions, Jenkins, SCDF, and other batch/workflow engines.
+- `Repo*`, `Git*`, and overly Lite-specific names should be component or edition names,
+  not the main brand.
+- Names that read like a feature label, such as `BatchSignoff`, `BatchGovernance`,
+  `BatchPolicyGate`, `BatchHelm`, `BatchPact`, or `BatchAccord`, should be lowered unless
+  the owner later chooses a deliberately literal naming style.
+
+### Stronger Direction: BatchGov
+
+`BatchGov` is the current lead candidate from the brandability pivot.
+
+Product interpretation:
+
+- `Batch` keeps the financial-domain "배치통제" meaning visible.
+- `Gov` is short for governance, not government.
+- The name can carry the installed/server product without implying GitHub-only execution.
+- The Lite edition remains natural: `BatchGov Lite`.
+- Technical components still have room for explicit names such as `BatchGov Gate`,
+  `BatchGov Dispatcher`, `BatchGov Console`, and `BatchGov Adapter SDK`.
+
+Point-in-time knockout checks:
+
+| Check                             | Result | Note                                                                                                                                 |
+| --------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `batchgov.com` RDAP               | Clean  | Verisign RDAP returned `404`.                                                                                                        |
+| `batchgov.org/.io/.dev/.app` RDAP | Clean  | RDAP returned `404` through `rdap.org`.                                                                                              |
+| npm `batchgov`                    | Clean  | Registry returned `404`.                                                                                                             |
+| npm `batch-gov`                   | Clean  | Registry returned `404`.                                                                                                             |
+| PyPI `batchgov`                   | Clean  | PyPI returned `404`.                                                                                                                 |
+| PyPI `batch-gov`                  | Clean  | PyPI returned `404`.                                                                                                                 |
+| GitHub repo name search           | Clean  | `gh search repos 'BatchGov in:name'` returned no repositories.                                                                       |
+| GitHub code search                | Clean  | `gh search code 'BatchGov' --owner always0ne` returned no hits.                                                                      |
+| Exact web search                  | Clean  | Searches for `"BatchGov"`, `"BatchGov" software`, and `"BatchGov" trademark` returned no meaningful exact product hits in this pass. |
+
+Known concern:
+
+- `Gov` can be read as "government" in some contexts. The product tagline should make the
+  governance meaning explicit: `Batch governance, control, and audit for every scheduler`.
+
+### Brandability Pass Candidate Comparison
+
+| Candidate        | Status       | Reason                                                                  |
+| ---------------- | ------------ | ----------------------------------------------------------------------- |
+| BatchGov         | Lead         | Short, brandable, direct enough for batch governance/control/audit.     |
+| BatchGRC         | Strong alt   | Finance/audit buyers understand GRC; good control/compliance signal.    |
+| BatchPlane       | Strong alt   | Platform/control-plane feel; good for multi-adapter architecture.       |
+| BatchVerity      | Reserve      | Truth/evidence meaning; brandable, but may need explanation.            |
+| QuorumRun        | Reserve      | Approval-consensus meaning; runtime-oriented rather than batch-wide.    |
+| TaskGov          | Reserve      | Clean checks, but "task" weakens the batch-control positioning.         |
+| BatchGovernor    | Lower        | `.com` clean, but exact software/code usage appears in governance code. |
+| BatchDirector    | Lower        | `.com` clean, but reads as a role/title and search results are noisy.   |
+| BatchCommander   | Reject/Lower | Exact existing software/product references exist.                       |
+| BatchSupervisor  | Lower        | Literal but not distinctive; search results include role/document uses. |
+| ControlDocket    | Reserve      | Clean checks, but sounds more like the request ledger than the product. |
+| OpsDocket        | Reserve      | Clean checks, but too operations-generic for the umbrella product.      |
+| BatchGatehouse   | Reserve      | Clean checks, but longer and more metaphor-heavy than `BatchGov`.       |
+| ControlGatehouse | Reserve      | Clean checks, but long and less batch-specific.                         |
+| BatchPass        | Reject       | `.com` taken; approval meaning is good but collision risk is poor.      |
+| BatchHQ          | Reject       | `.com` taken.                                                           |
+| BatchOS          | Reject       | `.com` taken; overclaims platform scope.                                |
+| BatchIQ          | Reject       | `.com` taken; generic intelligence-product pattern.                     |
+
+### Additional Brandable Candidate Pass
+
+The owner asked for more candidates after `BatchGov` improved the direction. The next
+pass focused on names that are still short but less feature-label-like.
+
+| Candidate      | Point-in-time checks                  | Product read                                                         | Current view |
+| -------------- | ------------------------------------- | -------------------------------------------------------------------- | ------------ |
+| BatchGov       | `.com/.org/.io/.dev` + npm/PyPI clean | Batch governance/control/audit.                                      | Lead         |
+| BatchGRC       | `.com/.org` + npm/PyPI clean          | Batch governance, risk, and compliance. Strong for financial buyers. | Strong alt   |
+| BatchPlane     | `.com/.org` + npm/PyPI clean          | Batch control plane across adapters and schedulers.                  | Strong alt   |
+| BatchQuorum    | `.com/.org` + npm/PyPI clean          | Approval quorum before batch execution.                              | Reserve      |
+| QuorumRun      | `.com/.org` + npm/PyPI clean          | Consensus-approved runtime execution.                                | Reserve      |
+| BatchVerity    | `.com/.org` + npm/PyPI clean          | Truth/evidence/audit integrity for batch operations.                 | Reserve      |
+| BatchGatehouse | `.com/.org` + npm/PyPI clean          | Gatekeeping and controlled entry to execution.                       | Reserve      |
+| ControlDocket  | `.com` + npm/PyPI clean               | Control request/evidence docket.                                     | Component    |
+| OpsDocket      | `.com` + npm/PyPI clean               | Operations request/evidence docket.                                  | Component    |
+
+Search hygiene notes:
+
+- `BatchGRC` exact compact search did not show an obvious exact product collision in this
+  pass, but the broader `Batch GRC` phrase is naturally noisy because GRC is a mature
+  enterprise category.
+- `BatchPlane` and `BatchVerity` had cleaner exact-name hygiene than most literal
+  control/audit names.
+- GitHub repo-name search returned no exact `BatchGRC` or `BatchVerity` repositories.
+  `BatchPlane` returned no exact repository, but did return a nearby public
+  `BatchPlanet` repository, which is not an exact collision.
+- `BatchJournal` is available in the automated checks but is lowered because "batch
+  journal" is a common record/audit phrase and feels more like a log than a platform.
+- `BatchTower` is available in the automated checks but lowered because tower/control
+  tower language is common in operations and industrial contexts.
+
+Current product judgment: `BatchGov` is the strongest replacement direction found so far.
+It is not legally cleared, but it is materially better than the earlier descriptive pool
+for brandability and better than `BatchTrail`/`BatchControlHub` for obvious collision risk.
+
 ## Stronger Candidate Pool
 
 These names passed the current `.com + npm + PyPI` knockout check and are still worth
@@ -349,21 +454,41 @@ Cons:
 
 ## Current Human-Review Shortlist
 
-No final recommendation is made yet. The next human-review pass should start with:
+Current lead candidate:
+
+- `BatchGov`
+
+Strong alternatives:
+
+- `BatchGRC`
+- `BatchPlane`
+
+Reserve candidates only if the owner rejects the `Gov`/`GRC` direction:
+
+- `TaskGov`
+- `BatchQuorum`
+- `QuorumRun`
+- `BatchVerity`
+- `BatchGatehouse`
+- `ControlDocket`
+- `OpsDocket`
+- `BatchNotary`
+- `BatchCustody`
+- `BatchControlHub`
+
+Previously reviewed but currently lowered due owner preference or brandability concerns:
 
 - `BatchPermit`
 - `BatchWarrant`
 - `BatchSignoff`
 - `BatchAttest`
-- `BatchNotary`
-- `BatchCustody`
-- `BatchQuorum`
 - `BatchPolicyGate`
-- `BatchControlHub`
+- `BatchHelm`
+- `BatchPact`
+- `BatchAccord`
 - `RunAuditGate`
 - `RepoAttest`
 - `RepoPermit`
-- `OpsDocket`
 - `OpsAttest`
 - `FlowAuditGate`
 
@@ -385,6 +510,13 @@ Web checks:
   `RunVouch`, `RunAttest`, `RunWarrant`, `RunAuditGate`, `RepoAttest`, `RepoVouch`,
   `RepoNotary`, `RepoWarrant`, `OpsDocket`, `OpsWarrant`, `OpsVouch`, `OpsAttest`,
   `FlowAuditGate`, `FlowPolicyGate`, `FlowVouch`, and `FlowAttest`.
+- Brandability-pivot exact searches for `BatchGov`, `TaskGov`, `BatchGovernor`,
+  `BatchDirector`, `BatchCommander`, `BatchSupervisor`, `ControlDocket`, `OpsDocket`,
+  `BatchGatehouse`, and `ControlGatehouse`.
+- Additional exact searches for `BatchGRC`, `BatchPlane`, `BatchQuorum`, `QuorumRun`,
+  `BatchVerity`, `BatchJournal`, `BatchTower`, `BatchPass`, `BatchHQ`, `BatchOS`, and
+  `BatchIQ`.
 
-Current recommendation confidence: no final recommendation yet. Candidate pool is ready
-for owner preference review and deeper clearance on 5-10 preferred names.
+Current recommendation confidence: `BatchGov` is the leading product-name candidate from
+the engineering/product knockout pass. It still needs owner preference approval, domain
+checkout, and legal trademark review before the repository is renamed.
