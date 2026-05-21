@@ -1,8 +1,8 @@
 # Naming Clearance Research - 2026-05-21
 
 Status: P0 incident response  
-Scope: project/product name replacement for the current BatchTrail repository  
-Decision state: BatchTrail must be abandoned before further brand-reinforcing merges
+Scope: replacement naming pool for the current BatchTrail repository  
+Decision state: BatchTrail is rejected; replacement name is not selected yet
 
 This is not a legal opinion or formal trademark clearance. It is an engineering/product
 knockout search intended to prevent obvious name collisions before the project is renamed.
@@ -35,84 +35,234 @@ Reject or avoid a candidate when any of these are true:
   traceability adjacency.
 - The name over-anchors GitHub Lite and makes the future installed/Jenkins/SCDF version
   feel secondary.
+- The name is too obscure for the target buyer/user to remember without explanation.
 
-## Candidate Results
+## Current Search Method
 
-| Candidate     | Status                        | Evidence                                                                                                                                                                                                          | Product Fit                                                                          |
-| ------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| BatchTrail    | Reject                        | Active `batchtrail.com`; RDAP registered `2026-04-24`; strong semantic overlap.                                                                                                                                   | Previously good, now unusable.                                                       |
-| BatchTrace    | Reject                        | `.com` taken; GitHub user exists; traceability domain overlap is high.                                                                                                                                            | Too close to BatchTrail and traceability products.                                   |
-| BatchTrack    | Reject                        | `.com` taken; many GitHub name hits.                                                                                                                                                                              | Too generic and noisy.                                                               |
-| BatchLedger   | Avoid                         | `.com` taken; ledger wording is audit-friendly but generic.                                                                                                                                                       | Good meaning, weak distinctiveness.                                                  |
-| BatchProof    | Reject                        | `.com` taken; exact product/domain risk.                                                                                                                                                                          | Good meaning, not clean enough.                                                      |
-| BatchGate     | Avoid                         | `.com` appears unregistered, but the name is generic and collides semantically with payment/security gateway language.                                                                                            | Clear, but too broad and risky.                                                      |
-| BatchGuard    | Reject                        | `.com` taken; GitHub user exists; generic security/tooling feel.                                                                                                                                                  | Understandable, but noisy.                                                           |
-| BatchWarden   | Hold                          | `.com` appears unregistered; npm/PyPI free; GitHub has exact-name repositories for unrelated tooling.                                                                                                             | Distinct enough, but tone may feel harsh.                                            |
-| BatchPatrol   | Backup                        | `.com` appears unregistered; npm/PyPI free; no meaningful GitHub exact hits found.                                                                                                                                | Clear control/monitoring meaning, but less audit/evidence-oriented.                  |
-| BatchSeal     | Recommended                   | `.com` appears unregistered; npm/PyPI free for `batchseal` and `batch-seal`; GitHub exact repo search found no direct project collision; search noise is generic manufacturing/food text, not a software product. | Strong audit/control metaphor: an approved run is sealed by evidence.                |
-| GitBatchGate  | Backup for Lite branding only | `.com` appears unregistered; npm/PyPI free; no GitHub exact hits found.                                                                                                                                           | Very clear for GitHub Lite, but too Git-specific for the installed adapter platform. |
-| RepoRunGate   | Backup                        | `.com` appears unregistered; npm/PyPI free; no GitHub exact hits found.                                                                                                                                           | Communicates repo-triggered execution; weaker batch/audit meaning.                   |
-| BatchRepoGate | Backup                        | `.com` appears unregistered; npm/PyPI free; no GitHub exact hits found.                                                                                                                                           | Descriptive, but long and mechanical.                                                |
+Second-pass candidate generation expanded from the earlier small shortlist.
 
-## Recommended Direction
+- Generated 218 candidates across `Batch`, `Run`, `Job`, `Repo`, `Git`, `Ops`, `Flow`,
+  and `Task` naming families.
+- Checked exact `.com` RDAP status through Verisign for compact lowercase forms.
+- Checked exact npm registry availability for compact and hyphenated package forms.
+- Checked exact PyPI availability for compact and hyphenated package forms.
+- Performed web searches for representative high-fit candidates and known risk terms.
 
-Use one umbrella project name and edition names:
+Important limitation:
 
-- Project: `BatchSeal`
-- GitHub Pages edition: `BatchSeal Lite`
-- Future server edition: `BatchSeal Server`
+- `.com` RDAP `404` means no Verisign registration was returned at check time. It is not
+  a purchase guarantee and does not replace registrar checkout.
+- npm/PyPI availability is point-in-time.
+- Search engine results are a knockout aid, not legal clearance.
 
-Reasoning:
+## Rejected Or Deprioritized
 
-- It keeps `Batch` in the name, so the target domain stays obvious.
-- `Seal` fits approval, audit evidence, tamper-awareness, and execution authorization.
-- It does not overfit to GitHub, so Jenkins/SCDF adapters still feel native later.
-- The name is simpler and less obscure than prior candidates like `Ordo` or `Oath`.
-- Current knockout checks are cleaner than the other understandable candidates.
+| Candidate   | Status         | Reason                                                                |
+| ----------- | -------------- | --------------------------------------------------------------------- |
+| BatchTrail  | Reject         | Active external service at `batchtrail.com`; strong semantic overlap. |
+| BatchTrace  | Reject         | `.com` taken; traceability adjacency is too close.                    |
+| BatchTrack  | Reject         | `.com` taken; noisy GitHub/search results.                            |
+| BatchProof  | Reject         | `.com` taken.                                                         |
+| BatchGuard  | Reject         | `.com` taken; generic security/tooling wording.                       |
+| BatchDocket | Deprioritize   | Search results include an existing R package function `batchDocket`.  |
+| BatchMinder | Deprioritize   | Search results include exact `Batchminder` game/card usage.           |
+| RunVouch    | Deprioritize   | Search results include active `RUNVOUCH LTD`.                         |
+| BatchSeal   | Owner-rejected | Availability looked usable, but the project owner does not prefer it. |
 
-## Brand Notes If BatchSeal Is Chosen
+## Stronger Candidate Pool
 
-Suggested short positioning:
+These names passed the current `.com + npm + PyPI` knockout check and are still worth
+human review. They are grouped by product meaning rather than final rank.
 
-> BatchSeal is an open-source batch control system that seals every batch change and
-> execution with approval evidence.
+### Approval / Authorization
 
-Suggested Korean positioning:
+| Candidate      | Korean sense        | Fit                                                    | Concern                                     |
+| -------------- | ------------------- | ------------------------------------------------------ | ------------------------------------------- |
+| BatchPermit    | 배치 실행 허가      | Directly says a batch needs permission before running. | Slightly generic.                           |
+| BatchWarrant   | 배치 실행 영장/권한 | Strong control meaning; execution is authorized.       | Legal nuance may feel heavy.                |
+| BatchClearance | 배치 승인 통과      | Good for approval-before-run.                          | Long.                                       |
+| BatchSignoff   | 배치 승인 서명      | Familiar enterprise approval word.                     | Less technical.                             |
+| BatchApproval  | 배치 승인           | Very explicit.                                         | Generic.                                    |
+| BatchGrant     | 배치 권한 부여      | Short and approval-oriented.                           | May sound access-control-only.              |
+| RunWarrant     | 실행 권한           | Good for runtime authorization.                        | Less batch-specific.                        |
+| RunSignoff     | 실행 승인           | Clear and direct.                                      | Less batch-specific.                        |
+| RunApproval    | 실행 승인           | Explicit.                                              | Generic.                                    |
+| RepoPermit     | 저장소 기반 허가    | Strong Lite fit.                                       | Future server edition may feel less native. |
+| RepoWarrant    | 저장소 기반 실행권  | Strong Lite fit with control.                          | Legal nuance; repo-specific.                |
+| GitSignoff     | Git 승인 서명       | Very Lite-oriented and understandable.                 | Too Git-specific for umbrella name.         |
+| GitApproval    | Git 승인            | Direct Lite fit.                                       | Too Git-specific for umbrella name.         |
+| OpsPermit      | 운영 실행 허가      | Broader than batch; good installed-platform feel.      | Less batch-specific.                        |
+| OpsSignoff     | 운영 승인           | Enterprise-friendly.                                   | Less distinctive.                           |
 
-> BatchSeal은 배치 등록, 변경, 실행을 승인 증적과 함께 봉인하는 오픈소스 배치통제 시스템입니다.
+### Audit / Evidence
 
-Logo/color direction:
+| Candidate      | Korean sense       | Fit                                        | Concern                       |
+| -------------- | ------------------ | ------------------------------------------ | ----------------------------- |
+| BatchAttest    | 배치 증명/입증     | Audit-friendly; close to attestation.      | Slightly formal English.      |
+| BatchWitness   | 배치 증인/증적     | Strong evidence metaphor.                  | May sound legalistic.         |
+| BatchNotary    | 배치 공증          | Approval/evidence is very clear.           | Legal-office tone.            |
+| BatchCustody   | 배치 증적 보관     | Good for audit trail and chain-of-custody. | May imply asset custody.      |
+| BatchEvidence  | 배치 증적          | Extremely explicit.                        | Long and literal.             |
+| BatchAuditHub  | 배치 감사 허브     | Direct for audit product.                  | Less elegant as brand.        |
+| BatchAuditGate | 배치 감사 게이트   | Directly communicates gate + audit.        | Long and mechanical.          |
+| RunAttest      | 실행 증명          | Good for Gate/action package naming.       | Less batch-specific.          |
+| RunWitness     | 실행 증적          | Strong runtime evidence meaning.           | Less batch-specific.          |
+| RunNotary      | 실행 공증          | Clear approval/evidence metaphor.          | Legal tone.                   |
+| RunAuditGate   | 실행 감사 게이트   | Good for the GitHub Action/Gate component. | Component-like, not umbrella. |
+| RepoAttest     | 저장소 기반 증명   | Strong GitHub Lite fit.                    | Repo-specific.                |
+| RepoAuditGate  | 저장소 감사 게이트 | Good Lite component naming.                | Long.                         |
+| OpsAttest      | 운영 증명          | Good installed-platform feel.              | Less batch-specific.          |
+| FlowAuditGate  | 흐름 감사 게이트   | Works across workflow engines.             | More workflow than batch.     |
 
-- Primary motif: batch run line + approval seal/check mark.
-- Lite variant: small repo/branch marker added to the same seal motif.
-- Server variant: same seal motif with adapter/node marker.
-- Suggested palette: deep navy for trust, green for approval, amber for pending,
-  red for blocked/failure. Avoid a one-note blue/purple palette.
+### Governance / Control
 
-## Required Rename Work After Name Selection
+| Candidate           | Korean sense       | Fit                                                  | Concern                          |
+| ------------------- | ------------------ | ---------------------------------------------------- | -------------------------------- |
+| BatchGovern         | 배치 거버넌스      | Strong governance signal.                            | Verb form feels slightly odd.    |
+| BatchPolicyGate     | 배치 정책 게이트   | Very clear: policy blocks execution.                 | Long, component-like.            |
+| BatchRulebook       | 배치 규칙집        | Good for policy-as-code and repo mode.               | Less execution-focused.          |
+| BatchControlHub     | 배치통제 허브      | Directly matches financial batch-control language.   | Descriptive, less brand-like.    |
+| BatchControlKit     | 배치통제 키트      | Good open-source toolkit feel.                       | Toolkit may understate product.  |
+| BatchControlPlane   | 배치통제 플레인    | Strong platform architecture meaning.                | Long and infra-heavy.            |
+| BatchCheckpoint     | 배치 체크포인트    | Easy mental model: pass checkpoint before execution. | Generic.                         |
+| BatchExecutionGuard | 배치 실행 보호     | Very explicit.                                       | Too long for brand.              |
+| RunPolicyGate       | 실행 정책 게이트   | Clear Gate naming.                                   | Component-like.                  |
+| RunGuardrail        | 실행 가드레일      | Good control metaphor.                               | Guardrail is generic.            |
+| JobPolicyGate       | 작업 정책 게이트   | Fits job schedulers.                                 | Job word may narrow positioning. |
+| RepoPolicyGate      | 저장소 정책 게이트 | Strong Lite fit.                                     | Too repo-specific for umbrella.  |
+| GitPolicyGate       | Git 정책 게이트    | Very clear Lite component name.                      | Too Git-specific for umbrella.   |
 
-If `BatchSeal` is accepted, do the rename as one P0 migration PR:
+### Stewardship / Oversight
 
-- Repository description, README, docs, SRS, technical specs.
-- Package scopes, package names, npm workspace names.
-- GitHub Action paths and action display names.
-- UI copy, i18n keys/values, logos, color tokens.
-- Workflow templates, dispatcher/gate messages, issue labels/comments.
-- Open issues and PR references where feasible.
-- GitHub Pages deployment base/title metadata.
+| Candidate    | Korean sense       | Fit                                           | Concern                          |
+| ------------ | ------------------ | --------------------------------------------- | -------------------------------- |
+| BatchVouch   | 배치 보증          | Short; approval evidence is vouched for.      | Vouch may feel casual.           |
+| BatchQuorum  | 배치 승인 정족수   | Excellent if multi-approver policy matters.   | Quorum may need explanation.     |
+| BatchSteward | 배치 관리 책임자   | Good governance/stewardship feel.             | Softer than control.             |
+| BatchCouncil | 배치 승인 위원회   | Good for approver groups.                     | May feel bureaucratic.           |
+| BatchCharter | 배치 운영 헌장     | Good governance/policy feel.                  | Less obvious execution control.  |
+| BatchAegis   | 배치 보호          | Short and protective.                         | Aegis may be unfamiliar.         |
+| BatchAnchor  | 배치 증적 앵커     | Good for tamper-aware evidence.               | Less approval-specific.          |
+| JobQuorum    | 작업 승인 정족수   | Useful if job-level approvals are emphasized. | Less batch-specific.             |
+| RepoQuorum   | 저장소 승인 정족수 | Strong for maintainer approval model.         | Repo-specific.                   |
+| OpsDocket    | 운영 처리대장      | Good request/inbox/audit workflow meaning.    | Docket may be unfamiliar.        |
+| OpsWarrant   | 운영 실행권        | Strong control meaning.                       | Legal nuance.                    |
+| OpsCustody   | 운영 증적 보관     | Good audit custody meaning.                   | Custody may imply asset custody. |
+
+## Long Candidate Pool That Passed `.com + npm + PyPI`
+
+The following passed the current automated knockout check. They still need GitHub
+search, web search, and legal review before selection.
+
+```text
+BatchVouch, BatchAttest, BatchWitness, BatchNotary, BatchCustody,
+BatchPermit, BatchWarrant, BatchQuorum, BatchSteward, BatchCharter,
+BatchCouncil, BatchAegis, BatchAnchor, BatchEvidence, BatchSignoff,
+BatchApproval, BatchGrant, BatchClearance, BatchCheckpoint, BatchGovern,
+BatchPolicyGate, BatchRulebook, BatchAuditGate, BatchAuditHub,
+BatchControlHub, BatchControlKit, BatchControlPlane, BatchCommand,
+BatchTraceGuard, BatchExecutionGuard,
+
+RunAttest, RunWitness, RunNotary, RunCustody, RunWarrant, RunSignoff,
+RunApproval, RunClearance, RunCheckpoint, RunPolicyGate, RunAuditGate,
+RunGuardrail, RunCertify,
+
+JobNotary, JobCustody, JobWarrant, JobQuorum, JobSignoff, JobCheckpoint,
+JobPolicyGate, JobAuditGate, JobGuardrail, JobLineage,
+
+RepoVouch, RepoAttest, RepoNotary, RepoCustody, RepoPermit, RepoWarrant,
+RepoDocket, RepoQuorum, RepoCharter, RepoCouncil, RepoAegis, RepoAnchor,
+RepoEvidence, RepoSignoff, RepoApproval, RepoClearance, RepoCheckpoint,
+RepoGovern, RepoPolicyGate, RepoAuditGate, RepoAuditHub, RepoAssure,
+RepoLineage, RepoRunControl, RepoRunAudit, RepoRunApproval,
+
+GitVouch, GitAttest, GitWitness, GitPermit, GitWarrant, GitDocket,
+GitSignoff, GitApproval, GitRunControl, GitRunAudit, GitPolicyGate,
+
+OpsDocket, OpsWarrant, OpsVouch, OpsAttest, OpsPermit, OpsSignoff,
+OpsCustody, OpsLedgerGate,
+
+FlowVouch, FlowAttest, FlowWarrant, FlowSignoff, FlowAuditGate,
+FlowPolicyGate,
+
+TaskVouch, TaskAttest, TaskPermit, TaskWarrant, TaskSignoff, TaskAuditGate
+```
+
+## Product Naming Patterns To Consider
+
+### One Umbrella Name
+
+Example:
+
+- Project: `BatchPermit`
+- GitHub Pages edition: `BatchPermit Lite`
+- Server edition: `BatchPermit Server`
+
+Pros:
+
+- Clearer open-source identity.
+- Easier package/action/documentation naming.
+- Avoids Lite and Server feeling like unrelated products.
+
+Cons:
+
+- The selected name must work for both GitHub repo mode and future installed adapters.
+
+### Umbrella + Component Names
+
+Example:
+
+- Project: `BatchPermit`
+- Gate action: `RunAuditGate`
+- GitHub Lite workflow: `RepoPolicyGate`
+
+Pros:
+
+- The product name can stay simple while technical components are precise.
+- GitHub Lite can use repo-specific wording without trapping the whole product brand.
+
+Cons:
+
+- More names to maintain.
+
+## Current Human-Review Shortlist
+
+No final recommendation is made yet. The next human-review pass should start with:
+
+- `BatchPermit`
+- `BatchWarrant`
+- `BatchSignoff`
+- `BatchAttest`
+- `BatchNotary`
+- `BatchCustody`
+- `BatchQuorum`
+- `BatchPolicyGate`
+- `BatchControlHub`
+- `RunAuditGate`
+- `RepoAttest`
+- `RepoPermit`
+- `OpsDocket`
+- `OpsAttest`
+- `FlowAuditGate`
 
 ## Queries Performed
 
 Infrastructure/package checks:
 
-- Verisign RDAP `.com` checks for rejected and candidate names.
+- Verisign RDAP `.com` checks for generated candidate names.
 - npm registry exact checks for compact and hyphenated package forms.
 - PyPI exact checks for compact and hyphenated package forms.
-- GitHub user/repo exact and name search checks for shortlisted candidates.
 
 Web checks:
 
-- Exact-name searches for `BatchTrail`, `BatchSeal`, `BatchPatrol`, `BatchWarden`,
-  `BatchGate`, `GitBatchGate`, `RepoRunGate`, and `BatchRepoGate`.
+- Active product check for `BatchTrail`.
+- Exact-name searches for representative candidates including `BatchVouch`,
+  `BatchAttest`, `BatchWitness`, `BatchNotary`, `BatchPermit`, `BatchWarrant`,
+  `BatchDocket`, `BatchQuorum`, `BatchCustody`, `BatchSignoff`, `BatchGovern`,
+  `BatchPolicyGate`, `BatchSteward`, `BatchMinder`, `BatchCharter`, `BatchAegis`,
+  `RunVouch`, `RunAttest`, `RunWarrant`, `RunAuditGate`, `RepoAttest`, `RepoVouch`,
+  `RepoNotary`, `RepoWarrant`, `OpsDocket`, `OpsWarrant`, `OpsVouch`, `OpsAttest`,
+  `FlowAuditGate`, `FlowPolicyGate`, `FlowVouch`, and `FlowAttest`.
 
-Current recommendation confidence: medium-high for knockout purposes, not legal clearance.
+Current recommendation confidence: no final recommendation yet. Candidate pool is ready
+for owner preference review and deeper clearance on 5-10 preferred names.
