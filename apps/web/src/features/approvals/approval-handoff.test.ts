@@ -1,7 +1,7 @@
 import type {
   RepositoryIssue,
   RepositoryPullRequest,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -19,7 +19,7 @@ const registrationPullRequest: RepositoryPullRequest = {
   author: "developer",
   base: "main",
   body: "body",
-  head: "batchtrail/register/payment.daily-close-20260509010203",
+  head: "batchplane/register/payment.daily-close-20260509010203",
   merged: false,
   number: 12,
   state: "open",
@@ -40,7 +40,7 @@ const executionIssue: RepositoryIssue = {
     "- Request digest: `sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`",
     "- Status: REQUESTED",
     "",
-    "<!-- batchtrail:execution-request",
+    "<!-- batchplane:execution-request",
     "requestId=btr-20260509010203-payment.daily-close-abcdef12",
     "batchId=payment.daily-close",
     "requestDigest=sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",

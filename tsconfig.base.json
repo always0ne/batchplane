@@ -16,9 +16,9 @@
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
     "paths": {
-      "@batchtrail/digest": ["packages/digest/src/index.ts"],
-      "@batchtrail/domain": ["packages/domain/src/index.ts"],
-      "@batchtrail/github-lite": ["packages/github-lite/src/index.ts"]
+      "@batchplane/digest": ["packages/digest/src/index.ts"],
+      "@batchplane/domain": ["packages/domain/src/index.ts"],
+      "@batchplane/github-lite": ["packages/github-lite/src/index.ts"]
     },
     "resolveJsonModule": true,
     "skipLibCheck": true,

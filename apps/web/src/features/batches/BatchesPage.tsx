@@ -1,4 +1,4 @@
-import type { BatchDefinition } from "@batchtrail/domain";
+import type { BatchDefinition } from "@batchplane/domain";
 import { Loader2, Play, Plus, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";

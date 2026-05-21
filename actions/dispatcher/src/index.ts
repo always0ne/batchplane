@@ -91,17 +91,17 @@ const dispatcherLabels = {
   dispatched: {
     color: "16A34A",
     description: "BatchPlane dispatcher completed workflow dispatch",
-    name: "batchtrail:dispatched",
+    name: "batchplane:dispatched",
   },
   dispatchFailed: {
     color: "DC2626",
     description: "BatchPlane dispatcher failed workflow dispatch",
-    name: "batchtrail:dispatch-failed",
+    name: "batchplane:dispatch-failed",
   },
   dispatching: {
     color: "2563EB",
     description: "BatchPlane dispatcher is processing this execution request",
-    name: "batchtrail:dispatching",
+    name: "batchplane:dispatching",
   },
 } as const;
 
@@ -436,7 +436,7 @@ function parseBatchPlaneMarker(
 ): Map<string, string> | null {
   const marker = new Map<string, string>();
   const match = body.match(
-    new RegExp(`<!--\\s*batchtrail:${kind}\\s*([\\s\\S]*?)-->`),
+    new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`),
   );
 
   if (!match?.[1]) {
@@ -725,7 +725,7 @@ function findExistingDispatchState({
     };
   }
 
-  if (labels.includes(dispatcherLabels.dispatched.name)) {
+  if (hasBatchPlaneLabel(labels, "dispatched")) {
     return {
       handled: true,
       message: "Execution request has already been dispatched.",
@@ -733,7 +733,7 @@ function findExistingDispatchState({
     };
   }
 
-  if (labels.includes(dispatcherLabels.dispatching.name)) {
+  if (hasBatchPlaneLabel(labels, "dispatching")) {
     return {
       handled: true,
       message: "Execution request dispatch is already in progress.",
@@ -742,6 +742,13 @@ function findExistingDispatchState({
   }
 
   return { handled: false };
+}
+
+function hasBatchPlaneLabel(labels: string[], name: string): boolean {
+  return (
+    labels.includes(`batchplane:${name}`) ||
+    labels.includes(`batchtrail:${name}`)
+  );
 }
 
 function buildDispatchingComment(dispatchPlan: DispatcherDispatchPlan): string {
@@ -755,7 +762,7 @@ function buildDispatchingComment(dispatchPlan: DispatcherDispatchPlan): string {
     `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
     `- Request digest: \`${dispatchPlan.requestDigest}\``,
     "",
-    "<!-- batchtrail:bgcp:dispatcher",
+    "<!-- batchplane:bgcp:dispatcher",
     "status=DISPATCHING",
     `requestId=${dispatchPlan.requestId}`,
     `batchId=${dispatchPlan.batchId}`,
@@ -777,7 +784,7 @@ function buildDispatchSuccessComment(
     `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
     `- Request digest: \`${dispatchPlan.requestDigest}\``,
     "",
-    "<!-- batchtrail:bgcp:dispatcher",
+    "<!-- batchplane:bgcp:dispatcher",
     "status=DISPATCHED",
     `requestId=${dispatchPlan.requestId}`,
     `batchId=${dispatchPlan.batchId}`,
@@ -805,7 +812,7 @@ function buildDispatchFailureComment(
         ]
       : []),
     "",
-    "<!-- batchtrail:bgcp:dispatcher",
+    "<!-- batchplane:bgcp:dispatcher",
     "status=DISPATCH_FAILED",
     `reasonCode=${reasonCode}`,
     ...(dispatchPlan

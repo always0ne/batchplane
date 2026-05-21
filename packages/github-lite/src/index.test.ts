@@ -106,7 +106,7 @@ describe("createGitHubLiteClient", () => {
       client.createBranch({
         owner: "always0ne",
         repo: "batchtrail",
-        branch: "batchtrail/register/demo",
+        branch: "batchplane/register/demo",
         sha: "base-sha",
       }),
     ).resolves.toBeUndefined();
@@ -115,7 +115,7 @@ describe("createGitHubLiteClient", () => {
       "https://api.github.com/repos/always0ne/batchtrail/git/refs",
     );
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
-      ref: "refs/heads/batchtrail/register/demo",
+      ref: "refs/heads/batchplane/register/demo",
       sha: "base-sha",
     });
   });
@@ -139,7 +139,7 @@ describe("createGitHubLiteClient", () => {
         owner: "always0ne",
         repo: "batchtrail",
         path: ".batch-governance/batches/demo.yml",
-        branch: "batchtrail/register/demo",
+        branch: "batchplane/register/demo",
         message: "Register batch demo",
         content: "name: 데모\n",
       }),
@@ -175,7 +175,7 @@ describe("createGitHubLiteClient", () => {
       owner: "always0ne",
       repo: "batchtrail",
       path: ".batch-governance/batches/demo/artifacts/app.bin",
-      branch: "batchtrail/register/demo",
+      branch: "batchplane/register/demo",
       message: "Register batch demo",
       content: "AQID",
       encoding: "base64",
@@ -198,7 +198,7 @@ describe("createGitHubLiteClient", () => {
         state: "open",
         merged: false,
         user: { login: "always0ne" },
-        head: { ref: "batchtrail/register/demo" },
+        head: { ref: "batchplane/register/demo" },
         base: { ref: "main" },
       });
     const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
@@ -209,14 +209,14 @@ describe("createGitHubLiteClient", () => {
         repo: "batchtrail",
         title: "Register batch demo",
         body: "body",
-        head: "batchtrail/register/demo",
+        head: "batchplane/register/demo",
         base: "main",
       }),
     ).resolves.toEqual({
       number: 12,
       title: "Register batch demo",
       url: "https://github.com/always0ne/batchtrail/pull/12",
-      head: "batchtrail/register/demo",
+      head: "batchplane/register/demo",
       base: "main",
       state: "open",
       author: "always0ne",
@@ -239,7 +239,7 @@ describe("createGitHubLiteClient", () => {
           state: "open",
           merged: false,
           user: { login: "always0ne" },
-          head: { ref: "batchtrail/register/demo" },
+          head: { ref: "batchplane/register/demo" },
           base: { ref: "main" },
         },
       ]);
@@ -258,7 +258,7 @@ describe("createGitHubLiteClient", () => {
         number: 12,
         title: "Register batch demo",
         url: "https://github.com/always0ne/batchtrail/pull/12",
-        head: "batchtrail/register/demo",
+        head: "batchplane/register/demo",
         base: "main",
         state: "open",
         author: "always0ne",
@@ -438,7 +438,7 @@ describe("createGitHubLiteClient", () => {
         number: 34,
         title: "Run batch payment.daily-close (updated)",
         body: "updated body",
-        labels: [{ name: "batchtrail:execution-request" }],
+        labels: [{ name: "batchplane:execution-request" }],
         html_url: "https://github.com/always0ne/batchtrail/issues/34",
         state: "open",
         user: { login: "always0ne" },
@@ -453,13 +453,13 @@ describe("createGitHubLiteClient", () => {
         issueNumber: 34,
         title: "Run batch payment.daily-close (updated)",
         body: "updated body",
-        labels: ["batchtrail:execution-request"],
+        labels: ["batchplane:execution-request"],
       }),
     ).resolves.toEqual({
       number: 34,
       title: "Run batch payment.daily-close (updated)",
       body: "updated body",
-      labels: ["batchtrail:execution-request"],
+      labels: ["batchplane:execution-request"],
       url: "https://github.com/always0ne/batchtrail/issues/34",
       state: "open",
       author: "always0ne",
@@ -471,7 +471,7 @@ describe("createGitHubLiteClient", () => {
     );
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       body: "updated body",
-      labels: ["batchtrail:execution-request"],
+      labels: ["batchplane:execution-request"],
       title: "Run batch payment.daily-close (updated)",
     });
   });
@@ -487,7 +487,7 @@ describe("createGitHubLiteClient", () => {
             number: 34,
             title: "Run batch payment.daily-close",
             body: "body",
-            labels: [{ name: "batchtrail:execution-request" }],
+            labels: [{ name: "batchplane:execution-request" }],
             html_url: "https://github.com/always0ne/batchtrail/issues/34",
             state: "open",
             user: { login: "always0ne" },
@@ -503,14 +503,14 @@ describe("createGitHubLiteClient", () => {
         repo: "batchtrail",
         query: "daily close",
         state: "open",
-        labels: ["batchtrail:execution-request"],
+        labels: ["batchplane:execution-request"],
       }),
     ).resolves.toEqual([
       {
         number: 34,
         title: "Run batch payment.daily-close",
         body: "body",
-        labels: ["batchtrail:execution-request"],
+        labels: ["batchplane:execution-request"],
         url: "https://github.com/always0ne/batchtrail/issues/34",
         state: "open",
         author: "always0ne",
@@ -523,7 +523,7 @@ describe("createGitHubLiteClient", () => {
     );
     const requestUrl = new URL(requests[0]?.input.toString() ?? "");
     expect(requestUrl.searchParams.get("q")).toBe(
-      "repo:always0ne/batchtrail is:issue state:open label:batchtrail:execution-request daily close",
+      "repo:always0ne/batchtrail is:issue state:open label:batchplane:execution-request daily close",
     );
   });
 
@@ -539,7 +539,7 @@ describe("createGitHubLiteClient", () => {
           created_at: "2026-05-14T01:05:00.000Z",
           actor: { login: "maintainer" },
           label: {
-            name: "batchtrail:dispatched",
+            name: "batchplane:dispatched",
             color: "059669",
             description: "BatchPlane request was dispatched",
           },
@@ -561,7 +561,7 @@ describe("createGitHubLiteClient", () => {
         actor: "maintainer",
         createdAt: "2026-05-14T01:05:00.000Z",
         label: {
-          name: "batchtrail:dispatched",
+          name: "batchplane:dispatched",
           color: "059669",
           description: "BatchPlane request was dispatched",
         },
@@ -582,7 +582,7 @@ describe("createGitHubLiteClient", () => {
       if (requests.length === 1) {
         return Response.json([
           {
-            name: "batchtrail:execution-request",
+            name: "batchplane:execution-request",
             color: "0F766E",
             description: "BatchPlane execution request",
           },
@@ -590,7 +590,7 @@ describe("createGitHubLiteClient", () => {
       }
 
       return Response.json({
-        name: "batchtrail:dispatching",
+        name: "batchplane:dispatching",
         color: "2563EB",
         description: "BatchPlane request is dispatching",
       });
@@ -601,7 +601,7 @@ describe("createGitHubLiteClient", () => {
       client.listLabels({ owner: "always0ne", repo: "batchtrail" }),
     ).resolves.toEqual([
       {
-        name: "batchtrail:execution-request",
+        name: "batchplane:execution-request",
         color: "0F766E",
         description: "BatchPlane execution request",
       },
@@ -611,12 +611,12 @@ describe("createGitHubLiteClient", () => {
       client.createLabel({
         owner: "always0ne",
         repo: "batchtrail",
-        name: "batchtrail:dispatching",
+        name: "batchplane:dispatching",
         color: "2563EB",
         description: "BatchPlane request is dispatching",
       }),
     ).resolves.toEqual({
-      name: "batchtrail:dispatching",
+      name: "batchplane:dispatching",
       color: "2563EB",
       description: "BatchPlane request is dispatching",
     });
@@ -628,7 +628,7 @@ describe("createGitHubLiteClient", () => {
       "https://api.github.com/repos/always0ne/batchtrail/labels",
     );
     expect(JSON.parse(requests[1]?.init?.body?.toString() ?? "{}")).toEqual({
-      name: "batchtrail:dispatching",
+      name: "batchplane:dispatching",
       color: "2563EB",
       description: "BatchPlane request is dispatching",
     });
@@ -648,12 +648,12 @@ describe("createGitHubLiteClient", () => {
         owner: "always0ne",
         repo: "batchtrail",
         issueNumber: 34,
-        label: "batchtrail:dispatching",
+        label: "batchplane:dispatching",
       }),
     ).resolves.toBeUndefined();
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchtrail/issues/34/labels/batchtrail%3Adispatching",
+      "https://api.github.com/repos/always0ne/batchtrail/issues/34/labels/batchplane%3Adispatching",
     );
     expect(requests[0]?.init?.method).toBe("DELETE");
   });
@@ -791,16 +791,16 @@ describe("createMockGitHubLiteClient", () => {
     ).toBe(true);
     expect(state.labels.map((label) => label.name)).toEqual(
       expect.arrayContaining([
-        "batchtrail:execution-request",
-        "batchtrail:dispatching",
-        "batchtrail:dispatched",
-        "batchtrail:dispatch-failed",
-        "batchtrail:gate-blocked",
+        "batchplane:execution-request",
+        "batchplane:dispatching",
+        "batchplane:dispatched",
+        "batchplane:dispatch-failed",
+        "batchplane:gate-blocked",
       ]),
     );
     expect(state.workflows.map((workflow) => workflow.path)).toEqual(
       expect.arrayContaining([
-        ".github/workflows/batchtrail-dispatcher.yml",
+        ".github/workflows/batchplane-dispatcher.yml",
         ".github/workflows/payment.daily-close.yml",
       ]),
     );
@@ -888,12 +888,12 @@ describe("createMockGitHubLiteClient", () => {
 
     await client.createBranch({
       ...repo,
-      branch: "batchtrail/register/mock",
+      branch: "batchplane/register/mock",
       sha: "mock-main-sha",
     });
     await client.putFile({
       ...repo,
-      branch: "batchtrail/register/mock",
+      branch: "batchplane/register/mock",
       content: "mock: true\n",
       message: "Add mock file",
       path: ".batch-governance/batches/mock.yml",
@@ -902,7 +902,7 @@ describe("createMockGitHubLiteClient", () => {
       client.getFile({
         ...repo,
         path: ".batch-governance/batches/mock.yml",
-        ref: "batchtrail/register/mock",
+        ref: "batchplane/register/mock",
       }),
     ).resolves.toEqual(
       expect.objectContaining({
@@ -913,7 +913,7 @@ describe("createMockGitHubLiteClient", () => {
     const issue = await client.createIssue({
       ...repo,
       body: "body",
-      labels: ["batchtrail:execution-request"],
+      labels: ["batchplane:execution-request"],
       title: "Run batch mock",
     });
 
@@ -934,7 +934,7 @@ describe("createMockGitHubLiteClient", () => {
     await client.addIssueLabels({
       ...repo,
       issueNumber: issue.number,
-      labels: ["batchtrail:dispatching", "custom:one"],
+      labels: ["batchplane:dispatching", "custom:one"],
     });
     await client.createIssueComment({
       ...repo,
@@ -947,7 +947,7 @@ describe("createMockGitHubLiteClient", () => {
       expect.arrayContaining([
         expect.objectContaining({
           body: "updated body",
-          labels: expect.arrayContaining(["batchtrail:dispatching"]),
+          labels: expect.arrayContaining(["batchplane:dispatching"]),
           number: issue.number,
           title: "Run batch mock (updated)",
         }),
@@ -1005,7 +1005,7 @@ describe("createMockGitHubLiteClient", () => {
       ...repo,
       base: "main",
       body: "body",
-      head: "batchtrail/register/mock",
+      head: "batchplane/register/mock",
       title: "Register batch mock",
     });
 
@@ -1055,7 +1055,7 @@ describe("createMockGitHubLiteClient", () => {
     const issue = await client.createIssue({
       ...repo,
       body: buildExecutionRequestBody(request),
-      labels: ["batchtrail:execution-request"],
+      labels: ["batchplane:execution-request"],
       title: `Run batch ${request.batchId}`,
     });
 
@@ -1084,7 +1084,7 @@ describe("createMockGitHubLiteClient", () => {
       "dispatching",
     );
     expect(findIssue(client, issue.number)?.labels).toEqual(
-      expect.arrayContaining(["batchtrail:dispatching"]),
+      expect.arrayContaining(["batchplane:dispatching"]),
     );
 
     await client.createIssueComment({
@@ -1097,11 +1097,11 @@ describe("createMockGitHubLiteClient", () => {
       "dispatched",
     );
     expect(findIssue(client, issue.number)).toMatchObject({
-      labels: expect.arrayContaining(["batchtrail:dispatched"]),
+      labels: expect.arrayContaining(["batchplane:dispatched"]),
       state: "closed",
     });
     expect(findIssue(client, issue.number)?.labels).not.toContain(
-      "batchtrail:dispatching",
+      "batchplane:dispatching",
     );
     expect(
       client.state.workflowRuns.find(
@@ -1126,7 +1126,7 @@ describe("createMockGitHubLiteClient", () => {
     const issue = await client.createIssue({
       ...repo,
       body: buildExecutionRequestBody(request),
-      labels: ["batchtrail:execution-request"],
+      labels: ["batchplane:execution-request"],
       title: `Run batch ${request.batchId}`,
     });
 
@@ -1138,7 +1138,7 @@ describe("createMockGitHubLiteClient", () => {
 
     expect(findExecutionScenario(client, issue.number)?.state).toBe("rejected");
     expect(findIssue(client, issue.number)).toMatchObject({
-      labels: expect.arrayContaining(["batchtrail:rejected"]),
+      labels: expect.arrayContaining(["batchplane:rejected"]),
       state: "closed",
     });
   });
@@ -1156,14 +1156,14 @@ describe("createMockGitHubLiteClient", () => {
     const issue = await client.createIssue({
       ...repo,
       body: buildExecutionRequestBody(request),
-      labels: ["batchtrail:execution-request"],
+      labels: ["batchplane:execution-request"],
       title: `Run batch ${request.batchId}`,
     });
 
     await client.addIssueLabels({
       ...repo,
       issueNumber: issue.number,
-      labels: ["batchtrail:approved"],
+      labels: ["batchplane:approved"],
     });
 
     expect(findExecutionScenario(client, issue.number)?.state).toBe(
@@ -1183,7 +1183,7 @@ describe("createMockGitHubLiteClient", () => {
     const issue = await client.createIssue({
       ...repo,
       body: "body",
-      labels: ["batchtrail:execution-request"],
+      labels: ["batchplane:execution-request"],
       title: "Run batch reset-test",
     });
 
@@ -1215,7 +1215,7 @@ describe("createMockGitHubLiteClient", () => {
     expect(client.state.files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          path: ".github/workflows/batchtrail-dispatcher.yml",
+          path: ".github/workflows/batchplane-dispatcher.yml",
         }),
       ]),
     );
@@ -1251,7 +1251,7 @@ function buildExecutionRequestBody({
     `- Request digest: \`${requestDigest}\``,
     "- Status: REQUESTED",
     "",
-    "<!-- batchtrail:execution-request",
+    "<!-- batchplane:execution-request",
     `requestId=${requestId}`,
     `batchId=${batchId}`,
     `requestDigest=${requestDigest}`,
@@ -1277,7 +1277,7 @@ function buildExecutionApprovalComment({
     `- Batch ID: \`${batchId}\``,
     `- Request digest: \`${requestDigest}\``,
     "",
-    "<!-- batchtrail:execution-approval",
+    "<!-- batchplane:execution-approval",
     "decision=APPROVED",
     `requestId=${requestId}`,
     `batchId=${batchId}`,
@@ -1301,7 +1301,7 @@ function buildExecutionRejectionComment({
     `- Batch ID: \`${batchId}\``,
     `- Request digest: \`${requestDigest}\``,
     "",
-    "<!-- batchtrail:execution-approval",
+    "<!-- batchplane:execution-approval",
     "decision=REJECTED",
     `requestId=${requestId}`,
     `batchId=${batchId}`,
@@ -1326,7 +1326,7 @@ function buildDispatcherStatusComment(
     `- Batch ID: \`${batchId}\``,
     `- Request digest: \`${requestDigest}\``,
     "",
-    "<!-- batchtrail:bgcp:dispatcher",
+    "<!-- batchplane:bgcp:dispatcher",
     `status=${status}`,
     `requestId=${requestId}`,
     `batchId=${batchId}`,

@@ -1,5 +1,5 @@
 {
-  "name": "@batchtrail/gate-action",
+  "name": "@batchplane/gate-action",
   "version": "0.0.0",
   "private": true,
   "type": "module",

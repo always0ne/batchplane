@@ -18,7 +18,7 @@ Governance records live in the target GitHub repository:
 .github/
   workflows/
     {batchId}.yml
-    batchtrail-dispatcher.yml
+    batchplane-dispatcher.yml
 ```
 
 `{batchId}` paths must be derived from the submitted Batch ID. The application
@@ -34,16 +34,22 @@ that installation PR is merged.
 The setup flow checks these required files on the default branch:
 
 ```text
-.github/workflows/batchtrail-dispatcher.yml
+.github/workflows/batchplane-dispatcher.yml
 .batch-governance/README.md
 .batch-governance/batches/.gitkeep
 .batch-governance/schedules/.gitkeep
 ```
 
+For repositories installed before the rebrand, the setup status check also
+recognizes `.github/workflows/batchtrail-dispatcher.yml` and
+`.github/workflows/batchtrail-sample-target.yml` as legacy equivalents. The UI
+must not create a second dispatcher workflow only because the legacy dispatcher
+filename is present.
+
 If one or more files are missing, the UI may create a branch named:
 
 ```text
-batchtrail/install/repo-mode-{yyyyMMddHHmmss}
+batchplane/install/lite-{yyyyMMddHHmmss}
 ```
 
 and open a pull request titled:
@@ -61,7 +67,7 @@ remain the source of trust for bootstrap.
 The batch definition is serialized as deterministic YAML:
 
 ```yaml
-apiVersion: batchtrail.io/v1
+apiVersion: batchplane.io/v1
 kind: BatchDefinition
 metadata:
   id: "payment.daily-close"
@@ -84,10 +90,10 @@ spec:
 
 The generated workflow has two jobs:
 
-- `batchtrail-gate`
+- `batchplane-gate`
 - `run-batch`
 
-`run-batch` must declare `needs: batchtrail-gate`.
+`run-batch` must declare `needs: batchplane-gate`.
 
 The workflow is invoked only by `workflow_dispatch` with these inputs:
 
@@ -115,11 +121,11 @@ that token with `issues: read` permission to verify:
 
 - the current workflow actor is the dispatcher automation actor
   (`github-actions[bot]` by default)
-- a GitHub Issue contains a `batchtrail:execution-request` marker for the
+- a GitHub Issue contains a `batchplane:execution-request` marker for the
   submitted `request_id`
 - the Issue marker matches `batch_id`, `request_digest`, and `REQUESTED` status
 - at least one Issue comment starts with `/bgcp approve ` and contains a
-  matching `batchtrail:execution-approval` marker with `decision=APPROVED`
+  matching `batchplane:execution-approval` marker with `decision=APPROVED`
 
 ## Execution Request Payload
 
@@ -127,7 +133,7 @@ Manual request payload:
 
 ```json
 {
-  "apiVersion": "batchtrail.io/v1",
+  "apiVersion": "batchplane.io/v1",
   "kind": "ExecutionRequest",
   "metadata": {
     "requestId": "btr-20260509010203-payment.daily-close-abcdef12",
@@ -175,7 +181,7 @@ Execution approval comments must start with the dispatcher command:
 The comment must also contain the structured marker:
 
 ```text
-<!-- batchtrail:execution-approval
+<!-- batchplane:execution-approval
 decision=APPROVED
 requestId=...
 batchId=...
@@ -217,7 +223,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: batchtrail-dispatch-${{ github.event.issue.number }}
+  group: batchplane-dispatch-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
@@ -233,6 +239,11 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+`always0ne/batchtrail` is the current action repository reference until the
+GitHub repository is explicitly renamed. After the rename, new generated
+workflows must switch the centralized action reference to
+`always0ne/batchplane`.
+
 The browser UI must not directly dispatch governed batch workflows in Lite mode.
 
 The dispatcher workflow is responsible for:
@@ -241,8 +252,8 @@ The dispatcher workflow is responsible for:
 - reading the execution request issue body
 - verifying BatchPlane evidence
 - serializing dispatch attempts for the same execution request issue
-- ignoring requests that already have `batchtrail:dispatching` or
-  `batchtrail:dispatched` state evidence
+- ignoring requests that already have `batchplane:dispatching` or
+  `batchplane:dispatched` state evidence
 - calling the target workflow with:
   - `request_id`
   - `batch_id`
@@ -251,16 +262,20 @@ The dispatcher workflow is responsible for:
 
 The dispatcher writes state evidence as Issue labels and comments:
 
-- `batchtrail:dispatching` with a `DISPATCHING` `batchtrail:bgcp:dispatcher`
+- `batchplane:dispatching` with a `DISPATCHING` `batchplane:bgcp:dispatcher`
   marker before `workflow_dispatch`
-- `batchtrail:dispatched` with a `DISPATCHED` `batchtrail:bgcp:dispatcher`
+- `batchplane:dispatched` with a `DISPATCHED` `batchplane:bgcp:dispatcher`
   marker after `workflow_dispatch` succeeds
-- `batchtrail:dispatch-failed` with a `DISPATCH_FAILED`
-  `batchtrail:bgcp:dispatcher` marker when dispatch fails
+- `batchplane:dispatch-failed` with a `DISPATCH_FAILED`
+  `batchplane:bgcp:dispatcher` marker when dispatch fails
 
 Duplicate approval comments for the same request ID, Batch ID, and request
 digest must not create a second `workflow_dispatch` call once `DISPATCHING` or
 `DISPATCHED` evidence exists.
+
+Parsers must accept both BatchPlane and legacy BatchTrail evidence namespaces:
+`batchplane.io/v1` and `batchtrail.io/v1`, plus `batchplane:*` and
+`batchtrail:*` hidden markers/labels. Writers emit BatchPlane identifiers.
 
 Until this dispatcher workflow is installed in the target repository, approving
 an execution request records approval evidence but does not execute the batch.

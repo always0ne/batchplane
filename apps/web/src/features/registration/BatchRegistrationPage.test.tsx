@@ -45,7 +45,7 @@ describe("BatchRegistrationPage", () => {
     fireEvent.click(screen.getByText("Workflow YAML"));
 
     expect(screen.getByText(/workflow_dispatch:/)).toBeInTheDocument();
-    expect(screen.getByText(/batchtrail-gate:/)).toBeInTheDocument();
+    expect(screen.getByText(/batchplane-gate:/)).toBeInTheDocument();
     expect(screen.getByText(/runs-on: "ubuntu-latest"/)).toBeInTheDocument();
     expect(screen.getAllByText(/.\/scripts\/daily-close.sh/)).not.toHaveLength(
       0,

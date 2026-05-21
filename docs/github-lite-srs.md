@@ -34,7 +34,7 @@ execution approval.
 
 Installation status is based on the default branch containing:
 
-- `.github/workflows/batchtrail-dispatcher.yml`
+- `.github/workflows/batchplane-dispatcher.yml`
 - `.batch-governance/README.md`
 - `.batch-governance/batches/.gitkeep`
 - `.batch-governance/schedules/.gitkeep`
@@ -50,6 +50,10 @@ invoke `always0ne/batchtrail/actions/dispatcher@main` with the triggering issue
 number, comment ID, and repository `GITHUB_TOKEN`. It must serialize runs per
 execution request Issue using workflow `concurrency` so duplicate approval
 comments cannot dispatch the same request in parallel.
+
+The action repository reference remains `always0ne/batchtrail` until the GitHub
+project repository is explicitly renamed. After that operation, new generated
+workflows must use `always0ne/batchplane`.
 
 ## Registration Requirements
 
@@ -72,8 +76,8 @@ The generated workflow must include:
 
 - `workflow_dispatch` inputs for `request_id`, `batch_id`, and
   `request_digest`.
-- A `batchtrail-gate` job before the batch job.
-- A batch job that depends on `batchtrail-gate`.
+- A `batchplane-gate` job before the batch job.
+- A batch job that depends on `batchplane-gate`.
 - Checkout before running repository-registered execution assets.
 - The user-defined batch command after Gate.
 
@@ -235,14 +239,18 @@ dispatch directly from the browser.
 The dispatcher must record dispatch state on the execution request Issue before
 and after `workflow_dispatch`:
 
-- `DISPATCHING` evidence and `batchtrail:dispatching` label before dispatch
-- `DISPATCHED` evidence and `batchtrail:dispatched` label after success
-- `DISPATCH_FAILED` evidence and `batchtrail:dispatch-failed` label after
+- `DISPATCHING` evidence and `batchplane:dispatching` label before dispatch
+- `DISPATCHED` evidence and `batchplane:dispatched` label after success
+- `DISPATCH_FAILED` evidence and `batchplane:dispatch-failed` label after
   failure
 
 The dispatcher must ignore duplicate approval comments when matching
 `DISPATCHING` or `DISPATCHED` evidence already exists for the same request ID,
 Batch ID, and request digest.
+
+Readers must continue to accept legacy `batchtrail.io/v1`, `batchtrail:*`
+markers, and `batchtrail:*` labels so existing Lite repositories remain
+auditable after the BatchPlane rebrand.
 
 ## Schedule Requirements
 

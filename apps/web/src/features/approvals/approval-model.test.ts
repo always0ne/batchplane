@@ -4,7 +4,7 @@ import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 
 import {
   buildExecutionApprovalComment,
@@ -20,7 +20,7 @@ const pullRequest: RepositoryPullRequest = {
   number: 12,
   title: "Register batch payment.daily-close",
   url: "https://github.com/always0ne/batch/pull/12",
-  head: "batchtrail/register/payment.daily-close-20260509010203",
+  head: "batchplane/register/payment.daily-close-20260509010203",
   base: "main",
   state: "open",
   author: "developer",
@@ -47,7 +47,7 @@ const executionIssue: RepositoryIssue = {
     "```json",
     JSON.stringify(
       {
-        apiVersion: "batchtrail.io/v1",
+        apiVersion: "batchplane.io/v1",
         kind: "ExecutionRequest",
         metadata: {
           batchId: "payment.daily-close",
@@ -81,7 +81,7 @@ const executionIssue: RepositoryIssue = {
     ),
     "```",
     "",
-    "<!-- batchtrail:execution-request",
+    "<!-- batchplane:execution-request",
     "requestId=btr-20260509010203-payment.daily-close-abcdef12",
     "batchId=payment.daily-close",
     "requestDigest=sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
@@ -109,7 +109,7 @@ const approvalComment: RepositoryIssueComment = {
     "- Batch ID: `payment.daily-close`",
     "- Request digest: `sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`",
     "",
-    "<!-- batchtrail:execution-approval",
+    "<!-- batchplane:execution-approval",
     "decision=APPROVED",
     "requestId=btr-20260509010203-payment.daily-close-abcdef12",
     "batchId=payment.daily-close",
@@ -131,7 +131,7 @@ const dispatcherComment: RepositoryIssueComment = {
     "- Batch ID: `payment.daily-close`",
     "- Request digest: `sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`",
     "",
-    "<!-- batchtrail:bgcp:dispatcher",
+    "<!-- batchplane:bgcp:dispatcher",
     "status=DISPATCHED",
     "requestId=btr-20260509010203-payment.daily-close-abcdef12",
     "batchId=payment.daily-close",
@@ -220,13 +220,13 @@ describe("approval model", () => {
     expect(
       parseExecutionApprovalRequest({
         ...executionIssue,
-        labels: ["batchtrail:dispatch-failed"],
+        labels: ["batchplane:dispatch-failed"],
       }),
     ).toBeNull();
     expect(
       parseExecutionApprovalRequest({
         ...executionIssue,
-        labels: ["batchtrail:gate-blocked"],
+        labels: ["batchplane:gate-blocked"],
       }),
     ).toBeNull();
   });

@@ -18,7 +18,7 @@ describe("LiteSetupPage", () => {
       target: { value: "always0ne" },
     });
     fireEvent.change(screen.getByLabelText("Repository name"), {
-      target: { value: "batchtrail" },
+      target: { value: "batch" },
     });
     fireEvent.change(screen.getByLabelText("GitHub token"), {
       target: { value: "github_pat_testtoken" },
@@ -29,7 +29,7 @@ describe("LiteSetupPage", () => {
       JSON.parse(sessionStorage.getItem(githubSessionStorageKey) ?? "{}"),
     ).toEqual({
       owner: "always0ne",
-      repo: "batchtrail",
+      repo: "batch",
       token: "github_pat_testtoken",
     });
     expect(localStorage.getItem(githubSessionStorageKey)).toBeNull();
@@ -43,7 +43,7 @@ describe("LiteSetupPage", () => {
       githubSessionStorageKey,
       JSON.stringify({
         owner: "always0ne",
-        repo: "batchtrail",
+        repo: "batch",
         token: "github_pat_testtoken",
       }),
     );

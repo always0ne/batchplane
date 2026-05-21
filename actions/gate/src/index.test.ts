@@ -371,8 +371,8 @@ describe("Gate action runtime", () => {
 
   it("sets failing exit code and writes outputs when Gate denies execution", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const outputPath = `/tmp/batchtrail-gate-output-${Date.now()}.txt`;
-    const summaryPath = `/tmp/batchtrail-gate-summary-${Date.now()}.md`;
+    const outputPath = `/tmp/batchplane-gate-output-${Date.now()}.txt`;
+    const summaryPath = `/tmp/batchplane-gate-summary-${Date.now()}.md`;
 
     await expect(
       runGateFromEnv({
@@ -415,7 +415,7 @@ function buildRequestIssueBody({
     "```json",
     JSON.stringify(
       {
-        apiVersion: "batchtrail.io/v1",
+        apiVersion: "batchplane.io/v1",
         kind: "ExecutionRequest",
         metadata: { batchId, requestId },
         spec: {
@@ -431,7 +431,7 @@ function buildRequestIssueBody({
     ),
     "```",
     "",
-    "<!-- batchtrail:execution-request",
+    "<!-- batchplane:execution-request",
     `requestId=${requestId}`,
     `batchId=${batchId}`,
     `requestDigest=${requestDigest}`,
@@ -471,7 +471,7 @@ function buildApprovalComment({
       `- Batch ID: \`${batchId}\``,
       `- Request digest: \`${markerDigest}\``,
       "",
-      "<!-- batchtrail:execution-approval",
+      "<!-- batchplane:execution-approval",
       "decision=APPROVED",
       `requestId=${requestId}`,
       `batchId=${batchId}`,
@@ -494,7 +494,7 @@ function buildBatchDefinitionYaml({
   workflowRef?: string;
 } = {}): string {
   return [
-    'apiVersion: "batchtrail.io/v1"',
+    'apiVersion: "batchplane.io/v1"',
     'kind: "BatchDefinition"',
     "metadata:",
     `  id: ${JSON.stringify(batchId)}`,
@@ -517,7 +517,7 @@ function buildBatchDefinitionYaml({
 
 function buildRoleMappingYaml(): string {
   return [
-    'apiVersion: "batchtrail.io/v1"',
+    'apiVersion: "batchplane.io/v1"',
     'kind: "RoleMapping"',
     "metadata:",
     '  id: "default"',

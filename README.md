@@ -57,8 +57,8 @@ BatchPlane Lite installed.
 If Lite is not installed, choose `Create installation PR` in `Setup`. The
 installation pull request adds:
 
-- `.github/workflows/batchtrail-dispatcher.yml`
-- `.github/workflows/batchtrail-sample-target.yml`
+- `.github/workflows/batchplane-dispatcher.yml`
+- `.github/workflows/batchplane-sample-target.yml`
 - `.batch-governance/README.md`
 - `.batch-governance/batches/.gitkeep`
 - `.batch-governance/schedules/.gitkeep`
@@ -74,7 +74,7 @@ derived from the Batch ID, the execution environment is selected through the
 `runs-on` control, and the batch command is the only command executed after Gate
 approval. A successful test creates:
 
-- A new `batchtrail/register/...` branch
+- A new `batchplane/register/...` branch
 - `.batch-governance/batches/{batchId}.yml`
 - `.github/workflows/{batchId}.yml`
 - Optional `.batch-governance/batches/{batchId}/artifacts/...` execution files
@@ -112,6 +112,7 @@ See also:
 - `docs/github-pages.md`
 - `docs/github-lite-srs.md`
 - `docs/github-lite-technical-spec.md`
+- `docs/repository-rename-runbook.md`
 
 ## Workspace
 

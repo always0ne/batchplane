@@ -1,4 +1,4 @@
-import type { BatchDefinition } from "@batchtrail/domain";
+import type { BatchDefinition } from "@batchplane/domain";
 import { describe, expect, it } from "vitest";
 
 import { getExecutionRequestBlockReason } from "./batch-list-readiness";

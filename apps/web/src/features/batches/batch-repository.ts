@@ -1,9 +1,9 @@
-import type { BatchDefinition } from "@batchtrail/domain";
+import type { BatchDefinition } from "@batchplane/domain";
 import type {
   GitHubDirectoryEntry,
   GitHubLiteClient,
   RepoRef,
-} from "@batchtrail/github-lite";
+} from "@batchplane/github-lite";
 
 import { parseBatchDefinitionYaml } from "../registration/registration-model";
 
