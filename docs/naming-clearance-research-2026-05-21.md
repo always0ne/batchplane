@@ -69,6 +69,63 @@ Important limitation:
 | RunVouch    | Deprioritize   | Search results include active `RUNVOUCH LTD`.                         |
 | BatchSeal   | Owner-rejected | Availability looked usable, but the project owner does not prefer it. |
 
+## Exact Search Result Hygiene
+
+After the automated `.com + npm + PyPI` pass, the stronger candidates were checked with
+quoted exact-name web searches. This is the practical "what happens when someone Googles
+the name" filter.
+
+### Search-Clean Candidates
+
+These had no meaningful exact-name search results in the checked pass. They should still
+get a final manual Google check before selection, but they are currently cleaner than the
+rest of the pool.
+
+| Candidate           | Current search hygiene | Product note                                      |
+| ------------------- | ---------------------- | ------------------------------------------------- |
+| BatchWarrant        | Clean                  | Strong execution authorization meaning.           |
+| BatchSignoff        | Clean                  | Familiar enterprise approval wording.             |
+| BatchQuorum         | Clean                  | Fits maintainer/multi-approver policy well.       |
+| BatchPolicyGate     | Clean                  | Very explicit policy-before-run meaning.          |
+| BatchRulebook       | Clean                  | Good policy-as-code/repo governance meaning.      |
+| BatchControlHub     | Clean                  | Direct match for financial batch-control wording. |
+| BatchControlKit     | Clean                  | Open-source toolkit feel.                         |
+| BatchControlPlane   | Clean                  | Strong platform/adapter architecture wording.     |
+| BatchExecutionGuard | Clean                  | Very clear, but long.                             |
+| BatchNotary         | Clean                  | Approval/evidence metaphor is strong.             |
+| BatchCustody        | Clean                  | Good for audit trail and evidence custody.        |
+| BatchSteward        | Clean                  | Governance/ownership feel.                        |
+| BatchCouncil        | Clean                  | Approver group feel.                              |
+| BatchCharter        | Clean                  | Governance/policy feel.                           |
+| BatchAegis          | Clean                  | Protective, but may need explanation.             |
+| RepoAttest          | Clean                  | Good GitHub Lite/repo evidence name.              |
+| RepoWarrant         | Clean                  | Good GitHub Lite/repo execution authority name.   |
+| RepoAuditGate       | Clean                  | Good component name for Lite.                     |
+| OpsDocket           | Clean                  | Good request/inbox/audit workflow meaning.        |
+| OpsSignoff          | Clean                  | Broader installed-platform approval feel.         |
+| FlowAuditGate       | Clean                  | Works across workflow engines.                    |
+| FlowPolicyGate      | Clean                  | Workflow-engine neutral policy gate.              |
+
+### Search-Noisy Candidates
+
+These should be rejected or lowered unless the project owner strongly prefers the name.
+
+| Candidate       | Search issue                                                                    |
+| --------------- | ------------------------------------------------------------------------------- |
+| BatchPermit     | Exact results appear in crypto Permit2/code and industrial controller docs.     |
+| BatchApproval   | Exact `BatchApproval` plugin appears in PowerCMS X and other workflow contexts. |
+| BatchAttest     | Exact `batchAttest` appears in attestation/blockchain API documentation.        |
+| BatchWitness    | Exact `BatchWitness` appears in Rust/proof-related crate docs.                  |
+| BatchEvidence   | Exact string appears in public payment/register documents.                      |
+| BatchClearance  | Exact `batchclearance` appears as a logistics/customs term.                     |
+| BatchCheckpoint | Exact `BatchCheckpoint` appears in batch-processing/checkpointing code.         |
+| BatchGrant      | Exact `BatchGrantPermissions` appears in Alibaba Cloud API documentation.       |
+| BatchAnchor     | Exact `batchAnchor` appears in code/search snippets.                            |
+| GitSignoff      | Exact `gitSignOff` is an established Renovate preset/config term.               |
+| RepoPermit      | Exact string appears in public permit documents.                                |
+| OpsWarrant      | Exact string appears in public agenda/warrant-register documents.               |
+| OpsAttest       | Exact-like lowercase `opsattest` appears in unrelated language/dictionary hits. |
+
 ## Stronger Candidate Pool
 
 These names passed the current `.com + npm + PyPI` knockout check and are still worth
