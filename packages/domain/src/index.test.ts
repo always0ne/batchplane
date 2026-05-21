@@ -18,7 +18,7 @@ import type {
   ApprovalPolicyInput,
   ApprovalPolicyFile,
   AuditTimelineItem,
-  BatchTrailRuntimePorts,
+  BatchPlaneRuntimePorts,
   BatchDefinition,
   BatchDefinitionFile,
   BatchGovernanceConfigFile,
@@ -126,7 +126,7 @@ describe("domain model contracts", () => {
 
   it("exports GitHub Lite repository file schemas", () => {
     const configFile: BatchGovernanceConfigFile = {
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: "batchplane.io/v1",
       kind: "BatchGovernanceConfig",
       metadata: {
         repository: "always0ne/batch",
@@ -135,12 +135,12 @@ describe("domain model contracts", () => {
         batchesPath: ".batch-governance/batches",
         configPath: ".batch-governance",
         defaultWorkflowRef: "main",
-        dispatcherWorkflowPath: ".github/workflows/batchtrail-dispatcher.yml",
+        dispatcherWorkflowPath: ".github/workflows/batchplane-dispatcher.yml",
         schedulesPath: ".batch-governance/schedules",
       },
     };
     const batchFile: BatchDefinitionFile = {
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: "batchplane.io/v1",
       kind: "BatchDefinition",
       metadata: {
         id: batchDefinition.batchId,
@@ -157,7 +157,7 @@ describe("domain model contracts", () => {
       },
     };
     const roleMappingFile: RoleMappingFile = {
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: "batchplane.io/v1",
       kind: "RoleMapping",
       metadata: {
         id: "default",
@@ -165,7 +165,7 @@ describe("domain model contracts", () => {
       spec: roleMapping,
     };
     const approvalPolicyFile: ApprovalPolicyFile = {
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: "batchplane.io/v1",
       kind: "ApprovalPolicy",
       metadata: {
         id: approvalPolicy.policyId,
@@ -174,7 +174,7 @@ describe("domain model contracts", () => {
       spec: approvalPolicy,
     };
     const requestPayload: ExecutionRequestPayload = {
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: "batchplane.io/v1",
       kind: "ExecutionRequest",
       metadata: {
         batchId: batchDefinition.batchId,
@@ -232,7 +232,7 @@ describe("domain model contracts", () => {
   });
 
   it("defines runtime ports that can be implemented by adapters", () => {
-    const runtime: BatchTrailRuntimePorts = {
+    const runtime: BatchPlaneRuntimePorts = {
       approvals: {
         approveExecution: async () => undefined,
         approveRegistration: async () => ({
@@ -258,7 +258,7 @@ describe("domain model contracts", () => {
           author: "requester",
           body: "body",
           isPullRequest: false,
-          labels: ["batchtrail:execution-request"],
+          labels: ["batchplane:execution-request"],
           number: 1,
           state: "open",
           title: "Run batch",
@@ -274,7 +274,7 @@ describe("domain model contracts", () => {
           author: "requester",
           base: "main",
           body: "body",
-          head: "batchtrail/register/payment.daily-close",
+          head: "batchplane/register/payment.daily-close",
           merged: false,
           number: 2,
           state: "open",
@@ -286,26 +286,26 @@ describe("domain model contracts", () => {
         checkInstallationStatus: async () => ({
           installed: true,
           missingPaths: [],
-          presentPaths: [".github/workflows/batchtrail-dispatcher.yml"],
-          requiredPaths: [".github/workflows/batchtrail-dispatcher.yml"],
+          presentPaths: [".github/workflows/batchplane-dispatcher.yml"],
+          requiredPaths: [".github/workflows/batchplane-dispatcher.yml"],
         }),
         createInstallationPullRequest: async () => ({
           pullRequest: {
             author: "requester",
             base: "main",
             body: "body",
-            head: "batchtrail/install/repo-mode-20260514000000",
+            head: "batchplane/install/lite-20260514000000",
             merged: false,
             number: 3,
             state: "open",
-            title: "Install BatchTrail Repo Mode",
+            title: "Install BatchPlane Lite",
             url: "https://github.com/always0ne/batch/pull/3",
           },
           status: {
             installed: false,
-            missingPaths: [".github/workflows/batchtrail-dispatcher.yml"],
+            missingPaths: [".github/workflows/batchplane-dispatcher.yml"],
             presentPaths: [],
-            requiredPaths: [".github/workflows/batchtrail-dispatcher.yml"],
+            requiredPaths: [".github/workflows/batchplane-dispatcher.yml"],
           },
         }),
         getCurrentUser: async () => ({ login: "always0ne" }),
@@ -388,7 +388,7 @@ describe("domain schema validation", () => {
 
   it("validates batch definition repository files", () => {
     const result = validateBatchDefinitionFile({
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: "batchplane.io/v1",
       kind: "BatchDefinition",
       metadata: {
         id: batchDefinition.batchId,
@@ -447,7 +447,7 @@ describe("domain schema validation", () => {
 
   it("validates approval policy repository files", () => {
     const result = validateApprovalPolicyFile({
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: "batchplane.io/v1",
       kind: "ApprovalPolicy",
       metadata: {
         id: approvalPolicy.policyId,
@@ -489,7 +489,7 @@ describe("domain schema validation", () => {
 
   it("validates role mapping repository files", () => {
     const result = validateRoleMappingFile({
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: "batchplane.io/v1",
       kind: "RoleMapping",
       metadata: {
         id: "default",
@@ -501,10 +501,10 @@ describe("domain schema validation", () => {
   });
 });
 
-describe("BatchTrail YAML utilities", () => {
-  it("serializes and parses valid BatchTrail YAML fixtures", () => {
+describe("BatchPlane YAML utilities", () => {
+  it("serializes and parses valid BatchPlane YAML fixtures", () => {
     const yaml = serializeYamlDocument({
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: "batchplane.io/v1",
       kind: "BatchDefinition",
       metadata: {
         id: "payment.daily-close",
@@ -526,7 +526,7 @@ describe("BatchTrail YAML utilities", () => {
     expect(parseYamlDocument(yaml)).toEqual({
       ok: true,
       value: {
-        apiVersion: "batchtrail.io/v1",
+        apiVersion: "batchplane.io/v1",
         kind: "BatchDefinition",
         metadata: {
           id: "payment.daily-close",

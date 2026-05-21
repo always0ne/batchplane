@@ -1,7 +1,7 @@
 import type {
   GitHubLiteClient,
   GitHubPullRequest,
-} from "@batchtrail/github-lite";
+} from "@batchplane/github-lite";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -53,11 +53,11 @@ describe("Lite installation model", () => {
       author: "always0ne",
       base: "main",
       body: "body",
-      head: "batchtrail/install/repo-mode-20260513010203",
+      head: "batchplane/install/lite-20260513010203",
       merged: false,
       number: 41,
       state: "open",
-      title: "Install BatchTrail Repo Mode",
+      title: "Install BatchPlane Lite",
       url: "https://github.com/always0ne/batch/pull/41",
     };
     const client = {
@@ -76,7 +76,7 @@ describe("Lite installation model", () => {
           expect(content).toContain("actions: write");
           expect(content).toContain("concurrency:");
           expect(content).toContain(
-            "group: batchtrail-dispatch-${{ github.event.issue.number }}",
+            "group: batchplane-dispatch-${{ github.event.issue.number }}",
           );
           expect(content).toContain(
             "always0ne/batchtrail/actions/dispatcher@main",
@@ -86,8 +86,8 @@ describe("Lite installation model", () => {
           expect(content).toContain("workflow_dispatch:");
           expect(content).toContain("request_id:");
           expect(content).toContain("request_digest:");
-          expect(content).toContain("batchtrail-gate:");
-          expect(content).toContain("needs: batchtrail-gate");
+          expect(content).toContain("batchplane-gate:");
+          expect(content).toContain("needs: batchplane-gate");
           expect(content).toContain(
             "uses: always0ne/batchtrail/actions/gate@main",
           );
@@ -137,13 +137,13 @@ describe("Lite installation model", () => {
     });
     expect(calls).toEqual([
       "get-head:main",
-      "create-branch:batchtrail/install/repo-mode-20260513010203:base-sha",
+      "create-branch:batchplane/install/lite-20260513010203:base-sha",
       `put-file:${liteDispatcherWorkflowPath}`,
       `put-file:${liteSampleTargetWorkflowPath}`,
       "put-file:.batch-governance/README.md",
       "put-file:.batch-governance/batches/.gitkeep",
       "put-file:.batch-governance/schedules/.gitkeep",
-      "create-pr:Install BatchTrail Repo Mode:batchtrail/install/repo-mode-20260513010203:main",
+      "create-pr:Install BatchPlane Lite:batchplane/install/lite-20260513010203:main",
     ]);
   });
 
@@ -155,7 +155,7 @@ describe("Lite installation model", () => {
       "github-token: ${{ secrets.GITHUB_TOKEN }}",
     );
     expect(buildDispatcherWorkflowYaml()).toContain(
-      "group: batchtrail-dispatch-${{ github.event.issue.number }}",
+      "group: batchplane-dispatch-${{ github.event.issue.number }}",
     );
   });
 
@@ -171,6 +171,6 @@ describe("Lite installation model", () => {
     expect(buildSampleTargetWorkflowYaml()).toContain(
       "approval-ref: ${{ inputs.request_id }}",
     );
-    expect(buildSampleTargetWorkflowYaml()).toContain("needs: batchtrail-gate");
+    expect(buildSampleTargetWorkflowYaml()).toContain("needs: batchplane-gate");
   });
 });

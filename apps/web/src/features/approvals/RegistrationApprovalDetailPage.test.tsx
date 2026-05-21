@@ -2,11 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { BatchTrailRuntimePorts } from "@batchtrail/domain";
+import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
-} from "@batchtrail/github-lite";
+} from "@batchplane/github-lite";
 
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
 import type { GitHubSession } from "../lite-setup/github-session";
@@ -83,7 +83,7 @@ function renderDetail({
   pullNumber = 12,
   readSession,
 }: {
-  createRuntime?: (session: GitHubSession) => BatchTrailRuntimePorts;
+  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   pullNumber?: number;
   readSession?: () => GitHubSession | null;
 } = {}) {
@@ -156,11 +156,11 @@ function withRegistrationEvidence(
       {
         branch: headBranch,
         content: [
-          'name: "BatchTrail - Daily Close"',
+          'name: "BatchPlane - Daily Close"',
           "on:",
           "  workflow_dispatch:",
           "jobs:",
-          "  batchtrail-gate:",
+          "  batchplane-gate:",
           "    runs-on: ubuntu-latest",
           "",
         ].join("\n"),
@@ -172,16 +172,16 @@ function withRegistrationEvidence(
       {
         ...pullRequest,
         body: [
-          "## BatchTrail Registration",
+          "## BatchPlane Registration",
           "",
           "- Batch ID: `payment.daily-close`",
           "- Name: Daily Close",
           "- Environment: PROD",
           "- Criticality: HIGH",
           "- Workflow: `.github/workflows/payment.daily-close.yml`",
-          "- Runtime: GitHub Actions / BatchTrail Repo Mode",
+          "- Runtime: GitHub Actions / BatchPlane Lite",
           "- Runs on: ubuntu-latest",
-          "- BatchTrail Gate: required",
+          "- BatchPlane Gate: required",
           "",
           "### Batch command",
           "",

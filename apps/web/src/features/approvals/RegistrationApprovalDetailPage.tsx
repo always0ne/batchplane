@@ -1,8 +1,8 @@
 import type {
-  BatchTrailRuntimePorts,
+  BatchPlaneRuntimePorts,
   RepositoryFile,
   RepositoryPullRequest,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import {
   CheckCircle2,
   ExternalLink,
@@ -24,7 +24,7 @@ import {
   LoadingState,
 } from "../../shared/components/PageState";
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
@@ -43,7 +43,7 @@ import {
 } from "./registration-approval-model";
 
 type RegistrationApprovalDetailPageProps = {
-  createRuntime?: (session: GitHubSession) => BatchTrailRuntimePorts;
+  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   readSession?: () => GitHubSession | null;
 };
 
@@ -78,7 +78,7 @@ type RegistrationFileSummary = {
 };
 
 export function RegistrationApprovalDetailPage({
-  createRuntime = createBatchTrailRuntime,
+  createRuntime = createBatchPlaneRuntime,
   readSession = readRuntimeSession,
 }: RegistrationApprovalDetailPageProps = {}) {
   const { pullNumber = "" } = useParams();
@@ -267,7 +267,7 @@ export function RegistrationApprovalDetailPage({
       <EmptyState
         action={
           <Link
-            className="font-semibold text-bt-control underline"
+            className="font-semibold text-bp-control underline"
             to="/lite/setup"
           >
             {t("actions.openSetup")}
@@ -283,7 +283,7 @@ export function RegistrationApprovalDetailPage({
       <EmptyState
         action={
           <Link
-            className="font-semibold text-bt-control underline"
+            className="font-semibold text-bp-control underline"
             to="/approvals"
           >
             {t("registrationDetail.actions.backToApprovals")}
@@ -317,13 +317,13 @@ export function RegistrationApprovalDetailPage({
         <div className="space-y-1 text-right">
           <div className="flex flex-wrap justify-end gap-2">
             <Link
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
               to="/approvals"
             >
               {t("registrationDetail.actions.backToApprovals")}
             </Link>
             <a
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
               href={state.pullRequest.url}
               rel="noreferrer"
               target="_blank"
@@ -332,7 +332,7 @@ export function RegistrationApprovalDetailPage({
               {t("actions.openPullRequest")}
             </a>
             <button
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
               disabled={isBusy}
               onClick={() => setReloadToken((current) => current + 1)}
               type="button"
@@ -341,7 +341,7 @@ export function RegistrationApprovalDetailPage({
               {t("actions.refresh")}
             </button>
           </div>
-          <p className="text-xs text-bt-muted">
+          <p className="text-xs text-bp-muted">
             {t("registrationDetail.states.githubLagHint")}
           </p>
         </div>
@@ -395,8 +395,8 @@ function RegistrationSummaryPanel({
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <GitPullRequest className="h-4 w-4 text-bt-git" aria-hidden="true" />
-          <h2 className="text-base font-bold text-bt-graphite">
+          <GitPullRequest className="h-4 w-4 text-bp-git" aria-hidden="true" />
+          <h2 className="text-base font-bold text-bp-graphite">
             #{pullRequest.number} {pullRequest.title}
           </h2>
         </div>
@@ -444,10 +444,10 @@ function RegistrationFileSummaryPanel({
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bt-graphite">
+      <h2 className="text-base font-bold text-bp-graphite">
         {t("registrationDetail.fileSummary.title")}
       </h2>
-      <p className="mt-1 text-sm text-bt-muted">
+      <p className="mt-1 text-sm text-bp-muted">
         {t("registrationDetail.fileSummary.subtitle")}
       </p>
       <div className="mt-4 space-y-3">
@@ -459,21 +459,21 @@ function RegistrationFileSummaryPanel({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <FileCode2
-                  className="h-4 w-4 text-bt-muted"
+                  className="h-4 w-4 text-bp-muted"
                   aria-hidden="true"
                 />
-                <p className="font-mono text-xs text-bt-graphite">
+                <p className="font-mono text-xs text-bp-graphite">
                   {file.path}
                 </p>
               </div>
               <FileStatusBadge status={file.status} />
             </div>
-            <p className="mt-2 text-xs text-bt-muted">
+            <p className="mt-2 text-xs text-bp-muted">
               {t(`registrationDetail.fileSummary.statusHelp.${file.status}`)}
             </p>
             {file.baseContent || file.headContent ? (
               <details className="mt-2">
-                <summary className="cursor-pointer text-xs font-semibold text-bt-control">
+                <summary className="cursor-pointer text-xs font-semibold text-bp-control">
                   {t("registrationDetail.fileSummary.preview")}
                 </summary>
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
@@ -534,7 +534,7 @@ function RegistrationChecklistPanel({
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bt-graphite">
+      <h2 className="text-base font-bold text-bp-graphite">
         {t("registrationDetail.checklist.title")}
       </h2>
       <ul className="mt-3 space-y-2">
@@ -551,7 +551,7 @@ function RegistrationChecklistPanel({
                 aria-hidden="true"
               />
             )}
-            <span className="text-bt-graphite">{check.text}</span>
+            <span className="text-bp-graphite">{check.text}</span>
           </li>
         ))}
       </ul>
@@ -570,10 +570,10 @@ function RegistrationReviewPanel({
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bt-graphite">
+      <h2 className="text-base font-bold text-bp-graphite">
         {t("registrationDetail.review.title")}
       </h2>
-      <p className="mt-2 text-sm font-semibold text-bt-graphite">
+      <p className="mt-2 text-sm font-semibold text-bp-graphite">
         {t(`registrationDetail.review.states.${reviewState}`)}
       </p>
       {decision ? (
@@ -592,7 +592,7 @@ function RegistrationReviewPanel({
           />
         </dl>
       ) : (
-        <p className="mt-3 text-sm text-bt-muted">
+        <p className="mt-3 text-sm text-bp-muted">
           {t("registrationDetail.review.noEvidence")}
         </p>
       )}
@@ -619,10 +619,10 @@ function RegistrationActionPanel({
   if (!actionable) {
     return (
       <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-bold text-bt-graphite">
+        <h2 className="text-base font-bold text-bp-graphite">
           {t("registrationDetail.actions.closedTitle")}
         </h2>
-        <p className="mt-2 text-sm font-semibold text-bt-muted">
+        <p className="mt-2 text-sm font-semibold text-bp-muted">
           {t(`registrationDetail.review.states.${reviewState}`)}
         </p>
       </article>
@@ -631,15 +631,15 @@ function RegistrationActionPanel({
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bt-graphite">
+      <h2 className="text-base font-bold text-bp-graphite">
         {t("registrationDetail.actions.title")}
       </h2>
-      <p className="mt-2 text-sm text-bt-muted">
+      <p className="mt-2 text-sm text-bp-muted">
         {t("registrationDetail.actions.note")}
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
         <button
-          className="inline-flex items-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="inline-flex items-center gap-2 rounded-md bg-bp-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           disabled={isBusy}
           onClick={onApprove}
           type="button"
@@ -721,13 +721,13 @@ function RevisionPreview({
 }) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-2">
-      <h4 className="text-xs font-semibold text-bt-muted">{title}</h4>
+      <h4 className="text-xs font-semibold text-bp-muted">{title}</h4>
       {content ? (
-        <pre className="mt-1 max-h-52 overflow-auto whitespace-pre-wrap rounded-md bg-bt-graphite p-2 text-xs leading-5 text-white">
+        <pre className="mt-1 max-h-52 overflow-auto whitespace-pre-wrap rounded-md bg-bp-graphite p-2 text-xs leading-5 text-white">
           {content}
         </pre>
       ) : (
-        <p className="mt-1 text-xs text-bt-muted">{emptyText}</p>
+        <p className="mt-1 text-xs text-bp-muted">{emptyText}</p>
       )}
     </section>
   );
@@ -736,10 +736,10 @@ function RevisionPreview({
 function DetailMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-slate-50 px-3 py-2">
-      <dt className="text-xs font-semibold uppercase tracking-normal text-bt-muted">
+      <dt className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
         {label}
       </dt>
-      <dd className="mt-1 break-all font-mono text-xs text-bt-graphite">
+      <dd className="mt-1 break-all font-mono text-xs text-bp-graphite">
         {value || "-"}
       </dd>
     </div>
@@ -767,7 +767,7 @@ function DetailActionBanner({ state }: { state: ActionState }) {
 }
 
 async function loadRegistrationFiles(
-  runtime: BatchTrailRuntimePorts,
+  runtime: BatchPlaneRuntimePorts,
   pullRequest: RepositoryPullRequest,
   summary: RegistrationRequestBodySummary,
 ): Promise<RegistrationFileSummary[]> {

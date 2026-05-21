@@ -5,13 +5,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        bt: {
-          graphite: "var(--bt-graphite)",
-          control: "var(--bt-control-teal)",
-          git: "var(--bt-git-copper)",
-          ledger: "var(--bt-ledger-amber)",
-          surface: "var(--bt-surface)",
-          muted: "var(--bt-muted)",
+        bp: {
+          graphite: "var(--bp-graphite)",
+          control: "var(--bp-control-teal)",
+          git: "var(--bp-git-copper)",
+          ledger: "var(--bp-ledger-amber)",
+          surface: "var(--bp-surface)",
+          muted: "var(--bp-muted)",
         },
       },
     },

@@ -38,7 +38,7 @@ const navItems = [
   { icon: ListChecks, labelKey: "items.batches", to: "/batches" },
   { icon: ClipboardCheck, labelKey: "items.approvals", to: "/approvals" },
 ] as const;
-const compactMarkSrc = `${import.meta.env.BASE_URL}assets/batchtrail-compact-mark.svg`;
+const compactMarkSrc = `${import.meta.env.BASE_URL}assets/batchplane-compact-mark.svg`;
 
 export function App() {
   const { i18n, t } = useTranslation(["common", "navigation"]);
@@ -65,7 +65,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-bt-surface">
+    <div className="min-h-screen bg-bp-surface">
       <aside
         aria-label={t("navigation:landmarks.desktopPrimary")}
         className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white p-5 lg:block"
@@ -78,10 +78,10 @@ export function App() {
             src={compactMarkSrc}
           />
           <div>
-            <p className="text-lg font-bold text-bt-graphite">
+            <p className="text-lg font-bold text-bp-graphite">
               {t("common:app.name")}
             </p>
-            <p className="text-sm font-medium text-bt-git">
+            <p className="text-sm font-medium text-bp-git">
               {t("common:app.edition")}
             </p>
           </div>
@@ -94,19 +94,19 @@ export function App() {
       <main className="lg:pl-72">
         <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-bt-muted">
-              <GitBranch className="h-4 w-4 text-bt-git" aria-hidden="true" />
+            <div className="flex items-center gap-2 text-sm font-semibold text-bp-muted">
+              <GitBranch className="h-4 w-4 text-bp-git" aria-hidden="true" />
               {t("common:app.tagline")}
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {showRuntimeFixtureSwitcher ? (
                 <label
-                  className="flex items-center gap-2 text-sm text-bt-muted"
+                  className="flex items-center gap-2 text-sm text-bp-muted"
                   title={t("common:devRuntime.description")}
                 >
                   <span>{t("common:devRuntime.label")}</span>
                   <select
-                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-bt-graphite"
+                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-bp-graphite"
                     value={runtimeFixture}
                     onChange={(event) =>
                       changeRuntimeFixture(
@@ -122,10 +122,10 @@ export function App() {
                   </select>
                 </label>
               ) : null}
-              <label className="flex items-center gap-2 text-sm text-bt-muted">
+              <label className="flex items-center gap-2 text-sm text-bp-muted">
                 <span>{t("settings:language")}</span>
                 <select
-                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-bt-graphite"
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-bp-graphite"
                   value={activeLocale}
                   onChange={(event) =>
                     changeLocale(event.target.value as SupportedLocale)
@@ -195,8 +195,8 @@ function NavigationLinks({ variant }: { variant: "desktop" | "mobile" }) {
                   ? "w-full px-3 py-2"
                   : "shrink-0 whitespace-nowrap px-3 py-2",
                 isActive
-                  ? "bg-bt-control text-white"
-                  : "text-bt-muted hover:bg-slate-100 hover:text-bt-graphite",
+                  ? "bg-bp-control text-white"
+                  : "text-bp-muted hover:bg-slate-100 hover:text-bp-graphite",
               ].join(" ")
             }
           >
@@ -214,10 +214,10 @@ function NotFoundPage() {
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-      <h1 className="text-2xl font-bold text-bt-graphite">
+      <h1 className="text-2xl font-bold text-bp-graphite">
         {t("notFound.title")}
       </h1>
-      <p className="mt-2 text-bt-muted">{t("notFound.message")}</p>
+      <p className="mt-2 text-bp-muted">{t("notFound.message")}</p>
     </section>
   );
 }

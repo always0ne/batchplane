@@ -19,7 +19,7 @@ export function verifyLiteInput(input) {
         return {
             result: "DENY",
             reasonCode: "RERUN_NOT_AUTHORIZED",
-            message: "GitHub Actions reruns are not authorized by BatchTrail. Create a new execution request or approved retry instead.",
+            message: "GitHub Actions reruns are not authorized by BatchPlane. Create a new execution request or approved retry instead.",
         };
     }
     if (!input.requestId) {
@@ -55,7 +55,7 @@ export async function verifyLiteAuthorization(input) {
         return {
             result: "DENY",
             reasonCode: "DIRECT_DISPATCH_NOT_AUTHORIZED",
-            message: `Workflow actor ${input.actor} is not the BatchTrail dispatcher actor ${expectedActor}.`,
+            message: `Workflow actor ${input.actor} is not the BatchPlane dispatcher actor ${expectedActor}.`,
         };
     }
     if (!input.githubToken || !input.repository) {
@@ -176,12 +176,12 @@ export async function runGateFromEnv(env = process.env) {
     writeGateOutputs(result, env);
     writeGateSummary(result, input, env);
     if (result.result === "DENY") {
-        console.error(`BatchTrail Gate denied execution: ${result.reasonCode}`);
+        console.error(`BatchPlane Gate denied execution: ${result.reasonCode}`);
         console.error(result.message);
         process.exitCode = 1;
         return result;
     }
-    console.log(`BatchTrail Gate allowed execution: ${result.message}`);
+    console.log(`BatchPlane Gate allowed execution: ${result.message}`);
     return result;
 }
 function readActionInput(env, name) {
@@ -242,7 +242,7 @@ async function validateBatchPolicyEvidence({ batchId, client, configPath, inputR
         return deny("BATCH_NOT_ACTIVE", `Batch ${batchId} is ${snapshot.status} and cannot run.`);
     }
     if (!snapshot.gateRequired) {
-        return deny("GATE_REQUIRED", `Batch ${batchId} does not enforce BatchTrail Gate.`);
+        return deny("GATE_REQUIRED", `Batch ${batchId} does not enforce BatchPlane Gate.`);
     }
     if (request.workflowRef && snapshot.workflowRef) {
         const requestRef = request.workflowRef.trim();
@@ -459,7 +459,7 @@ function parseRepository(repository) {
     return { owner, repo };
 }
 function parseExecutionRequestEvidence(issueBody) {
-    const marker = parseBatchTrailMarker(issueBody, "execution-request");
+    const marker = parseBatchPlaneMarker(issueBody, "execution-request");
     const requestId = marker.get("requestId") ?? readMarkdownField(issueBody, "Request ID");
     const batchId = marker.get("batchId") ?? readMarkdownField(issueBody, "Batch ID");
     const requestDigest = marker.get("requestDigest") ??
@@ -490,7 +490,7 @@ function parseExecutionApprovalEvidence(comment) {
         return null;
     }
     const command = parseApprovalCommand(commentBody);
-    const marker = parseBatchTrailMarker(commentBody, "execution-approval");
+    const marker = parseBatchPlaneMarker(commentBody, "execution-approval");
     const decision = marker.get("decision");
     const requestId = marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
     const batchId = marker.get("batchId") ?? readMarkdownField(commentBody, "Batch ID");
@@ -646,7 +646,7 @@ function writeGateSummary(result, input, env) {
         return;
     }
     const lines = [
-        "## BatchTrail Gate Result",
+        "## BatchPlane Gate Result",
         "",
         `- Result: ${result.result}`,
         `- Reason code: ${result.reasonCode ?? "N/A"}`,
@@ -661,9 +661,9 @@ function writeGateSummary(result, input, env) {
 function escapeOutputValue(value) {
     return value.replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
-function parseBatchTrailMarker(body, kind) {
+function parseBatchPlaneMarker(body, kind) {
     const marker = new Map();
-    const match = body.match(new RegExp(`<!--\\s*batchtrail:${kind}\\s*([\\s\\S]*?)-->`));
+    const match = body.match(new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`));
     if (!match?.[1]) {
         return marker;
     }

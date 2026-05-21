@@ -24,7 +24,7 @@ describe("ExecutionRequestPage", () => {
     expect(screen.getByText("Canonical payload")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "BatchTrail Gate is mandatory before the batch command.",
+        "BatchPlane Gate is mandatory before the batch command.",
       ),
     ).toBeInTheDocument();
 

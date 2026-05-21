@@ -1,5 +1,14 @@
 export type GitHubRepositoryRole = "admin" | "maintain" | "write" | "triage";
 
+const batchPlaneApiVersion = "batchplane.io/v1";
+const legacyBatchPlaneApiVersion = "batchtrail.io/v1";
+const supportedBatchPlaneApiVersions = [
+  batchPlaneApiVersion,
+  legacyBatchPlaneApiVersion,
+] as const;
+
+type BatchPlaneApiVersion = (typeof supportedBatchPlaneApiVersions)[number];
+
 export type ApproverSelector = {
   githubUsers?: string[];
   githubTeams?: string[];
@@ -7,7 +16,7 @@ export type ApproverSelector = {
 };
 
 export type BatchDefinitionFile = {
-  apiVersion: "batchtrail.io/v1";
+  apiVersion: BatchPlaneApiVersion;
   kind: "BatchDefinition";
   metadata: {
     id: string;
@@ -24,7 +33,7 @@ export type BatchDefinitionFile = {
 };
 
 export type RoleMappingFile = {
-  apiVersion: "batchtrail.io/v1";
+  apiVersion: BatchPlaneApiVersion;
   kind: "RoleMapping";
   metadata: {
     id: string;
@@ -92,7 +101,7 @@ export function parseYamlDocument(input: string): YamlParseResult {
       diagnostics.push({
         column: rawLine.indexOf("\t") + 1,
         line: lineNumber,
-        message: "Tabs are not supported in BatchTrail YAML indentation.",
+        message: "Tabs are not supported in BatchPlane YAML indentation.",
       });
       return;
     }
@@ -187,7 +196,7 @@ export function validateBatchDefinitionFile(
   }
 
   if (
-    file.apiVersion !== "batchtrail.io/v1" ||
+    !isBatchPlaneApiVersion(file.apiVersion) ||
     file.kind !== "BatchDefinition"
   ) {
     return { ok: false };
@@ -222,7 +231,7 @@ export function validateBatchDefinitionFile(
   return {
     ok: true,
     value: {
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: batchPlaneApiVersion,
       kind: "BatchDefinition",
       metadata: {
         id: metadata.id,
@@ -247,7 +256,7 @@ export function validateRoleMappingFile(
     return { ok: false };
   }
 
-  if (file.apiVersion !== "batchtrail.io/v1" || file.kind !== "RoleMapping") {
+  if (!isBatchPlaneApiVersion(file.apiVersion) || file.kind !== "RoleMapping") {
     return { ok: false };
   }
 
@@ -273,7 +282,7 @@ export function validateRoleMappingFile(
   return {
     ok: true,
     value: {
-      apiVersion: "batchtrail.io/v1",
+      apiVersion: batchPlaneApiVersion,
       kind: "RoleMapping",
       metadata: { id: metadata.id },
       spec: {
@@ -346,6 +355,13 @@ function asRecord(value: unknown): UnknownRecord | null {
 
 function isString(value: unknown): value is string {
   return typeof value === "string";
+}
+
+function isBatchPlaneApiVersion(value: unknown): value is BatchPlaneApiVersion {
+  return (
+    typeof value === "string" &&
+    supportedBatchPlaneApiVersions.includes(value as BatchPlaneApiVersion)
+  );
 }
 
 function isBoolean(value: unknown): value is boolean {

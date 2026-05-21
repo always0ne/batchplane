@@ -23,13 +23,13 @@ describe("BatchDetailPage", () => {
     expect(screen.getByText("Workflow target")).toBeInTheDocument();
     expect(screen.getByText("Execution spec")).toBeInTheDocument();
     expect(
-      screen.getByText("GitHub Actions / BatchTrail Repo Mode"),
+      screen.getByText("GitHub Actions / BatchPlane Lite"),
     ).toBeInTheDocument();
     expect(screen.getByText("echo mock batch")).toBeInTheDocument();
     expect(screen.getByText("Requests")).toBeInTheDocument();
     expect(screen.getByText("Gate required")).toHaveAttribute(
       "title",
-      "Mandatory: BatchTrail Gate always runs before the batch command.",
+      "Mandatory: BatchPlane Gate always runs before the batch command.",
     );
     expect(screen.getByText("Approval required")).toHaveAttribute(
       "title",
@@ -39,7 +39,7 @@ describe("BatchDetailPage", () => {
     expect(screen.getByText("Change request")).toBeInTheDocument();
     expect(
       screen.queryByText(
-        "Mandatory: BatchTrail Gate always runs before the batch command.",
+        "Mandatory: BatchPlane Gate always runs before the batch command.",
       ),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Schedules")).toBeInTheDocument();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GitHubLiteClient } from "@batchtrail/github-lite";
+import type { GitHubLiteClient } from "@batchplane/github-lite";
 
 import {
   batchDefinitionDirectory,
@@ -42,7 +42,7 @@ describe("batch repository", () => {
           path,
           sha: "sha",
           content: [
-            "apiVersion: batchtrail.io/v1",
+            "apiVersion: batchplane.io/v1",
             "kind: BatchDefinition",
             "metadata:",
             `  id: "${batchId}"`,

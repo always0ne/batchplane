@@ -1,8 +1,8 @@
 import type {
   BatchDefinition,
-  BatchTrailRuntimePorts,
+  BatchPlaneRuntimePorts,
   RepositoryIssue,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import {
   AlertCircle,
   CheckCircle2,
@@ -32,7 +32,7 @@ import {
   LoadingState,
 } from "../../shared/components/PageState";
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
@@ -45,7 +45,7 @@ import {
 } from "./execution-request-model";
 
 type ExecutionRequestPageProps = {
-  createRuntime?: (session: GitHubSession) => BatchTrailRuntimePorts;
+  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   readSession?: () => GitHubSession | null;
 };
 
@@ -93,7 +93,7 @@ type SubmitState =
 const expiryOptions = ["1", "4", "8", "24"] as const;
 
 export function ExecutionRequestPage({
-  createRuntime = createBatchTrailRuntime,
+  createRuntime = createBatchPlaneRuntime,
   readSession = readRuntimeSession,
 }: ExecutionRequestPageProps = {}) {
   const { batchId = "" } = useParams();
@@ -286,7 +286,7 @@ export function ExecutionRequestPage({
       <EmptyState
         action={
           <Link
-            className="font-semibold text-bt-control underline"
+            className="font-semibold text-bp-control underline"
             to="/lite/setup"
           >
             {t("actions.openSetup")}
@@ -302,7 +302,7 @@ export function ExecutionRequestPage({
       <EmptyState
         action={
           <Link
-            className="font-semibold text-bt-control underline"
+            className="font-semibold text-bp-control underline"
             to="/batches"
           >
             {t("actions.backToBatches")}
@@ -361,10 +361,10 @@ function BatchRequestContext({ batch }: { batch: BatchDefinition }) {
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-bt-graphite">
+          <h2 className="text-lg font-semibold text-bp-graphite">
             {batch.name}
           </h2>
-          <p className="mt-1 font-mono text-sm text-bt-muted">
+          <p className="mt-1 font-mono text-sm text-bp-muted">
             {batch.batchId}
           </p>
         </div>
@@ -452,20 +452,20 @@ function RequestForm({
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold text-bt-graphite">
+      <h2 className="text-lg font-semibold text-bp-graphite">
         {t("form.title")}
       </h2>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <Field label={t("form.workflowRef")}>
           <input
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
             onChange={updateField("workflowRef")}
             value={formValues.workflowRef}
           />
         </Field>
         <Field label={t("form.expiresIn")}>
           <select
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
             onChange={updateField("expiresInHours")}
             value={formValues.expiresInHours}
           >
@@ -480,7 +480,7 @@ function RequestForm({
 
       <Field className="mt-4" label={t("form.reason")}>
         <textarea
-          className="min-h-28 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+          className="min-h-28 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
           onChange={updateField("reason")}
           value={formValues.reason}
         />
@@ -488,11 +488,11 @@ function RequestForm({
 
       <section className="mt-5 border-t border-slate-100 pt-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-sm font-bold text-bt-graphite">
+          <h3 className="text-sm font-bold text-bp-graphite">
             {t("parameters.title")}
           </h3>
           <button
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
             onClick={addParameter}
             type="button"
           >
@@ -500,12 +500,12 @@ function RequestForm({
             {t("parameters.add")}
           </button>
         </div>
-        <p className="mt-2 text-sm text-bt-muted">
+        <p className="mt-2 text-sm text-bp-muted">
           {t("parameters.sensitiveHint")}
         </p>
 
         {formValues.parameters.length === 0 ? (
-          <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-bt-muted">
+          <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
             {t("parameters.empty")}
           </p>
         ) : (
@@ -517,7 +517,7 @@ function RequestForm({
               >
                 <Field label={t("parameters.name")}>
                   <input
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
                     onChange={(event) =>
                       updateParameter(parameter.id, {
                         name: event.target.value,
@@ -528,7 +528,7 @@ function RequestForm({
                 </Field>
                 <Field label={t("parameters.value")}>
                   <input
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
                     onChange={(event) =>
                       updateParameter(parameter.id, {
                         value: event.target.value,
@@ -538,10 +538,10 @@ function RequestForm({
                     value={parameter.value}
                   />
                 </Field>
-                <label className="flex items-center gap-2 self-end py-2 text-sm font-semibold text-bt-graphite">
+                <label className="flex items-center gap-2 self-end py-2 text-sm font-semibold text-bp-graphite">
                   <input
                     checked={parameter.sensitive}
-                    className="h-4 w-4 accent-bt-control"
+                    className="h-4 w-4 accent-bp-control"
                     onChange={(event) =>
                       updateParameter(parameter.id, {
                         sensitive: event.target.checked,
@@ -553,7 +553,7 @@ function RequestForm({
                 </label>
                 <button
                   aria-label={t("parameters.remove")}
-                  className="inline-flex h-10 w-10 items-center justify-center self-end rounded-md border border-slate-300 text-bt-muted"
+                  className="inline-flex h-10 w-10 items-center justify-center self-end rounded-md border border-slate-300 text-bp-muted"
                   onClick={() => removeParameter(parameter.id)}
                   type="button"
                 >
@@ -595,7 +595,7 @@ function RequestReviewPanel({
   return (
     <aside className="space-y-4">
       <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-bt-graphite">
+        <h2 className="text-lg font-semibold text-bp-graphite">
           {t("review.title")}
         </h2>
         <div className="mt-4 flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
@@ -638,12 +638,12 @@ function RequestReviewPanel({
           <CheckItem ready text={t("review.noDispatch")} />
         </ul>
 
-        <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bt-muted">
+        <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bp-muted">
           {t("review.nextStep")}
         </p>
 
         <button
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-bt-control px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-bp-control px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           disabled={!canSubmit}
           type="submit"
         >
@@ -657,11 +657,11 @@ function RequestReviewPanel({
       </article>
 
       <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-bt-graphite">
+        <h2 className="text-lg font-semibold text-bp-graphite">
           {t("payload.title")}
         </h2>
         {previewState.type === "loading" ? (
-          <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-bt-muted">
+          <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-bp-muted">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             {t("payload.loading")}
           </p>
@@ -672,12 +672,12 @@ function RequestReviewPanel({
           </p>
         ) : null}
         {previewIssue ? (
-          <pre className="mt-4 max-h-96 overflow-auto rounded-md bg-bt-graphite p-4 text-xs leading-6 text-white">
+          <pre className="mt-4 max-h-96 overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
             <code>{JSON.stringify(previewIssue.payload, null, 2)}</code>
           </pre>
         ) : null}
         {previewState.type === "idle" ? (
-          <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-bt-muted">
+          <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
             {t("payload.idle")}
           </p>
         ) : null}
@@ -697,7 +697,7 @@ function Field({
 }) {
   return (
     <label
-      className={`block text-sm font-semibold text-bt-graphite ${className ?? ""}`}
+      className={`block text-sm font-semibold text-bp-graphite ${className ?? ""}`}
     >
       {label}
       <div className="mt-2">{children}</div>
@@ -708,8 +708,8 @@ function Field({
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase text-bt-muted">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-bold text-bt-graphite">
+      <dt className="text-xs font-semibold uppercase text-bp-muted">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-bold text-bp-graphite">
         {value}
       </dd>
     </div>
@@ -719,8 +719,8 @@ function Fact({ label, value }: { label: string; value: string }) {
 function ReviewFact({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase text-bt-muted">{label}</dt>
-      <dd className="mt-1 break-all font-mono text-xs font-semibold text-bt-graphite">
+      <dt className="text-xs font-semibold uppercase text-bp-muted">{label}</dt>
+      <dd className="mt-1 break-all font-mono text-xs font-semibold text-bp-graphite">
         {value}
       </dd>
     </div>
@@ -733,7 +733,7 @@ function CheckItem({ ready, text }: { ready: boolean; text: string }) {
   return (
     <li
       className={`flex items-start gap-2 ${
-        ready ? "text-bt-graphite" : "text-amber-800"
+        ready ? "text-bp-graphite" : "text-amber-800"
       }`}
     >
       <Icon

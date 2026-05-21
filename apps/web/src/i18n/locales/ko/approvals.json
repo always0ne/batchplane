@@ -67,7 +67,7 @@
       "approve": "승인 후 PR 반영",
       "backToApprovals": "승인함으로",
       "closedTitle": "등록 검토 완료",
-      "note": "승인 시 Repo Mode 거버넌스 반영을 위해 등록 PR을 병합합니다.",
+      "note": "승인 시 BatchPlane Lite 거버넌스 반영을 위해 등록 PR을 병합합니다.",
       "title": "승인 처리"
     },
     "states": {
@@ -80,7 +80,7 @@
     "checklist": {
       "title": "거버넌스 체크리스트",
       "batchPaths": "Batch ID 기준으로 배치정의/워크플로우 경로가 생성되었는지 확인",
-      "gateRequired": "배치 명령 실행 전 BatchTrail Gate 필수 적용",
+      "gateRequired": "배치 명령 실행 전 BatchPlane Gate 필수 적용",
       "runnerRecorded": "실행 환경(runs-on) 기록",
       "commandRecorded": "배치 명령 기록"
     },
@@ -89,7 +89,7 @@
       "decision": "결정",
       "actor": "처리자",
       "decidedAt": "처리 시각",
-      "noEvidence": "아직 BatchTrail 검토 증적 코멘트가 없습니다.",
+      "noEvidence": "아직 BatchPlane 검토 증적 코멘트가 없습니다.",
       "states": {
         "OPEN": "검토 대기",
         "APPROVED_PENDING_MERGE": "승인됨, 병합 대기",

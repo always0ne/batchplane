@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BatchDefinition } from "@batchtrail/domain";
+import type { BatchDefinition } from "@batchplane/domain";
 
 import {
   addHours,
@@ -67,15 +67,15 @@ describe("execution request model", () => {
     });
 
     expect(issue.title).toBe("Run batch payment.daily-close");
-    expect(issue.labels).toEqual(["batchtrail:execution-request"]);
+    expect(issue.labels).toEqual(["batchplane:execution-request"]);
     expect(issue.request).toMatchObject({
       batchId: "payment.daily-close",
       requestedBy: "always0ne",
       status: "REQUESTED",
     });
     expect(issue.request.requestDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
-    expect(issue.body).toContain("## BatchTrail Execution Request");
-    expect(issue.body).toContain("batchtrail:execution-request");
+    expect(issue.body).toContain("## BatchPlane Execution Request");
+    expect(issue.body).toContain("batchplane:execution-request");
     expect(issue.body).toContain("requestId=btr-20260509010203");
     expect(issue.body).toContain(
       `requestDigest=${issue.request.requestDigest}`,

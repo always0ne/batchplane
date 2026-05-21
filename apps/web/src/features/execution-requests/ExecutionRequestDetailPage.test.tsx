@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { BatchTrailRuntimePorts } from "@batchtrail/domain";
-import { createMockGitHubLiteClient } from "@batchtrail/github-lite";
+import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import { createMockGitHubLiteClient } from "@batchplane/github-lite";
 
 import {
   createRuntimeFixtureMockState,
@@ -39,7 +39,7 @@ describe("ExecutionRequestDetailPage", () => {
     expect(screen.getByText("echo mock batch")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "BatchTrail Gate is mandatory before the batch command.",
+        "BatchPlane Gate is mandatory before the batch command.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -109,7 +109,7 @@ function renderDetail({
   issueNumber = 101,
   readSession,
 }: {
-  createRuntime?: (session: GitHubSession) => BatchTrailRuntimePorts;
+  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   issueNumber?: number;
   readSession?: () => GitHubSession | null;
 } = {}) {

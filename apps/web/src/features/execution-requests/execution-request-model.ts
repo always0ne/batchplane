@@ -2,15 +2,15 @@ import {
   createParameterDigest,
   createRequestDigest,
   type CanonicalValue,
-} from "@batchtrail/digest";
+} from "@batchplane/digest";
 import type {
   BatchDefinition,
   ExecutionRequest,
   RunnerLabel,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 
 export type ExecutionRequestPayload = {
-  apiVersion: "batchtrail.io/v1";
+  apiVersion: "batchplane.io/v1";
   kind: "ExecutionRequest";
   metadata: {
     requestId: string;
@@ -81,7 +81,7 @@ export async function buildExecutionRequestIssue({
   batch,
   expiresAt,
   parameters = [],
-  reason = "Manual request from BatchTrail Repo Mode.",
+  reason = "Manual request from BatchPlane Lite.",
   requestId,
   requestedAt,
   requestedBy,
@@ -94,7 +94,7 @@ export async function buildExecutionRequestIssue({
   const parameterPayload = await buildParameterPayload(parameters);
   const effectiveWorkflowRef = workflowRef?.trim() || batch.workflow.ref;
   const payload: ExecutionRequestPayload = {
-    apiVersion: "batchtrail.io/v1",
+    apiVersion: "batchplane.io/v1",
     kind: "ExecutionRequest",
     metadata: {
       batchId: batch.batchId,
@@ -144,7 +144,7 @@ export async function buildExecutionRequestIssue({
 
   return {
     body: buildExecutionRequestBody({ payload, request }),
-    labels: ["batchtrail:execution-request"],
+    labels: ["batchplane:execution-request"],
     payload,
     request,
     title: `Run batch ${batch.batchId}`,
@@ -186,7 +186,7 @@ function buildExecutionRequestBody({
   request: ExecutionRequest;
 }): string {
   return [
-    "## BatchTrail Execution Request",
+    "## BatchPlane Execution Request",
     "",
     `- Request ID: \`${request.requestId}\``,
     `- Batch ID: \`${request.batchId}\``,
@@ -202,7 +202,7 @@ function buildExecutionRequestBody({
     JSON.stringify(payload, null, 2),
     "```",
     "",
-    "<!-- batchtrail:execution-request",
+    "<!-- batchplane:execution-request",
     `requestId=${request.requestId}`,
     `batchId=${request.batchId}`,
     `requestDigest=${request.requestDigest}`,

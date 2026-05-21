@@ -2,15 +2,25 @@ import type {
   GitHubLiteClient,
   GitHubPullRequest,
   RepoRef,
-} from "@batchtrail/github-lite";
+} from "@batchplane/github-lite";
+
+import {
+  batchPlaneDispatcherActionRef,
+  batchPlaneGateActionRef,
+} from "../../shared/github-action-references";
 
 export const liteDispatcherWorkflowPath =
+  ".github/workflows/batchplane-dispatcher.yml";
+export const legacyLiteDispatcherWorkflowPath =
   ".github/workflows/batchtrail-dispatcher.yml";
 export const liteSampleTargetWorkflowPath =
+  ".github/workflows/batchplane-sample-target.yml";
+export const legacyLiteSampleTargetWorkflowPath =
   ".github/workflows/batchtrail-sample-target.yml";
 
 export type LiteInstallationFile = {
   content: string;
+  legacyPaths?: string[];
   path: string;
 };
 
@@ -50,10 +60,12 @@ export function buildLiteInstallationFiles(): LiteInstallationFile[] {
   return [
     {
       path: liteDispatcherWorkflowPath,
+      legacyPaths: [legacyLiteDispatcherWorkflowPath],
       content: buildDispatcherWorkflowYaml(),
     },
     {
       path: liteSampleTargetWorkflowPath,
+      legacyPaths: [legacyLiteSampleTargetWorkflowPath],
       content: buildSampleTargetWorkflowYaml(),
     },
     {
@@ -62,12 +74,11 @@ export function buildLiteInstallationFiles(): LiteInstallationFile[] {
     },
     {
       path: ".batch-governance/batches/.gitkeep",
-      content: "Batch definitions created by BatchTrail Repo Mode live here.\n",
+      content: "Batch definitions created by BatchPlane Lite live here.\n",
     },
     {
       path: ".batch-governance/schedules/.gitkeep",
-      content:
-        "Schedule definitions created by BatchTrail Repo Mode live here.\n",
+      content: "Schedule definitions created by BatchPlane Lite live here.\n",
     },
   ];
 }
@@ -79,16 +90,26 @@ export async function checkLiteInstallationStatus({
 }: CheckLiteInstallationStatusParams): Promise<LiteInstallationStatus> {
   const requiredFiles = buildLiteInstallationFiles();
   const files = await Promise.all(
-    requiredFiles.map(async (file) => ({
-      file,
-      exists: Boolean(await client.getFile({ ...repo, path: file.path, ref })),
-    })),
+    requiredFiles.map(async (file) => {
+      const candidates = [file.path, ...(file.legacyPaths ?? [])];
+      const presentPath = await findPresentInstallationPath({
+        candidates,
+        client,
+        ref,
+        repo,
+      });
+
+      return {
+        file,
+        presentPath,
+      };
+    }),
   );
   const presentPaths = files
-    .filter((result) => result.exists)
-    .map((result) => result.file.path);
+    .map((result) => result.presentPath)
+    .filter((path): path is string => Boolean(path));
   const missingPaths = files
-    .filter((result) => !result.exists)
+    .filter((result) => !result.presentPath)
     .map((result) => result.file.path);
 
   return {
@@ -97,6 +118,28 @@ export async function checkLiteInstallationStatus({
     presentPaths,
     requiredPaths: requiredFiles.map((file) => file.path),
   };
+}
+
+async function findPresentInstallationPath({
+  candidates,
+  client,
+  ref,
+  repo,
+}: {
+  candidates: string[];
+  client: Pick<GitHubLiteClient, "getFile">;
+  ref: string;
+  repo: RepoRef;
+}): Promise<string | null> {
+  for (const path of candidates) {
+    const file = await client.getFile({ ...repo, path, ref });
+
+    if (file) {
+      return path;
+    }
+  }
+
+  return null;
 }
 
 export async function createLiteInstallationPullRequest({
@@ -112,7 +155,7 @@ export async function createLiteInstallationPullRequest({
   });
 
   if (status.installed) {
-    throw new Error("BatchTrail Repo Mode is already installed.");
+    throw new Error("BatchPlane Lite is already installed.");
   }
 
   const branch = createLiteInstallationBranchName(date);
@@ -164,30 +207,30 @@ export function createLiteInstallationBranchName(date = new Date()): string {
     .replaceAll("Z", "")
     .slice(0, 14);
 
-  return `batchtrail/install/repo-mode-${timestamp}`;
+  return `batchplane/install/lite-${timestamp}`;
 }
 
 export function buildLiteInstallationPullRequestTitle(): string {
-  return "Install BatchTrail Repo Mode";
+  return "Install BatchPlane Lite";
 }
 
 export function buildLiteInstallationPullRequestBody(missingPaths: string[]) {
   return [
-    "## BatchTrail Repo Mode Installation",
+    "## BatchPlane Lite Installation",
     "",
-    "This pull request installs the repository-side files required by BatchTrail GitHub Lite.",
+    "This pull request installs the repository-side files required by BatchPlane GitHub Lite.",
     "",
     "### Added files",
     "",
     ...missingPaths.map((path) => `- \`${path}\``),
     "",
-    "After this pull request is merged, BatchTrail approval comments can trigger the repository dispatcher workflow. The browser UI still creates requests and approval evidence; runtime dispatch remains owned by this repository workflow.",
+    "After this pull request is merged, BatchPlane approval comments can trigger the repository dispatcher workflow. The browser UI still creates requests and approval evidence; runtime dispatch remains owned by this repository workflow.",
   ].join("\n");
 }
 
 export function buildDispatcherWorkflowYaml(): string {
   return [
-    "name: BatchTrail Dispatcher",
+    "name: BatchPlane Dispatcher",
     "",
     "on:",
     "  issue_comment:",
@@ -199,7 +242,7 @@ export function buildDispatcherWorkflowYaml(): string {
     "  issues: write",
     "",
     "concurrency:",
-    "  group: batchtrail-dispatch-${{ github.event.issue.number }}",
+    "  group: batchplane-dispatch-${{ github.event.issue.number }}",
     "  cancel-in-progress: false",
     "",
     "jobs:",
@@ -207,8 +250,8 @@ export function buildDispatcherWorkflowYaml(): string {
     "    if: startsWith(github.event.comment.body, '/bgcp approve ')",
     "    runs-on: ubuntu-latest",
     "    steps:",
-    "      - name: Dispatch approved BatchTrail execution",
-    "        uses: always0ne/batchtrail/actions/dispatcher@main",
+    "      - name: Dispatch approved BatchPlane execution",
+    `        uses: ${batchPlaneDispatcherActionRef}`,
     "        with:",
     "          issue-number: ${{ github.event.issue.number }}",
     "          comment-id: ${{ github.event.comment.id }}",
@@ -219,21 +262,21 @@ export function buildDispatcherWorkflowYaml(): string {
 
 export function buildSampleTargetWorkflowYaml(): string {
   return [
-    "name: BatchTrail Sample Target",
+    "name: BatchPlane Sample Target",
     "",
     "on:",
     "  workflow_dispatch:",
     "    inputs:",
     "      request_id:",
-    "        description: BatchTrail execution request ID",
+    "        description: BatchPlane execution request ID",
     "        required: true",
     "        type: string",
     "      batch_id:",
-    "        description: BatchTrail batch ID",
+    "        description: BatchPlane batch ID",
     "        required: true",
     "        type: string",
     "      request_digest:",
-    "        description: BatchTrail approved request digest",
+    "        description: BatchPlane approved request digest",
     "        required: true",
     "        type: string",
     "",
@@ -242,12 +285,12 @@ export function buildSampleTargetWorkflowYaml(): string {
     "  issues: read",
     "",
     "jobs:",
-    "  batchtrail-gate:",
-    "    name: BatchTrail Gate",
+    "  batchplane-gate:",
+    "    name: BatchPlane Gate",
     "    runs-on: ubuntu-latest",
     "    steps:",
     "      - name: Verify approved execution evidence",
-    "        uses: always0ne/batchtrail/actions/gate@main",
+    `        uses: ${batchPlaneGateActionRef}`,
     "        with:",
     "          mode: lite",
     "          batch-id: ${{ inputs.batch_id }}",
@@ -261,25 +304,25 @@ export function buildSampleTargetWorkflowYaml(): string {
     "  run-sample-batch:",
     "    name: Run sample batch command",
     "    runs-on: ubuntu-latest",
-    "    needs: batchtrail-gate",
+    "    needs: batchplane-gate",
     "    steps:",
     "      - name: Checkout",
     "        uses: actions/checkout@v4",
     "      - name: Sample command",
-    '        run: echo "BatchTrail approved sample execution"',
+    '        run: echo "BatchPlane approved sample execution"',
     "",
   ].join("\n");
 }
 
 function buildGovernanceReadme(): string {
   return [
-    "# BatchTrail Governance",
+    "# BatchPlane Governance",
     "",
-    "This directory stores BatchTrail Repo Mode definitions and audit evidence that are reviewed through GitHub pull requests and issues.",
+    "This directory stores BatchPlane Lite definitions and audit evidence that are reviewed through GitHub pull requests and issues.",
     "",
     "- `batches/`: approved batch definitions and optional execution artifacts",
     "- `schedules/`: approved schedule definitions",
-    "- `.github/workflows/batchtrail-sample-target.yml`: sample governed target workflow",
+    "- `.github/workflows/batchplane-sample-target.yml`: sample governed target workflow",
     "",
   ].join("\n");
 }

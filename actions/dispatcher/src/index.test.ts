@@ -366,7 +366,7 @@ describe("dispatcher verification", () => {
     expect(requests).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          body: { labels: ["batchtrail:dispatch-failed"] },
+          body: { labels: ["batchplane:dispatch-failed"] },
           input:
             "https://api.github.test/repos/always0ne/batch/issues/34/labels",
           method: "POST",

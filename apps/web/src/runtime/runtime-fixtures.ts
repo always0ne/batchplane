@@ -1,11 +1,11 @@
-import type { BatchTrailRuntimePorts } from "@batchtrail/domain";
+import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
   type GitHubLiteMockExecutionState,
   type GitHubLiteMockState,
   type MockGitHubLiteClient,
-} from "@batchtrail/github-lite";
+} from "@batchplane/github-lite";
 
 import {
   readGitHubSession,
@@ -13,7 +13,8 @@ import {
 } from "../features/lite-setup/github-session";
 import { createGitHubLiteRuntime } from "./github-lite-runtime";
 
-export const runtimeFixtureStorageKey = "batchtrail.dev.runtimeFixture";
+export const runtimeFixtureStorageKey = "batchplane.dev.runtimeFixture";
+export const legacyRuntimeFixtureStorageKey = "batchtrail.dev.runtimeFixture";
 
 export const runtimeFixtureIds = [
   "live",
@@ -60,7 +61,9 @@ export function readRuntimeFixtureSelection(
     return "live";
   }
 
-  const storedValue = storage.getItem(runtimeFixtureStorageKey);
+  const storedValue =
+    storage.getItem(runtimeFixtureStorageKey) ??
+    storage.getItem(legacyRuntimeFixtureStorageKey);
 
   return isRuntimeFixtureId(storedValue) ? storedValue : "live";
 }
@@ -84,9 +87,9 @@ export function readRuntimeSession(): GitHubSession | null {
     : mockRuntimeSession;
 }
 
-export function createBatchTrailRuntime(
+export function createBatchPlaneRuntime(
   session: GitHubSession,
-): BatchTrailRuntimePorts {
+): BatchPlaneRuntimePorts {
   const fixtureId = readRuntimeFixtureSelection();
 
   if (fixtureId === "live") {

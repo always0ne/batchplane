@@ -67,7 +67,7 @@
       "approve": "Approve and merge PR",
       "backToApprovals": "Back to approvals",
       "closedTitle": "Registration review completed",
-      "note": "Approving merges this registration PR into the repository for Repo Mode governance.",
+      "note": "Approving merges this registration PR into the repository for BatchPlane Lite governance.",
       "title": "Approval action"
     },
     "states": {
@@ -80,7 +80,7 @@
     "checklist": {
       "title": "Governance checklist",
       "batchPaths": "Batch definition and workflow paths are derived from Batch ID.",
-      "gateRequired": "BatchTrail Gate is required before batch command execution.",
+      "gateRequired": "BatchPlane Gate is required before batch command execution.",
       "runnerRecorded": "Execution environment (runs-on) is recorded.",
       "commandRecorded": "Batch command is recorded."
     },
@@ -89,7 +89,7 @@
       "decision": "Decision",
       "actor": "Actor",
       "decidedAt": "Decided at",
-      "noEvidence": "No BatchTrail review evidence comment is recorded yet.",
+      "noEvidence": "No BatchPlane review evidence comment is recorded yet.",
       "states": {
         "OPEN": "Waiting for review",
         "APPROVED_PENDING_MERGE": "Approved, merge pending",

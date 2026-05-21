@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   createRuntimeFixtureMockState,
+  legacyRuntimeFixtureStorageKey,
   readRuntimeFixtureSelection,
   readRuntimeSession,
   runtimeFixtureStorageKey,
@@ -26,6 +27,12 @@ describe("runtime fixtures", () => {
       "approval-pending",
     );
     expect(readRuntimeFixtureSelection()).toBe("approval-pending");
+  });
+
+  it("reads legacy BatchTrail fixture keys", () => {
+    sessionStorage.setItem(legacyRuntimeFixtureStorageKey, "gate-blocked");
+
+    expect(readRuntimeFixtureSelection()).toBe("gate-blocked");
   });
 
   it("provides a mock GitHub session when a fixture is selected", () => {
@@ -57,26 +64,26 @@ describe("runtime fixtures", () => {
   it("switches runtime behavior between approval and failure fixtures", async () => {
     writeRuntimeFixtureSelection("approval-pending");
 
-    const approvalRuntime = createBatchTrailRuntime(
+    const approvalRuntime = createBatchPlaneRuntime(
       readRuntimeSessionOrThrow(),
     );
     await expect(
       approvalRuntime.approvals.listExecutionRequestIssues(),
     ).resolves.toEqual([
       expect.objectContaining({
-        labels: expect.arrayContaining(["batchtrail:execution-request"]),
+        labels: expect.arrayContaining(["batchplane:execution-request"]),
         state: "open",
       }),
     ]);
 
     writeRuntimeFixtureSelection("dispatch-failed");
 
-    const failedRuntime = createBatchTrailRuntime(readRuntimeSessionOrThrow());
+    const failedRuntime = createBatchPlaneRuntime(readRuntimeSessionOrThrow());
     await expect(
       failedRuntime.approvals.listExecutionRequestIssues(),
     ).resolves.toEqual([
       expect.objectContaining({
-        labels: expect.arrayContaining(["batchtrail:dispatch-failed"]),
+        labels: expect.arrayContaining(["batchplane:dispatch-failed"]),
         state: "open",
       }),
     ]);

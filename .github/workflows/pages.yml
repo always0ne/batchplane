@@ -41,7 +41,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build GitHub Pages static bundle
-        run: GITHUB_PAGES=true pnpm --filter @batchtrail/web build
+        run: VITE_BASE_PATH=/${{ github.event.repository.name }}/ pnpm --filter @batchplane/web build
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

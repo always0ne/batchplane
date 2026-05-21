@@ -1,4 +1,4 @@
-import type { BatchDefinition } from "@batchtrail/domain";
+import type { BatchDefinition } from "@batchplane/domain";
 
 export function getExecutionRequestBlockReason({
   batch,

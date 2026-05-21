@@ -1,10 +1,10 @@
-# BatchTrail
+# BatchPlane
 
-Git-native Batch Control & Audit.
+Git-backed batch control and audit.
 
-BatchTrail starts with **Repo Mode**, a GitHub repository-backed way to model batch
+BatchPlane starts with **Lite**, a GitHub repository-backed way to model batch
 definitions, execution requests, approval evidence, dispatcher workflows, and Gate
-decisions. It is designed to grow into **BatchTrail Control Plane** for installable
+decisions. It is designed to grow into an installable BatchPlane server for
 enterprise use.
 
 ## Development
@@ -17,17 +17,17 @@ pnpm install
 pnpm dev
 ```
 
-## Repo Mode Smoke Test
+## Lite Smoke Test
 
 To test the GitHub-backed registration flow, create a private GitHub repository
-that BatchTrail can write registration pull requests to.
+that BatchPlane can write registration pull requests to.
 
 ```bash
 gh repo create batch --private --add-readme
 ```
 
 The repository must have an initial commit. Creating it with `--add-readme` is
-the simplest path because BatchTrail creates registration branches from the
+the simplest path because BatchPlane creates registration branches from the
 repository's default branch.
 
 Create a fine-grained GitHub personal access token for the `batch` repository:
@@ -52,13 +52,13 @@ In `Setup`, enter:
 
 Use `Save session`, then `Check connection`. Tokens are stored in
 `sessionStorage` only. Connection check also inspects whether the repository has
-BatchTrail Repo Mode installed.
+BatchPlane Lite installed.
 
-If Repo Mode is not installed, choose `Create installation PR` in `Setup`. The
+If Lite is not installed, choose `Create installation PR` in `Setup`. The
 installation pull request adds:
 
-- `.github/workflows/batchtrail-dispatcher.yml`
-- `.github/workflows/batchtrail-sample-target.yml`
+- `.github/workflows/batchplane-dispatcher.yml`
+- `.github/workflows/batchplane-sample-target.yml`
 - `.batch-governance/README.md`
 - `.batch-governance/batches/.gitkeep`
 - `.batch-governance/schedules/.gitkeep`
@@ -69,12 +69,12 @@ performed by the target repository's dispatcher workflow.
 
 To test batch registration, go to `Batches`, choose `Register batch`, fill in the
 form, review the YAML preview, and choose `Create registration PR`. Registration
-always generates a BatchTrail Gate-protected workflow. The workflow path is
+always generates a BatchPlane Gate-protected workflow. The workflow path is
 derived from the Batch ID, the execution environment is selected through the
 `runs-on` control, and the batch command is the only command executed after Gate
 approval. A successful test creates:
 
-- A new `batchtrail/register/...` branch
+- A new `batchplane/register/...` branch
 - `.batch-governance/batches/{batchId}.yml`
 - `.github/workflows/{batchId}.yml`
 - Optional `.batch-governance/batches/{batchId}/artifacts/...` execution files
@@ -82,24 +82,24 @@ approval. A successful test creates:
 
 To complete the registration approval cycle, go to `Approvals` and choose
 `Approve and merge` for the generated PR. A successful approval records a
-BatchTrail approval comment on the PR, squash-merges the PR into the default
+BatchPlane approval comment on the PR, squash-merges the PR into the default
 branch, and removes the request from the approval inbox. Return to `Batches` and
 choose `Refresh`; the approved batch definition should appear from the
 repository's `.batch-governance/batches` directory.
 
-Repo Mode currently covers repository installation PR creation, registration
+Lite currently covers repository installation PR creation, registration
 request, approval, merge, repo-backed batch listing, execution request creation,
 execution approval evidence, and dispatcher-side `workflow_dispatch`. Target
-repositories must merge the BatchTrail dispatcher workflow installation before
+repositories must merge the BatchPlane dispatcher workflow installation before
 approval comments can trigger the dispatcher action.
 
 To test the first execution-control entry point, choose `Request run` from an
 approved batch in `Batches`. A successful request creates a GitHub Issue with a
-BatchTrail execution request marker, canonical payload, and SHA-256 request
+BatchPlane execution request marker, canonical payload, and SHA-256 request
 digest, then routes the UI to `Approvals`. Approving the execution request
-records a BatchTrail execution approval comment whose first line is the
+records a BatchPlane execution approval comment whose first line is the
 dispatcher command (`/bgcp approve ...`). The target repository still needs the
-BatchTrail dispatcher workflow installed for that approval comment to perform
+BatchPlane dispatcher workflow installed for that approval comment to perform
 `workflow_dispatch`.
 
 The dispatcher action checks that the execution request Issue and approval
@@ -112,16 +112,17 @@ See also:
 - `docs/github-pages.md`
 - `docs/github-lite-srs.md`
 - `docs/github-lite-technical-spec.md`
+- `docs/repository-rename-runbook.md`
 
 ## Workspace
 
 ```text
-apps/web              React/Vite Repo Mode UI
+apps/web              React/Vite Lite UI
 packages/domain       Shared domain types
 packages/digest       Canonical payload utilities
-packages/github-lite  GitHub Repo Mode client contracts
-actions/gate          BatchTrail Gate Action scaffold
-actions/dispatcher    BatchTrail Dispatcher Action scaffold
+packages/github-lite  GitHub Lite client contracts
+actions/gate          BatchPlane Gate Action scaffold
+actions/dispatcher    BatchPlane Dispatcher Action scaffold
 ```
 
 ## Internationalization

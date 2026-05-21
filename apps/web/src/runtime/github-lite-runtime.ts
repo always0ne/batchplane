@@ -1,11 +1,11 @@
 import type {
   BatchDefinition,
-  BatchTrailRuntimePorts,
+  BatchPlaneRuntimePorts,
   RepositoryFile,
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import {
   createGitHubLiteClient,
   type GitHubIssue,
@@ -13,7 +13,7 @@ import {
   type GitHubLiteClient,
   type GitHubLiteClientOptions,
   type GitHubPullRequest,
-} from "@batchtrail/github-lite";
+} from "@batchplane/github-lite";
 
 import { parseBatchDefinitionYaml } from "../features/registration/registration-model";
 import type { GitHubSession } from "../features/lite-setup/github-session";
@@ -34,7 +34,7 @@ export type GitHubLiteRuntimeOptions = {
 export function createGitHubLiteRuntime(
   session: GitHubSession,
   options: GitHubLiteRuntimeOptions = {},
-): BatchTrailRuntimePorts {
+): BatchPlaneRuntimePorts {
   const client =
     options.client ??
     createGitHubLiteClient({

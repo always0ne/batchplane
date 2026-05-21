@@ -1,7 +1,7 @@
 import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 
 import {
   getBatchDefinitionPath,
@@ -51,8 +51,10 @@ export function parseRegistrationRequestSummary(
     environment: readMarkdownField(pullRequest.body, "Environment"),
     executionFilePath: readMarkdownField(pullRequest.body, "Execution file"),
     gateRequired:
-      readMarkdownField(pullRequest.body, "BatchTrail Gate").toLowerCase() !==
-      "optional",
+      readFirstMarkdownField(pullRequest.body, [
+        "BatchPlane Gate",
+        "BatchPlane Gate",
+      ]).toLowerCase() !== "optional",
     runsOn: readMarkdownField(pullRequest.body, "Runs on"),
     workflowPath,
   };
@@ -84,7 +86,10 @@ export function parseRegistrationApprovalDecision(
       continue;
     }
 
-    if (!comment.body.includes("## BatchTrail Registration Approval")) {
+    if (
+      !comment.body.includes("## BatchPlane Registration Approval") &&
+      !comment.body.includes("## BatchPlane Registration Approval")
+    ) {
       continue;
     }
 
@@ -130,6 +135,18 @@ function parseBatchIdFromTitle(title: string): string {
   const match = /^Register batch\s+(.+)$/i.exec(title.trim());
 
   return match?.[1]?.trim() || "";
+}
+
+function readFirstMarkdownField(body: string, labels: string[]): string {
+  for (const label of labels) {
+    const value = readMarkdownField(body, label);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
 }
 
 function readMarkdownField(body: string, label: string): string {

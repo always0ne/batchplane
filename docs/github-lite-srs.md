@@ -1,13 +1,13 @@
 # GitHub Lite SRS
 
-This document defines the implementation requirements for BatchTrail GitHub
+This document defines the implementation requirements for BatchPlane GitHub
 Lite mode. GitHub Lite is the Git-backed, serverless-first runtime used before
 the installable control-plane implementation.
 
 ## Scope
 
 GitHub Lite uses a GitHub repository as the governance store and audit surface.
-The React/Vite UI runs without a BatchTrail server and calls GitHub APIs with a
+The React/Vite UI runs without a BatchPlane server and calls GitHub APIs with a
 user-provided token stored only in session storage.
 
 GitHub Lite must support:
@@ -18,11 +18,11 @@ GitHub Lite must support:
 - Execution requests through GitHub Issues.
 - Execution approval evidence through GitHub Issue comments.
 - Dispatcher handoff through a repository workflow.
-- BatchTrail Gate enforcement before any batch command runs.
+- BatchPlane Gate enforcement before any batch command runs.
 - Future schedule execution through occurrence-level execution requests.
 
-UI work must also follow the Repo Mode UX baseline in
-[`repo-mode-ui-ux-baseline.md`](./repo-mode-ui-ux-baseline.md). Screen-level
+UI work must also follow the Lite UX baseline in
+[`lite-ui-ux-baseline.md`](./lite-ui-ux-baseline.md). Screen-level
 implementation is not complete until the user can understand the controlled
 object, the next action, and whether the visible item is approval work,
 execution evidence, or failure follow-up.
@@ -34,7 +34,7 @@ execution approval.
 
 Installation status is based on the default branch containing:
 
-- `.github/workflows/batchtrail-dispatcher.yml`
+- `.github/workflows/batchplane-dispatcher.yml`
 - `.batch-governance/README.md`
 - `.batch-governance/batches/.gitkeep`
 - `.batch-governance/schedules/.gitkeep`
@@ -50,6 +50,10 @@ invoke `always0ne/batchtrail/actions/dispatcher@main` with the triggering issue
 number, comment ID, and repository `GITHUB_TOKEN`. It must serialize runs per
 execution request Issue using workflow `concurrency` so duplicate approval
 comments cannot dispatch the same request in parallel.
+
+The action repository reference remains `always0ne/batchtrail` until the GitHub
+project repository is explicitly renamed. After that operation, new generated
+workflows must use `always0ne/batchplane`.
 
 ## Registration Requirements
 
@@ -72,15 +76,15 @@ The generated workflow must include:
 
 - `workflow_dispatch` inputs for `request_id`, `batch_id`, and
   `request_digest`.
-- A `batchtrail-gate` job before the batch job.
-- A batch job that depends on `batchtrail-gate`.
+- A `batchplane-gate` job before the batch job.
+- A batch job that depends on `batchplane-gate`.
 - Checkout before running repository-registered execution assets.
 - The user-defined batch command after Gate.
 
 `gateRequired` is an invariant. It is not an optional checkbox.
 
 The Gate must deny GitHub Actions UI reruns by default. A rerun reuses the
-original `workflow_dispatch` inputs, so it is not treated as a new BatchTrail
+original `workflow_dispatch` inputs, so it is not treated as a new BatchPlane
 authorization. A retry must be represented by a new execution request or by a
 future explicit retry approval.
 
@@ -148,7 +152,7 @@ Creating an execution request must:
 
 - Build a canonical `ExecutionRequest` payload.
 - Compute a SHA-256 request digest over the canonical payload.
-- Create a GitHub Issue with a BatchTrail execution request marker.
+- Create a GitHub Issue with a BatchPlane execution request marker.
 - Route the UI to the approvals inbox after creation.
 
 The execution request UI must route users through a request form before Issue
@@ -190,14 +194,14 @@ Gate-blocked, dispatching, dispatched, and rejected execution requests are
 execution evidence or follow-up work, not approval work, and must not be shown
 with approve/reject controls.
 
-Each execution request must also have a BatchTrail detail screen. The detail
+Each execution request must also have a BatchPlane detail screen. The detail
 screen must show request status, requester, batch, environment, workflow
 path/ref, runner, batch command, request digest, governance checks, canonical
 request payload, approval evidence, dispatcher evidence, and Gate evidence when
 available. The detail screen is the primary place to explain why approval did or
 did not lead to dispatch.
 
-Registration pull requests must also have a BatchTrail detail screen reachable
+Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request
 metadata, review state, governance checklist, YAML change summary for governed
 files, refresh action, and GitHub pull request link. Approval wording on this
@@ -211,7 +215,7 @@ Approving an execution request must write an approval comment that starts with:
 /bgcp approve requestDigest={requestDigest}
 ```
 
-The same comment must also include BatchTrail approval evidence with:
+The same comment must also include BatchPlane approval evidence with:
 
 - decision
 - approver
@@ -221,7 +225,7 @@ The same comment must also include BatchTrail approval evidence with:
 - `requestDigest`
 
 The dispatcher workflow uses the command line as the trigger signal and the
-BatchTrail marker as verification evidence.
+BatchPlane marker as verification evidence.
 
 The UI must not close the execution request Issue on approval. Approval is an
 intermediate evidence state; dispatcher and Gate evidence must still be able to
@@ -235,7 +239,7 @@ Self-approval must be blocked in the UI. The requester may see the request
 detail, but the approval button must be disabled with an explicit reason when
 the current GitHub user is also the requester.
 
-If the target repository does not have the BatchTrail dispatcher workflow
+If the target repository does not have the BatchPlane dispatcher workflow
 installed, approval records evidence but cannot dispatch the batch workflow.
 This must be treated as an installation/bootstrap gap, not as authorization to
 dispatch directly from the browser.
@@ -243,14 +247,18 @@ dispatch directly from the browser.
 The dispatcher must record dispatch state on the execution request Issue before
 and after `workflow_dispatch`:
 
-- `DISPATCHING` evidence and `batchtrail:dispatching` label before dispatch
-- `DISPATCHED` evidence and `batchtrail:dispatched` label after success
-- `DISPATCH_FAILED` evidence and `batchtrail:dispatch-failed` label after
+- `DISPATCHING` evidence and `batchplane:dispatching` label before dispatch
+- `DISPATCHED` evidence and `batchplane:dispatched` label after success
+- `DISPATCH_FAILED` evidence and `batchplane:dispatch-failed` label after
   failure
 
 The dispatcher must ignore duplicate approval comments when matching
 `DISPATCHING` or `DISPATCHED` evidence already exists for the same request ID,
 Batch ID, and request digest.
+
+Readers must continue to accept legacy `batchtrail.io/v1`, `batchtrail:*`
+markers, and `batchtrail:*` labels so existing Lite repositories remain
+auditable after the BatchPlane rebrand.
 
 ## Schedule Requirements
 

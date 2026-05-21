@@ -14,7 +14,7 @@ export type DigestEnvelope = {
 };
 
 export const canonicalExecutionRequestPayloadFixture: CanonicalValue = {
-  apiVersion: "batchtrail.io/v1",
+  apiVersion: "batchplane.io/v1",
   kind: "ExecutionRequest",
   metadata: {
     batchId: "payment.daily-close",
@@ -29,7 +29,7 @@ export const canonicalExecutionRequestPayloadFixture: CanonicalValue = {
       owner: "ops-team",
     },
     expiresAt: "2026-05-13T02:00:00.000Z",
-    reason: "Manual request from BatchTrail Repo Mode.",
+    reason: "Manual request from BatchPlane Lite.",
     requestedAt: "2026-05-13T01:00:00.000Z",
     requestedBy: "developer",
     workflow: {
@@ -40,7 +40,7 @@ export const canonicalExecutionRequestPayloadFixture: CanonicalValue = {
 };
 
 export const canonicalExecutionRequestDigestFixture =
-  "sha256:c049d17f2ddf592f3fbedcd2adaff2cfcbe7fcc925a4532d0cbce4392e6806fe";
+  "sha256:4d687975a410222fe09f2110ea895bc410848f0502737e78f8fcd47d70cc2f10";
 
 export function canonicalize(value: CanonicalValue): string {
   return JSON.stringify(normalize(value));

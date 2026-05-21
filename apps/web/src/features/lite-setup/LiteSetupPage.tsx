@@ -1,7 +1,7 @@
 import type {
   RepositoryPullRequest,
   RuntimeInstallationStatus,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import {
   AlertCircle,
   CheckCircle2,
@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
@@ -113,7 +113,7 @@ export function LiteSetupPage() {
     setInstallationState({ type: "checking" });
 
     try {
-      const runtime = createBatchTrailRuntime(session);
+      const runtime = createBatchPlaneRuntime(session);
       const [user, repository] = await Promise.all([
         runtime.settings.getCurrentUser(),
         runtime.settings.getRepository(),
@@ -174,7 +174,7 @@ export function LiteSetupPage() {
     setInstallationState({ type: "creating" });
 
     try {
-      const runtime = createBatchTrailRuntime(session);
+      const runtime = createBatchPlaneRuntime(session);
       const repository = await runtime.settings.getRepository();
       const { pullRequest } =
         await runtime.settings.createInstallationPullRequest({
@@ -203,44 +203,44 @@ export function LiteSetupPage() {
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-bt-graphite">
+              <h2 className="text-lg font-semibold text-bp-graphite">
                 {t("settings:github.title")}
               </h2>
-              <p className="mt-2 text-sm text-bt-muted">
+              <p className="mt-2 text-sm text-bp-muted">
                 {t("settings:github.subtitle")}
               </p>
             </div>
-            <KeyRound className="h-5 w-5 text-bt-git" aria-hidden="true" />
+            <KeyRound className="h-5 w-5 text-bp-git" aria-hidden="true" />
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <label className="block text-sm font-semibold text-bt-graphite">
+            <label className="block text-sm font-semibold text-bp-graphite">
               {t("settings:github.owner")}
               <input
                 autoComplete="off"
-                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
                 onChange={(event) => setOwner(event.target.value)}
                 placeholder="always0ne"
                 value={owner}
               />
             </label>
-            <label className="block text-sm font-semibold text-bt-graphite">
+            <label className="block text-sm font-semibold text-bp-graphite">
               {t("settings:github.repo")}
               <input
                 autoComplete="off"
-                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
                 onChange={(event) => setRepo(event.target.value)}
-                placeholder="batchtrail"
+                placeholder="batch"
                 value={repo}
               />
             </label>
           </div>
 
-          <label className="mt-4 block text-sm font-semibold text-bt-graphite">
+          <label className="mt-4 block text-sm font-semibold text-bp-graphite">
             {t("settings:github.token")}
             <input
               autoComplete="off"
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bt-graphite outline-none focus:border-bt-git focus:ring-2 focus:ring-bt-git/20"
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
               onChange={(event) => setToken(event.target.value)}
               placeholder="github_pat_..."
               type="password"
@@ -248,13 +248,13 @@ export function LiteSetupPage() {
             />
           </label>
 
-          <p className="mt-3 text-sm text-bt-muted">
+          <p className="mt-3 text-sm text-bp-muted">
             {t("settings:tokenPolicy")}
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
             <button
-              className="inline-flex items-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="inline-flex items-center gap-2 rounded-md bg-bp-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
               disabled={!canSubmit}
               type="submit"
             >
@@ -262,7 +262,7 @@ export function LiteSetupPage() {
               {t("settings:github.save")}
             </button>
             <button
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bt-graphite disabled:cursor-not-allowed disabled:text-slate-400"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bp-graphite disabled:cursor-not-allowed disabled:text-slate-400"
               disabled={!canSubmit || checkState.type === "checking"}
               onClick={() => void checkConnection()}
               type="button"
@@ -275,7 +275,7 @@ export function LiteSetupPage() {
               {t("settings:github.check")}
             </button>
             <button
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bt-muted disabled:cursor-not-allowed disabled:text-slate-400"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bp-muted disabled:cursor-not-allowed disabled:text-slate-400"
               disabled={!token && checkState.type === "idle"}
               onClick={clearSession}
               type="button"
@@ -290,15 +290,15 @@ export function LiteSetupPage() {
           <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-bt-graphite">
+                <h2 className="text-lg font-semibold text-bp-graphite">
                   {t("settings:session.title")}
                 </h2>
-                <p className="mt-2 text-sm text-bt-muted">
+                <p className="mt-2 text-sm text-bp-muted">
                   {t("common:app.tagline")}
                 </p>
               </div>
               <CheckCircle2
-                className="h-5 w-5 text-bt-git"
+                className="h-5 w-5 text-bp-git"
                 aria-hidden="true"
               />
             </div>
@@ -308,14 +308,14 @@ export function LiteSetupPage() {
           <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-bt-graphite">
+                <h2 className="text-lg font-semibold text-bp-graphite">
                   {t("settings:installation.title")}
                 </h2>
-                <p className="mt-2 text-sm text-bt-muted">
+                <p className="mt-2 text-sm text-bp-muted">
                   {t("settings:installation.subtitle")}
                 </p>
               </div>
-              <ShieldCheck className="h-5 w-5 text-bt-git" aria-hidden="true" />
+              <ShieldCheck className="h-5 w-5 text-bp-git" aria-hidden="true" />
             </div>
             <InstallationStatus
               onInstall={() => void createInstallationPullRequest()}
@@ -359,7 +359,7 @@ function InstallationStatus({
           </ul>
         </div>
         <button
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-bt-control px-4 py-2 text-sm font-semibold text-white"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-bp-control px-4 py-2 text-sm font-semibold text-white"
           onClick={onInstall}
           type="button"
         >
@@ -372,7 +372,7 @@ function InstallationStatus({
 
   if (state.type === "checking" || state.type === "creating") {
     return (
-      <div className="mt-5 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bt-muted">
+      <div className="mt-5 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         {state.type === "checking"
           ? t("installation.checking")
@@ -407,7 +407,7 @@ function InstallationStatus({
   }
 
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bt-muted">
+    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
       {t("installation.idle")}
     </div>
   );
@@ -454,7 +454,7 @@ function SessionStatus({
 
   if (state.type === "checking") {
     return (
-      <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bt-muted">
+      <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
         {t("session.checking")}
       </div>
     );
@@ -484,8 +484,8 @@ function SessionStatus({
 function StatusRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-md bg-slate-50 px-3 py-2">
-      <dt className="font-medium text-bt-muted">{label}</dt>
-      <dd className="text-right font-semibold text-bt-graphite">{value}</dd>
+      <dt className="font-medium text-bp-muted">{label}</dt>
+      <dd className="text-right font-semibold text-bp-graphite">{value}</dd>
     </div>
   );
 }

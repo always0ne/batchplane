@@ -4,7 +4,8 @@ import {
   type SupportedLocale,
 } from "./locales";
 
-const localeStorageKey = "batchtrail.locale";
+const localeStorageKey = "batchplane.locale";
+const legacyLocaleStorageKey = "batchtrail.locale";
 
 export function normalizeLocale(
   locale: string | null | undefined,
@@ -50,7 +51,10 @@ export function detectLocale(options: {
 export function readStoredLocale(
   storage: Pick<Storage, "getItem"> = window.localStorage,
 ): SupportedLocale | null {
-  return normalizeLocale(storage.getItem(localeStorageKey));
+  return normalizeLocale(
+    storage.getItem(localeStorageKey) ??
+      storage.getItem(legacyLocaleStorageKey),
+  );
 }
 
 export function writeStoredLocale(
@@ -60,4 +64,4 @@ export function writeStoredLocale(
   storage.setItem(localeStorageKey, locale);
 }
 
-export { localeStorageKey };
+export { legacyLocaleStorageKey, localeStorageKey };

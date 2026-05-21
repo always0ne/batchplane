@@ -14,7 +14,7 @@ const domainSource = fileURLToPath(
 const githubLiteSource = fileURLToPath(
   new URL("../../packages/github-lite/src/index.ts", import.meta.url),
 );
-const defaultGitHubPagesBase = "/batchtrail/";
+const defaultGitHubPagesBase = "/batchplane/";
 const basePath = normalizeBasePath(
   process.env.VITE_BASE_PATH ??
     (process.env.GITHUB_PAGES === "true" ? defaultGitHubPagesBase : "/"),
@@ -32,13 +32,13 @@ export default defineConfig({
   },
   plugins: [react()],
   optimizeDeps: {
-    exclude: ["@batchtrail/domain", "@batchtrail/github-lite"],
+    exclude: ["@batchplane/domain", "@batchplane/github-lite"],
   },
   resolve: {
     alias: [
-      { find: "@batchtrail/digest", replacement: digestSource },
-      { find: "@batchtrail/domain", replacement: domainSource },
-      { find: "@batchtrail/github-lite", replacement: githubLiteSource },
+      { find: "@batchplane/digest", replacement: digestSource },
+      { find: "@batchplane/domain", replacement: domainSource },
+      { find: "@batchplane/github-lite", replacement: githubLiteSource },
     ],
     dedupe: ["react", "react-dom"],
   },

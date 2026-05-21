@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "BatchTrail",
-    "edition": "Repo Mode",
+    "name": "BatchPlane",
+    "edition": "Lite",
     "tagline": "Git 기반 배치통제와 감사"
   },
   "devRuntime": {

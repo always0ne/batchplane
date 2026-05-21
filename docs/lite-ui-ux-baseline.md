@@ -1,14 +1,14 @@
-# Repo Mode UI/UX Baseline
+# Lite UI/UX Baseline
 
-This document defines the UI/UX baseline for BatchTrail Repo Mode screens.
+This document defines the UI/UX baseline for BatchPlane Lite screens.
 Every screen PR should check its scope against this baseline before review.
 
 ## Operator Journey
 
-Repo Mode must read as one connected operational flow:
+Lite must read as one connected operational flow:
 
 1. Connect a GitHub repository.
-2. Install Repo Mode through a setup pull request.
+2. Install Lite through a setup pull request.
 3. Register a batch through a pull request that includes the batch definition,
    generated workflow, and optional execution artifact.
 4. Review and approve registration changes in the approvals inbox.
@@ -55,7 +55,7 @@ Repo Mode must read as one connected operational flow:
 
 ## Gate UX Rules
 
-- Gate is mandatory for Repo Mode batches.
+- Gate is mandatory for Lite batches.
 - UI must not present Gate as an optional feature or toggle.
 - Gate copy should be compact and close to the action it protects.
 - Non-compliant records may be displayed as evidence, but they cannot be
@@ -64,7 +64,7 @@ Repo Mode must read as one connected operational flow:
 ## GitHub Delegation UX Rules
 
 - Creating a pull request or issue should route the user to the related
-  BatchTrail work queue immediately.
+  BatchPlane work queue immediately.
 - The UI should acknowledge that GitHub issue, pull request, and actions
   visibility can lag briefly after creation.
 - Browser UI must not imply it directly dispatches governed workflows.

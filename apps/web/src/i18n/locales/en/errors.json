@@ -1,7 +1,7 @@
 {
   "notFound": {
     "title": "Page not found",
-    "message": "The requested BatchTrail page does not exist."
+    "message": "The requested BatchPlane page does not exist."
   },
   "gate": {
     "executionRequestRequired": "Execution request evidence is required.",
@@ -27,10 +27,10 @@
       "EXECUTION_REQUEST_NOT_APPROVED": "Execution request is not approved.",
       "EXECUTION_REQUEST_REQUIRED": "Execution request evidence is required.",
       "EXPIRED_REQUEST": "The execution request is expired.",
-      "GATE_REQUIRED": "BatchTrail Gate must be required.",
+      "GATE_REQUIRED": "BatchPlane Gate must be required.",
       "GITHUB_EVIDENCE_LOOKUP_FAILED": "GitHub evidence lookup failed.",
       "GITHUB_EVIDENCE_LOOKUP_REQUIRED": "GitHub evidence lookup is required.",
-      "IGNORED_COMMENT": "The comment is not a BatchTrail dispatcher command.",
+      "IGNORED_COMMENT": "The comment is not a BatchPlane dispatcher command.",
       "REF_NOT_ALLOWED": "The requested workflow ref is not allowed.",
       "ROLE_MAPPING_INVALID": "Role mapping configuration is invalid.",
       "ROLE_MAPPING_NOT_FOUND": "Role mapping configuration was not found.",

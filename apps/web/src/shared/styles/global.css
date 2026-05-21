@@ -3,17 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --bt-graphite: #20242a;
-  --bt-control-teal: #119c8d;
-  --bt-git-copper: #e4572e;
-  --bt-ledger-amber: #f5b841;
-  --bt-surface: #f7f8fa;
-  --bt-muted: #58616c;
+  --bp-graphite: #20242a;
+  --bp-control-teal: #119c8d;
+  --bp-git-copper: #e4572e;
+  --bp-ledger-amber: #f5b841;
+  --bp-surface: #f7f8fa;
+  --bp-muted: #58616c;
 }
 
 html {
-  background: var(--bt-surface);
-  color: var(--bt-graphite);
+  background: var(--bp-surface);
+  color: var(--bp-graphite);
 }
 
 body {

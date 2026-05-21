@@ -1003,8 +1003,8 @@ export function createGitHubLiteMockState(
     files: [
       {
         branch: "main",
-        content: "BatchTrail Repo Mode dispatcher workflow\n",
-        path: ".github/workflows/batchtrail-dispatcher.yml",
+        content: "BatchPlane Lite dispatcher workflow\n",
+        path: ".github/workflows/batchplane-dispatcher.yml",
         sha: "mock-dispatcher-sha",
       },
       {
@@ -1015,7 +1015,7 @@ export function createGitHubLiteMockState(
       },
       {
         branch: "main",
-        content: "# BatchTrail Governance\n",
+        content: "# BatchPlane Governance\n",
         path: ".batch-governance/README.md",
         sha: "mock-governance-readme-sha",
       },
@@ -1027,15 +1027,13 @@ export function createGitHubLiteMockState(
       },
       {
         branch: "main",
-        content:
-          "Batch definitions created by BatchTrail Repo Mode live here.\n",
+        content: "Batch definitions created by BatchPlane Lite live here.\n",
         path: ".batch-governance/batches/.gitkeep",
         sha: "mock-batches-gitkeep-sha",
       },
       {
         branch: "main",
-        content:
-          "Schedule definitions created by BatchTrail Repo Mode live here.\n",
+        content: "Schedule definitions created by BatchPlane Lite live here.\n",
         path: ".batch-governance/schedules/.gitkeep",
         sha: "mock-schedules-gitkeep-sha",
       },
@@ -1045,33 +1043,33 @@ export function createGitHubLiteMockState(
     labels: [
       {
         color: "0F766E",
-        description: "BatchTrail execution request",
-        name: "batchtrail:execution-request",
+        description: "BatchPlane execution request",
+        name: "batchplane:execution-request",
       },
       {
         color: "2563EB",
-        description: "BatchTrail request is dispatching",
-        name: "batchtrail:dispatching",
+        description: "BatchPlane request is dispatching",
+        name: "batchplane:dispatching",
       },
       {
         color: "059669",
-        description: "BatchTrail request was dispatched",
-        name: "batchtrail:dispatched",
+        description: "BatchPlane request was dispatched",
+        name: "batchplane:dispatched",
       },
       {
         color: "B91C1C",
-        description: "BatchTrail dispatch failed",
-        name: "batchtrail:dispatch-failed",
+        description: "BatchPlane dispatch failed",
+        name: "batchplane:dispatch-failed",
       },
       {
         color: "F97316",
-        description: "BatchTrail Gate blocked execution",
-        name: "batchtrail:gate-blocked",
+        description: "BatchPlane Gate blocked execution",
+        name: "batchplane:gate-blocked",
       },
       {
         color: "7F1D1D",
-        description: "BatchTrail request was rejected",
-        name: "batchtrail:rejected",
+        description: "BatchPlane request was rejected",
+        name: "batchplane:rejected",
       },
     ],
     pullRequests: [
@@ -1079,7 +1077,7 @@ export function createGitHubLiteMockState(
         author: "developer",
         base: "main",
         body: "Register payment daily close batch.",
-        head: "batchtrail/register/payment.daily-close-20260514010203",
+        head: "batchplane/register/payment.daily-close-20260514010203",
         merged: false,
         number: 12,
         state: "open",
@@ -1109,17 +1107,17 @@ export function createGitHubLiteMockState(
     workflows: [
       {
         id: workflowId,
-        name: "BatchTrail - Daily Close",
+        name: "BatchPlane - Daily Close",
         path: `.github/workflows/${batchId}.yml`,
         state: "active",
         url: `${repository.url}/actions/workflows/${batchId}.yml`,
       },
       {
         id: 102,
-        name: "BatchTrail Dispatcher",
-        path: ".github/workflows/batchtrail-dispatcher.yml",
+        name: "BatchPlane Dispatcher",
+        path: ".github/workflows/batchplane-dispatcher.yml",
         state: "active",
-        url: `${repository.url}/actions/workflows/batchtrail-dispatcher.yml`,
+        url: `${repository.url}/actions/workflows/batchplane-dispatcher.yml`,
       },
     ],
   };
@@ -1620,7 +1618,7 @@ function trackMockExecutionRequest(
 ): void {
   if (
     issue.isPullRequest ||
-    !issue.labels.includes("batchtrail:execution-request") ||
+    !hasBatchPlaneLabel(issue.labels, "execution-request") ||
     state.executionScenarios.some(
       (scenario) => scenario.issueNumber === issue.number,
     )
@@ -1628,7 +1626,7 @@ function trackMockExecutionRequest(
     return;
   }
 
-  const marker = parseMockBatchTrailMarker(issue.body, "execution-request");
+  const marker = parseMockBatchPlaneMarker(issue.body, "execution-request");
   const batchId = marker.get("batchId");
   const requestDigest = marker.get("requestDigest");
   const requestId = marker.get("requestId");
@@ -1674,7 +1672,7 @@ function parseMockExecutionApprovalComment(body: string): {
   requestDigest: string;
   requestId: string;
 } | null {
-  const marker = parseMockBatchTrailMarker(body, "execution-approval");
+  const marker = parseMockBatchPlaneMarker(body, "execution-approval");
   const decision = marker.get("decision");
   const batchId = marker.get("batchId");
   const requestDigest = marker.get("requestDigest");
@@ -1716,7 +1714,7 @@ function parseMockDispatcherStatus(body: string): {
   requestDigest: string;
   requestId: string;
 } | null {
-  const marker = parseMockBatchTrailMarker(body, "bgcp:dispatcher");
+  const marker = parseMockBatchPlaneMarker(body, "bgcp:dispatcher");
   const status = marker.get("status");
   const batchId = marker.get("batchId");
   const requestDigest = marker.get("requestDigest");
@@ -1773,8 +1771,8 @@ function applyMockExecutionApprovalTransition(
   }
 
   scenario.state = "rejected";
-  issue.labels = uniqueStrings([...issue.labels, "batchtrail:rejected"]);
-  ensureMockLabel(state, "batchtrail:rejected");
+  issue.labels = uniqueStrings([...issue.labels, batchPlaneLabel("rejected")]);
+  ensureMockLabel(state, "batchplane:rejected");
   issue.state = "closed";
 }
 
@@ -1803,8 +1801,11 @@ function applyMockDispatcherStatusTransition(
 
   if (status === "DISPATCHING") {
     scenario.state = "dispatching";
-    issue.labels = uniqueStrings([...issue.labels, "batchtrail:dispatching"]);
-    ensureMockLabel(state, "batchtrail:dispatching");
+    issue.labels = uniqueStrings([
+      ...issue.labels,
+      batchPlaneLabel("dispatching"),
+    ]);
+    ensureMockLabel(state, "batchplane:dispatching");
     ensureMockWorkflowRun(state, scenario, status);
     return;
   }
@@ -1812,10 +1813,10 @@ function applyMockDispatcherStatusTransition(
   if (status === "DISPATCHED") {
     scenario.state = "dispatched";
     issue.labels = uniqueStrings([
-      ...issue.labels.filter((label) => label !== "batchtrail:dispatching"),
-      "batchtrail:dispatched",
+      ...removeBatchPlaneLabel(issue.labels, "dispatching"),
+      batchPlaneLabel("dispatched"),
     ]);
-    ensureMockLabel(state, "batchtrail:dispatched");
+    ensureMockLabel(state, "batchplane:dispatched");
     issue.state = "closed";
     ensureMockWorkflowRun(state, scenario, status);
     return;
@@ -1823,10 +1824,10 @@ function applyMockDispatcherStatusTransition(
 
   scenario.state = "failed";
   issue.labels = uniqueStrings([
-    ...issue.labels.filter((label) => label !== "batchtrail:dispatching"),
-    "batchtrail:dispatch-failed",
+    ...removeBatchPlaneLabel(issue.labels, "dispatching"),
+    batchPlaneLabel("dispatch-failed"),
   ]);
-  ensureMockLabel(state, "batchtrail:dispatch-failed");
+  ensureMockLabel(state, "batchplane:dispatch-failed");
   ensureMockWorkflowRun(state, scenario, status);
 }
 
@@ -1901,13 +1902,13 @@ function ensureMockWorkflowRun(
   });
 }
 
-function parseMockBatchTrailMarker(
+function parseMockBatchPlaneMarker(
   body: string,
   kind: string,
 ): Map<string, string> {
   const marker = new Map<string, string>();
   const match = body.match(
-    new RegExp(`<!--\\s*batchtrail:${kind}\\s*([\\s\\S]*?)-->`),
+    new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`),
   );
 
   if (!match?.[1]) {
@@ -2284,6 +2285,24 @@ function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+function batchPlaneLabel(name: string): string {
+  return `batchplane:${name}`;
+}
+
+function hasBatchPlaneLabel(labels: string[], name: string): boolean {
+  return (
+    labels.includes(batchPlaneLabel(name)) ||
+    labels.includes(`batchtrail:${name}`)
+  );
+}
+
+function removeBatchPlaneLabel(labels: string[], name: string): string[] {
+  return labels.filter(
+    (label) =>
+      label !== batchPlaneLabel(name) && label !== `batchtrail:${name}`,
+  );
+}
+
 function nextMockNumber(values: number[]): number {
   return Math.max(0, ...values) + 1;
 }
@@ -2328,26 +2347,26 @@ function buildMockExecutionIssue(
   repository: GitHubRepository,
   scenario: GitHubLiteMockExecutionScenario,
 ): GitHubIssue {
-  const labels = ["batchtrail:execution-request"];
+  const labels = ["batchplane:execution-request"];
 
   if (scenario.state === "dispatching") {
-    labels.push("batchtrail:dispatching");
+    labels.push("batchplane:dispatching");
   }
 
   if (scenario.state === "dispatched") {
-    labels.push("batchtrail:dispatched");
+    labels.push("batchplane:dispatched");
   }
 
   if (scenario.state === "failed") {
-    labels.push("batchtrail:dispatch-failed");
+    labels.push("batchplane:dispatch-failed");
   }
 
   if (scenario.state === "gate-blocked") {
-    labels.push("batchtrail:gate-blocked");
+    labels.push("batchplane:gate-blocked");
   }
 
   if (scenario.state === "rejected") {
-    labels.push("batchtrail:rejected");
+    labels.push("batchplane:rejected");
   }
 
   return {
@@ -2374,7 +2393,7 @@ function buildMockExecutionIssueBody(
     scenario.state === "rejected" ? "REJECTED" : "REQUESTED";
 
   return [
-    "## BatchTrail Execution Request",
+    "## BatchPlane Execution Request",
     "",
     `- Request ID: \`${scenario.requestId}\``,
     `- Batch ID: \`${scenario.batchId}\``,
@@ -2389,7 +2408,7 @@ function buildMockExecutionIssueBody(
     "```json",
     JSON.stringify(
       {
-        apiVersion: "batchtrail.io/v1",
+        apiVersion: "batchplane.io/v1",
         kind: "ExecutionRequest",
         metadata: {
           batchId: scenario.batchId,
@@ -2409,7 +2428,7 @@ function buildMockExecutionIssueBody(
             runsOn: "ubuntu-latest",
           },
           expiresAt,
-          reason: "Manual request from BatchTrail Repo Mode.",
+          reason: "Manual request from BatchPlane Lite.",
           requestedAt,
           requestedBy: "developer",
           workflow: {
@@ -2423,7 +2442,7 @@ function buildMockExecutionIssueBody(
     ),
     "```",
     "",
-    "<!-- batchtrail:execution-request",
+    "<!-- batchplane:execution-request",
     `requestId=${scenario.requestId}`,
     `batchId=${scenario.batchId}`,
     `requestDigest=${scenario.requestDigest}`,
@@ -2450,7 +2469,7 @@ function buildMockExecutionComments(
       body: [
         `/bgcp approve requestDigest=${scenario.requestDigest}`,
         "",
-        "## BatchTrail Execution Approval",
+        "## BatchPlane Execution Approval",
         "",
         "- Decision: APPROVED",
         `- Approver: @${approver}`,
@@ -2459,7 +2478,7 @@ function buildMockExecutionComments(
         `- Batch ID: \`${scenario.batchId}\``,
         `- Request digest: \`${scenario.requestDigest}\``,
         "",
-        "<!-- batchtrail:execution-approval",
+        "<!-- batchplane:execution-approval",
         "decision=APPROVED",
         `requestId=${scenario.requestId}`,
         `batchId=${scenario.batchId}`,
@@ -2488,7 +2507,7 @@ function buildMockExecutionComments(
     comments.push({
       author: "github-actions[bot]",
       body: [
-        "## BatchTrail Gate Decision",
+        "## BatchPlane Gate Decision",
         "",
         "- Decision: BLOCKED",
         "- Reason: RERUN_NOT_AUTHORIZED",
@@ -2496,7 +2515,7 @@ function buildMockExecutionComments(
         `- Batch ID: \`${scenario.batchId}\``,
         `- Request digest: \`${scenario.requestDigest}\``,
         "",
-        "<!-- batchtrail:gate-decision",
+        "<!-- batchplane:gate-decision",
         "allowed=false",
         "reasonCode=RERUN_NOT_AUTHORIZED",
         `requestId=${scenario.requestId}`,
@@ -2514,7 +2533,7 @@ function buildMockExecutionComments(
     comments.push({
       author: approver,
       body: [
-        "## BatchTrail Execution Approval",
+        "## BatchPlane Execution Approval",
         "",
         "- Decision: REJECTED",
         `- Rejector: @${approver}`,
@@ -2523,7 +2542,7 @@ function buildMockExecutionComments(
         `- Batch ID: \`${scenario.batchId}\``,
         `- Request digest: \`${scenario.requestDigest}\``,
         "",
-        "<!-- batchtrail:execution-approval",
+        "<!-- batchplane:execution-approval",
         "decision=REJECTED",
         `requestId=${scenario.requestId}`,
         `batchId=${scenario.batchId}`,
@@ -2546,14 +2565,14 @@ function buildMockDispatcherComment(
   return {
     author: "github-actions[bot]",
     body: [
-      `## BatchTrail Dispatcher ${status}`,
+      `## BatchPlane Dispatcher ${status}`,
       "",
       `- Status: ${status}`,
       `- Request ID: \`${scenario.requestId}\``,
       `- Batch ID: \`${scenario.batchId}\``,
       `- Request digest: \`${scenario.requestDigest}\``,
       "",
-      "<!-- batchtrail:bgcp:dispatcher",
+      "<!-- batchplane:bgcp:dispatcher",
       `status=${status}`,
       `requestId=${scenario.requestId}`,
       `batchId=${scenario.batchId}`,
@@ -2605,7 +2624,7 @@ function buildMockWorkflowRuns(
 
 function buildMockBatchDefinitionYaml(batchId: string): string {
   return [
-    'apiVersion: "batchtrail.io/v1"',
+    'apiVersion: "batchplane.io/v1"',
     'kind: "BatchDefinition"',
     "metadata:",
     `  id: "${batchId}"`,
@@ -2629,7 +2648,7 @@ function buildMockBatchDefinitionYaml(batchId: string): string {
 
 function buildMockBatchWorkflowYaml(batchId: string): string {
   return [
-    `name: "BatchTrail - ${batchId}"`,
+    `name: "BatchPlane - ${batchId}"`,
     "",
     "on:",
     "  workflow_dispatch:",
@@ -2642,12 +2661,12 @@ function buildMockBatchWorkflowYaml(batchId: string): string {
     "        required: true",
     "",
     "jobs:",
-    "  batchtrail-gate:",
+    "  batchplane-gate:",
     "    runs-on: ubuntu-latest",
     "    steps:",
     "      - uses: always0ne/batchtrail/actions/gate@main",
     "  run-batch:",
-    "    needs: batchtrail-gate",
+    "    needs: batchplane-gate",
     "    runs-on: ubuntu-latest",
     "    steps:",
     "      - run: echo mock batch",

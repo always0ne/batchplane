@@ -13,7 +13,7 @@
   "execution": {
     "blocked": "실행 불가",
     "errors": {
-      "gateRequired": "BatchTrail Gate는 필수입니다. 이 배치 정의는 미준수 상태이므로 실행 요청할 수 없습니다.",
+      "gateRequired": "BatchPlane Gate는 필수입니다. 이 배치 정의는 미준수 상태이므로 실행 요청할 수 없습니다.",
       "inactive": "비활성 배치는 실행 요청할 수 없습니다.",
       "missingCommand": "배치 정의에 배치 명령이 기록되어 있지 않습니다.",
       "requestInProgress": "다른 실행 요청을 생성하는 중입니다."
@@ -58,7 +58,7 @@
     "execution": {
       "title": "실행 요청",
       "reason": "사유",
-      "defaultReason": "BatchTrail Repo Mode에서 수동 실행 요청.",
+      "defaultReason": "BatchPlane Lite에서 수동 실행 요청.",
       "unavailable": "이 배치는 실행 요청할 수 없습니다."
     },
     "requests": {
@@ -69,7 +69,7 @@
       "path": "Workflow 경로",
       "ref": "Workflow ref",
       "runtime": "Runtime adapter",
-      "runtimeGithubActions": "GitHub Actions / BatchTrail Repo Mode"
+      "runtimeGithubActions": "GitHub Actions / BatchPlane Lite"
     },
     "executionSpec": {
       "title": "실행 사양",
@@ -81,10 +81,10 @@
     },
     "gate": {
       "title": "Gate 통제",
-      "required": "필수: BatchTrail Gate는 배치 명령 전에 항상 실행됩니다.",
+      "required": "필수: BatchPlane Gate는 배치 명령 전에 항상 실행됩니다.",
       "requiredShort": "Gate 필수",
       "nonCompliantShort": "Gate 누락",
-      "nonCompliant": "미준수: 이 배치 정의에 BatchTrail Gate 필수 조건이 없습니다."
+      "nonCompliant": "미준수: 이 배치 정의에 BatchPlane Gate 필수 조건이 없습니다."
     },
     "approvalPolicy": {
       "short": "승인 필요",

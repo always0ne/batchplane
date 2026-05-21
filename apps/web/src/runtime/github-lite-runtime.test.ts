@@ -34,7 +34,7 @@ describe("createGitHubLiteRuntime", () => {
         return Response.json({
           content: btoa(
             [
-              'apiVersion: "batchtrail.io/v1"',
+              'apiVersion: "batchplane.io/v1"',
               'kind: "BatchDefinition"',
               "metadata:",
               '  id: "payment.daily-close"',
@@ -131,7 +131,7 @@ describe("createGitHubLiteRuntime", () => {
       if (input.toString().endsWith("/issues/101/comments")) {
         return Response.json([
           {
-            body: "## BatchTrail Execution Approval",
+            body: "## BatchPlane Execution Approval",
             created_at: "2026-05-14T01:05:00.000Z",
             id: 1011,
             user: { login: "maintainer" },
@@ -148,7 +148,7 @@ describe("createGitHubLiteRuntime", () => {
     ).resolves.toEqual([
       {
         author: "maintainer",
-        body: "## BatchTrail Execution Approval",
+        body: "## BatchPlane Execution Approval",
         createdAt: "2026-05-14T01:05:00.000Z",
         id: 1011,
         issueNumber: 101,
@@ -164,10 +164,10 @@ describe("createGitHubLiteRuntime", () => {
         url.pathname ===
           "/repos/always0ne/batch/contents/.github/workflows/payment.daily-close.yml" &&
         url.searchParams.get("ref") ===
-          "batchtrail/register/payment.daily-close-20260514010203"
+          "batchplane/register/payment.daily-close-20260514010203"
       ) {
         return Response.json({
-          content: btoa("name: BatchTrail - Daily Close\n"),
+          content: btoa("name: BatchPlane - Daily Close\n"),
           encoding: "base64",
           path: ".github/workflows/payment.daily-close.yml",
           sha: "workflow-sha",
@@ -181,17 +181,17 @@ describe("createGitHubLiteRuntime", () => {
     await expect(
       runtime.approvals.readRegistrationRequestFile({
         path: ".github/workflows/payment.daily-close.yml",
-        ref: "batchtrail/register/payment.daily-close-20260514010203",
+        ref: "batchplane/register/payment.daily-close-20260514010203",
       }),
     ).resolves.toEqual({
-      content: "name: BatchTrail - Daily Close\n",
+      content: "name: BatchPlane - Daily Close\n",
       path: ".github/workflows/payment.daily-close.yml",
-      ref: "batchtrail/register/payment.daily-close-20260514010203",
+      ref: "batchplane/register/payment.daily-close-20260514010203",
     });
     await expect(
       runtime.approvals.readRegistrationRequestFile({
         path: ".github/workflows/missing.yml",
-        ref: "batchtrail/register/payment.daily-close-20260514010203",
+        ref: "batchplane/register/payment.daily-close-20260514010203",
       }),
     ).resolves.toBeNull();
   });

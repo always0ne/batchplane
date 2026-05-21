@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 
 import {
   deriveRegistrationFilePaths,
@@ -16,16 +16,16 @@ const pullRequest: RepositoryPullRequest = {
   author: "developer",
   base: "main",
   body: [
-    "## BatchTrail Registration",
+    "## BatchPlane Registration",
     "",
     "- Batch ID: `payment.daily-close`",
     "- Name: Daily Close",
     "- Environment: PROD",
     "- Criticality: HIGH",
     "- Workflow: `.github/workflows/payment.daily-close.yml`",
-    "- Runtime: GitHub Actions / BatchTrail Repo Mode",
+    "- Runtime: GitHub Actions / BatchPlane Lite",
     "- Runs on: ubuntu-latest",
-    "- BatchTrail Gate: required",
+    "- BatchPlane Gate: required",
     "- Execution file: `.batch-governance/batches/payment.daily-close/artifacts/run.sh`",
     "",
     "### Batch command",
@@ -34,7 +34,7 @@ const pullRequest: RepositoryPullRequest = {
     "./.batch-governance/batches/payment.daily-close/artifacts/run.sh",
     "```",
   ].join("\n"),
-  head: "batchtrail/register/payment.daily-close-20260514010203",
+  head: "batchplane/register/payment.daily-close-20260514010203",
   merged: false,
   number: 12,
   state: "open",
@@ -73,7 +73,7 @@ describe("registration approval model", () => {
       {
         author: "maintainer",
         body: [
-          "## BatchTrail Registration Approval",
+          "## BatchPlane Registration Approval",
           "",
           "- Decision: APPROVED",
           "- Approver: @maintainer",

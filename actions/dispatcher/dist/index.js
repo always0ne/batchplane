@@ -1,18 +1,18 @@
 const dispatcherLabels = {
     dispatched: {
         color: "16A34A",
-        description: "BatchTrail dispatcher completed workflow dispatch",
-        name: "batchtrail:dispatched",
+        description: "BatchPlane dispatcher completed workflow dispatch",
+        name: "batchplane:dispatched",
     },
     dispatchFailed: {
         color: "DC2626",
-        description: "BatchTrail dispatcher failed workflow dispatch",
-        name: "batchtrail:dispatch-failed",
+        description: "BatchPlane dispatcher failed workflow dispatch",
+        name: "batchplane:dispatch-failed",
     },
     dispatching: {
         color: "2563EB",
-        description: "BatchTrail dispatcher is processing this execution request",
-        name: "batchtrail:dispatching",
+        description: "BatchPlane dispatcher is processing this execution request",
+        name: "batchplane:dispatching",
     },
 };
 export function parseDispatcherCommand(commentBody) {
@@ -39,7 +39,7 @@ export async function dispatchApprovedExecutionRequest({ apiBaseUrl = "https://a
     const command = parseDispatcherCommand(approvalComment.body);
     if (command === "ignore") {
         return {
-            message: "Comment is not a BatchTrail dispatcher command.",
+            message: "Comment is not a BatchPlane dispatcher command.",
             reasonCode: "IGNORED_COMMENT",
             status: "ignored",
         };
@@ -106,7 +106,7 @@ export function verifyDispatcherEvidence({ approvalCommentBody, issueBody, now =
     if (!request) {
         return {
             ok: false,
-            message: "BatchTrail execution request evidence was not found.",
+            message: "BatchPlane execution request evidence was not found.",
             reasonCode: "REQUEST_NOT_FOUND",
         };
     }
@@ -135,7 +135,7 @@ export function verifyDispatcherEvidence({ approvalCommentBody, issueBody, now =
     if (!approval) {
         return {
             ok: false,
-            message: "BatchTrail execution approval evidence was not found.",
+            message: "BatchPlane execution approval evidence was not found.",
             reasonCode: "APPROVAL_NOT_FOUND",
         };
     }
@@ -180,7 +180,7 @@ export function verifyDispatcherEvidence({ approvalCommentBody, issueBody, now =
     };
 }
 export function parseExecutionRequestEvidence(issueBody) {
-    const marker = parseBatchTrailMarker(issueBody, "execution-request") ?? new Map();
+    const marker = parseBatchPlaneMarker(issueBody, "execution-request") ?? new Map();
     const requestId = marker.get("requestId") ?? readMarkdownField(issueBody, "Request ID");
     const batchId = marker.get("batchId") ?? readMarkdownField(issueBody, "Batch ID");
     const requestDigest = marker.get("requestDigest") ??
@@ -204,7 +204,7 @@ export function parseExecutionRequestEvidence(issueBody) {
     };
 }
 export function parseExecutionApprovalEvidence(commentBody) {
-    const marker = parseBatchTrailMarker(commentBody, "execution-approval") ?? new Map();
+    const marker = parseBatchPlaneMarker(commentBody, "execution-approval") ?? new Map();
     const decision = marker.get("decision");
     const requestId = marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
     const batchId = marker.get("batchId") ?? readMarkdownField(commentBody, "Batch ID");
@@ -224,8 +224,8 @@ export function parseExecutionApprovalEvidence(commentBody) {
     };
 }
 export function parseDispatcherStatusEvidence(commentBody) {
-    const marker = parseBatchTrailMarker(commentBody, "bgcp:dispatcher") ??
-        parseBatchTrailMarker(commentBody, "execution-dispatch") ??
+    const marker = parseBatchPlaneMarker(commentBody, "bgcp:dispatcher") ??
+        parseBatchPlaneMarker(commentBody, "execution-dispatch") ??
         new Map();
     const status = marker.get("status");
     const requestId = marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
@@ -247,9 +247,9 @@ export function parseDispatcherStatusEvidence(commentBody) {
         status,
     };
 }
-function parseBatchTrailMarker(body, kind) {
+function parseBatchPlaneMarker(body, kind) {
     const marker = new Map();
-    const match = body.match(new RegExp(`<!--\\s*batchtrail:${kind}\\s*([\\s\\S]*?)-->`));
+    const match = body.match(new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`));
     if (!match?.[1]) {
         return null;
     }
@@ -428,14 +428,14 @@ function findExistingDispatchState({ comments, dispatchPlan, labels, }) {
             reasonCode: "DISPATCH_IN_PROGRESS",
         };
     }
-    if (labels.includes(dispatcherLabels.dispatched.name)) {
+    if (hasBatchPlaneLabel(labels, "dispatched")) {
         return {
             handled: true,
             message: "Execution request has already been dispatched.",
             reasonCode: "DISPATCH_ALREADY_HANDLED",
         };
     }
-    if (labels.includes(dispatcherLabels.dispatching.name)) {
+    if (hasBatchPlaneLabel(labels, "dispatching")) {
         return {
             handled: true,
             message: "Execution request dispatch is already in progress.",
@@ -444,9 +444,13 @@ function findExistingDispatchState({ comments, dispatchPlan, labels, }) {
     }
     return { handled: false };
 }
+function hasBatchPlaneLabel(labels, name) {
+    return (labels.includes(`batchplane:${name}`) ||
+        labels.includes(`batchtrail:${name}`));
+}
 function buildDispatchingComment(dispatchPlan) {
     return [
-        "## BatchTrail Dispatch",
+        "## BatchPlane Dispatch",
         "",
         "- Status: DISPATCHING",
         `- Request ID: \`${dispatchPlan.requestId}\``,
@@ -455,7 +459,7 @@ function buildDispatchingComment(dispatchPlan) {
         `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
         `- Request digest: \`${dispatchPlan.requestDigest}\``,
         "",
-        "<!-- batchtrail:bgcp:dispatcher",
+        "<!-- batchplane:bgcp:dispatcher",
         "status=DISPATCHING",
         `requestId=${dispatchPlan.requestId}`,
         `batchId=${dispatchPlan.batchId}`,
@@ -465,7 +469,7 @@ function buildDispatchingComment(dispatchPlan) {
 }
 function buildDispatchSuccessComment(dispatchPlan) {
     return [
-        "## BatchTrail Dispatch",
+        "## BatchPlane Dispatch",
         "",
         "- Status: DISPATCHED",
         `- Request ID: \`${dispatchPlan.requestId}\``,
@@ -474,7 +478,7 @@ function buildDispatchSuccessComment(dispatchPlan) {
         `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
         `- Request digest: \`${dispatchPlan.requestDigest}\``,
         "",
-        "<!-- batchtrail:bgcp:dispatcher",
+        "<!-- batchplane:bgcp:dispatcher",
         "status=DISPATCHED",
         `requestId=${dispatchPlan.requestId}`,
         `batchId=${dispatchPlan.batchId}`,
@@ -484,7 +488,7 @@ function buildDispatchSuccessComment(dispatchPlan) {
 }
 function buildDispatchFailureComment(message, reasonCode, dispatchPlan) {
     return [
-        "## BatchTrail Dispatch",
+        "## BatchPlane Dispatch",
         "",
         "- Status: DISPATCH_FAILED",
         `- Reason code: ${reasonCode}`,
@@ -497,7 +501,7 @@ function buildDispatchFailureComment(message, reasonCode, dispatchPlan) {
             ]
             : []),
         "",
-        "<!-- batchtrail:bgcp:dispatcher",
+        "<!-- batchplane:bgcp:dispatcher",
         "status=DISPATCH_FAILED",
         `reasonCode=${reasonCode}`,
         ...(dispatchPlan

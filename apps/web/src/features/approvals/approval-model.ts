@@ -3,7 +3,7 @@ import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
   RunnerLabel,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 
 export type ExecutionRequestDisplayStatus =
   | "REQUESTED"
@@ -66,7 +66,8 @@ export function isRegistrationApprovalRequest(
 ): boolean {
   return (
     pullRequest.state === "open" &&
-    (pullRequest.head.startsWith("batchtrail/register/") ||
+    (pullRequest.head.startsWith("batchplane/register/") ||
+      pullRequest.head.startsWith("batchplane/register/") ||
       pullRequest.title.startsWith("Register batch "))
   );
 }
@@ -81,14 +82,14 @@ export function buildRegistrationApprovalComment({
   pullRequest: RepositoryPullRequest;
 }): string {
   return [
-    "## BatchTrail Registration Approval",
+    "## BatchPlane Registration Approval",
     "",
     `- Decision: APPROVED`,
     `- Approver: @${approver}`,
     `- Approved at: ${approvedAt.toISOString()}`,
     `- Pull request: #${pullRequest.number}`,
     "",
-    "This approval evidence was recorded by BatchTrail Repo Mode.",
+    "This approval evidence was recorded by BatchPlane Lite.",
   ].join("\n");
 }
 
@@ -102,14 +103,14 @@ export function buildRegistrationRejectionComment({
   pullRequest: RepositoryPullRequest;
 }): string {
   return [
-    "## BatchTrail Registration Approval",
+    "## BatchPlane Registration Approval",
     "",
     `- Decision: REJECTED`,
     `- Rejector: @${rejector}`,
     `- Rejected at: ${rejectedAt.toISOString()}`,
     `- Pull request: #${pullRequest.number}`,
     "",
-    "This rejection evidence was recorded by BatchTrail Repo Mode.",
+    "This rejection evidence was recorded by BatchPlane Lite.",
   ].join("\n");
 }
 
@@ -128,14 +129,16 @@ export function parseExecutionRequestDetail(
   issue: RepositoryIssue,
   comments: RepositoryIssueComment[] = [],
 ): ExecutionApprovalRequest | null {
-  if (
-    issue.isPullRequest ||
-    !issue.body.includes("batchtrail:execution-request")
-  ) {
+  if (issue.isPullRequest) {
     return null;
   }
 
-  const marker = parseBatchTrailMarker(issue.body, "execution-request");
+  const marker = parseBatchPlaneMarker(issue.body, "execution-request");
+
+  if (marker.size === 0) {
+    return null;
+  }
+
   const payload = parseCanonicalPayload(issue.body);
   const requestId =
     marker.get("requestId") ?? readMarkdownField(issue.body, "Request ID");
@@ -203,7 +206,7 @@ export function buildExecutionApprovalComment({
   return [
     `/bgcp approve requestDigest=${request.requestDigest}`,
     "",
-    "## BatchTrail Execution Approval",
+    "## BatchPlane Execution Approval",
     "",
     "- Decision: APPROVED",
     `- Approver: @${approver}`,
@@ -212,9 +215,9 @@ export function buildExecutionApprovalComment({
     `- Batch ID: \`${request.batchId}\``,
     `- Request digest: \`${request.requestDigest}\``,
     "",
-    "This approval evidence was recorded by BatchTrail Repo Mode.",
+    "This approval evidence was recorded by BatchPlane Lite.",
     "",
-    "<!-- batchtrail:execution-approval",
+    "<!-- batchplane:execution-approval",
     "decision=APPROVED",
     `requestId=${request.requestId}`,
     `batchId=${request.batchId}`,
@@ -235,7 +238,7 @@ export function buildExecutionRejectionComment({
   request: ExecutionApprovalRequest;
 }): string {
   return [
-    "## BatchTrail Execution Approval",
+    "## BatchPlane Execution Approval",
     "",
     "- Decision: REJECTED",
     `- Rejector: @${rejector}`,
@@ -245,9 +248,9 @@ export function buildExecutionRejectionComment({
     `- Batch ID: \`${request.batchId}\``,
     `- Request digest: \`${request.requestDigest}\``,
     "",
-    "This rejection evidence was recorded by BatchTrail Repo Mode.",
+    "This rejection evidence was recorded by BatchPlane Lite.",
     "",
-    "<!-- batchtrail:execution-approval",
+    "<!-- batchplane:execution-approval",
     "decision=REJECTED",
     `requestId=${request.requestId}`,
     `batchId=${request.batchId}`,
@@ -266,7 +269,7 @@ function findExecutionApprovalDecision(
       continue;
     }
 
-    const marker = parseBatchTrailMarker(comment.body, "execution-approval");
+    const marker = parseBatchPlaneMarker(comment.body, "execution-approval");
     const decision = marker.get("decision");
 
     if (decision !== "APPROVED" && decision !== "REJECTED") {
@@ -304,7 +307,7 @@ function findLatestDispatcherStatus(
       continue;
     }
 
-    const marker = parseBatchTrailMarker(comment.body, "bgcp:dispatcher");
+    const marker = parseBatchPlaneMarker(comment.body, "bgcp:dispatcher");
     const status = marker.get("status");
 
     if (
@@ -335,7 +338,7 @@ function findLatestGateDecision(
       continue;
     }
 
-    const marker = parseBatchTrailMarker(comment.body, "gate-decision");
+    const marker = parseBatchPlaneMarker(comment.body, "gate-decision");
     const allowed = marker.get("allowed");
     const reasonCode = marker.get("reasonCode");
 
@@ -367,39 +370,37 @@ function getExecutionRequestDisplayStatus({
   issue: RepositoryIssue;
   markerStatus: string;
 }): ExecutionRequestDisplayStatus {
-  const labels = new Set(issue.labels);
-
   if (
     markerStatus === "REJECTED" ||
-    labels.has("batchtrail:rejected") ||
+    hasBatchPlaneLabel(issue.labels, "rejected") ||
     approvalDecision?.decision === "REJECTED"
   ) {
     return "REJECTED";
   }
 
   if (
-    labels.has("batchtrail:gate-blocked") ||
+    hasBatchPlaneLabel(issue.labels, "gate-blocked") ||
     gateDecision?.allowed === false
   ) {
     return "GATE_BLOCKED";
   }
 
   if (
-    labels.has("batchtrail:dispatch-failed") ||
+    hasBatchPlaneLabel(issue.labels, "dispatch-failed") ||
     dispatcherStatus?.status === "DISPATCH_FAILED"
   ) {
     return "DISPATCH_FAILED";
   }
 
   if (
-    labels.has("batchtrail:dispatched") ||
+    hasBatchPlaneLabel(issue.labels, "dispatched") ||
     dispatcherStatus?.status === "DISPATCHED"
   ) {
     return "DISPATCHED";
   }
 
   if (
-    labels.has("batchtrail:dispatching") ||
+    hasBatchPlaneLabel(issue.labels, "dispatching") ||
     dispatcherStatus?.status === "DISPATCHING"
   ) {
     return "DISPATCHING";
@@ -412,13 +413,20 @@ function getExecutionRequestDisplayStatus({
   return "REQUESTED";
 }
 
-function parseBatchTrailMarker(
+function hasBatchPlaneLabel(labels: string[], name: string): boolean {
+  return (
+    labels.includes(`batchplane:${name}`) ||
+    labels.includes(`batchtrail:${name}`)
+  );
+}
+
+function parseBatchPlaneMarker(
   body: string,
   kind: string,
 ): Map<string, string> {
   const marker = new Map<string, string>();
   const match = body.match(
-    new RegExp(`<!--\\s*batchtrail:${kind}\\s*([\\s\\S]*?)-->`),
+    new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`),
   );
 
   if (!match?.[1]) {

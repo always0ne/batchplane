@@ -13,7 +13,7 @@
   "execution": {
     "blocked": "Unavailable",
     "errors": {
-      "gateRequired": "BatchTrail Gate is mandatory. This batch definition is non-compliant and cannot be requested for execution.",
+      "gateRequired": "BatchPlane Gate is mandatory. This batch definition is non-compliant and cannot be requested for execution.",
       "inactive": "Inactive batches cannot be requested for execution.",
       "missingCommand": "The batch command is not recorded in the batch definition.",
       "requestInProgress": "Another execution request is being created."
@@ -58,7 +58,7 @@
     "execution": {
       "title": "Execution request",
       "reason": "Reason",
-      "defaultReason": "Manual request from BatchTrail Repo Mode.",
+      "defaultReason": "Manual request from BatchPlane Lite.",
       "unavailable": "Execution request is unavailable for this batch."
     },
     "requests": {
@@ -69,7 +69,7 @@
       "path": "Workflow path",
       "ref": "Workflow ref",
       "runtime": "Runtime adapter",
-      "runtimeGithubActions": "GitHub Actions / BatchTrail Repo Mode"
+      "runtimeGithubActions": "GitHub Actions / BatchPlane Lite"
     },
     "executionSpec": {
       "title": "Execution spec",
@@ -81,10 +81,10 @@
     },
     "gate": {
       "title": "Gate enforcement",
-      "required": "Mandatory: BatchTrail Gate always runs before the batch command.",
+      "required": "Mandatory: BatchPlane Gate always runs before the batch command.",
       "requiredShort": "Gate required",
       "nonCompliantShort": "Gate missing",
-      "nonCompliant": "Non-compliant: BatchTrail Gate is missing from this batch definition."
+      "nonCompliant": "Non-compliant: BatchPlane Gate is missing from this batch definition."
     },
     "approvalPolicy": {
       "short": "Approval required",

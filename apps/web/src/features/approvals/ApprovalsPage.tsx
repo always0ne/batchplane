@@ -1,4 +1,4 @@
-import type { RepositoryPullRequest } from "@batchtrail/domain";
+import type { RepositoryPullRequest } from "@batchplane/domain";
 import { FileText, GitPullRequest, Loader2, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -12,7 +12,7 @@ import {
   LoadingState,
 } from "../../shared/components/PageState";
 import {
-  createBatchTrailRuntime,
+  createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
@@ -76,7 +76,7 @@ export function ApprovalsPage() {
       setState({ type: "loading" });
 
       try {
-        const runtime = createBatchTrailRuntime(session);
+        const runtime = createBatchPlaneRuntime(session);
         const [user, repository] = await Promise.all([
           runtime.settings.getCurrentUser(),
           runtime.settings.getRepository(),
@@ -177,7 +177,7 @@ export function ApprovalsPage() {
     });
 
     try {
-      const runtime = createBatchTrailRuntime(state.session);
+      const runtime = createBatchPlaneRuntime(state.session);
 
       await runtime.approvals.approveExecution({
         body: buildExecutionApprovalComment({
@@ -215,7 +215,7 @@ export function ApprovalsPage() {
     });
 
     try {
-      const runtime = createBatchTrailRuntime(state.session);
+      const runtime = createBatchPlaneRuntime(state.session);
 
       await runtime.approvals.rejectExecution({
         body: buildExecutionRejectionComment({
@@ -264,7 +264,7 @@ export function ApprovalsPage() {
         <PageHeader title={t("title")} subtitle={t("subtitle")} />
         <div className="space-y-1 text-right">
           <button
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bt-graphite disabled:cursor-not-allowed disabled:text-slate-400"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bp-graphite disabled:cursor-not-allowed disabled:text-slate-400"
             disabled={state.type === "loading"}
             onClick={() => setReloadToken((current) => current + 1)}
             type="button"
@@ -276,7 +276,7 @@ export function ApprovalsPage() {
             )}
             {t("actions.refresh")}
           </button>
-          <p className="text-xs text-bt-muted">{t("states.githubLagHint")}</p>
+          <p className="text-xs text-bp-muted">{t("states.githubLagHint")}</p>
         </div>
       </div>
 
@@ -319,7 +319,7 @@ function ApprovalContent({
       <EmptyState
         action={
           <Link
-            className="font-semibold text-bt-control underline"
+            className="font-semibold text-bp-control underline"
             to="/lite/setup"
           >
             {t("actions.openSetup")}
@@ -359,10 +359,10 @@ function ApprovalContent({
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <GitPullRequest
-                        className="h-4 w-4 text-bt-git"
+                        className="h-4 w-4 text-bp-git"
                         aria-hidden="true"
                       />
-                      <h3 className="text-lg font-semibold text-bt-graphite">
+                      <h3 className="text-lg font-semibold text-bp-graphite">
                         #{pullRequest.number} {pullRequest.title}
                       </h3>
                     </div>
@@ -387,7 +387,7 @@ function ApprovalContent({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <a
-                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
                       href={pullRequest.url}
                       rel="noreferrer"
                       target="_blank"
@@ -395,14 +395,14 @@ function ApprovalContent({
                       {t("actions.openPullRequest")}
                     </a>
                     <Link
-                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
                       to={`/approvals/registration/${pullRequest.number}`}
                     >
                       {t("actions.viewRegistrationDetails")}
                     </Link>
                   </div>
                 </div>
-                <p className="mt-4 text-sm text-bt-muted">
+                <p className="mt-4 text-sm text-bp-muted">
                   {t("states.registrationReviewHint")}
                 </p>
               </article>
@@ -439,10 +439,10 @@ function ApprovalContent({
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <FileText
-                        className="h-4 w-4 text-bt-git"
+                        className="h-4 w-4 text-bp-git"
                         aria-hidden="true"
                       />
-                      <h3 className="text-lg font-semibold text-bt-graphite">
+                      <h3 className="text-lg font-semibold text-bp-graphite">
                         #{request.issue.number} {request.issue.title}
                       </h3>
                     </div>
@@ -473,7 +473,7 @@ function ApprovalContent({
                     <ExecutionApprovalContext request={request} />
                   </div>
                   <a
-                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
                     href={request.issue.url}
                     rel="noreferrer"
                     target="_blank"
@@ -481,7 +481,7 @@ function ApprovalContent({
                     {t("actions.openIssue")}
                   </a>
                   <Link
-                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bt-graphite"
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
                     to={`/execution-requests/${request.issue.number}`}
                   >
                     {t("actions.viewDetails")}
@@ -516,7 +516,7 @@ function ApprovalSection({
 }) {
   return (
     <section>
-      <h2 className="mb-3 text-base font-bold text-bt-graphite">{title}</h2>
+      <h2 className="mb-3 text-base font-bold text-bp-graphite">{title}</h2>
       <div className="space-y-3">{children}</div>
     </section>
   );
@@ -531,7 +531,7 @@ function ExecutionApprovalContext({
 
   return (
     <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
-      <h4 className="text-sm font-bold text-bt-graphite">
+      <h4 className="text-sm font-bold text-bp-graphite">
         {t("context.executionTitle")}
       </h4>
       <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -541,11 +541,11 @@ function ExecutionApprovalContext({
             value={request.reason || t("values.unknown")}
           />
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-bt-muted">
+            <p className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
               {t("fields.command")}
             </p>
             <div className="mt-1">
-              <pre className="max-h-28 overflow-auto whitespace-pre-wrap rounded-md bg-bt-graphite p-3 text-xs leading-5 text-white">
+              <pre className="max-h-28 overflow-auto whitespace-pre-wrap rounded-md bg-bp-graphite p-3 text-xs leading-5 text-white">
                 {request.execution?.command || t("values.unknown")}
               </pre>
             </div>
@@ -591,10 +591,10 @@ function ApprovalContextText({
 }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-normal text-bt-muted">
+      <p className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
         {label}
       </p>
-      <p className="mt-1 text-sm font-medium text-bt-graphite">{value}</p>
+      <p className="mt-1 text-sm font-medium text-bp-graphite">{value}</p>
     </div>
   );
 }
@@ -602,10 +602,10 @@ function ApprovalContextText({
 function ApprovalMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-slate-50 px-3 py-2">
-      <dt className="text-xs font-semibold uppercase tracking-normal text-bt-muted">
+      <dt className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
         {label}
       </dt>
-      <dd className="mt-1 break-all font-mono text-xs text-bt-graphite">
+      <dd className="mt-1 break-all font-mono text-xs text-bp-graphite">
         {value}
       </dd>
     </div>

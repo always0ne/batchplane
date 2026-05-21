@@ -1,6 +1,6 @@
 {
   "title": "등록",
-  "subtitle": "통제 대상 배치 정의와 BatchTrail Gate가 적용된 Workflow를 Pull Request로 생성합니다.",
+  "subtitle": "통제 대상 배치 정의와 BatchPlane Gate가 적용된 Workflow를 Pull Request로 생성합니다.",
   "form": {
     "definition": "배치 정의",
     "workflow": "Workflow",
@@ -17,7 +17,7 @@
     "customRunnerLabel": "Custom runner label",
     "executionFile": "실행 파일",
     "runCommand": "배치 명령",
-    "gateRequiredInline": "BatchTrail Gate는 업무 실행 명령 전에 항상 실행됩니다."
+    "gateRequiredInline": "BatchPlane Gate는 업무 실행 명령 전에 항상 실행됩니다."
   },
   "preview": {
     "title": "YAML 미리보기",
@@ -39,13 +39,13 @@
       "title": "통제 체크",
       "batchDefinitionPath": "배치 정의 경로가 Batch ID 기준으로 생성됩니다.",
       "workflowPath": "Workflow 경로가 Batch ID 기준으로 생성됩니다.",
-      "gateRequired": "BatchTrail Gate는 배치 명령 전에 반드시 실행됩니다.",
+      "gateRequired": "BatchPlane Gate는 배치 명령 전에 반드시 실행됩니다.",
       "runnerSelected": "실행 환경: {{runner}}",
       "runnerMissing": "실행 환경은 필수입니다.",
       "commandRecorded": "배치 명령이 배치 정의에 기록됩니다.",
       "commandMissing": "PR 생성 전 배치 명령이 필요합니다."
     },
-    "nextStep": "생성 후 BatchTrail은 PR을 승인함으로 라우팅합니다. GitHub 목록 반영에는 몇 초 지연이 있을 수 있습니다."
+    "nextStep": "생성 후 BatchPlane은 PR을 승인함으로 라우팅합니다. GitHub 목록 반영에는 몇 초 지연이 있을 수 있습니다."
   },
   "actions": {
     "createPullRequest": "등록 PR 생성",

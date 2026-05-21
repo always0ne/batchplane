@@ -1,8 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import { detectLocale, normalizeLocale } from "./locale-detector";
+import {
+  detectLocale,
+  legacyLocaleStorageKey,
+  normalizeLocale,
+  readStoredLocale,
+} from "./locale-detector";
 
 describe("locale detection", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("resolves ko-KR to ko", () => {
     expect(normalizeLocale("ko-KR")).toBe("ko");
   });
@@ -15,5 +24,11 @@ describe("locale detection", () => {
     expect(
       detectLocale({ browserLocales: ["ko-KR"], explicitLocale: "en" }),
     ).toBe("en");
+  });
+
+  it("reads legacy BatchTrail locale storage keys", () => {
+    localStorage.setItem(legacyLocaleStorageKey, "ko");
+
+    expect(readStoredLocale()).toBe("ko");
   });
 });

@@ -39,13 +39,13 @@ describe("BatchRegistrationPage", () => {
       screen.getByText(/path: ".github\/workflows\/payment.daily-close.yml"/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("BatchTrail Gate always runs before the batch command."),
+      screen.getByText("BatchPlane Gate always runs before the batch command."),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Workflow YAML"));
 
     expect(screen.getByText(/workflow_dispatch:/)).toBeInTheDocument();
-    expect(screen.getByText(/batchtrail-gate:/)).toBeInTheDocument();
+    expect(screen.getByText(/batchplane-gate:/)).toBeInTheDocument();
     expect(screen.getByText(/runs-on: "ubuntu-latest"/)).toBeInTheDocument();
     expect(screen.getAllByText(/.\/scripts\/daily-close.sh/)).not.toHaveLength(
       0,

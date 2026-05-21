@@ -71,13 +71,13 @@ importers:
 
   apps/web:
     dependencies:
-      "@batchtrail/digest":
+      "@batchplane/digest":
         specifier: workspace:*
         version: link:../../packages/digest
-      "@batchtrail/domain":
+      "@batchplane/domain":
         specifier: workspace:*
         version: link:../../packages/domain
-      "@batchtrail/github-lite":
+      "@batchplane/github-lite":
         specifier: workspace:*
         version: link:../../packages/github-lite
       i18next:
@@ -105,7 +105,7 @@ importers:
 
   packages/github-lite:
     dependencies:
-      "@batchtrail/domain":
+      "@batchplane/domain":
         specifier: workspace:*
         version: link:../domain
 
