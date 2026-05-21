@@ -156,6 +156,46 @@ describe("createGitHubLiteRuntime", () => {
     ]);
   });
 
+  it("loads registration request files through the ApprovalPort", async () => {
+    const fetcher: typeof fetch = async (input) => {
+      const url = new URL(input.toString());
+
+      if (
+        url.pathname ===
+          "/repos/always0ne/batch/contents/.github/workflows/payment.daily-close.yml" &&
+        url.searchParams.get("ref") ===
+          "batchplane/register/payment.daily-close-20260514010203"
+      ) {
+        return Response.json({
+          content: btoa("name: BatchPlane - Daily Close\n"),
+          encoding: "base64",
+          path: ".github/workflows/payment.daily-close.yml",
+          sha: "workflow-sha",
+        });
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const runtime = createGitHubLiteRuntime(session, { fetcher });
+
+    await expect(
+      runtime.approvals.readRegistrationRequestFile({
+        path: ".github/workflows/payment.daily-close.yml",
+        ref: "batchplane/register/payment.daily-close-20260514010203",
+      }),
+    ).resolves.toEqual({
+      content: "name: BatchPlane - Daily Close\n",
+      path: ".github/workflows/payment.daily-close.yml",
+      ref: "batchplane/register/payment.daily-close-20260514010203",
+    });
+    await expect(
+      runtime.approvals.readRegistrationRequestFile({
+        path: ".github/workflows/missing.yml",
+        ref: "batchplane/register/payment.daily-close-20260514010203",
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("records execution approval without closing the Issue", async () => {
     const requests: Array<{ body: unknown; method: string; url: string }> = [];
     const fetcher: typeof fetch = async (input, init) => {

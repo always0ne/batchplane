@@ -1,6 +1,7 @@
 import type {
   BatchDefinition,
   BatchPlaneRuntimePorts,
+  RepositoryFile,
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
@@ -88,14 +89,24 @@ export function createGitHubLiteRuntime(
         return comments.map(toRepositoryIssueComment);
       },
 
-      async listRegistrationRequests({ baseBranch }) {
+      async listRegistrationRequests({ baseBranch, state = "open" }) {
         const pullRequests = await client.listPullRequests({
           ...repositoryRef,
           base: baseBranch,
-          state: "open",
+          state,
         });
 
         return pullRequests.map(toRepositoryPullRequest);
+      },
+
+      async readRegistrationRequestFile({ path, ref }) {
+        const file = await client.getFile({
+          ...repositoryRef,
+          path,
+          ref,
+        });
+
+        return file ? toRepositoryFile(file.path, file.content, ref) : null;
       },
 
       async rejectExecution({ body, issueNumber }) {
@@ -300,6 +311,18 @@ function toRepositoryPullRequest(
   pullRequest: GitHubPullRequest,
 ): RepositoryPullRequest {
   return pullRequest;
+}
+
+function toRepositoryFile(
+  path: string,
+  content: string,
+  ref: string,
+): RepositoryFile {
+  return {
+    content,
+    path,
+    ref,
+  };
 }
 
 function isLoadedBatchDefinition(

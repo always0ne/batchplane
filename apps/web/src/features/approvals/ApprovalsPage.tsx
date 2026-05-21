@@ -1,12 +1,5 @@
 import type { RepositoryPullRequest } from "@batchplane/domain";
-import {
-  CheckCircle2,
-  FileText,
-  GitPullRequest,
-  Loader2,
-  RefreshCw,
-  XCircle,
-} from "lucide-react";
+import { FileText, GitPullRequest, Loader2, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -27,8 +20,6 @@ import type { GitHubSession } from "../lite-setup/github-session";
 import {
   buildExecutionApprovalComment,
   buildExecutionRejectionComment,
-  buildRegistrationApprovalComment,
-  buildRegistrationRejectionComment,
   type ExecutionApprovalRequest,
   isRegistrationApprovalRequest,
   parseExecutionApprovalRequest,
@@ -38,7 +29,6 @@ import {
   mergeRegistrationApprovalRequests,
   normalizeApprovalHandoff,
   removeExecutionApprovalHandoff,
-  removeRegistrationApprovalHandoff,
 } from "./approval-handoff";
 import { ExecutionApprovalActions } from "./ExecutionApprovalActions";
 
@@ -175,81 +165,6 @@ export function ApprovalsPage() {
     };
   }, [reloadToken]);
 
-  async function approveAndMerge(pullRequest: RepositoryPullRequest) {
-    if (state.type !== "loaded") {
-      return;
-    }
-
-    setActionState({
-      type: "running",
-      action: "approve",
-      targetKey: registrationRequestKey(pullRequest),
-    });
-
-    try {
-      const runtime = createBatchPlaneRuntime(state.session);
-
-      const mergeResult = await runtime.approvals.approveRegistration({
-        body: buildRegistrationApprovalComment({
-          approvedAt: new Date(),
-          approver: state.login,
-          pullRequest,
-        }),
-        commitTitle: `${pullRequest.title} (#${pullRequest.number})`,
-        pullNumber: pullRequest.number,
-      });
-
-      if (!mergeResult.merged) {
-        throw new Error(mergeResult.message);
-      }
-
-      removeRegistrationRequest(pullRequest.number);
-      setActionState({
-        type: "success",
-        message: t("result.registrationApproved", {
-          number: pullRequest.number,
-        }),
-      });
-    } catch (error) {
-      setActionState({ type: "error", message: formatApprovalError(error) });
-    }
-  }
-
-  async function rejectAndClose(pullRequest: RepositoryPullRequest) {
-    if (state.type !== "loaded") {
-      return;
-    }
-
-    setActionState({
-      type: "running",
-      action: "reject",
-      targetKey: registrationRequestKey(pullRequest),
-    });
-
-    try {
-      const runtime = createBatchPlaneRuntime(state.session);
-
-      await runtime.approvals.rejectRegistration({
-        body: buildRegistrationRejectionComment({
-          rejectedAt: new Date(),
-          rejector: state.login,
-          pullRequest,
-        }),
-        pullNumber: pullRequest.number,
-      });
-
-      removeRegistrationRequest(pullRequest.number);
-      setActionState({
-        type: "success",
-        message: t("result.registrationRejected", {
-          number: pullRequest.number,
-        }),
-      });
-    } catch (error) {
-      setActionState({ type: "error", message: formatApprovalError(error) });
-    }
-  }
-
   async function approveExecution(request: ExecutionApprovalRequest) {
     if (state.type !== "loaded") {
       return;
@@ -324,25 +239,6 @@ export function ApprovalsPage() {
     }
   }
 
-  function removeRegistrationRequest(pullNumber: number) {
-    approvalHandoffRef.current = removeRegistrationApprovalHandoff(
-      approvalHandoffRef.current,
-      pullNumber,
-    );
-    setState((current) => {
-      if (current.type !== "loaded") {
-        return current;
-      }
-
-      return {
-        ...current,
-        registrationRequests: current.registrationRequests.filter(
-          (request) => request.number !== pullNumber,
-        ),
-      };
-    });
-  }
-
   function removeExecutionRequest(issueNumber: number) {
     approvalHandoffRef.current = removeExecutionApprovalHandoff(
       approvalHandoffRef.current,
@@ -366,19 +262,22 @@ export function ApprovalsPage() {
     <section>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader title={t("title")} subtitle={t("subtitle")} />
-        <button
-          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bp-graphite disabled:cursor-not-allowed disabled:text-slate-400"
-          disabled={state.type === "loading"}
-          onClick={() => setReloadToken((current) => current + 1)}
-          type="button"
-        >
-          {state.type === "loading" ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-          )}
-          {t("actions.refresh")}
-        </button>
+        <div className="space-y-1 text-right">
+          <button
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bp-graphite disabled:cursor-not-allowed disabled:text-slate-400"
+            disabled={state.type === "loading"}
+            onClick={() => setReloadToken((current) => current + 1)}
+            type="button"
+          >
+            {state.type === "loading" ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            )}
+            {t("actions.refresh")}
+          </button>
+          <p className="text-xs text-bp-muted">{t("states.githubLagHint")}</p>
+        </div>
       </div>
 
       <ActionBanner state={actionState} />
@@ -386,13 +285,9 @@ export function ApprovalsPage() {
       <ApprovalContent
         actionState={actionState}
         onApproveExecution={(request) => void approveExecution(request)}
-        onApproveRegistration={(pullRequest) =>
-          void approveAndMerge(pullRequest)
-        }
         onRejectExecution={(request, reason) =>
           void rejectExecution(request, reason)
         }
-        onRejectRegistration={(pullRequest) => void rejectAndClose(pullRequest)}
         state={state}
       />
     </section>
@@ -402,19 +297,15 @@ export function ApprovalsPage() {
 function ApprovalContent({
   actionState,
   onApproveExecution,
-  onApproveRegistration,
   onRejectExecution,
-  onRejectRegistration,
   state,
 }: {
   actionState: ApprovalActionState;
   onApproveExecution: (request: ExecutionApprovalRequest) => void;
-  onApproveRegistration: (pullRequest: RepositoryPullRequest) => void;
   onRejectExecution: (
     request: ExecutionApprovalRequest,
     reason: string,
   ) => void;
-  onRejectRegistration: (pullRequest: RepositoryPullRequest) => void;
   state: ApprovalPageState;
 }) {
   const { t } = useTranslation("approvals");
@@ -459,11 +350,6 @@ function ApprovalContent({
       {state.registrationRequests.length > 0 ? (
         <ApprovalSection title={t("sections.registration")}>
           {state.registrationRequests.map((pullRequest) => {
-            const isBusy =
-              actionState.type === "running" &&
-              actionState.targetKey === registrationRequestKey(pullRequest);
-            const disabled = actionState.type === "running";
-
             return (
               <article
                 className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
@@ -499,25 +385,26 @@ function ApprovalContent({
                       />
                     </dl>
                   </div>
-                  <a
-                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-                    href={pullRequest.url}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {t("actions.openPullRequest")}
-                  </a>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+                      href={pullRequest.url}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {t("actions.openPullRequest")}
+                    </a>
+                    <Link
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+                      to={`/approvals/registration/${pullRequest.number}`}
+                    >
+                      {t("actions.viewRegistrationDetails")}
+                    </Link>
+                  </div>
                 </div>
-
-                <ApprovalActions
-                  approveLabel={t("actions.approveAndMerge")}
-                  disabled={disabled}
-                  isApproving={isBusy && actionState.action === "approve"}
-                  isRejecting={isBusy && actionState.action === "reject"}
-                  onApprove={() => onApproveRegistration(pullRequest)}
-                  onReject={() => onRejectRegistration(pullRequest)}
-                  rejectLabel={t("actions.reject")}
-                />
+                <p className="mt-4 text-sm text-bp-muted">
+                  {t("states.registrationReviewHint")}
+                </p>
               </article>
             );
           })}
@@ -535,6 +422,13 @@ function ApprovalContent({
               request.requestedBy === state.login
                 ? t("values.selfApprovalBlocked")
                 : "";
+            const gateBlocked =
+              request.execution?.gateRequired === false
+                ? t("values.gateApprovalBlocked")
+                : "";
+            const approveDisabledReason = [gateBlocked, selfApprovalBlocked]
+              .filter(Boolean)
+              .join(" ");
 
             return (
               <article
@@ -596,7 +490,7 @@ function ApprovalContent({
 
                 <ExecutionApprovalActions
                   approveLabel={t("actions.approveExecution")}
-                  approveDisabledReason={selfApprovalBlocked}
+                  approveDisabledReason={approveDisabledReason}
                   disabled={disabled}
                   isApproving={isBusy && actionState.action === "approve"}
                   isRejecting={isBusy && actionState.action === "reject"}
@@ -625,55 +519,6 @@ function ApprovalSection({
       <h2 className="mb-3 text-base font-bold text-bp-graphite">{title}</h2>
       <div className="space-y-3">{children}</div>
     </section>
-  );
-}
-
-function ApprovalActions({
-  approveLabel,
-  disabled,
-  isApproving,
-  isRejecting,
-  onApprove,
-  onReject,
-  rejectLabel,
-}: {
-  approveLabel: string;
-  disabled: boolean;
-  isApproving: boolean;
-  isRejecting: boolean;
-  onApprove: () => void;
-  onReject: () => void;
-  rejectLabel: string;
-}) {
-  return (
-    <div className="mt-5 flex flex-wrap gap-3">
-      <button
-        className="inline-flex items-center gap-2 rounded-md bg-bp-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-        disabled={disabled}
-        onClick={onApprove}
-        type="button"
-      >
-        {isApproving ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-        )}
-        {approveLabel}
-      </button>
-      <button
-        className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
-        disabled={disabled}
-        onClick={onReject}
-        type="button"
-      >
-        {isRejecting ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <XCircle className="h-4 w-4" aria-hidden="true" />
-        )}
-        {rejectLabel}
-      </button>
-    </div>
   );
 }
 

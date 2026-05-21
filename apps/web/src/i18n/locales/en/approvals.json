@@ -13,7 +13,8 @@
     "reject": "Reject",
     "rejectReason": "Rejection reason",
     "rejectReasonPlaceholder": "Explain why this execution request cannot proceed.",
-    "viewDetails": "View details"
+    "viewDetails": "View details",
+    "viewRegistrationDetails": "Registration detail"
   },
   "fields": {
     "author": "Author",
@@ -45,6 +46,7 @@
     "registration": "Registration changes"
   },
   "values": {
+    "gateApprovalBlocked": "Gate non-compliant requests cannot be approved.",
     "gateNonCompliant": "Non-compliant",
     "gateRequired": "Required before batch command",
     "selfApprovalBlocked": "Requester and approver must be different users.",
@@ -52,7 +54,70 @@
   },
   "states": {
     "empty": "No approvals are pending on {{branch}}.",
+    "githubLagHint": "GitHub issue/PR updates can take a few seconds to appear.",
     "loading": "Loading approval requests...",
-    "noSession": "Connect a GitHub repository before reviewing approvals."
+    "noSession": "Connect a GitHub repository before reviewing approvals.",
+    "registrationReviewHint": "Open registration detail to review checklist and decide merge or rejection."
+  },
+  "registrationDetail": {
+    "title": "Registration approval detail",
+    "subtitle": "PR #{{pullNumber}}",
+    "actions": {
+      "actionFailed": "Failed to update registration approval.",
+      "approve": "Approve and merge PR",
+      "backToApprovals": "Back to approvals",
+      "closedTitle": "Registration review completed",
+      "note": "Approving merges this registration PR into the repository for BatchPlane Lite governance.",
+      "title": "Approval action"
+    },
+    "states": {
+      "error": "Failed to load registration approval detail.",
+      "githubLagHint": "Recent GitHub updates can take a few seconds to appear.",
+      "loading": "Loading registration approval detail...",
+      "noSession": "Connect a GitHub repository before reviewing registration approvals.",
+      "notFound": "Registration PR #{{pullNumber}} was not found in this repository."
+    },
+    "checklist": {
+      "title": "Governance checklist",
+      "batchPaths": "Batch definition and workflow paths are derived from Batch ID.",
+      "gateRequired": "BatchPlane Gate is required before batch command execution.",
+      "runnerRecorded": "Execution environment (runs-on) is recorded.",
+      "commandRecorded": "Batch command is recorded."
+    },
+    "review": {
+      "title": "Review state",
+      "decision": "Decision",
+      "actor": "Actor",
+      "decidedAt": "Decided at",
+      "noEvidence": "No BatchPlane review evidence comment is recorded yet.",
+      "states": {
+        "OPEN": "Waiting for review",
+        "APPROVED_PENDING_MERGE": "Approved, merge pending",
+        "MERGED": "Merged",
+        "REJECTED": "Rejected",
+        "CLOSED": "Closed"
+      }
+    },
+    "fileSummary": {
+      "title": "YAML diff summary",
+      "subtitle": "Compare base and head revisions for governed registration files.",
+      "preview": "Compare revisions",
+      "baseRevision": "Base revision",
+      "headRevision": "Registration branch revision",
+      "emptyBase": "No file on base branch.",
+      "emptyHead": "No file on registration branch.",
+      "status": {
+        "ADDED": "Added",
+        "UPDATED": "Updated",
+        "UNCHANGED": "Unchanged",
+        "MISSING_HEAD": "Missing"
+      },
+      "statusHelp": {
+        "ADDED": "File exists on the registration branch and does not exist on base.",
+        "UPDATED": "File exists on both refs and content changed.",
+        "UNCHANGED": "File exists on both refs with no content change.",
+        "MISSING_HEAD": "File is not present on the registration branch."
+      }
+    }
   }
 }

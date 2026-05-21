@@ -243,6 +243,7 @@ describe("domain model contracts", () => {
         listExecutionRequestComments: async () => [],
         listExecutionRequestIssues: async () => [],
         listRegistrationRequests: async () => [],
+        readRegistrationRequestFile: async () => null,
         rejectExecution: async () => undefined,
         rejectRegistration: async () => undefined,
       },

@@ -67,7 +67,7 @@ export function isRegistrationApprovalRequest(
   return (
     pullRequest.state === "open" &&
     (pullRequest.head.startsWith("batchplane/register/") ||
-      pullRequest.head.startsWith("batchtrail/register/") ||
+      pullRequest.head.startsWith("batchplane/register/") ||
       pullRequest.title.startsWith("Register batch "))
   );
 }
