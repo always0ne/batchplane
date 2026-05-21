@@ -39,7 +39,7 @@ export function buildExecutionIssueBody({
     "```json",
     JSON.stringify(
       {
-        apiVersion: "batchtrail.io/v1",
+        apiVersion: "batchplane.io/v1",
         kind: "ExecutionRequest",
         metadata: {
           batchId,
@@ -60,7 +60,7 @@ export function buildExecutionIssueBody({
     ),
     "```",
     "",
-    "<!-- batchtrail:execution-request",
+    "<!-- batchplane:execution-request",
     `requestId=${requestId}`,
     `batchId=${batchId}`,
     `requestDigest=${requestDigest}`,
@@ -92,7 +92,7 @@ export function buildExecutionApprovalCommentBody({
     `- Batch ID: \`${batchId}\``,
     `- Request digest: \`${requestDigest}\``,
     "",
-    "<!-- batchtrail:execution-approval",
+    "<!-- batchplane:execution-approval",
     "decision=APPROVED",
     `requestId=${requestId}`,
     `batchId=${batchId}`,
@@ -120,7 +120,7 @@ export function buildDispatchedCommentBody({
     `- Batch ID: \`${batchId}\``,
     `- Request digest: \`${requestDigest}\``,
     "",
-    "<!-- batchtrail:bgcp:dispatcher",
+    "<!-- batchplane:bgcp:dispatcher",
     `status=${status}`,
     `requestId=${requestId}`,
     `batchId=${batchId}`,

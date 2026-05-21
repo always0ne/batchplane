@@ -663,7 +663,7 @@ function escapeOutputValue(value) {
 }
 function parseBatchPlaneMarker(body, kind) {
     const marker = new Map();
-    const match = body.match(new RegExp(`<!--\\s*batchtrail:${kind}\\s*([\\s\\S]*?)-->`));
+    const match = body.match(new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`));
     if (!match?.[1]) {
         return marker;
     }

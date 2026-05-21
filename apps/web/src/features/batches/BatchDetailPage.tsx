@@ -3,7 +3,7 @@ import type {
   BatchPlaneRuntimePorts,
   RepositoryIssue,
   RepositoryIssueComment,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import { GitPullRequest, Play, ShieldCheck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";

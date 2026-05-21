@@ -1,4 +1,4 @@
-import type { BatchPlaneRuntimePorts } from "@batchtrail/domain";
+import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
   CheckCircle2,
   ExternalLink,

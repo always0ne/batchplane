@@ -34,7 +34,7 @@ describe("createGitHubLiteRuntime", () => {
         return Response.json({
           content: btoa(
             [
-              'apiVersion: "batchtrail.io/v1"',
+              'apiVersion: "batchplane.io/v1"',
               'kind: "BatchDefinition"',
               "metadata:",
               '  id: "payment.daily-close"',

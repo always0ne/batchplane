@@ -90,12 +90,12 @@ describe("registration model", () => {
     expect(workflowYaml).toContain("request_id:");
     expect(workflowYaml).toContain("request_digest:");
     expect(workflowYaml).toContain("uses: actions/checkout@v4");
-    expect(workflowYaml).toContain("batchtrail-gate:");
+    expect(workflowYaml).toContain("batchplane-gate:");
     expect(workflowYaml).toContain(
       "uses: always0ne/batchtrail/actions/gate@main",
     );
     expect(workflowYaml).toContain("github-token: ${{ secrets.GITHUB_TOKEN }}");
-    expect(workflowYaml).toContain("needs: batchtrail-gate");
+    expect(workflowYaml).toContain("needs: batchplane-gate");
     expect(workflowYaml).toContain("./scripts/daily-close.sh");
   });
 
@@ -127,7 +127,7 @@ describe("registration model", () => {
         "Payment Daily Close",
         new Date("2026-05-09T01:02:03.000Z"),
       ),
-    ).toBe("batchtrail/register/payment-daily-close-20260509010203");
+    ).toBe("batchplane/register/payment-daily-close-20260509010203");
   });
 
   it("creates a PR body with auditable registration context", () => {

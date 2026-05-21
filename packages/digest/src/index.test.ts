@@ -60,7 +60,7 @@ describe("canonicalize", () => {
     await expect(
       createRequestDigest({
         comments: ["looks good", "approved"],
-        labels: ["batchtrail:execution-request", "priority:p0"],
+        labels: ["batchplane:execution-request", "priority:p0"],
         markdownBody: "## BatchPlane Execution Request",
         payload: canonicalExecutionRequestPayloadFixture,
       }),

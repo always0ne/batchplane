@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { BatchPlaneRuntimePorts } from "@batchtrail/domain";
-import { createMockGitHubLiteClient } from "@batchtrail/github-lite";
+import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import { createMockGitHubLiteClient } from "@batchplane/github-lite";
 
 import {
   createRuntimeFixtureMockState,

@@ -1,7 +1,7 @@
 import type {
   RepositoryIssue,
   RepositoryPullRequest,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 
 import {
   isRegistrationApprovalRequest,

@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import type { BatchPlaneRuntimePorts } from "@batchtrail/domain";
+import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 

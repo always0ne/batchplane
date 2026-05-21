@@ -1,4 +1,21 @@
-export type BatchPlaneApiVersion = "batchtrail.io/v1";
+export const batchPlaneApiVersion = "batchplane.io/v1";
+export const legacyBatchPlaneApiVersion = "batchtrail.io/v1";
+export const supportedBatchPlaneApiVersions = [
+  batchPlaneApiVersion,
+  legacyBatchPlaneApiVersion,
+] as const;
+
+export type BatchPlaneApiVersion =
+  (typeof supportedBatchPlaneApiVersions)[number];
+
+export function isBatchPlaneApiVersion(
+  value: unknown,
+): value is BatchPlaneApiVersion {
+  return (
+    typeof value === "string" &&
+    supportedBatchPlaneApiVersions.includes(value as BatchPlaneApiVersion)
+  );
+}
 
 export type BatchStatus = "ACTIVE" | "INACTIVE";
 
@@ -332,7 +349,7 @@ export type BatchGovernanceConfigFile = {
     batchesPath: ".batch-governance/batches" | string;
     schedulesPath: ".batch-governance/schedules" | string;
     dispatcherWorkflowPath:
-      | ".github/workflows/batchtrail-dispatcher.yml"
+      | ".github/workflows/batchplane-dispatcher.yml"
       | string;
     defaultWorkflowRef: string;
   };
@@ -504,12 +521,7 @@ export function validateBatchDefinitionFile(
     return { diagnostics, ok: false };
   }
 
-  validateExactValue(
-    record.apiVersion,
-    "apiVersion",
-    "batchtrail.io/v1",
-    diagnostics,
-  );
+  validateBatchPlaneApiVersion(record.apiVersion, diagnostics);
   validateExactValue(record.kind, "kind", "BatchDefinition", diagnostics);
 
   const metadata = requireRecord(record.metadata, "metadata", diagnostics);
@@ -596,12 +608,7 @@ export function validateApprovalPolicyFile(
     return { diagnostics, ok: false };
   }
 
-  validateExactValue(
-    record.apiVersion,
-    "apiVersion",
-    "batchtrail.io/v1",
-    diagnostics,
-  );
+  validateBatchPlaneApiVersion(record.apiVersion, diagnostics);
   validateExactValue(record.kind, "kind", "ApprovalPolicy", diagnostics);
 
   const metadata = requireRecord(record.metadata, "metadata", diagnostics);
@@ -672,12 +679,7 @@ export function validateRoleMappingFile(
     return { diagnostics, ok: false };
   }
 
-  validateExactValue(
-    record.apiVersion,
-    "apiVersion",
-    "batchtrail.io/v1",
-    diagnostics,
-  );
+  validateBatchPlaneApiVersion(record.apiVersion, diagnostics);
   validateExactValue(record.kind, "kind", "RoleMapping", diagnostics);
 
   const metadata = requireRecord(record.metadata, "metadata", diagnostics);
@@ -1033,6 +1035,22 @@ function validateExactValue(
     code: value === undefined ? "required" : "invalid_value",
     field,
     message: `${field} must be '${expected}'.`,
+    severity: "error",
+  });
+}
+
+function validateBatchPlaneApiVersion(
+  value: unknown,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (isBatchPlaneApiVersion(value)) {
+    return;
+  }
+
+  diagnostics.push({
+    code: value === undefined ? "required" : "invalid_value",
+    field: "apiVersion",
+    message: `apiVersion must be one of: ${supportedBatchPlaneApiVersions.join(", ")}.`,
     severity: "error",
   });
 }

@@ -8,7 +8,7 @@ import type {
   RepositoryPullRequest,
   RepositoryUser,
   RuntimeInstallationStatus,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import {
   AlertTriangle,
   ClipboardCheck,
@@ -148,10 +148,10 @@ export function DashboardPage({
             defaultBranch: repository.defaultBranch,
             executionIssues,
             failedIssues: executionIssues.filter((issue) =>
-              issue.labels.includes("batchtrail:dispatch-failed"),
+              hasBatchPlaneLabel(issue.labels, "dispatch-failed"),
             ),
             gateBlockedIssues: executionIssues.filter((issue) =>
-              issue.labels.includes("batchtrail:gate-blocked"),
+              hasBatchPlaneLabel(issue.labels, "gate-blocked"),
             ),
             installationStatus,
             pendingExecutionIssues,
@@ -497,14 +497,19 @@ function isPendingExecutionApprovalIssue(
 ): boolean {
   return (
     parseExecutionApprovalRequest(issue, comments) !== null &&
-    !issue.labels.some((label) =>
-      [
-        "batchtrail:dispatch-failed",
-        "batchtrail:dispatched",
-        "batchtrail:dispatching",
-        "batchtrail:gate-blocked",
-        "batchtrail:rejected",
-      ].includes(label),
-    )
+    ![
+      "dispatch-failed",
+      "dispatched",
+      "dispatching",
+      "gate-blocked",
+      "rejected",
+    ].some((label) => hasBatchPlaneLabel(issue.labels, label))
+  );
+}
+
+function hasBatchPlaneLabel(labels: string[], name: string): boolean {
+  return (
+    labels.includes(`batchplane:${name}`) ||
+    labels.includes(`batchtrail:${name}`)
   );
 }

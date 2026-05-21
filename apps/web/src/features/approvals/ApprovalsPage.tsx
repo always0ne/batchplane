@@ -1,4 +1,4 @@
-import type { RepositoryPullRequest } from "@batchtrail/domain";
+import type { RepositoryPullRequest } from "@batchplane/domain";
 import {
   CheckCircle2,
   FileText,

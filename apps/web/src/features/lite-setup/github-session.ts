@@ -1,4 +1,5 @@
-export const githubSessionStorageKey = "batchtrail.github.session.v1";
+export const githubSessionStorageKey = "batchplane.github.session.v1";
+export const legacyGitHubSessionStorageKey = "batchtrail.github.session.v1";
 
 export type GitHubSession = {
   owner: string;
@@ -11,7 +12,9 @@ export type GitHubSessionDraft = Partial<GitHubSession>;
 export function readGitHubSession(
   storage: Pick<Storage, "getItem"> = window.sessionStorage,
 ): GitHubSession | null {
-  const rawValue = storage.getItem(githubSessionStorageKey);
+  const rawValue =
+    storage.getItem(githubSessionStorageKey) ??
+    storage.getItem(legacyGitHubSessionStorageKey);
 
   if (!rawValue) {
     return null;
@@ -43,6 +46,7 @@ export function clearGitHubSession(
   storage: Pick<Storage, "removeItem"> = window.sessionStorage,
 ) {
   storage.removeItem(githubSessionStorageKey);
+  storage.removeItem(legacyGitHubSessionStorageKey);
 }
 
 export function hasGitHubSession(

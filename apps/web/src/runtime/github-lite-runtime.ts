@@ -4,7 +4,7 @@ import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import {
   createGitHubLiteClient,
   type GitHubIssue,
@@ -12,7 +12,7 @@ import {
   type GitHubLiteClient,
   type GitHubLiteClientOptions,
   type GitHubPullRequest,
-} from "@batchtrail/github-lite";
+} from "@batchplane/github-lite";
 
 import { parseBatchDefinitionYaml } from "../features/registration/registration-model";
 import type { GitHubSession } from "../features/lite-setup/github-session";

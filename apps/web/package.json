@@ -1,5 +1,5 @@
 {
-  "name": "@batchtrail/web",
+  "name": "@batchplane/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@batchtrail/digest": "workspace:*",
-    "@batchtrail/domain": "workspace:*",
-    "@batchtrail/github-lite": "workspace:*",
+    "@batchplane/digest": "workspace:*",
+    "@batchplane/domain": "workspace:*",
+    "@batchplane/github-lite": "workspace:*",
     "i18next": "^23.0.0",
     "lucide-react": "^0.468.0",
     "react": "^18.0.0",

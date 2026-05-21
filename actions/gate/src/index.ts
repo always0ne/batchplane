@@ -1178,7 +1178,7 @@ function parseBatchPlaneMarker(
 ): Map<string, string> {
   const marker = new Map<string, string>();
   const match = body.match(
-    new RegExp(`<!--\\s*batchtrail:${kind}\\s*([\\s\\S]*?)-->`),
+    new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`),
   );
 
   if (!match?.[1]) {

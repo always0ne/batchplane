@@ -2,7 +2,7 @@ import type {
   BatchDefinition,
   BatchPlaneRuntimePorts,
   RepositoryIssue,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import {
   AlertCircle,
   CheckCircle2,

@@ -2,14 +2,16 @@ import {
   formatYamlDiagnostics,
   parseYamlDocument,
   serializeYamlDocument,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import type {
   BatchDefinition,
   BatchStatus,
   Criticality,
   RunnerLabel,
   YamlValue,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
+
+import { batchPlaneGateActionRef } from "../../shared/github-action-references";
 
 export type BatchRegistrationFormValues = {
   batchId: string;
@@ -107,7 +109,7 @@ export function serializeBatchDefinitionYaml(
   definition: BatchDefinition,
 ): string {
   return serializeYamlDocument({
-    apiVersion: "batchtrail.io/v1",
+    apiVersion: "batchplane.io/v1",
     kind: "BatchDefinition",
     metadata: {
       id: definition.batchId,
@@ -169,12 +171,12 @@ export function buildBatchWorkflowYaml(
     "  issues: read",
     "",
     "jobs:",
-    "  batchtrail-gate:",
+    "  batchplane-gate:",
     "    name: BatchPlane Gate",
     "    runs-on: ubuntu-latest",
     "    steps:",
     "      - name: Verify approved execution evidence",
-    "        uses: always0ne/batchtrail/actions/gate@main",
+    `        uses: ${batchPlaneGateActionRef}`,
     "        with:",
     "          mode: lite",
     "          batch-id: ${{ inputs.batch_id }}",
@@ -188,7 +190,7 @@ export function buildBatchWorkflowYaml(
     "  run-batch:",
     "    name: Run governed batch",
     `    runs-on: ${runner}`,
-    "    needs: batchtrail-gate",
+    "    needs: batchplane-gate",
     "    steps:",
     "      - name: Checkout registered assets",
     "        uses: actions/checkout@v4",
@@ -280,7 +282,7 @@ export function createRegistrationBranchName(
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
 
-  return `batchtrail/register/${slug || "batch"}-${timestamp}`;
+  return `batchplane/register/${slug || "batch"}-${timestamp}`;
 }
 
 export function buildRegistrationPullRequestTitle(definition: BatchDefinition) {

@@ -3,7 +3,7 @@ import type {
   Criticality,
   RepositoryPullRequest,
   RunnerLabel,
-} from "@batchtrail/domain";
+} from "@batchplane/domain";
 import {
   AlertCircle,
   CheckCircle2,

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   createBatchPlaneRuntime,
   createRuntimeFixtureMockState,
+  legacyRuntimeFixtureStorageKey,
   readRuntimeFixtureSelection,
   readRuntimeSession,
   runtimeFixtureStorageKey,
@@ -26,6 +27,12 @@ describe("runtime fixtures", () => {
       "approval-pending",
     );
     expect(readRuntimeFixtureSelection()).toBe("approval-pending");
+  });
+
+  it("reads legacy BatchTrail fixture keys", () => {
+    sessionStorage.setItem(legacyRuntimeFixtureStorageKey, "gate-blocked");
+
+    expect(readRuntimeFixtureSelection()).toBe("gate-blocked");
   });
 
   it("provides a mock GitHub session when a fixture is selected", () => {
@@ -64,7 +71,7 @@ describe("runtime fixtures", () => {
       approvalRuntime.approvals.listExecutionRequestIssues(),
     ).resolves.toEqual([
       expect.objectContaining({
-        labels: expect.arrayContaining(["batchtrail:execution-request"]),
+        labels: expect.arrayContaining(["batchplane:execution-request"]),
         state: "open",
       }),
     ]);
@@ -76,7 +83,7 @@ describe("runtime fixtures", () => {
       failedRuntime.approvals.listExecutionRequestIssues(),
     ).resolves.toEqual([
       expect.objectContaining({
-        labels: expect.arrayContaining(["batchtrail:dispatch-failed"]),
+        labels: expect.arrayContaining(["batchplane:dispatch-failed"]),
         state: "open",
       }),
     ]);
