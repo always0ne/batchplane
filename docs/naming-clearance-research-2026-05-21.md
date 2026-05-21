@@ -2,7 +2,7 @@
 
 Status: P0 incident response  
 Scope: replacement naming pool for the current BatchTrail repository  
-Decision state: BatchTrail is rejected; replacement name is not selected yet
+Decision state: BatchTrail is rejected; BatchPlane is selected for rebranding
 
 This is not a legal opinion or formal trademark clearance. It is an engineering/product
 knockout search intended to prevent obvious name collisions before the project is renamed.
@@ -205,45 +205,48 @@ brand. That feedback changes the naming target:
   `BatchPolicyGate`, `BatchHelm`, `BatchPact`, or `BatchAccord`, should be lowered unless
   the owner later chooses a deliberately literal naming style.
 
-### Stronger Direction: BatchGov
+### Selected Direction: BatchPlane
 
-`BatchGov` is the current lead candidate from the brandability pivot.
+`BatchPlane` is the selected replacement name from the brandability pivot.
 
 Product interpretation:
 
 - `Batch` keeps the financial-domain "배치통제" meaning visible.
-- `Gov` is short for governance, not government.
+- `Plane` comes from "control plane": the system layer that coordinates policy,
+  state, approval, and execution control across underlying runtimes.
 - The name can carry the installed/server product without implying GitHub-only execution.
-- The Lite edition remains natural: `BatchGov Lite`.
-- Technical components still have room for explicit names such as `BatchGov Gate`,
-  `BatchGov Dispatcher`, `BatchGov Console`, and `BatchGov Adapter SDK`.
+- The Lite edition remains natural: `BatchPlane Lite`.
+- Technical components still have room for explicit names such as `BatchPlane Gate`,
+  `BatchPlane Dispatcher`, `BatchPlane Console`, and `BatchPlane Adapter SDK`.
 
 Point-in-time knockout checks:
 
-| Check                             | Result | Note                                                                                                                                 |
-| --------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `batchgov.com` RDAP               | Clean  | Verisign RDAP returned `404`.                                                                                                        |
-| `batchgov.org/.io/.dev/.app` RDAP | Clean  | RDAP returned `404` through `rdap.org`.                                                                                              |
-| npm `batchgov`                    | Clean  | Registry returned `404`.                                                                                                             |
-| npm `batch-gov`                   | Clean  | Registry returned `404`.                                                                                                             |
-| PyPI `batchgov`                   | Clean  | PyPI returned `404`.                                                                                                                 |
-| PyPI `batch-gov`                  | Clean  | PyPI returned `404`.                                                                                                                 |
-| GitHub repo name search           | Clean  | `gh search repos 'BatchGov in:name'` returned no repositories.                                                                       |
-| GitHub code search                | Clean  | `gh search code 'BatchGov' --owner always0ne` returned no hits.                                                                      |
-| Exact web search                  | Clean  | Searches for `"BatchGov"`, `"BatchGov" software`, and `"BatchGov" trademark` returned no meaningful exact product hits in this pass. |
+| Check                                 | Result       | Note                                                                                          |
+| ------------------------------------- | ------------ | --------------------------------------------------------------------------------------------- |
+| `batchplane.com` RDAP                 | Clean        | Verisign RDAP returned `404`.                                                                 |
+| `batchplane.org/.io/.dev` RDAP        | Clean        | RDAP returned `404` through `rdap.org`.                                                       |
+| npm `batchplane`                      | Clean        | Registry returned `404`.                                                                      |
+| npm `batch-plane`                     | Clean        | Registry returned `404`.                                                                      |
+| PyPI `batchplane`                     | Clean        | PyPI returned `404`.                                                                          |
+| PyPI `batch-plane`                    | Clean        | PyPI returned `404`.                                                                          |
+| GitHub repo name search               | Mostly clean | No exact `BatchPlane` repository; a nearby `BatchPlanet` repository appears.                  |
+| Exact web search                      | Mostly clean | No exact product/service collision found in this pass.                                        |
+| Search-adjacent result                | Watch        | `BatchPlan` exists on PyPI and appears in search results; spelling differs by one letter.     |
+| Generic/nearby category search result | Watch        | `Plane`, `Agentplane`, and other `*Plane` products appear; not exact `BatchPlane` collisions. |
 
 Known concern:
 
-- `Gov` can be read as "government" in some contexts. The product tagline should make the
-  governance meaning explicit: `Batch governance, control, and audit for every scheduler`.
+- `Plane` is architecture-friendly but may need explanation for non-technical users. The
+  product tagline should make the control-plane meaning explicit:
+  `Batch control and audit across every scheduler`.
 
 ### Brandability Pass Candidate Comparison
 
 | Candidate        | Status       | Reason                                                                  |
 | ---------------- | ------------ | ----------------------------------------------------------------------- |
-| BatchGov         | Lead         | Short, brandable, direct enough for batch governance/control/audit.     |
+| BatchPlane       | Selected     | Platform/control-plane feel; good for multi-adapter architecture.       |
+| BatchGov         | Strong alt   | Short, brandable, direct enough for batch governance/control/audit.     |
 | BatchGRC         | Strong alt   | Finance/audit buyers understand GRC; good control/compliance signal.    |
-| BatchPlane       | Strong alt   | Platform/control-plane feel; good for multi-adapter architecture.       |
 | BatchVerity      | Reserve      | Truth/evidence meaning; brandable, but may need explanation.            |
 | QuorumRun        | Reserve      | Approval-consensus meaning; runtime-oriented rather than batch-wide.    |
 | TaskGov          | Reserve      | Clean checks, but "task" weakens the batch-control positioning.         |
@@ -292,9 +295,9 @@ Search hygiene notes:
 - `BatchTower` is available in the automated checks but lowered because tower/control
   tower language is common in operations and industrial contexts.
 
-Current product judgment: `BatchGov` is the strongest replacement direction found so far.
-It is not legally cleared, but it is materially better than the earlier descriptive pool
-for brandability and better than `BatchTrail`/`BatchControlHub` for obvious collision risk.
+Current product judgment: `BatchPlane` is selected for the rebrand. It is not legally
+cleared, but it is materially better than the earlier descriptive pool for brandability
+and better than `BatchTrail`/`BatchControlHub` for obvious collision risk.
 
 ## Stronger Candidate Pool
 
@@ -454,14 +457,14 @@ Cons:
 
 ## Current Human-Review Shortlist
 
-Current lead candidate:
+Selected candidate:
 
-- `BatchGov`
+- `BatchPlane`
 
 Strong alternatives:
 
+- `BatchGov`
 - `BatchGRC`
-- `BatchPlane`
 
 Reserve candidates only if the owner rejects the `Gov`/`GRC` direction:
 
@@ -510,13 +513,13 @@ Web checks:
   `RunVouch`, `RunAttest`, `RunWarrant`, `RunAuditGate`, `RepoAttest`, `RepoVouch`,
   `RepoNotary`, `RepoWarrant`, `OpsDocket`, `OpsWarrant`, `OpsVouch`, `OpsAttest`,
   `FlowAuditGate`, `FlowPolicyGate`, `FlowVouch`, and `FlowAttest`.
-- Brandability-pivot exact searches for `BatchGov`, `TaskGov`, `BatchGovernor`,
+- Brandability-pivot exact searches for `BatchPlane`, `BatchGov`, `TaskGov`, `BatchGovernor`,
   `BatchDirector`, `BatchCommander`, `BatchSupervisor`, `ControlDocket`, `OpsDocket`,
   `BatchGatehouse`, and `ControlGatehouse`.
 - Additional exact searches for `BatchGRC`, `BatchPlane`, `BatchQuorum`, `QuorumRun`,
   `BatchVerity`, `BatchJournal`, `BatchTower`, `BatchPass`, `BatchHQ`, `BatchOS`, and
   `BatchIQ`.
 
-Current recommendation confidence: `BatchGov` is the leading product-name candidate from
-the engineering/product knockout pass. It still needs owner preference approval, domain
-checkout, and legal trademark review before the repository is renamed.
+Current recommendation confidence: `BatchPlane` is the selected product-name candidate
+from the engineering/product knockout pass. It still needs domain checkout and legal
+trademark review before public launch.
