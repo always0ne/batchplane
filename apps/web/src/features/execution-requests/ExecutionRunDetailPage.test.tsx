@@ -40,6 +40,7 @@ describe("ExecutionRunDetailPage", () => {
       await screen.findByRole("heading", { name: "Execution run detail" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Gate blocked").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeEnabled();
     expect(screen.getByText("Business execution")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -74,6 +75,38 @@ describe("ExecutionRunDetailPage", () => {
       screen.getByText(
         "The batch command or business job failed after Gate allowed the run.",
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows unknown Gate evidence separately from allowed and blocked states", async () => {
+    renderDetail({
+      createRuntime: () =>
+        ({
+          executions: {
+            getExecutionRun: async () => ({
+              batchId: "payment.daily-close",
+              jobs: [],
+              requestId: "btr-20260514010900-payment.daily-close-00000009",
+              runId: "209",
+              status: "RUNNING",
+              workflowRunId: "209",
+              workflowRunUrl:
+                "https://github.com/always0ne/batch/actions/runs/209",
+            }),
+          },
+        }) as unknown as BatchPlaneRuntimePorts,
+      readSession: () => session,
+      runId: 209,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Execution run detail" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Gate job evidence is not available yet."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Business execution status: Running."),
     ).toBeInTheDocument();
   });
 });

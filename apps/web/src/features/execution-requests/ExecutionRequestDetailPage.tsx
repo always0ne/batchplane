@@ -45,6 +45,7 @@ type PageState =
       login: string;
       repository: string;
       request: ExecutionApprovalRequest;
+      runLookupFailed: boolean;
       runs: ExecutionRun[];
       session: GitHubSession;
     }
@@ -123,14 +124,15 @@ export function ExecutionRequestDetailPage({
           return;
         }
 
-        const runs = await loadRelatedRuns(runtime, request);
+        const relatedRuns = await loadRelatedRuns(runtime, request);
 
         setState({
           type: "loaded",
           login: user.login,
           repository: `${repository.owner}/${repository.repo}`,
           request,
-          runs,
+          runLookupFailed: relatedRuns.failed,
+          runs: relatedRuns.runs,
           session,
         });
       } catch (error) {
@@ -318,7 +320,11 @@ export function ExecutionRequestDetailPage({
 
         <aside className="space-y-4">
           <GovernancePanel request={request} />
-          <DispatcherPanel request={request} runs={state.runs} />
+          <DispatcherPanel
+            request={request}
+            runLookupFailed={state.runLookupFailed}
+            runs={state.runs}
+          />
 
           {isActionable ? (
             <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -500,24 +506,29 @@ function GovernancePanel({ request }: { request: ExecutionApprovalRequest }) {
 async function loadRelatedRuns(
   runtime: BatchPlaneRuntimePorts,
   request: ExecutionApprovalRequest,
-): Promise<ExecutionRun[]> {
+): Promise<{ failed: boolean; runs: ExecutionRun[] }> {
   try {
-    return await runtime.executions.listExecutionRuns({
-      batchId: request.batchId,
-      limit: 10,
-      requestId: request.requestId,
-      workflowPath: request.workflow?.path,
-    });
+    return {
+      failed: false,
+      runs: await runtime.executions.listExecutionRuns({
+        batchId: request.batchId,
+        limit: 10,
+        requestId: request.requestId,
+        workflowPath: request.workflow?.path,
+      }),
+    };
   } catch {
-    return [];
+    return { failed: true, runs: [] };
   }
 }
 
 function DispatcherPanel({
   request,
+  runLookupFailed,
   runs,
 }: {
   request: ExecutionApprovalRequest;
+  runLookupFailed: boolean;
   runs: ExecutionRun[];
 }) {
   const { t } = useTranslation("executionRequests");
@@ -570,6 +581,8 @@ function DispatcherPanel({
               >
                 #{latestRun.runId} {t(`runDetail.status.${latestRun.status}`)}
               </Link>
+            ) : runLookupFailed ? (
+              t("detail.dispatcher.workflowRunUnavailable")
             ) : (
               t("detail.dispatcher.noWorkflowRun")
             )}

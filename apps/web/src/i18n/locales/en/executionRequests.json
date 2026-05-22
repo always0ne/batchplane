@@ -38,7 +38,8 @@
       "noWorkflowRun": "No correlated workflow run yet",
       "status": "Status",
       "title": "Dispatcher",
-      "workflowRun": "Workflow run"
+      "workflowRun": "Workflow run",
+      "workflowRunUnavailable": "Workflow run evidence could not be loaded. Refresh or check GitHub Actions permissions."
     },
     "fields": {
       "artifact": "Execution file",
@@ -106,7 +107,8 @@
     "subtitle": "Inspect workflow run {{runId}} evidence.",
     "actions": {
       "openBatch": "Open batch",
-      "openGitHubRun": "Open GitHub run"
+      "openGitHubRun": "Open GitHub run",
+      "refresh": "Refresh"
     },
     "business": {
       "current": "Business execution status: {{status}}.",

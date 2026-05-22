@@ -102,6 +102,32 @@ describe("ExecutionRequestDetailPage", () => {
       screen.queryByRole("button", { name: "Approve execution" }),
     ).not.toBeInTheDocument();
   });
+
+  it("distinguishes workflow run lookup failure from no correlated run", async () => {
+    const state = createRuntimeFixtureMockState("happy-path");
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    renderDetail({
+      createRuntime: () => ({
+        ...runtime,
+        executions: {
+          ...runtime.executions,
+          listExecutionRuns: async () => {
+            throw new Error("Actions API unavailable");
+          },
+        },
+      }),
+      issueNumber: 104,
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByText(
+        "Workflow run evidence could not be loaded. Refresh or check GitHub Actions permissions.",
+      ),
+    ).toBeInTheDocument();
+  });
 });
 
 function renderDetail({

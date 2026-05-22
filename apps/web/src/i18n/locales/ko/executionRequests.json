@@ -38,7 +38,8 @@
       "noWorkflowRun": "연결된 workflow run 없음",
       "status": "상태",
       "title": "Dispatcher",
-      "workflowRun": "Workflow run"
+      "workflowRun": "Workflow run",
+      "workflowRunUnavailable": "Workflow run 증적을 불러오지 못했습니다. 새로고침하거나 GitHub Actions 권한을 확인하세요."
     },
     "fields": {
       "artifact": "실행 파일",
@@ -106,7 +107,8 @@
     "subtitle": "{{runId}} workflow run 증적을 확인합니다.",
     "actions": {
       "openBatch": "배치 열기",
-      "openGitHubRun": "GitHub run 열기"
+      "openGitHubRun": "GitHub run 열기",
+      "refresh": "새로고침"
     },
     "business": {
       "current": "업무 실행 상태: {{status}}.",

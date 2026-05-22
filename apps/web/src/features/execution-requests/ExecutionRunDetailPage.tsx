@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   ExternalLink,
   GitBranch,
+  Loader2,
+  RefreshCw,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
@@ -43,6 +45,7 @@ export function ExecutionRunDetailPage({
 }: ExecutionRunDetailPageProps = {}) {
   const { runId = "" } = useParams();
   const { t } = useTranslation("executionRequests");
+  const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<PageState>({ type: "loading" });
 
   useEffect(() => {
@@ -87,7 +90,7 @@ export function ExecutionRunDetailPage({
     return () => {
       ignoreResult = true;
     };
-  }, [createRuntime, readSession, runId, t]);
+  }, [createRuntime, readSession, reloadToken, runId, t]);
 
   if (state.type === "loading") {
     return <LoadingState message={t("runDetail.states.loading")} />;
@@ -139,6 +142,14 @@ export function ExecutionRunDetailPage({
           subtitle={t("runDetail.subtitle", { runId: run.runId })}
         />
         <div className="flex flex-wrap gap-2">
+          <button
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+            onClick={() => setReloadToken((current) => current + 1)}
+            type="button"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            {t("runDetail.actions.refresh")}
+          </button>
           <Link
             className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
             to={`/batches/${encodeURIComponent(run.batchId)}`}
@@ -231,32 +242,41 @@ function GateOutcomePanel({ run }: { run: ExecutionRun }) {
   const blocked = run.status === "BLOCKED";
   const allowed =
     run.gateDecision?.allowed === true || hasSuccessfulGateJob(run);
-  const Icon = blocked ? XCircle : ShieldCheck;
+  const tone = blocked ? "blocked" : allowed ? "allowed" : "unknown";
+  const Icon =
+    tone === "blocked" ? XCircle : tone === "allowed" ? ShieldCheck : Loader2;
+  const panelClass = {
+    allowed: "border-emerald-200 bg-emerald-50",
+    blocked: "border-orange-200 bg-orange-50",
+    unknown: "border-slate-200 bg-slate-50",
+  }[tone];
+  const iconClass = {
+    allowed: "text-emerald-700",
+    blocked: "text-orange-700",
+    unknown: "text-bp-muted",
+  }[tone];
+  const titleClass = {
+    allowed: "text-emerald-950",
+    blocked: "text-orange-950",
+    unknown: "text-bp-graphite",
+  }[tone];
+  const messageClass = {
+    allowed: "text-emerald-900",
+    blocked: "text-orange-900",
+    unknown: "text-bp-muted",
+  }[tone];
 
   return (
-    <article
-      className={`rounded-lg border p-5 shadow-sm ${
-        blocked
-          ? "border-orange-200 bg-orange-50"
-          : "border-emerald-200 bg-emerald-50"
-      }`}
-    >
+    <article className={`rounded-lg border p-5 shadow-sm ${panelClass}`}>
       <div className="flex items-center gap-2">
-        <Icon
-          className={`h-5 w-5 ${blocked ? "text-orange-700" : "text-emerald-700"}`}
-          aria-hidden="true"
-        />
-        <h2
-          className={`text-base font-bold ${blocked ? "text-orange-950" : "text-emerald-950"}`}
-        >
+        <Icon className={`h-5 w-5 ${iconClass}`} aria-hidden="true" />
+        <h2 className={`text-base font-bold ${titleClass}`}>
           {blocked
             ? t("runDetail.gate.blockedTitle")
             : t("runDetail.gate.title")}
         </h2>
       </div>
-      <p
-        className={`mt-3 text-sm font-semibold ${blocked ? "text-orange-900" : "text-emerald-900"}`}
-      >
+      <p className={`mt-3 text-sm font-semibold ${messageClass}`}>
         {blocked
           ? t("runDetail.gate.blockedMessage")
           : allowed
@@ -281,15 +301,32 @@ function BusinessOutcomePanel({ run }: { run: ExecutionRun }) {
   const { t } = useTranslation("executionRequests");
   const businessFailed = run.status === "FAILED";
   const blocked = run.status === "BLOCKED";
-  const Icon = businessFailed ? AlertTriangle : CheckCircle2;
+  const succeeded = run.status === "SUCCEEDED";
+  const inFlight = run.status === "QUEUED" || run.status === "RUNNING";
+  const canceled = run.status === "CANCELED";
+  const Icon = businessFailed
+    ? AlertTriangle
+    : succeeded
+      ? CheckCircle2
+      : blocked
+        ? XCircle
+        : inFlight
+          ? Loader2
+          : AlertTriangle;
+  const iconClass = businessFailed
+    ? "text-red-700"
+    : succeeded
+      ? "text-emerald-700"
+      : blocked
+        ? "text-orange-700"
+        : canceled
+          ? "text-slate-500"
+          : "text-sky-700";
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2">
-        <Icon
-          className={`h-5 w-5 ${businessFailed ? "text-red-700" : "text-emerald-700"}`}
-          aria-hidden="true"
-        />
+        <Icon className={`h-5 w-5 ${iconClass}`} aria-hidden="true" />
         <h2 className="text-base font-bold text-bp-graphite">
           {t("runDetail.business.title")}
         </h2>
