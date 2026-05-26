@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import {
+  createGitHubLiteMockState,
+  createMockGitHubLiteClient,
+} from "@batchplane/github-lite";
 
 import { createGitHubLiteRuntime } from "./github-lite-runtime";
 
@@ -344,6 +348,65 @@ describe("createGitHubLiteRuntime", () => {
         runId: "200",
         status: "BLOCKED",
         workflowRunUrl: "https://github.com/always0ne/batch/actions/runs/200",
+      }),
+    );
+  });
+
+  it("records failure follow-up evidence on the correlated execution request", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+    const run = state.workflowRuns.find(
+      (candidate) =>
+        candidate.batchId === "payment.daily-close" &&
+        candidate.conclusion === "failure",
+    );
+
+    if (!run) {
+      throw new Error("Expected a business failed workflow run fixture.");
+    }
+
+    const followUp = await runtime.executions.createFailureFollowUp({
+      actionTaken: "Reprocessed after upstream correction.",
+      explanation: "The upstream ledger file arrived late.",
+      owner: "ops-team",
+      runId: String(run.id),
+      status: "RESOLVED",
+    });
+    const scenario = client.state.executionScenarios.find(
+      (candidate) => candidate.workflowRunId === run.id,
+    );
+
+    expect(followUp).toEqual(
+      expect.objectContaining({
+        actionTaken: "Reprocessed after upstream correction.",
+        batchId: "payment.daily-close",
+        explanation: "The upstream ledger file arrived late.",
+        owner: "ops-team",
+        requestId: run.requestId,
+        runId: String(run.id),
+        status: "RESOLVED",
+      }),
+    );
+    expect(
+      client.state.issueComments.some(
+        (comment) =>
+          comment.issueNumber === scenario?.issueNumber &&
+          comment.body.includes("batchplane:failure-follow-up") &&
+          comment.body.includes("The upstream ledger file arrived late."),
+      ),
+    ).toBe(true);
+
+    await expect(
+      runtime.executions.getExecutionRun({ runId: String(run.id) }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        failureFollowUps: [
+          expect.objectContaining({
+            explanation: "The upstream ledger file arrived late.",
+            status: "RESOLVED",
+          }),
+        ],
       }),
     );
   });

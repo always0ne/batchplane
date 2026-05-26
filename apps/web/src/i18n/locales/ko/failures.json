@@ -1,4 +1,58 @@
 {
   "title": "실패내역",
-  "subtitle": "업무 실패와 통제 차단을 분리해서 확인합니다."
+  "subtitle": "업무 실패와 통제 차단을 분리해서 확인합니다.",
+  "actions": {
+    "githubRun": "GitHub run",
+    "openRun": "Run 열기",
+    "openSetup": "설정 열기",
+    "refresh": "새로고침"
+  },
+  "fields": {
+    "completedAt": "완료",
+    "requestId": "Request ID",
+    "runId": "Run ID",
+    "workflow": "Workflow"
+  },
+  "filters": {
+    "all": "전체 후속",
+    "blocked": "Gate 차단",
+    "failed": "업무 실패"
+  },
+  "list": {
+    "empty": "조건에 맞는 실패 또는 Gate 차단 workflow run이 없습니다.",
+    "subtitle": "{{count}}건의 후속 확인 대상이 있습니다.",
+    "subtitle_plural": "{{count}}건의 후속 확인 대상이 있습니다.",
+    "title": "실패 후속처리"
+  },
+  "states": {
+    "error": "실패 증적을 불러오지 못했습니다.",
+    "loading": "실패 증적을 불러오는 중...",
+    "noSession": "실패내역을 보려면 GitHub 저장소를 먼저 연결하세요."
+  },
+  "status": {
+    "BLOCKED": "Gate 차단",
+    "CANCELED": "취소됨",
+    "FAILED": "업무 실패",
+    "QUEUED": "대기 중",
+    "RUNNING": "실행 중",
+    "SUCCEEDED": "성공"
+  },
+  "summary": {
+    "blocked": "Gate 차단",
+    "explained": "소명 제출",
+    "failed": "업무 실패",
+    "total": "후속 확인 Run"
+  },
+  "values": {
+    "active": "Workflow run이 아직 진행 중입니다.",
+    "businessFailure": "Gate 통과 후 배치 명령이 실패했습니다.",
+    "canceled": "Workflow run이 취소되었거나 건너뛰어졌습니다.",
+    "explanationNeeded": "소명 필요",
+    "explanationRecorded": "소명 제출됨",
+    "gateBlocked": "배치 명령 전에 Gate가 차단했습니다.",
+    "inProgress": "진행 중",
+    "succeeded": "Workflow run이 정상 완료되었습니다.",
+    "unknown": "알 수 없음",
+    "unknownBatch": "알 수 없는 배치"
+  }
 }

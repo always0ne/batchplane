@@ -29,6 +29,7 @@ import { formatRuntimeError } from "../../runtime/runtime-errors";
 type ExecutionRunListPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   readSession?: () => GitHubSession | null;
+  view?: ExecutionRunListView;
 };
 
 type PageState =
@@ -44,6 +45,7 @@ type ExecutionRunFilter =
   | "canceled"
   | "failed"
   | "succeeded";
+type ExecutionRunListView = "executions" | "failures";
 
 const executionRunFilters = [
   "all",
@@ -53,16 +55,19 @@ const executionRunFilters = [
   "blocked",
   "canceled",
 ] as const;
+const failureRunFilters = ["all", "failed", "blocked"] as const;
 
 export function ExecutionRunListPage({
   createRuntime = createBatchPlaneRuntime,
   readSession = readRuntimeSession,
+  view = "executions",
 }: ExecutionRunListPageProps = {}) {
-  const { t } = useTranslation("executions");
+  const namespace = view === "failures" ? "failures" : "executions";
+  const { t } = useTranslation(namespace);
   const [searchParams, setSearchParams] = useSearchParams();
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<PageState>({ type: "loading" });
-  const activeFilter = readExecutionRunFilter(searchParams);
+  const activeFilter = readExecutionRunFilter(searchParams, view);
 
   useEffect(() => {
     let ignoreResult = false;
@@ -130,8 +135,10 @@ export function ExecutionRunListPage({
       </div>
       <ExecutionRunListContent
         activeFilter={activeFilter}
+        namespace={namespace}
         onFilterChange={changeFilter}
         state={state}
+        view={view}
       />
     </section>
   );
@@ -139,14 +146,18 @@ export function ExecutionRunListPage({
 
 function ExecutionRunListContent({
   activeFilter,
+  namespace,
   onFilterChange,
   state,
+  view,
 }: {
   activeFilter: ExecutionRunFilter;
+  namespace: "executions" | "failures";
   onFilterChange: (filter: ExecutionRunFilter) => void;
   state: PageState;
+  view: ExecutionRunListView;
 }) {
-  const { t } = useTranslation("executions");
+  const { t } = useTranslation(namespace);
 
   if (state.type === "loading") {
     return <LoadingState message={t("states.loading")} />;
@@ -175,55 +186,96 @@ function ExecutionRunListContent({
   return (
     <LoadedExecutionRunList
       activeFilter={activeFilter}
+      namespace={namespace}
       onFilterChange={onFilterChange}
       runs={state.runs}
+      view={view}
     />
   );
 }
 
 function LoadedExecutionRunList({
   activeFilter,
+  namespace,
   onFilterChange,
   runs,
+  view,
 }: {
   activeFilter: ExecutionRunFilter;
+  namespace: "executions" | "failures";
   onFilterChange: (filter: ExecutionRunFilter) => void;
   runs: ExecutionRun[];
+  view: ExecutionRunListView;
 }) {
-  const { t } = useTranslation("executions");
+  const { t } = useTranslation(namespace);
+  const visibleRuns = useMemo(
+    () => (view === "failures" ? runs.filter(isFollowUpRun) : runs),
+    [runs, view],
+  );
   const filteredRuns = useMemo(
-    () => runs.filter((run) => matchesFilter(run, activeFilter)),
-    [activeFilter, runs],
+    () => visibleRuns.filter((run) => matchesFilter(run, activeFilter)),
+    [activeFilter, visibleRuns],
   );
   const activeRuns = runs.filter(isActiveRun);
-  const followUpRuns = runs.filter(
-    (run) => run.status === "FAILED" || run.status === "BLOCKED",
+  const followUpRuns = runs.filter(isFollowUpRun);
+  const businessFailedRuns = runs.filter((run) => run.status === "FAILED");
+  const blockedRuns = runs.filter((run) => run.status === "BLOCKED");
+  const explainedRuns = businessFailedRuns.filter(
+    (run) => (run.failureFollowUps ?? []).length > 0,
   );
   const succeededRuns = runs.filter((run) => run.status === "SUCCEEDED");
+  const filters = view === "failures" ? failureRunFilters : executionRunFilters;
 
   return (
     <div className="space-y-4">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <ExecutionMetric
-          label={t("summary.total")}
-          tone="neutral"
-          value={runs.length}
-        />
-        <ExecutionMetric
-          label={t("summary.active")}
-          tone="info"
-          value={activeRuns.length}
-        />
-        <ExecutionMetric
-          label={t("summary.succeeded")}
-          tone="success"
-          value={succeededRuns.length}
-        />
-        <ExecutionMetric
-          label={t("summary.followUp")}
-          tone="danger"
-          value={followUpRuns.length}
-        />
+        {view === "failures" ? (
+          <>
+            <ExecutionMetric
+              label={t("summary.total")}
+              tone="danger"
+              value={followUpRuns.length}
+            />
+            <ExecutionMetric
+              label={t("summary.failed")}
+              tone="danger"
+              value={businessFailedRuns.length}
+            />
+            <ExecutionMetric
+              label={t("summary.blocked")}
+              tone="warning"
+              value={blockedRuns.length}
+            />
+            <ExecutionMetric
+              label={t("summary.explained")}
+              tone="success"
+              value={explainedRuns.length}
+            />
+          </>
+        ) : (
+          <>
+            <ExecutionMetric
+              label={t("summary.total")}
+              tone="neutral"
+              value={runs.length}
+            />
+            <ExecutionMetric
+              label={t("summary.active")}
+              tone="info"
+              value={activeRuns.length}
+            />
+            <ExecutionMetric
+              label={t("summary.succeeded")}
+              tone="success"
+              value={succeededRuns.length}
+            />
+            <ExecutionMetric
+              label={t("summary.followUp")}
+              tone="danger"
+              value={followUpRuns.length}
+            />
+          </>
+        )}
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -237,7 +289,7 @@ function LoadedExecutionRunList({
             </p>
           </div>
           <div className="flex flex-wrap gap-2" role="group">
-            {executionRunFilters.map((filter) => (
+            {filters.map((filter) => (
               <button
                 className={[
                   "rounded-md border px-3 py-2 text-sm font-semibold",
@@ -262,7 +314,12 @@ function LoadedExecutionRunList({
         ) : (
           <ul className="mt-5 divide-y divide-slate-100">
             {filteredRuns.map((run) => (
-              <ExecutionRunRow key={run.runId} run={run} />
+              <ExecutionRunRow
+                key={run.runId}
+                namespace={namespace}
+                run={run}
+                view={view}
+              />
             ))}
           </ul>
         )}
@@ -296,10 +353,22 @@ function ExecutionMetric({
   );
 }
 
-function ExecutionRunRow({ run }: { run: ExecutionRun }) {
-  const { i18n, t } = useTranslation("executions");
+function ExecutionRunRow({
+  namespace,
+  run,
+  view,
+}: {
+  namespace: "executions" | "failures";
+  run: ExecutionRun;
+  view: ExecutionRunListView;
+}) {
+  const { i18n, t } = useTranslation(namespace);
   const display = getRunStatusDisplay(run.status);
   const Icon = display.icon;
+  const runDetailPath =
+    view === "failures"
+      ? `/execution-runs/${run.runId}?from=failures`
+      : `/execution-runs/${run.runId}`;
 
   return (
     <li className="grid gap-4 py-4 first:pt-0 last:pb-0 xl:grid-cols-[minmax(0,1fr)_auto]">
@@ -313,7 +382,7 @@ function ExecutionRunRow({ run }: { run: ExecutionRun }) {
           </span>
           <Link
             className="font-semibold text-bp-graphite hover:text-bp-control"
-            to={`/execution-runs/${run.runId}`}
+            to={runDetailPath}
           >
             {run.batchId || t("values.unknownBatch")}
           </Link>
@@ -321,6 +390,13 @@ function ExecutionRunRow({ run }: { run: ExecutionRun }) {
         <p className="text-sm font-semibold text-bp-muted">
           {getRunOutcomeText(run, t)}
         </p>
+        {view === "failures" && run.status === "FAILED" ? (
+          <p className="w-fit rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-800">
+            {(run.failureFollowUps ?? []).length > 0
+              ? t("values.explanationRecorded")
+              : t("values.explanationNeeded")}
+          </p>
+        ) : null}
         <dl className="grid gap-3 text-xs md:grid-cols-2">
           <ExecutionRunFact label={t("fields.runId")} value={run.runId} />
           <ExecutionRunFact
@@ -354,7 +430,7 @@ function ExecutionRunRow({ run }: { run: ExecutionRun }) {
         ) : null}
         <Link
           className="inline-flex items-center whitespace-nowrap rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white"
-          to={`/execution-runs/${run.runId}`}
+          to={runDetailPath}
         >
           {t("actions.openRun")}
         </Link>
@@ -401,6 +477,10 @@ function matchesFilter(run: ExecutionRun, filter: ExecutionRunFilter): boolean {
   }
 
   return run.status === "SUCCEEDED";
+}
+
+function isFollowUpRun(run: ExecutionRun): boolean {
+  return run.status === "FAILED" || run.status === "BLOCKED";
 }
 
 function isActiveRun(run: ExecutionRun): boolean {
@@ -494,14 +574,22 @@ function getRunStatusDisplay(status: ExecutionRun["status"]): {
 
 function readExecutionRunFilter(
   searchParams: URLSearchParams,
+  view: ExecutionRunListView,
 ): ExecutionRunFilter {
   const type = searchParams.get("type");
-
-  return type === "active" ||
+  const validFilter =
+    type === "active" ||
     type === "blocked" ||
     type === "canceled" ||
     type === "failed" ||
     type === "succeeded"
-    ? type
-    : "all";
+      ? type
+      : "all";
+
+  return view === "failures" &&
+    validFilter !== "all" &&
+    validFilter !== "failed" &&
+    validFilter !== "blocked"
+    ? "all"
+    : validFilter;
 }

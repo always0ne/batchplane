@@ -254,6 +254,18 @@ describe("domain model contracts", () => {
         listBatchDefinitions: async () => [batchDefinition],
       },
       executions: {
+        createFailureFollowUp: async () => ({
+          actionTaken: "Restarted after upstream correction.",
+          author: "operator",
+          batchId: "payment.daily-close",
+          createdAt: "2026-05-14T01:30:00.000Z",
+          explanation: "Upstream ledger file arrived late.",
+          followUpId: "ffu-1",
+          owner: "ops-team",
+          requestId: "btr-1",
+          runId: "200",
+          status: "RESOLVED",
+        }),
         createExecutionRequest: async () => ({
           author: "requester",
           body: "body",

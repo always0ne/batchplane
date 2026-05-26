@@ -4,6 +4,7 @@ import type {
   ExecutionRun,
   ExecutionRunJob,
   ExecutionRunStatus,
+  FailureFollowUp,
   GateDecision,
   RepositoryFile,
   RepositoryIssue,
@@ -32,6 +33,10 @@ import {
   batchDefinitionDirectory,
   isBatchDefinitionFile,
 } from "../features/batches/batch-repository";
+import {
+  buildFailureFollowUpComment,
+  parseFailureFollowUps,
+} from "../features/execution-requests/failure-follow-up-model";
 
 export type GitHubLiteRuntimeOptions = {
   client?: GitHubLiteClient;
@@ -176,6 +181,67 @@ export function createGitHubLiteRuntime(
     },
 
     executions: {
+      async createFailureFollowUp({
+        actionTaken,
+        explanation,
+        owner,
+        runId,
+        status,
+      }) {
+        const run = await loadWorkflowRunForFailureFollowUp({
+          client,
+          repositoryRef,
+          runId,
+        });
+        const requests = await loadExecutionApprovalRequests(
+          client,
+          repositoryRef,
+        );
+        const request = findExecutionRequestForRun(run, requests);
+
+        if (!request) {
+          throw new Error(
+            "Execution request evidence was not found for this run.",
+          );
+        }
+
+        const user = await client.getCurrentUser();
+        const followUp: FailureFollowUp = {
+          actionTaken,
+          author: user.login,
+          batchId:
+            run.batchId ?? request.batchId ?? parseBatchIdFromRun(run) ?? "",
+          createdAt: new Date().toISOString(),
+          explanation,
+          followUpId: createFailureFollowUpId(run.id),
+          owner,
+          requestId:
+            run.requestId ??
+            request.requestId ??
+            parseRequestIdFromRun(run) ??
+            "",
+          runId: String(run.id),
+          status,
+        };
+        const comment = await client.createIssueComment({
+          ...repositoryRef,
+          body: buildFailureFollowUpComment(followUp),
+          issueNumber: request.issue.number,
+        });
+
+        return (
+          parseFailureFollowUps([
+            {
+              author: user.login,
+              body: comment.body,
+              createdAt: followUp.createdAt,
+              id: comment.id,
+              issueNumber: request.issue.number,
+            },
+          ])[0] ?? followUp
+        );
+      },
+
       async createExecutionRequest({ body, labels, title }) {
         const issue = await client.createIssue({
           ...repositoryRef,
@@ -466,6 +532,11 @@ function toExecutionRun(
     ...(run.updatedAt ? { completedAt: run.updatedAt } : {}),
     event: run.event,
     ...(gateDecision ? { gateDecision } : {}),
+    failureFollowUps: request
+      ? parseFailureFollowUps(request.comments).filter(
+          (followUp) => followUp.runId === String(run.id),
+        )
+      : [],
     jobs: mappedJobs,
     requestId:
       run.requestId ?? request?.requestId ?? parseRequestIdFromRun(run) ?? "",
@@ -477,7 +548,49 @@ function toExecutionRun(
     workflowPath: workflow?.path ?? run.workflowPath,
     workflowRunId: String(run.id),
     workflowRunUrl: run.url,
+    ...(request
+      ? {
+          requestIssueNumber: request.issue.number,
+          requestIssueUrl: request.issue.url,
+        }
+      : {}),
   };
+}
+
+async function loadWorkflowRunForFailureFollowUp({
+  client,
+  repositoryRef,
+  runId,
+}: {
+  client: GitHubLiteClient;
+  repositoryRef: RuntimeRepositoryRef;
+  runId: string;
+}): Promise<GitHubWorkflowRun> {
+  const numericRunId = Number(runId);
+
+  if (!Number.isInteger(numericRunId) || numericRunId <= 0) {
+    throw new Error("Execution run ID must be a positive number.");
+  }
+
+  const run = await client.getWorkflowRun({
+    ...repositoryRef,
+    runId: numericRunId,
+  });
+
+  if (!run) {
+    throw new Error("Execution run was not found.");
+  }
+
+  return run;
+}
+
+function createFailureFollowUpId(runId: number): string {
+  const suffix =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(16).slice(2, 10).padEnd(8, "0");
+
+  return `ffu-${runId}-${suffix}`;
 }
 
 function toExecutionRunJob(job: GitHubWorkflowJob): ExecutionRunJob {

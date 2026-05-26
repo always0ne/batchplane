@@ -1,4 +1,58 @@
 {
   "title": "Failures",
-  "subtitle": "Separate business failures from governance blocks."
+  "subtitle": "Separate business failures from governance blocks.",
+  "actions": {
+    "githubRun": "GitHub run",
+    "openRun": "Open run",
+    "openSetup": "Open setup",
+    "refresh": "Refresh"
+  },
+  "fields": {
+    "completedAt": "Completed",
+    "requestId": "Request ID",
+    "runId": "Run ID",
+    "workflow": "Workflow"
+  },
+  "filters": {
+    "all": "All follow-up",
+    "blocked": "Gate blocked",
+    "failed": "Business failed"
+  },
+  "list": {
+    "empty": "No failed or Gate-blocked workflow runs match this filter.",
+    "subtitle": "{{count}} run is in the follow-up scope.",
+    "subtitle_plural": "{{count}} runs are in the follow-up scope.",
+    "title": "Failure follow-up"
+  },
+  "states": {
+    "error": "Failed to load failure evidence.",
+    "loading": "Loading failure evidence...",
+    "noSession": "Connect a GitHub repository before reviewing failures."
+  },
+  "status": {
+    "BLOCKED": "Gate blocked",
+    "CANCELED": "Canceled",
+    "FAILED": "Business failed",
+    "QUEUED": "Queued",
+    "RUNNING": "Running",
+    "SUCCEEDED": "Succeeded"
+  },
+  "summary": {
+    "blocked": "Gate blocks",
+    "explained": "Submitted",
+    "failed": "Business failures",
+    "total": "Follow-up runs"
+  },
+  "values": {
+    "active": "The workflow run is still in progress.",
+    "businessFailure": "Gate allowed execution and the downstream batch command failed.",
+    "canceled": "The workflow run was canceled or skipped.",
+    "explanationNeeded": "Explanation needed",
+    "explanationRecorded": "Explanation submitted",
+    "gateBlocked": "Gate blocked before the batch command.",
+    "inProgress": "In progress",
+    "succeeded": "The workflow run completed successfully.",
+    "unknown": "Unknown",
+    "unknownBatch": "Unknown batch"
+  }
 }
