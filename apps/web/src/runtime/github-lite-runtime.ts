@@ -10,6 +10,13 @@ import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
+  WorkspacePolicy,
+} from "@batchplane/domain";
+import {
+  defaultWorkspacePolicy,
+  formatYamlDiagnostics,
+  parseYamlDocument,
+  validateWorkspacePolicyFile,
 } from "@batchplane/domain";
 import {
   createGitHubLiteClient,
@@ -28,6 +35,8 @@ import type { GitHubSession } from "../features/lite-setup/github-session";
 import {
   checkLiteInstallationStatus,
   createLiteInstallationPullRequest,
+  createWorkspacePolicyPullRequest as createWorkspacePolicyChangePullRequest,
+  liteWorkspacePolicyPath,
 } from "../features/lite-setup/installation-model";
 import {
   batchDefinitionDirectory,
@@ -422,6 +431,17 @@ export function createGitHubLiteRuntime(
         };
       },
 
+      async createWorkspacePolicyPullRequest({ defaultBranch, policy }) {
+        const pullRequest = await createWorkspacePolicyChangePullRequest({
+          client,
+          defaultBranch,
+          policy,
+          repo: repositoryRef,
+        });
+
+        return toRepositoryPullRequest(pullRequest);
+      },
+
       async getCurrentUser() {
         return client.getCurrentUser();
       },
@@ -429,8 +449,43 @@ export function createGitHubLiteRuntime(
       async getRepository() {
         return client.getRepository(repositoryRef);
       },
+
+      async getWorkspacePolicy({ ref } = {}) {
+        const repository = await client.getRepository(repositoryRef);
+        const file = await client.getFile({
+          ...repositoryRef,
+          path: liteWorkspacePolicyPath,
+          ref: ref || repository.defaultBranch,
+        });
+
+        if (!file) {
+          return defaultWorkspacePolicy;
+        }
+
+        return parseWorkspacePolicyFile(file.content);
+      },
     },
   };
+}
+
+function parseWorkspacePolicyFile(content: string): WorkspacePolicy {
+  const parsed = parseYamlDocument(content);
+
+  if (!parsed.ok) {
+    throw new Error(formatYamlDiagnostics(parsed.diagnostics));
+  }
+
+  const validated = validateWorkspacePolicyFile(parsed.value);
+
+  if (!validated.ok) {
+    throw new Error(
+      validated.diagnostics
+        .map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`)
+        .join("; "),
+    );
+  }
+
+  return validated.value.spec;
 }
 
 function toRepositoryIssue(issue: GitHubIssue): RepositoryIssue {

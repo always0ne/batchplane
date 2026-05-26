@@ -1,6 +1,6 @@
 {
-  "title": "설정",
-  "subtitle": "언어와 session-only GitHub token 설정을 관리합니다.",
+  "title": "Workspace",
+  "subtitle": "GitHub 기반 Workspace를 연결하고 repository-backed 정책 변경을 관리합니다.",
   "language": "언어",
   "tokenPolicy": "GitHub token은 sessionStorage에만 보관합니다.",
   "github": {
@@ -35,6 +35,25 @@
     "creating": "설치 Pull Request를 생성하는 중...",
     "createPullRequest": "설치 PR 생성",
     "success": "설치 Pull Request가 생성되었습니다."
+  },
+  "workspacePolicy": {
+    "title": "Workspace 정책",
+    "subtitle": ".batch-governance/workspace.yml 변경 PR로 승인 정책을 변경합니다.",
+    "modeLabel": "승인 모드",
+    "currentMode": "현재 모드",
+    "requestedMode": "요청 모드",
+    "idle": "GitHub 연결을 확인하면 Workspace 정책을 점검합니다.",
+    "checking": "Workspace 정책을 확인하는 중...",
+    "creating": "Workspace 정책 Pull Request를 생성하는 중...",
+    "createPullRequest": "정책 PR 생성",
+    "success": "Workspace 정책 Pull Request가 생성되었습니다.",
+    "selfApprovalNotice": "정책 PR이 머지되면 요청자 자가승인이 허용됩니다. 승인은 명시적인 증적으로 계속 기록됩니다.",
+    "autoApproveReserved": "자동승인은 별도 구현 전까지 활성화할 수 없습니다.",
+    "modes": {
+      "SELF_APPROVAL_BLOCKED": "자가승인 금지",
+      "SELF_APPROVAL_ALLOWED": "자가승인 허용",
+      "AUTO_APPROVE": "자동승인"
+    }
   },
   "errors": {
     "unknown": "알 수 없는 오류",

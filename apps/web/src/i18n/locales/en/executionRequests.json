@@ -99,6 +99,7 @@
       "REQUESTED": "A maintainer approval comment is still required."
     },
     "values": {
+      "selfApprovalAllowed": "Self-approval is enabled by Workspace policy ({{mode}}). This approval will still be recorded as self-approval evidence.",
       "selfApprovalBlocked": "Requester and approver must be different users."
     }
   },

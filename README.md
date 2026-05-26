@@ -105,6 +105,10 @@ BatchPlane dispatcher workflow installed for that approval comment to perform
 The dispatcher action checks that the execution request Issue and approval
 comment reference the same request ID, batch ID, digest, approval decision,
 expiration window, and workflow target before it performs `workflow_dispatch`.
+By default, requester self-approval is blocked. A target repository may allow
+single-user testing by setting `.batch-governance/workspace.yml` to
+`SELF_APPROVAL_ALLOWED`; the approval comment and Gate verification still make
+that self-approval explicit.
 
 See also:
 

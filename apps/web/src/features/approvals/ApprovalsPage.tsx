@@ -1,4 +1,7 @@
-import type { RepositoryPullRequest } from "@batchplane/domain";
+import type {
+  RepositoryPullRequest,
+  WorkspacePolicy,
+} from "@batchplane/domain";
 import { FileText, GitPullRequest, Loader2, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -20,6 +23,7 @@ import type { GitHubSession } from "../lite-setup/github-session";
 import {
   buildExecutionApprovalComment,
   buildExecutionRejectionComment,
+  allowsSelfApproval,
   type ExecutionApprovalRequest,
   isRegistrationApprovalRequest,
   parseExecutionApprovalRequest,
@@ -43,6 +47,7 @@ type ApprovalPageState =
       registrationRequests: RepositoryPullRequest[];
       repository: string;
       session: GitHubSession;
+      workspacePolicy: WorkspacePolicy;
     }
   | { type: "error"; message: string };
 
@@ -81,6 +86,9 @@ export function ApprovalsPage() {
           runtime.settings.getCurrentUser(),
           runtime.settings.getRepository(),
         ]);
+        const workspacePolicy = await runtime.settings.getWorkspacePolicy({
+          ref: repository.defaultBranch,
+        });
         const handoff = approvalHandoffRef.current;
         const immediateExecutionRequests = mergeExecutionApprovalRequests(
           [],
@@ -104,6 +112,7 @@ export function ApprovalsPage() {
             registrationRequests: immediateRegistrationRequests,
             repository: `${repository.owner}/${repository.repo}`,
             session,
+            workspacePolicy,
           });
         }
 
@@ -149,6 +158,7 @@ export function ApprovalsPage() {
             ),
             repository: `${repository.owner}/${repository.repo}`,
             session,
+            workspacePolicy,
           });
         }
       } catch (error) {
@@ -182,6 +192,7 @@ export function ApprovalsPage() {
       await runtime.approvals.approveExecution({
         body: buildExecutionApprovalComment({
           approvedAt: new Date(),
+          approvalMode: state.workspacePolicy.approval.mode,
           approver: state.login,
           request,
         }),
@@ -418,9 +429,20 @@ function ApprovalContent({
               actionState.type === "running" &&
               actionState.targetKey === executionRequestKey(request);
             const disabled = actionState.type === "running";
+            const selfApprovalAllowed = allowsSelfApproval(
+              state.workspacePolicy,
+            );
+            const selfApproval =
+              request.requestedBy === state.login && request.requestedBy !== "";
             const selfApprovalBlocked =
-              request.requestedBy === state.login
+              selfApproval && !selfApprovalAllowed
                 ? t("values.selfApprovalBlocked")
+                : "";
+            const selfApprovalNotice =
+              selfApproval && selfApprovalAllowed
+                ? t("values.selfApprovalAllowed", {
+                    mode: state.workspacePolicy.approval.mode,
+                  })
                 : "";
             const gateBlocked =
               request.execution?.gateRequired === false
@@ -471,6 +493,11 @@ function ApprovalContent({
                       />
                     </dl>
                     <ExecutionApprovalContext request={request} />
+                    {selfApprovalNotice ? (
+                      <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                        {selfApprovalNotice}
+                      </p>
+                    ) : null}
                   </div>
                   <a
                     className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"

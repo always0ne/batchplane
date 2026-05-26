@@ -1,6 +1,6 @@
 {
-  "title": "Settings",
-  "subtitle": "Manage locale and session-only GitHub token settings.",
+  "title": "Workspace",
+  "subtitle": "Connect a GitHub-backed Workspace and manage repository-backed policy changes.",
   "language": "Language",
   "tokenPolicy": "GitHub tokens are kept in sessionStorage only.",
   "github": {
@@ -35,6 +35,25 @@
     "creating": "Creating installation pull request...",
     "createPullRequest": "Create installation PR",
     "success": "Installation pull request created."
+  },
+  "workspacePolicy": {
+    "title": "Workspace policy",
+    "subtitle": "Change approval behavior through a pull request to .batch-governance/workspace.yml.",
+    "modeLabel": "Approval mode",
+    "currentMode": "Current mode",
+    "requestedMode": "Requested mode",
+    "idle": "Check the GitHub connection to inspect Workspace policy.",
+    "checking": "Checking Workspace policy...",
+    "creating": "Creating Workspace policy pull request...",
+    "createPullRequest": "Create policy PR",
+    "success": "Workspace policy pull request created.",
+    "selfApprovalNotice": "Requester self-approval will be allowed after this policy PR is merged. The approval remains explicit evidence.",
+    "autoApproveReserved": "Auto-approve is reserved for a separate implementation and cannot be enabled yet.",
+    "modes": {
+      "SELF_APPROVAL_BLOCKED": "Self-approval blocked",
+      "SELF_APPROVAL_ALLOWED": "Self-approval allowed",
+      "AUTO_APPROVE": "Auto-approve"
+    }
   },
   "errors": {
     "unknown": "Unknown error",

@@ -55,4 +55,35 @@ describe("LiteSetupPage", () => {
     expect(sessionStorage.getItem(githubSessionStorageKey)).toBeNull();
     expect(screen.getByLabelText("GitHub token")).toHaveValue("");
   });
+
+  it("creates a Workspace policy PR for self-approval mode", async () => {
+    sessionStorage.setItem("batchplane.dev.runtimeFixture", "happy-path");
+
+    render(<LiteSetupPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Check connection" }));
+
+    expect(
+      await screen.findByText("Self-approval blocked"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Approval mode"), {
+      target: { value: "SELF_APPROVAL_ALLOWED" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create policy PR" }));
+
+    expect(
+      await screen.findByText("Workspace policy pull request created."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: /^#\d+ Update BatchPlane Workspace policy$/,
+      }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringMatching(
+        /^https:\/\/github\.com\/always0ne\/batch\/pull\/\d+$/,
+      ),
+    );
+  });
 });

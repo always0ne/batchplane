@@ -49,6 +49,7 @@
     "gateApprovalBlocked": "Gate 미준수 요청은 승인할 수 없습니다.",
     "gateNonCompliant": "미준수",
     "gateRequired": "배치 명령 전 필수",
+    "selfApprovalAllowed": "Workspace 정책({{mode}})에 따라 자가승인이 허용됩니다. 이 승인도 자가승인 증적으로 기록됩니다.",
     "selfApprovalBlocked": "요청자와 승인자는 서로 다른 사용자여야 합니다.",
     "unknown": "알 수 없음"
   },

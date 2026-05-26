@@ -8,6 +8,7 @@ Governance records live in the target GitHub repository:
 
 ```text
 .batch-governance/
+  workspace.yml
   batches/
     {batchId}.yml
     {batchId}/
@@ -36,6 +37,7 @@ The setup flow checks these required files on the default branch:
 ```text
 .github/workflows/batchplane-dispatcher.yml
 .batch-governance/README.md
+.batch-governance/workspace.yml
 .batch-governance/batches/.gitkeep
 .batch-governance/schedules/.gitkeep
 ```
@@ -61,6 +63,45 @@ Install BatchPlane Lite
 The browser UI must not directly write installation files to the default branch.
 It must create a pull request so the repository's native review and merge rules
 remain the source of trust for bootstrap.
+
+## Workspace Policy
+
+Workspace approval behavior is controlled by repository evidence at:
+
+```text
+.batch-governance/workspace.yml
+```
+
+Default file:
+
+```yaml
+apiVersion: "batchplane.io/v1"
+kind: "WorkspacePolicy"
+metadata:
+  id: "default"
+spec:
+  approval:
+    mode: "SELF_APPROVAL_BLOCKED"
+```
+
+Supported `spec.approval.mode` values are:
+
+- `SELF_APPROVAL_BLOCKED`: default. Requester and approver must be different users.
+- `SELF_APPROVAL_ALLOWED`: requester may approve their own execution request.
+  The approval remains explicit audit evidence and Gate still verifies
+  authorization.
+- `AUTO_APPROVE`: reserved for a separate auto-approval implementation.
+
+If `.batch-governance/workspace.yml` is missing, UI and Gate must treat the
+mode as `SELF_APPROVAL_BLOCKED`. UI-only local settings must not weaken approval policy,
+because Gate must be able to enforce the same decision independently in GitHub
+Actions.
+
+The Workspace screen may expose approval mode as a selectable setting, but save
+must create a pull request that updates `.batch-governance/workspace.yml`.
+Merging that pull request is the policy activation step. `AUTO_APPROVE` must be
+rendered as reserved or disabled until the separate auto-approval flow is
+implemented.
 
 ## Batch Definition
 
@@ -192,8 +233,16 @@ decision=APPROVED
 requestId=...
 batchId=...
 requestDigest=...
+approvalMode=SELF_APPROVAL_ALLOWED
+selfApproval=true
 -->
 ```
+
+`approvalMode` is emitted when the UI knows the effective Workspace policy.
+`selfApproval=true` is emitted only when requester and approver are the same
+user. Gate does not rely only on this marker; it reads
+`.batch-governance/workspace.yml` and allows self-approval only when the
+effective policy mode is `SELF_APPROVAL_ALLOWED`.
 
 The dispatcher must verify:
 

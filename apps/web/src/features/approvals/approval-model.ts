@@ -3,6 +3,8 @@ import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
   RunnerLabel,
+  WorkspaceApprovalMode,
+  WorkspacePolicy,
 } from "@batchplane/domain";
 
 export type ExecutionRequestDisplayStatus =
@@ -196,13 +198,17 @@ export function parseExecutionRequestDetail(
 
 export function buildExecutionApprovalComment({
   approvedAt,
+  approvalMode,
   approver,
   request,
 }: {
   approvedAt: Date;
+  approvalMode?: WorkspaceApprovalMode;
   approver: string;
   request: ExecutionApprovalRequest;
 }): string {
+  const selfApproval = approver === request.requestedBy;
+
   return [
     `/bgcp approve requestDigest=${request.requestDigest}`,
     "",
@@ -211,6 +217,8 @@ export function buildExecutionApprovalComment({
     "- Decision: APPROVED",
     `- Approver: @${approver}`,
     `- Approved at: ${approvedAt.toISOString()}`,
+    ...(approvalMode ? [`- Approval mode: ${approvalMode}`] : []),
+    ...(selfApproval ? ["- Self approval: ALLOWED_BY_WORKSPACE_POLICY"] : []),
     `- Request ID: \`${request.requestId}\``,
     `- Batch ID: \`${request.batchId}\``,
     `- Request digest: \`${request.requestDigest}\``,
@@ -222,8 +230,14 @@ export function buildExecutionApprovalComment({
     `requestId=${request.requestId}`,
     `batchId=${request.batchId}`,
     `requestDigest=${request.requestDigest}`,
+    ...(approvalMode ? [`approvalMode=${approvalMode}`] : []),
+    ...(selfApproval ? ["selfApproval=true"] : []),
     "-->",
   ].join("\n");
+}
+
+export function allowsSelfApproval(policy: WorkspacePolicy): boolean {
+  return policy.approval.mode === "SELF_APPROVAL_ALLOWED";
 }
 
 export function buildExecutionRejectionComment({

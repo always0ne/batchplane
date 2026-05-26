@@ -84,6 +84,44 @@ describe("ExecutionRequestDetailPage", () => {
     });
   });
 
+  it("allows self approval when Workspace policy explicitly allows it", async () => {
+    const state = createRuntimeFixtureMockState("approval-pending");
+    state.currentUser = { login: "developer" };
+    state.files.push({
+      branch: "main",
+      content: buildWorkspacePolicyYaml("SELF_APPROVAL_ALLOWED"),
+      path: ".batch-governance/workspace.yml",
+      sha: "workspace-policy-sha",
+    });
+    const client = createMockGitHubLiteClient(state);
+
+    renderDetail({
+      createRuntime: () => createGitHubLiteRuntime(session, { client }),
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByText(
+        "Self-approval is enabled by Workspace policy (SELF_APPROVAL_ALLOWED). This approval will still be recorded as self-approval evidence.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Approve execution" }),
+    ).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Approve execution" }));
+
+    await waitFor(() => {
+      expect(
+        client.state.issueComments.some(
+          (comment) =>
+            comment.body.includes("selfApproval=true") &&
+            comment.body.includes("Self approval: ALLOWED_BY_WORKSPACE_POLICY"),
+        ),
+      ).toBe(true);
+    });
+  });
+
   it("shows dispatcher status from Issue comments and labels", async () => {
     const state = createRuntimeFixtureMockState("happy-path");
     const client = createMockGitHubLiteClient(state);
@@ -154,4 +192,19 @@ function renderDetail({
       </Routes>
     </MemoryRouter>,
   );
+}
+
+function buildWorkspacePolicyYaml(
+  mode: "SELF_APPROVAL_BLOCKED" | "SELF_APPROVAL_ALLOWED",
+) {
+  return [
+    'apiVersion: "batchplane.io/v1"',
+    'kind: "WorkspacePolicy"',
+    "metadata:",
+    '  id: "default"',
+    "spec:",
+    "  approval:",
+    `    mode: "${mode}"`,
+    "",
+  ].join("\n");
 }

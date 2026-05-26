@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   formatYamlDiagnostics,
+  normalizeWorkspacePolicy,
   normalizeApprovalPolicy,
   parseYamlDocument,
   serializeYamlDocument,
@@ -11,6 +12,8 @@ import {
   validateBatchDefinitionFile,
   validateRoleMapping,
   validateRoleMappingFile,
+  validateWorkspacePolicy,
+  validateWorkspacePolicyFile,
 } from "./index";
 import type {
   ApprovalDecision,
@@ -29,6 +32,8 @@ import type {
   RoleMapping,
   RoleMappingFile,
   ScheduleOccurrenceRef,
+  WorkspacePolicy,
+  WorkspacePolicyFile,
 } from "./index";
 
 const batchDefinition: BatchDefinition = {
@@ -52,8 +57,8 @@ const approvalPolicy: ApprovalPolicy = {
     githubTeams: ["platform-ops"],
     repositoryRoles: ["maintain"],
   },
-  name: "Production four-eyes",
-  policyId: "prod-four-eyes",
+  name: "Production self-approval blocked",
+  policyId: "prod-self-approval-blocked",
   preventSelfApproval: true,
   requiredApprovals: 1,
 };
@@ -72,6 +77,12 @@ const roleMapping: RoleMapping = {
     requester: {
       repositoryRoles: ["write"],
     },
+  },
+};
+
+const workspacePolicy: WorkspacePolicy = {
+  approval: {
+    mode: "SELF_APPROVAL_BLOCKED",
   },
 };
 
@@ -173,6 +184,14 @@ describe("domain model contracts", () => {
       },
       spec: approvalPolicy,
     };
+    const workspacePolicyFile: WorkspacePolicyFile = {
+      apiVersion: "batchplane.io/v1",
+      kind: "WorkspacePolicy",
+      metadata: {
+        id: "default",
+      },
+      spec: workspacePolicy,
+    };
     const requestPayload: ExecutionRequestPayload = {
       apiVersion: "batchplane.io/v1",
       kind: "ExecutionRequest",
@@ -205,6 +224,7 @@ describe("domain model contracts", () => {
       batchFile,
       approvalPolicyFile,
       roleMappingFile,
+      workspacePolicyFile,
       requestPayload,
     ];
 
@@ -213,6 +233,7 @@ describe("domain model contracts", () => {
       "BatchDefinition",
       "ApprovalPolicy",
       "RoleMapping",
+      "WorkspacePolicy",
       "ExecutionRequest",
     ]);
   });
@@ -322,6 +343,17 @@ describe("domain model contracts", () => {
             requiredPaths: [".github/workflows/batchplane-dispatcher.yml"],
           },
         }),
+        createWorkspacePolicyPullRequest: async () => ({
+          author: "requester",
+          base: "main",
+          body: "body",
+          head: "batchplane/workspace/policy-20260514000000",
+          merged: false,
+          number: 4,
+          state: "open",
+          title: "Update BatchPlane Workspace policy",
+          url: "https://github.com/always0ne/batch/pull/4",
+        }),
         getCurrentUser: async () => ({ login: "always0ne" }),
         getRepository: async () => ({
           defaultBranch: "main",
@@ -330,6 +362,7 @@ describe("domain model contracts", () => {
           repo: "batch",
           url: "https://github.com/always0ne/batch",
         }),
+        getWorkspacePolicy: async () => workspacePolicy,
       },
     };
 
@@ -468,6 +501,48 @@ describe("domain schema validation", () => {
         name: approvalPolicy.name,
       },
       spec: approvalPolicy,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("defaults and validates Workspace approval modes", () => {
+    expect(normalizeWorkspacePolicy(null)).toEqual({
+      approval: {
+        mode: "SELF_APPROVAL_BLOCKED",
+      },
+    });
+    expect(
+      validateWorkspacePolicy({
+        approval: {
+          mode: "SELF_APPROVAL_ALLOWED",
+        },
+      }),
+    ).toEqual([]);
+    expect(
+      validateWorkspacePolicy({
+        approval: {
+          mode: "INVALID",
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "invalid_value",
+          field: "approval.mode",
+        }),
+      ]),
+    );
+  });
+
+  it("validates Workspace policy repository files", () => {
+    const result = validateWorkspacePolicyFile({
+      apiVersion: "batchplane.io/v1",
+      kind: "WorkspacePolicy",
+      metadata: {
+        id: "default",
+      },
+      spec: workspacePolicy,
     });
 
     expect(result.ok).toBe(true);
