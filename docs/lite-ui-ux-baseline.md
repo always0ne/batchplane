@@ -35,6 +35,12 @@ Lite must read as one connected operational flow:
   state, execution target, request actions, and recent evidence.
 - Failure, run detail, my work, and audit screens are post-approval follow-up
   surfaces. They must not be collapsed into the approvals inbox.
+- Execution run list is the primary run-history surface. It must show normal,
+  active, business failed, and Gate-blocked workflow runs before failure-only
+  shortcuts are added.
+- Failure list or failure shortcuts show only follow-up execution evidence.
+  They must distinguish Gate blocks from business failures and route rows to
+  execution run detail.
 - Execution run detail must separate control evidence from business execution:
   Gate-blocked runs explain that the batch command did not run, while business
   failures explain that Gate allowed the run and the downstream command failed.

@@ -2,6 +2,7 @@ import type {
   AuditTimelineItem,
   BatchDefinition,
   BatchPlaneRuntimePorts,
+  ExecutionRun,
   Repository,
   RepositoryIssue,
   RepositoryIssueComment,
@@ -50,8 +51,8 @@ type DashboardSummary = {
   batches: BatchDefinition[];
   defaultBranch: string;
   executionIssues: RepositoryIssue[];
-  failedIssues: RepositoryIssue[];
-  gateBlockedIssues: RepositoryIssue[];
+  failedRuns: ExecutionRun[];
+  gateBlockedRuns: ExecutionRun[];
   installationStatus: RuntimeInstallationStatus;
   pendingExecutionIssues: RepositoryIssue[];
   pendingRegistrationRequests: RepositoryPullRequest[];
@@ -103,6 +104,7 @@ export function DashboardPage({
           batches,
           registrationRequests,
           executionIssues,
+          executionRuns,
           auditItems,
         ] = await Promise.all([
           runtime.settings.checkInstallationStatus({
@@ -115,6 +117,7 @@ export function DashboardPage({
             baseBranch: repository.defaultBranch,
           }),
           runtime.approvals.listExecutionRequestIssues(),
+          runtime.executions.listExecutionRuns({ limit: 100 }),
           runtime.audit.listAuditTimeline({ limit: 5 }),
         ]);
 
@@ -147,11 +150,9 @@ export function DashboardPage({
             batches,
             defaultBranch: repository.defaultBranch,
             executionIssues,
-            failedIssues: executionIssues.filter((issue) =>
-              hasBatchPlaneLabel(issue.labels, "dispatch-failed"),
-            ),
-            gateBlockedIssues: executionIssues.filter((issue) =>
-              hasBatchPlaneLabel(issue.labels, "gate-blocked"),
+            failedRuns: executionRuns.filter((run) => run.status === "FAILED"),
+            gateBlockedRuns: executionRuns.filter(
+              (run) => run.status === "BLOCKED",
             ),
             installationStatus,
             pendingExecutionIssues,
@@ -462,14 +463,16 @@ function createDashboardCards(
     {
       icon: AlertTriangle,
       key: "failedRuns",
-      tone: summary.failedIssues.length > 0 ? "danger" : "neutral",
-      value: summary.failedIssues.length,
+      to: "/runs?type=failed",
+      tone: summary.failedRuns.length > 0 ? "danger" : "neutral",
+      value: summary.failedRuns.length,
     },
     {
       icon: ShieldAlert,
       key: "gateBlocked",
-      tone: summary.gateBlockedIssues.length > 0 ? "danger" : "neutral",
-      value: summary.gateBlockedIssues.length,
+      to: "/runs?type=blocked",
+      tone: summary.gateBlockedRuns.length > 0 ? "danger" : "neutral",
+      value: summary.gateBlockedRuns.length,
     },
     {
       icon: History,

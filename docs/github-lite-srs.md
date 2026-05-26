@@ -212,6 +212,18 @@ execution must be visually separated from business command failure: a blocked
 Gate means the batch command did not run, while a failed batch job means Gate
 allowed the run and the downstream command or business job failed.
 
+The execution run list screen is the primary run-history surface. It must show
+recent GitHub Actions workflow_dispatch runs, including queued/running,
+succeeded, business failed, canceled, and Gate-blocked runs. Each row must show
+Batch ID, request ID, workflow path, completion state, GitHub Actions link, and
+an execution run detail link. Filters must let operators inspect all runs,
+active runs, successful runs, business failures, Gate blocks, or canceled runs.
+
+The failure list or failure-focused shortcut must be implemented as a
+follow-up view over execution run history, not as a replacement for the
+execution run list. It must distinguish Gate blocks from business failures and
+route rows to execution run detail.
+
 Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request
 metadata, review state, governance checklist, YAML change summary for governed
