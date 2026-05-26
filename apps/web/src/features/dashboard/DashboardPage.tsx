@@ -463,15 +463,15 @@ function createDashboardCards(
     {
       icon: AlertTriangle,
       key: "failedRuns",
-      to: "/runs?type=failed",
+      to: "/failures?type=failed",
       tone: summary.failedRuns.length > 0 ? "danger" : "neutral",
       value: summary.failedRuns.length,
     },
     {
       icon: ShieldAlert,
       key: "gateBlocked",
-      to: "/runs?type=blocked",
-      tone: summary.gateBlockedRuns.length > 0 ? "danger" : "neutral",
+      to: "/failures?type=blocked",
+      tone: summary.gateBlockedRuns.length > 0 ? "warning" : "neutral",
       value: summary.gateBlockedRuns.length,
     },
     {

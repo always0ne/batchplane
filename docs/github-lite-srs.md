@@ -223,15 +223,16 @@ Batch ID, request ID, workflow path, completion state, GitHub Actions link, and
 an execution run detail link. Filters must let operators inspect all runs,
 active runs, successful runs, business failures, Gate blocks, or canceled runs.
 
-The failure list or failure-focused shortcut must be implemented as a
-follow-up view over execution run history, not as a replacement for the
-execution run list. It must distinguish Gate blocks from business failures and
-route rows to execution run detail. Business failure rows must support audit
-follow-up/explanation separately from approval work. A failure explanation must
-capture explanation text, action taken, owner, follow-up status, author,
-timestamp, and related run/request IDs. In GitHub Lite this explanation must be
-stored as immutable GitHub-backed evidence, such as structured Issue comments
-or repository evidence files.
+The failure list must be implemented as a dedicated follow-up view over
+execution run history, not as approval work. It must distinguish Gate blocks
+from business failures and route rows to execution run detail. Business failure
+rows must support audit follow-up/explanation separately from approval work. A
+failure explanation must capture explanation text, action taken, owner,
+follow-up status, author, timestamp, and related run/request IDs. In GitHub
+Lite this explanation must be stored as immutable GitHub-backed evidence, such
+as structured Issue comments or repository evidence files. Final closure of a
+failure explanation requires a Workspace manager review/approval workflow; that
+review workflow is tracked separately from the initial explanation capture.
 
 Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request

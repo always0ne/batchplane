@@ -340,7 +340,9 @@ Failure follow-up is separate from approval. Business-failed runs must be able
 to collect an explanation record with explanation text, action taken, owner,
 follow-up status, author, timestamp, run ID, and request ID. GitHub Lite must
 persist this as GitHub-backed evidence, such as structured Issue comments or
-repository evidence files, so it remains auditable without a database.
+repository evidence files, so it remains auditable without a database. The
+follow-up record is a submitted explanation, not final closure. Workspace
+manager review decisions are a separate evidence type and workflow.
 
 Parsers must accept both BatchPlane and legacy BatchTrail evidence namespaces:
 `batchplane.io/v1` and `batchtrail.io/v1`, plus `batchplane:*` and

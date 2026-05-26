@@ -149,6 +149,25 @@ export type ExecutionRunJob = {
   url?: string;
 };
 
+export type FailureFollowUpStatus =
+  | "OPEN"
+  | "INVESTIGATING"
+  | "RESOLVED"
+  | "ACCEPTED_RISK";
+
+export type FailureFollowUp = {
+  followUpId: string;
+  runId: string;
+  requestId: string;
+  batchId: string;
+  status: FailureFollowUpStatus;
+  owner: string;
+  explanation: string;
+  actionTaken: string;
+  author: string;
+  createdAt: string;
+};
+
 export type ExecutionRun = {
   runId: string;
   requestId: string;
@@ -165,6 +184,9 @@ export type ExecutionRun = {
   workflowRunUrl?: string;
   gateDecision?: GateDecision;
   jobs?: ExecutionRunJob[];
+  requestIssueNumber?: number;
+  requestIssueUrl?: string;
+  failureFollowUps?: FailureFollowUp[];
 };
 
 export type AuditTimelineItemType =
@@ -303,6 +325,13 @@ export type RegistrationPort = {
 };
 
 export type ExecutionPort = {
+  createFailureFollowUp(params: {
+    actionTaken: string;
+    explanation: string;
+    owner: string;
+    runId: string;
+    status: FailureFollowUpStatus;
+  }): Promise<FailureFollowUp>;
   createExecutionRequest(params: {
     body: string;
     labels: string[];

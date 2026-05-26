@@ -106,6 +106,8 @@
     "title": "실행 Run 상세",
     "subtitle": "{{runId}} workflow run 증적을 확인합니다.",
     "actions": {
+      "backToFailures": "실패내역으로",
+      "backToRuns": "Runs로",
       "openBatch": "배치 열기",
       "openGitHubRun": "GitHub run 열기",
       "refresh": "새로고침"
@@ -115,6 +117,28 @@
       "failed": "Gate 통과 후 배치 명령 또는 업무 job이 실패했습니다.",
       "notReached": "Gate에서 차단되어 배치 명령은 실행되지 않았습니다.",
       "title": "업무 실행"
+    },
+    "followUp": {
+      "actionTaken": "조치 내용",
+      "actionTakenPlaceholder": "정정, 재실행, 에스컬레이션, 위험수용 제안 등 후속 조치를 입력하세요.",
+      "description": "운영자 소명과 후속 조치를 GitHub 기반 불변 증적으로 기록합니다. Workspace 관리자 검토는 별도 이슈에서 처리합니다.",
+      "empty": "아직 실패 소명이 기록되지 않았습니다.",
+      "error": "실패 후속처리를 저장하지 못했습니다.",
+      "explanation": "소명 내용",
+      "explanationPlaceholder": "실패의 업무적 또는 기술적 원인을 설명하세요.",
+      "history": "기록된 소명",
+      "owner": "담당자",
+      "ownerPlaceholder": "ops-team 또는 @username",
+      "save": "후속처리 기록",
+      "saving": "기록 중...",
+      "status": "후속처리 상태",
+      "statusValues": {
+        "ACCEPTED_RISK": "위험수용 제안",
+        "INVESTIGATING": "조사 중",
+        "OPEN": "미처리",
+        "RESOLVED": "조치완료 제출"
+      },
+      "title": "실패 후속처리"
     },
     "fields": {
       "actor": "실행 주체",

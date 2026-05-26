@@ -89,6 +89,45 @@ describe("ExecutionRunListPage", () => {
     );
   });
 
+  it("shows a failure-focused follow-up view", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage({
+      createRuntime: () => createGitHubLiteRuntime(session, { client }),
+      initialPath: "/failures",
+      readSession: () => session,
+      view: "failures",
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Failures" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Failure follow-up")).toBeInTheDocument();
+    expect(screen.getByText("Explanation needed")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Active" })).toBeNull();
+    expect(screen.queryByText("Running")).not.toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: "Open run" })
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(expect.arrayContaining(["/execution-runs/205?from=failures"]));
+  });
+
+  it("defaults invalid failure filters to all follow-up runs", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage({
+      createRuntime: () => createGitHubLiteRuntime(session, { client }),
+      initialPath: "/failures?type=active",
+      readSession: () => session,
+      view: "failures",
+    });
+
+    expect(await screen.findByText("Failure follow-up")).toBeInTheDocument();
+    expect(screen.getAllByText("Business failed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Gate blocked").length).toBeGreaterThan(0);
+  });
+
   it("shows an empty state when no runtime session is available", async () => {
     renderPage({ readSession: () => null });
 
@@ -104,10 +143,12 @@ function renderPage({
   createRuntime,
   initialPath = "/runs",
   readSession,
+  view = "executions",
 }: {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   initialPath?: string;
   readSession?: () => GitHubSession | null;
+  view?: "executions" | "failures";
 } = {}) {
   render(
     <MemoryRouter initialEntries={[initialPath]}>
@@ -118,6 +159,17 @@ function renderPage({
             <ExecutionRunListPage
               createRuntime={createRuntime}
               readSession={readSession}
+              view={view}
+            />
+          }
+        />
+        <Route
+          path="/failures"
+          element={
+            <ExecutionRunListPage
+              createRuntime={createRuntime}
+              readSession={readSession}
+              view={view}
             />
           }
         />

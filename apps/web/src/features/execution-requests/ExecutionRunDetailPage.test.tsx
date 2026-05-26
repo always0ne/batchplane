@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -75,6 +75,28 @@ describe("ExecutionRunDetailPage", () => {
       screen.getByText(
         "The batch command or business job failed after Gate allowed the run.",
       ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Failure follow-up")).toBeInTheDocument();
+    expect(
+      screen.getByText("No failure explanation has been recorded yet."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Owner"), {
+      target: { value: "ops-team" },
+    });
+    fireEvent.change(screen.getByLabelText("Explanation"), {
+      target: { value: "The upstream ledger file arrived late." },
+    });
+    fireEvent.change(screen.getByLabelText("Action taken"), {
+      target: { value: "Reprocessed after the corrected file arrived." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Record follow-up" }));
+
+    expect(
+      await screen.findByText("The upstream ledger file arrived late."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Reprocessed after the corrected file arrived."),
     ).toBeInTheDocument();
   });
 

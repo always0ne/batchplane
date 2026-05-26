@@ -29,11 +29,11 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Gate blocked runs")).toBeInTheDocument();
     expect(screen.getByText("Gate blocked runs").closest("a")).toHaveAttribute(
       "href",
-      "/runs?type=blocked",
+      "/failures?type=blocked",
     );
     expect(screen.getByText("Failed runs").closest("a")).toHaveAttribute(
       "href",
-      "/runs?type=failed",
+      "/failures?type=failed",
     );
     expect(
       screen.getByText("Gate evidence, not approval work"),

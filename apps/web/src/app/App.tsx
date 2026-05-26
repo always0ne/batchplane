@@ -1,5 +1,6 @@
 import {
   Activity,
+  AlertTriangle,
   ClipboardCheck,
   GitBranch,
   LayoutDashboard,
@@ -40,6 +41,7 @@ const navItems = [
   { icon: Settings, labelKey: "items.setup", to: "/lite/setup" },
   { icon: ListChecks, labelKey: "items.batches", to: "/batches" },
   { icon: Activity, labelKey: "items.runs", to: "/runs" },
+  { icon: AlertTriangle, labelKey: "items.failures", to: "/failures" },
   { icon: ClipboardCheck, labelKey: "items.approvals", to: "/approvals" },
 ] as const;
 const compactMarkSrc = `${import.meta.env.BASE_URL}assets/batchplane-compact-mark.svg`;
@@ -171,6 +173,10 @@ export function App() {
               element={<ExecutionRunDetailPage />}
             />
             <Route path="/runs" element={<ExecutionRunListPage />} />
+            <Route
+              path="/failures"
+              element={<ExecutionRunListPage view="failures" />}
+            />
             <Route path="/approvals" element={<ApprovalsPage />} />
             <Route
               path="/approvals/registration/:pullNumber"

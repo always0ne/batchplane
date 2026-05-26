@@ -42,7 +42,9 @@ Lite must read as one connected operational flow:
   They must distinguish Gate blocks from business failures and route rows to
   execution run detail. Business failures must offer an explanation/follow-up
   action that records the operator's explanation, action taken, owner, status,
-  author, timestamp, and related execution evidence.
+  author, timestamp, and related execution evidence. The UI must not imply that
+  an operator explanation is final closure until a Workspace manager review
+  approves it.
 - Execution run detail must separate control evidence from business execution:
   Gate-blocked runs explain that the batch command did not run, while business
   failures explain that Gate allowed the run and the downstream command failed.

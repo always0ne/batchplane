@@ -106,6 +106,8 @@
     "title": "Execution run detail",
     "subtitle": "Inspect workflow run {{runId}} evidence.",
     "actions": {
+      "backToFailures": "Back to failures",
+      "backToRuns": "Back to runs",
       "openBatch": "Open batch",
       "openGitHubRun": "Open GitHub run",
       "refresh": "Refresh"
@@ -115,6 +117,28 @@
       "failed": "The batch command or business job failed after Gate allowed the run.",
       "notReached": "The batch command did not run because Gate blocked execution.",
       "title": "Business execution"
+    },
+    "followUp": {
+      "actionTaken": "Action taken",
+      "actionTakenPlaceholder": "Describe the correction, rerun, escalation, or risk-acceptance proposal.",
+      "description": "Record the operator explanation and follow-up action as immutable GitHub-backed evidence. Workspace manager review is tracked separately.",
+      "empty": "No failure explanation has been recorded yet.",
+      "error": "Failed to save failure follow-up.",
+      "explanation": "Explanation",
+      "explanationPlaceholder": "Explain the business or technical cause of the failure.",
+      "history": "Recorded explanations",
+      "owner": "Owner",
+      "ownerPlaceholder": "ops-team or @username",
+      "save": "Record follow-up",
+      "saving": "Recording...",
+      "status": "Follow-up status",
+      "statusValues": {
+        "ACCEPTED_RISK": "Risk acceptance proposed",
+        "INVESTIGATING": "Investigating",
+        "OPEN": "Open",
+        "RESOLVED": "Correction submitted"
+      },
+      "title": "Failure follow-up"
     },
     "fields": {
       "actor": "Actor",

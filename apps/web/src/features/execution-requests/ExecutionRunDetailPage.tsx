@@ -1,16 +1,24 @@
-import type { BatchPlaneRuntimePorts, ExecutionRun } from "@batchplane/domain";
+import type {
+  BatchPlaneRuntimePorts,
+  ExecutionRun,
+  FailureFollowUp,
+  FailureFollowUpStatus,
+} from "@batchplane/domain";
 import {
   Activity,
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
   ExternalLink,
   GitBranch,
   Loader2,
   RefreshCw,
+  Save,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -26,6 +34,7 @@ import {
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
+import { failureFollowUpStatuses } from "./failure-follow-up-model";
 
 type ExecutionRunDetailPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
@@ -44,6 +53,7 @@ export function ExecutionRunDetailPage({
   readSession = readRuntimeSession,
 }: ExecutionRunDetailPageProps = {}) {
   const { runId = "" } = useParams();
+  const [searchParams] = useSearchParams();
   const { t } = useTranslation("executionRequests");
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<PageState>({ type: "loading" });
@@ -133,6 +143,62 @@ export function ExecutionRunDetailPage({
   }
 
   const { run } = state;
+  const source = searchParams.get("from");
+  const backLink =
+    source === "failures"
+      ? {
+          label: t("runDetail.actions.backToFailures"),
+          to: "/failures",
+        }
+      : source === "runs"
+        ? {
+            label: t("runDetail.actions.backToRuns"),
+            to: "/runs",
+          }
+        : null;
+
+  async function recordFailureFollowUp({
+    actionTaken,
+    explanation,
+    owner,
+    status,
+  }: {
+    actionTaken: string;
+    explanation: string;
+    owner: string;
+    status: FailureFollowUpStatus;
+  }) {
+    const session = readSession();
+
+    if (!session) {
+      throw new Error(t("runDetail.states.noSession"));
+    }
+
+    const followUp = await createRuntime(
+      session,
+    ).executions.createFailureFollowUp({
+      actionTaken,
+      explanation,
+      owner,
+      runId: run.runId,
+      status,
+    });
+
+    setState((current) =>
+      current.type === "loaded"
+        ? {
+            type: "loaded",
+            run: {
+              ...current.run,
+              failureFollowUps: [
+                ...(current.run.failureFollowUps ?? []),
+                followUp,
+              ],
+            },
+          }
+        : current,
+    );
+  }
 
   return (
     <section>
@@ -142,6 +208,15 @@ export function ExecutionRunDetailPage({
           subtitle={t("runDetail.subtitle", { runId: run.runId })}
         />
         <div className="flex flex-wrap gap-2">
+          {backLink ? (
+            <Link
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+              to={backLink.to}
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              {backLink.label}
+            </Link>
+          ) : null}
           <button
             className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
             onClick={() => setReloadToken((current) => current + 1)}
@@ -171,16 +246,202 @@ export function ExecutionRunDetailPage({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="space-y-4">
-          <RunSummaryPanel run={run} />
-          <JobSummaryPanel run={run} />
-        </div>
+        <RunSummaryPanel run={run} />
         <aside className="space-y-4">
           <GateOutcomePanel run={run} />
           <BusinessOutcomePanel run={run} />
         </aside>
+        {run.status === "FAILED" ? (
+          <div className="xl:col-span-2">
+            <FailureFollowUpPanel onSubmit={recordFailureFollowUp} run={run} />
+          </div>
+        ) : null}
+        <div className="xl:col-span-2">
+          <JobSummaryPanel run={run} />
+        </div>
       </div>
     </section>
+  );
+}
+
+function FailureFollowUpPanel({
+  onSubmit,
+  run,
+}: {
+  onSubmit: (params: {
+    actionTaken: string;
+    explanation: string;
+    owner: string;
+    status: FailureFollowUpStatus;
+  }) => Promise<void>;
+  run: ExecutionRun;
+}) {
+  const { t } = useTranslation("executionRequests");
+  const [actionTaken, setActionTaken] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [explanation, setExplanation] = useState("");
+  const [owner, setOwner] = useState("");
+  const [status, setStatus] = useState<FailureFollowUpStatus>("INVESTIGATING");
+  const [submitState, setSubmitState] = useState<"idle" | "submitting">("idle");
+  const followUps = run.failureFollowUps ?? [];
+  const canSubmit =
+    actionTaken.trim() !== "" &&
+    explanation.trim() !== "" &&
+    owner.trim() !== "" &&
+    submitState !== "submitting";
+
+  async function submitFollowUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!canSubmit) {
+      return;
+    }
+
+    setErrorMessage("");
+    setSubmitState("submitting");
+
+    try {
+      await onSubmit({
+        actionTaken: actionTaken.trim(),
+        explanation: explanation.trim(),
+        owner: owner.trim(),
+        status,
+      });
+      setActionTaken("");
+      setExplanation("");
+      setOwner("");
+      setStatus("INVESTIGATING");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : t("runDetail.followUp.error"),
+      );
+    } finally {
+      setSubmitState("idle");
+    }
+  }
+
+  return (
+    <article className="rounded-lg border border-red-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-5 w-5 text-red-700" aria-hidden="true" />
+        <h2 className="text-base font-bold text-bp-graphite">
+          {t("runDetail.followUp.title")}
+        </h2>
+      </div>
+      <p className="mt-3 text-sm font-semibold text-bp-muted">
+        {t("runDetail.followUp.description")}
+      </p>
+
+      <form
+        className="mt-4 grid gap-3 lg:grid-cols-2"
+        onSubmit={submitFollowUp}
+      >
+        <label className="block text-sm font-semibold text-bp-graphite">
+          {t("runDetail.followUp.owner")}
+          <input
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            onChange={(event) => setOwner(event.target.value)}
+            placeholder={t("runDetail.followUp.ownerPlaceholder")}
+            value={owner}
+          />
+        </label>
+        <label className="block text-sm font-semibold text-bp-graphite">
+          {t("runDetail.followUp.status")}
+          <select
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            onChange={(event) =>
+              setStatus(event.target.value as FailureFollowUpStatus)
+            }
+            value={status}
+          >
+            {failureFollowUpStatuses.map((option) => (
+              <option key={option} value={option}>
+                {t(`runDetail.followUp.statusValues.${option}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm font-semibold text-bp-graphite">
+          {t("runDetail.followUp.explanation")}
+          <textarea
+            className="mt-1 min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            onChange={(event) => setExplanation(event.target.value)}
+            placeholder={t("runDetail.followUp.explanationPlaceholder")}
+            value={explanation}
+          />
+        </label>
+        <label className="block text-sm font-semibold text-bp-graphite">
+          {t("runDetail.followUp.actionTaken")}
+          <textarea
+            className="mt-1 min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            onChange={(event) => setActionTaken(event.target.value)}
+            placeholder={t("runDetail.followUp.actionTakenPlaceholder")}
+            value={actionTaken}
+          />
+        </label>
+        {errorMessage ? (
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-800 lg:col-span-2">
+            {errorMessage}
+          </p>
+        ) : null}
+        <button
+          className="inline-flex w-fit items-center gap-2 rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 lg:col-span-2"
+          disabled={!canSubmit}
+          type="submit"
+        >
+          <Save className="h-4 w-4" aria-hidden="true" />
+          {submitState === "submitting"
+            ? t("runDetail.followUp.saving")
+            : t("runDetail.followUp.save")}
+        </button>
+      </form>
+
+      <div className="mt-5">
+        <h3 className="text-sm font-bold text-bp-graphite">
+          {t("runDetail.followUp.history")}
+        </h3>
+        {followUps.length === 0 ? (
+          <p className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
+            {t("runDetail.followUp.empty")}
+          </p>
+        ) : (
+          <ul className="mt-2 divide-y divide-slate-100">
+            {followUps.map((followUp) => (
+              <FailureFollowUpItem
+                followUp={followUp}
+                key={followUp.followUpId}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function FailureFollowUpItem({ followUp }: { followUp: FailureFollowUp }) {
+  const { t } = useTranslation("executionRequests");
+
+  return (
+    <li className="py-3 first:pt-0 last:pb-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-800">
+          {t(`runDetail.followUp.statusValues.${followUp.status}`)}
+        </span>
+        <span className="text-xs font-semibold text-bp-muted">
+          @{followUp.author} - {followUp.createdAt}
+        </span>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-bp-graphite [overflow-wrap:anywhere]">
+        {followUp.explanation}
+      </p>
+      <p className="mt-1 text-sm font-semibold text-bp-muted [overflow-wrap:anywhere]">
+        {followUp.actionTaken}
+      </p>
+      <p className="mt-2 text-xs font-semibold text-bp-muted [overflow-wrap:anywhere]">
+        {t("runDetail.followUp.owner")}: {followUp.owner}
+      </p>
+    </li>
   );
 }
 
@@ -198,7 +459,7 @@ function RunSummaryPanel({ run }: { run: ExecutionRun }) {
         </div>
         <RunStatusBadge status={run.status} />
       </div>
-      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
         <DetailFact label={t("runDetail.fields.runId")} value={run.runId} />
         <DetailFact
           label={t("runDetail.fields.requestId")}
@@ -391,7 +652,7 @@ function DetailFact({ label, value }: { label: string; value: string }) {
       <dt className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
         {label}
       </dt>
-      <dd className="mt-1 break-all font-mono text-xs font-semibold text-bp-graphite">
+      <dd className="mt-1 font-mono text-xs font-semibold leading-relaxed text-bp-graphite [overflow-wrap:anywhere]">
         {value}
       </dd>
     </div>
