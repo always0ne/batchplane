@@ -330,6 +330,17 @@ Run status mapping must distinguish control failure from business failure:
 
 The run detail screen must include an external GitHub Actions link and a job
 summary so operators can move from BatchPlane evidence to native runner logs.
+Inline log viewing is tracked separately because GitHub job log downloads use
+short-lived redirect URLs and may expose large or secret-bearing text. If Lite
+renders logs inline, it must fetch logs on demand, handle expiry/permission
+errors, provide truncation/search/download controls, and avoid storing raw logs
+as audit evidence by default.
+
+Failure follow-up is separate from approval. Business-failed runs must be able
+to collect an explanation record with explanation text, action taken, owner,
+follow-up status, author, timestamp, run ID, and request ID. GitHub Lite must
+persist this as GitHub-backed evidence, such as structured Issue comments or
+repository evidence files, so it remains auditable without a database.
 
 Parsers must accept both BatchPlane and legacy BatchTrail evidence namespaces:
 `batchplane.io/v1` and `batchtrail.io/v1`, plus `batchplane:*` and

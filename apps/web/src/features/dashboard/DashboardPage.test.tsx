@@ -27,7 +27,14 @@ describe("DashboardPage", () => {
     expect(screen.getByText("always0ne/batch")).toBeInTheDocument();
     expect(screen.getByText("Repository readiness")).toBeInTheDocument();
     expect(screen.getByText("Gate blocked runs")).toBeInTheDocument();
-    expect(screen.getByText("Gate blocked runs").closest("a")).toBeNull();
+    expect(screen.getByText("Gate blocked runs").closest("a")).toHaveAttribute(
+      "href",
+      "/runs?type=blocked",
+    );
+    expect(screen.getByText("Failed runs").closest("a")).toHaveAttribute(
+      "href",
+      "/runs?type=failed",
+    );
     expect(
       screen.getByText("Gate evidence, not approval work"),
     ).toBeInTheDocument();

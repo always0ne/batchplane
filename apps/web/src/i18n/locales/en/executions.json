@@ -1,5 +1,60 @@
 {
   "title": "Executions",
-  "subtitle": "Request, approve, dispatch, and inspect batch runs.",
-  "approveCommand": "/bgcp approve requestDigest=..."
+  "subtitle": "Inspect workflow runs and follow-up evidence.",
+  "approveCommand": "/bgcp approve requestDigest=...",
+  "actions": {
+    "githubRun": "GitHub run",
+    "openRun": "Open run",
+    "openSetup": "Open setup",
+    "refresh": "Refresh"
+  },
+  "fields": {
+    "completedAt": "Completed",
+    "requestId": "Request ID",
+    "runId": "Run ID",
+    "workflow": "Workflow"
+  },
+  "filters": {
+    "active": "Active",
+    "all": "All",
+    "blocked": "Gate blocked",
+    "canceled": "Canceled",
+    "failed": "Business failed",
+    "succeeded": "Succeeded"
+  },
+  "list": {
+    "empty": "No workflow runs match this filter.",
+    "subtitle": "{{count}} run is visible.",
+    "subtitle_plural": "{{count}} runs are visible.",
+    "title": "Execution runs"
+  },
+  "states": {
+    "error": "Failed to load execution runs.",
+    "loading": "Loading execution runs...",
+    "noSession": "Connect a GitHub repository before reviewing executions."
+  },
+  "status": {
+    "BLOCKED": "Gate blocked",
+    "CANCELED": "Canceled",
+    "FAILED": "Business failed",
+    "QUEUED": "Queued",
+    "RUNNING": "Running",
+    "SUCCEEDED": "Succeeded"
+  },
+  "summary": {
+    "active": "Active runs",
+    "followUp": "Follow-up",
+    "succeeded": "Succeeded",
+    "total": "Total runs"
+  },
+  "values": {
+    "active": "The workflow run is still in progress.",
+    "businessFailure": "Batch command failed after Gate allowed the run.",
+    "canceled": "The workflow run was canceled or skipped.",
+    "gateBlocked": "Gate blocked before the batch command.",
+    "inProgress": "In progress",
+    "succeeded": "The workflow run completed successfully.",
+    "unknown": "Unknown",
+    "unknownBatch": "Unknown batch"
+  }
 }

@@ -1,4 +1,5 @@
 import {
+  Activity,
   ClipboardCheck,
   GitBranch,
   LayoutDashboard,
@@ -14,6 +15,7 @@ import { BatchDetailPage } from "../features/batches/BatchDetailPage";
 import { ExecutionRequestDetailPage } from "../features/execution-requests/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../features/execution-requests/ExecutionRequestPage";
 import { ExecutionRunDetailPage } from "../features/execution-requests/ExecutionRunDetailPage";
+import { ExecutionRunListPage } from "../features/execution-requests/ExecutionRunListPage";
 import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { RegistrationApprovalDetailPage } from "../features/approvals/RegistrationApprovalDetailPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
@@ -37,6 +39,7 @@ const navItems = [
   { icon: LayoutDashboard, labelKey: "items.dashboard", to: "/dashboard" },
   { icon: Settings, labelKey: "items.setup", to: "/lite/setup" },
   { icon: ListChecks, labelKey: "items.batches", to: "/batches" },
+  { icon: Activity, labelKey: "items.runs", to: "/runs" },
   { icon: ClipboardCheck, labelKey: "items.approvals", to: "/approvals" },
 ] as const;
 const compactMarkSrc = `${import.meta.env.BASE_URL}assets/batchplane-compact-mark.svg`;
@@ -167,6 +170,7 @@ export function App() {
               path="/execution-runs/:runId"
               element={<ExecutionRunDetailPage />}
             />
+            <Route path="/runs" element={<ExecutionRunListPage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
             <Route
               path="/approvals/registration/:pullNumber"

@@ -15,6 +15,7 @@ describe("App", () => {
     { heading: "Settings", path: "/lite/setup" },
     { heading: "Batches", path: "/batches" },
     { heading: "Registration", path: "/batches/new" },
+    { heading: "Executions", path: "/runs" },
     { heading: "Approvals", path: "/approvals" },
   ])("renders the $path route", async ({ heading, path }) => {
     render(
