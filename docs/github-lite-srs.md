@@ -211,6 +211,10 @@ request ID, Batch ID, Gate decision, and job conclusion summary. Gate-blocked
 execution must be visually separated from business command failure: a blocked
 Gate means the batch command did not run, while a failed batch job means Gate
 allowed the run and the downstream command or business job failed.
+Execution detail must also provide a path to native runner logs, at minimum by
+linking each run/job to GitHub Actions. Inline log viewing is a follow-up
+feature and must handle large logs, token permissions, and secret-bearing text
+without persisting raw log content into audit evidence by default.
 
 The execution run list screen is the primary run-history surface. It must show
 recent GitHub Actions workflow_dispatch runs, including queued/running,
@@ -222,7 +226,12 @@ active runs, successful runs, business failures, Gate blocks, or canceled runs.
 The failure list or failure-focused shortcut must be implemented as a
 follow-up view over execution run history, not as a replacement for the
 execution run list. It must distinguish Gate blocks from business failures and
-route rows to execution run detail.
+route rows to execution run detail. Business failure rows must support audit
+follow-up/explanation separately from approval work. A failure explanation must
+capture explanation text, action taken, owner, follow-up status, author,
+timestamp, and related run/request IDs. In GitHub Lite this explanation must be
+stored as immutable GitHub-backed evidence, such as structured Issue comments
+or repository evidence files.
 
 Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request

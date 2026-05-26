@@ -297,13 +297,13 @@ function ExecutionMetric({
 }
 
 function ExecutionRunRow({ run }: { run: ExecutionRun }) {
-  const { t } = useTranslation("executions");
+  const { i18n, t } = useTranslation("executions");
   const display = getRunStatusDisplay(run.status);
   const Icon = display.icon;
 
   return (
-    <li className="grid gap-3 py-4 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_11rem_9rem]">
-      <div className="min-w-0">
+    <li className="grid gap-4 py-4 first:pt-0 last:pb-0 xl:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold ${display.className}`}
@@ -318,7 +318,10 @@ function ExecutionRunRow({ run }: { run: ExecutionRun }) {
             {run.batchId || t("values.unknownBatch")}
           </Link>
         </div>
-        <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
+        <p className="text-sm font-semibold text-bp-muted">
+          {getRunOutcomeText(run, t)}
+        </p>
+        <dl className="grid gap-3 text-xs md:grid-cols-2">
           <ExecutionRunFact label={t("fields.runId")} value={run.runId} />
           <ExecutionRunFact
             label={t("fields.requestId")}
@@ -330,17 +333,17 @@ function ExecutionRunRow({ run }: { run: ExecutionRun }) {
           />
           <ExecutionRunFact
             label={t("fields.completedAt")}
-            value={run.completedAt || t("values.inProgress")}
+            value={
+              formatRunTimestamp(run.completedAt, i18n.language) ||
+              t("values.inProgress")
+            }
           />
         </dl>
       </div>
-      <p className="self-center text-sm font-semibold text-bp-muted">
-        {getRunOutcomeText(run, t)}
-      </p>
-      <div className="flex items-center gap-2 lg:justify-end">
+      <div className="flex flex-wrap items-start gap-2 xl:justify-end">
         {run.workflowRunUrl ? (
           <a
-            className="inline-flex items-center gap-1 text-sm font-semibold text-bp-muted underline"
+            className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-muted"
             href={run.workflowRunUrl}
             rel="noreferrer"
             target="_blank"
@@ -350,7 +353,7 @@ function ExecutionRunRow({ run }: { run: ExecutionRun }) {
           </a>
         ) : null}
         <Link
-          className="inline-flex items-center rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white"
+          className="inline-flex items-center whitespace-nowrap rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white"
           to={`/execution-runs/${run.runId}`}
         >
           {t("actions.openRun")}
@@ -366,7 +369,10 @@ function ExecutionRunFact({ label, value }: { label: string; value: string }) {
       <dt className="font-semibold uppercase tracking-normal text-bp-muted">
         {label}
       </dt>
-      <dd className="mt-1 truncate font-mono font-semibold text-bp-graphite">
+      <dd
+        className="mt-1 break-all font-mono font-semibold text-bp-graphite md:truncate md:break-normal"
+        title={value}
+      >
         {value}
       </dd>
     </div>
@@ -399,6 +405,30 @@ function matchesFilter(run: ExecutionRun, filter: ExecutionRunFilter): boolean {
 
 function isActiveRun(run: ExecutionRun): boolean {
   return run.status === "QUEUED" || run.status === "RUNNING";
+}
+
+function formatRunTimestamp(
+  value: string | undefined,
+  locale: string,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "2-digit",
+    second: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
 function getRunOutcomeText(
