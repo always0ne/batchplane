@@ -3,8 +3,10 @@ import { appendFileSync } from "node:fs";
 import {
   parseYamlDocument,
   type RoleMappingFile,
+  type WorkspaceApprovalMode,
   validateBatchDefinitionFile,
   validateRoleMappingFile,
+  validateWorkspacePolicyFile,
 } from "./gate-schema.js";
 
 export type GateMode = "lite" | "server";
@@ -248,7 +250,25 @@ export async function verifyLiteAuthorization(
     );
   }
 
-  if (evidence.approval.approver === evidence.request.requestedBy) {
+  let workspaceApprovalMode: WorkspaceApprovalMode;
+
+  try {
+    workspaceApprovalMode = await readWorkspaceApprovalMode({
+      client,
+      configPath: input.configPath,
+      ref: evidence.request.workflowRef || input.ref,
+    });
+  } catch (error) {
+    return deny(
+      "WORKSPACE_POLICY_LOOKUP_FAILED",
+      `Workspace policy lookup failed: ${toErrorMessage(error)}`,
+    );
+  }
+
+  if (
+    evidence.approval.approver === evidence.request.requestedBy &&
+    workspaceApprovalMode !== "SELF_APPROVAL_ALLOWED"
+  ) {
     return deny(
       "SELF_APPROVAL_NOT_ALLOWED",
       "Requester and approver must be different users.",
@@ -585,6 +605,48 @@ async function validateBatchPolicyEvidence({
   }
 
   return { message: "Batch policy evidence is verified.", result: "ALLOW" };
+}
+
+async function readWorkspaceApprovalMode({
+  client,
+  configPath,
+  ref,
+}: {
+  client: GateGitHubClient;
+  configPath: string;
+  ref?: string;
+}): Promise<WorkspaceApprovalMode> {
+  const effectiveRef = ref?.trim();
+
+  if (!effectiveRef) {
+    return "SELF_APPROVAL_BLOCKED";
+  }
+
+  const workspacePolicyPath = `${configPath.replace(/\/+$/u, "")}/workspace.yml`;
+  const workspacePolicyFile = await client.getFile(
+    workspacePolicyPath,
+    effectiveRef,
+  );
+
+  if (!workspacePolicyFile) {
+    return "SELF_APPROVAL_BLOCKED";
+  }
+
+  const parsed = parseYamlDocument(workspacePolicyFile.content);
+
+  if (!parsed.ok) {
+    throw new Error(
+      `Workspace policy YAML is invalid: ${workspacePolicyPath}.`,
+    );
+  }
+
+  const validated = validateWorkspacePolicyFile(parsed.value);
+
+  if (!validated.ok) {
+    throw new Error(`Workspace policy is invalid: ${workspacePolicyPath}.`);
+  }
+
+  return validated.value.spec.approval.mode;
 }
 
 function validateScheduleMapping({

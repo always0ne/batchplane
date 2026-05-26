@@ -12,7 +12,7 @@ describe("App", () => {
 
   it.each([
     { heading: "Dashboard", path: "/dashboard" },
-    { heading: "Settings", path: "/lite/setup" },
+    { heading: "Workspace", path: "/lite/setup" },
     { heading: "Batches", path: "/batches" },
     { heading: "Registration", path: "/batches/new" },
     { heading: "Executions", path: "/runs" },

@@ -255,6 +255,22 @@ describe("approval model", () => {
       }),
     ).toMatch(/^\/bgcp approve requestDigest=sha256:/);
     expect(
+      buildExecutionApprovalComment({
+        approvedAt: new Date("2026-05-09T03:02:03.000Z"),
+        approvalMode: "SELF_APPROVAL_ALLOWED",
+        approver: request.requestedBy,
+        request,
+      }),
+    ).toContain("Self approval: ALLOWED_BY_WORKSPACE_POLICY");
+    expect(
+      buildExecutionApprovalComment({
+        approvedAt: new Date("2026-05-09T03:02:03.000Z"),
+        approvalMode: "SELF_APPROVAL_ALLOWED",
+        approver: request.requestedBy,
+        request,
+      }),
+    ).toContain("approvalMode=SELF_APPROVAL_ALLOWED");
+    expect(
       buildExecutionRejectionComment({
         rejectedAt: new Date("2026-05-09T03:02:03.000Z"),
         rejector: "maintainer",

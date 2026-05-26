@@ -7,10 +7,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildDispatcherWorkflowYaml,
   buildSampleTargetWorkflowYaml,
+  buildWorkspacePolicyYaml,
   checkLiteInstallationStatus,
   createLiteInstallationPullRequest,
+  createWorkspacePolicyPullRequest,
   liteDispatcherWorkflowPath,
   liteSampleTargetWorkflowPath,
+  liteWorkspacePolicyPath,
 } from "./installation-model";
 
 describe("Lite installation model", () => {
@@ -33,6 +36,7 @@ describe("Lite installation model", () => {
       missingPaths: [
         liteDispatcherWorkflowPath,
         liteSampleTargetWorkflowPath,
+        liteWorkspacePolicyPath,
         ".batch-governance/batches/.gitkeep",
         ".batch-governance/schedules/.gitkeep",
       ],
@@ -41,6 +45,7 @@ describe("Lite installation model", () => {
         liteDispatcherWorkflowPath,
         liteSampleTargetWorkflowPath,
         ".batch-governance/README.md",
+        liteWorkspacePolicyPath,
         ".batch-governance/batches/.gitkeep",
         ".batch-governance/schedules/.gitkeep",
       ],
@@ -95,6 +100,10 @@ describe("Lite installation model", () => {
             "uses: always0ne/batchplane/actions/gate@main",
           );
         }
+        if (path === liteWorkspacePolicyPath) {
+          expect(content).toContain('kind: "WorkspacePolicy"');
+          expect(content).toContain('mode: "SELF_APPROVAL_BLOCKED"');
+        }
         return { path, sha: `sha-${path}` };
       },
       createPullRequest: async ({ title, head, base }) => {
@@ -125,6 +134,7 @@ describe("Lite installation model", () => {
           liteDispatcherWorkflowPath,
           liteSampleTargetWorkflowPath,
           ".batch-governance/README.md",
+          liteWorkspacePolicyPath,
           ".batch-governance/batches/.gitkeep",
           ".batch-governance/schedules/.gitkeep",
         ],
@@ -133,6 +143,7 @@ describe("Lite installation model", () => {
           liteDispatcherWorkflowPath,
           liteSampleTargetWorkflowPath,
           ".batch-governance/README.md",
+          liteWorkspacePolicyPath,
           ".batch-governance/batches/.gitkeep",
           ".batch-governance/schedules/.gitkeep",
         ],
@@ -144,6 +155,7 @@ describe("Lite installation model", () => {
       `put-file:${liteDispatcherWorkflowPath}`,
       `put-file:${liteSampleTargetWorkflowPath}`,
       "put-file:.batch-governance/README.md",
+      `put-file:${liteWorkspacePolicyPath}`,
       "put-file:.batch-governance/batches/.gitkeep",
       "put-file:.batch-governance/schedules/.gitkeep",
       "create-pr:Install BatchPlane Lite:batchplane/install/lite-20260513010203:main",
@@ -175,5 +187,78 @@ describe("Lite installation model", () => {
       "approval-ref: ${{ inputs.request_id }}",
     );
     expect(buildSampleTargetWorkflowYaml()).toContain("needs: batchplane-gate");
+  });
+
+  it("ships a strict Workspace policy by default", () => {
+    expect(buildWorkspacePolicyYaml()).toContain('kind: "WorkspacePolicy"');
+    expect(buildWorkspacePolicyYaml()).toContain(
+      'mode: "SELF_APPROVAL_BLOCKED"',
+    );
+  });
+
+  it("creates a Workspace policy change pull request", async () => {
+    const calls: string[] = [];
+    const pullRequest: GitHubPullRequest = {
+      author: "always0ne",
+      base: "main",
+      body: "body",
+      head: "batchplane/workspace/policy-20260513010203",
+      merged: false,
+      number: 42,
+      state: "open",
+      title: "Update BatchPlane Workspace policy",
+      url: "https://github.com/always0ne/batch/pull/42",
+    };
+    const client = {
+      getFile: async ({ path }) => {
+        calls.push(`get-file:${path}`);
+        return {
+          content: buildWorkspacePolicyYaml("SELF_APPROVAL_BLOCKED"),
+          path,
+          sha: "workspace-policy-sha",
+        };
+      },
+      getBranchHeadSha: async ({ branch }) => {
+        calls.push(`get-head:${branch}`);
+        return "base-sha";
+      },
+      createBranch: async ({ branch, sha }) => {
+        calls.push(`create-branch:${branch}:${sha}`);
+      },
+      putFile: async ({ path, content, sha }) => {
+        calls.push(`put-file:${path}:${sha ?? ""}`);
+        expect(content).toContain('mode: "SELF_APPROVAL_ALLOWED"');
+        return { path, sha: `sha-${path}` };
+      },
+      createPullRequest: async ({ title, head, base, body }) => {
+        calls.push(`create-pr:${title}:${head}:${base}`);
+        expect(body).toContain("SELF_APPROVAL_ALLOWED");
+        return pullRequest;
+      },
+    } satisfies Pick<
+      GitHubLiteClient,
+      | "createBranch"
+      | "createPullRequest"
+      | "getBranchHeadSha"
+      | "getFile"
+      | "putFile"
+    >;
+
+    await expect(
+      createWorkspacePolicyPullRequest({
+        client,
+        date: new Date("2026-05-13T01:02:03.000Z"),
+        defaultBranch: "main",
+        policy: { approval: { mode: "SELF_APPROVAL_ALLOWED" } },
+        repo: { owner: "always0ne", repo: "batch" },
+      }),
+    ).resolves.toEqual(pullRequest);
+    expect(calls).toEqual([
+      "get-head:main",
+      `get-file:${liteWorkspacePolicyPath}`,
+      "create-branch:batchplane/workspace/policy-20260513010203:base-sha",
+      `put-file:${liteWorkspacePolicyPath}:workspace-policy-sha`,
+      "create-pr:Update BatchPlane Workspace policy:batchplane/workspace/policy-20260513010203:main",
+    ]);
   });
 });

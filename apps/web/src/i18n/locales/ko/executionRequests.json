@@ -99,6 +99,7 @@
       "REQUESTED": "Maintainer 승인 comment가 아직 필요합니다."
     },
     "values": {
+      "selfApprovalAllowed": "Workspace 정책({{mode}})에 따라 자가승인이 허용됩니다. 이 승인도 자가승인 증적으로 기록됩니다.",
       "selfApprovalBlocked": "요청자와 승인자는 서로 다른 사용자여야 합니다."
     }
   },

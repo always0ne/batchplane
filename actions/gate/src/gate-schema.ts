@@ -45,6 +45,24 @@ export type RoleMappingFile = {
   };
 };
 
+export type WorkspaceApprovalMode =
+  | "SELF_APPROVAL_BLOCKED"
+  | "SELF_APPROVAL_ALLOWED"
+  | "AUTO_APPROVE";
+
+export type WorkspacePolicyFile = {
+  apiVersion: BatchPlaneApiVersion;
+  kind: "WorkspacePolicy";
+  metadata: {
+    id: string;
+  };
+  spec: {
+    approval: {
+      mode: WorkspaceApprovalMode;
+    };
+  };
+};
+
 export type ValidationResult<T> =
   | {
       ok: true;
@@ -80,6 +98,11 @@ export type YamlParseResult<T = YamlValue> =
 type UnknownRecord = Record<string, unknown>;
 
 const repositoryRoleValues = ["admin", "maintain", "write", "triage"] as const;
+const workspaceApprovalModeValues = [
+  "SELF_APPROVAL_BLOCKED",
+  "SELF_APPROVAL_ALLOWED",
+  "AUTO_APPROVE",
+] as const;
 
 export function parseYamlDocument(input: string): YamlParseResult {
   const diagnostics: YamlDiagnostic[] = [];
@@ -300,6 +323,49 @@ export function validateRoleMappingFile(
   };
 }
 
+export function validateWorkspacePolicyFile(
+  file: unknown,
+): ValidationResult<WorkspacePolicyFile> {
+  if (!isRecord(file)) {
+    return { ok: false };
+  }
+
+  if (
+    !isBatchPlaneApiVersion(file.apiVersion) ||
+    file.kind !== "WorkspacePolicy"
+  ) {
+    return { ok: false };
+  }
+
+  const metadata = asRecord(file.metadata);
+  const spec = asRecord(file.spec);
+  const approval = asRecord(spec?.approval);
+
+  if (
+    !metadata ||
+    !spec ||
+    !approval ||
+    !isString(metadata.id) ||
+    !isWorkspaceApprovalMode(approval.mode)
+  ) {
+    return { ok: false };
+  }
+
+  return {
+    ok: true,
+    value: {
+      apiVersion: batchPlaneApiVersion,
+      kind: "WorkspacePolicy",
+      metadata: { id: metadata.id },
+      spec: {
+        approval: {
+          mode: approval.mode,
+        },
+      },
+    },
+  };
+}
+
 function parseYamlScalar(
   value: string,
   line: number,
@@ -370,6 +436,12 @@ function isBoolean(value: unknown): value is boolean {
 
 function isAllowedBatchStatus(value: unknown): value is "ACTIVE" | "INACTIVE" {
   return value === "ACTIVE" || value === "INACTIVE";
+}
+
+function isWorkspaceApprovalMode(
+  value: unknown,
+): value is WorkspaceApprovalMode {
+  return workspaceApprovalModeValues.includes(value as never);
 }
 
 function readOptionalStringArray(

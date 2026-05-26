@@ -1,6 +1,8 @@
 import type {
   RepositoryPullRequest,
   RuntimeInstallationStatus,
+  WorkspaceApprovalMode,
+  WorkspacePolicy,
 } from "@batchplane/domain";
 import {
   AlertCircle,
@@ -10,6 +12,7 @@ import {
   Loader2,
   Plug,
   ShieldCheck,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
@@ -49,6 +52,25 @@ type InstallationCheckState =
   | { type: "success"; pullRequest: RepositoryPullRequest }
   | { type: "error"; message: string };
 
+type WorkspacePolicyState =
+  | { type: "idle" }
+  | { type: "checking" }
+  | { type: "loaded"; policy: WorkspacePolicy }
+  | { type: "creating" }
+  | {
+      type: "success";
+      currentPolicy: WorkspacePolicy;
+      pullRequest: RepositoryPullRequest;
+      requestedPolicy: WorkspacePolicy;
+    }
+  | { type: "error"; message: string; policy?: WorkspacePolicy };
+
+const workspaceApprovalModes: WorkspaceApprovalMode[] = [
+  "SELF_APPROVAL_BLOCKED",
+  "SELF_APPROVAL_ALLOWED",
+  "AUTO_APPROVE",
+];
+
 export function LiteSetupPage() {
   const { t } = useTranslation(["settings", "common"]);
   const initialSession = useMemo(() => readRuntimeSession(), []);
@@ -62,6 +84,10 @@ export function LiteSetupPage() {
   );
   const [installationState, setInstallationState] =
     useState<InstallationCheckState>({ type: "idle" });
+  const [workspacePolicyState, setWorkspacePolicyState] =
+    useState<WorkspacePolicyState>({ type: "idle" });
+  const [selectedApprovalMode, setSelectedApprovalMode] =
+    useState<WorkspaceApprovalMode>("SELF_APPROVAL_BLOCKED");
 
   const canSubmit = Boolean(owner.trim() && repo.trim() && token.trim());
 
@@ -75,6 +101,7 @@ export function LiteSetupPage() {
       setToken(session.token);
       setCheckState({ type: "stored", session });
       setInstallationState({ type: "idle" });
+      setWorkspacePolicyState({ type: "idle" });
     } catch (error) {
       setCheckState({
         type: "error",
@@ -91,6 +118,8 @@ export function LiteSetupPage() {
     setToken("");
     setCheckState({ type: "idle" });
     setInstallationState({ type: "idle" });
+    setWorkspacePolicyState({ type: "idle" });
+    setSelectedApprovalMode("SELF_APPROVAL_BLOCKED");
   }
 
   async function checkConnection() {
@@ -111,6 +140,7 @@ export function LiteSetupPage() {
 
     setCheckState({ type: "checking" });
     setInstallationState({ type: "checking" });
+    setWorkspacePolicyState({ type: "checking" });
 
     try {
       const runtime = createBatchPlaneRuntime(session);
@@ -118,9 +148,13 @@ export function LiteSetupPage() {
         runtime.settings.getCurrentUser(),
         runtime.settings.getRepository(),
       ]);
+      const workspacePolicy = await runtime.settings.getWorkspacePolicy({
+        ref: repository.defaultBranch,
+      });
 
       setOwner(repository.owner);
       setRepo(repository.repo);
+      setSelectedApprovalMode(workspacePolicy.approval.mode);
       setCheckState({
         type: "connected",
         login: user.login,
@@ -137,6 +171,7 @@ export function LiteSetupPage() {
           ? { type: "installed", status: installationStatus }
           : { type: "missing", status: installationStatus },
       );
+      setWorkspacePolicyState({ type: "loaded", policy: workspacePolicy });
     } catch (error) {
       setCheckState({
         type: "error",
@@ -146,6 +181,13 @@ export function LiteSetupPage() {
         ),
       });
       setInstallationState({
+        type: "error",
+        message: formatConnectionError(
+          error,
+          t("settings:errors.connectionFailed"),
+        ),
+      });
+      setWorkspacePolicyState({
         type: "error",
         message: formatConnectionError(
           error,
@@ -186,6 +228,70 @@ export function LiteSetupPage() {
       setInstallationState({
         type: "error",
         message: formatConnectionError(error, t("settings:errors.unknown")),
+      });
+    }
+  }
+
+  async function createWorkspacePolicyChangePullRequest() {
+    let session: GitHubSession;
+
+    try {
+      session = writeGitHubSession({ owner, repo, token });
+    } catch (error) {
+      setWorkspacePolicyState({
+        type: "error",
+        message:
+          error instanceof Error
+            ? t("settings:errors.requiredFields")
+            : t("settings:errors.unknown"),
+      });
+      return;
+    }
+
+    if (selectedApprovalMode === "AUTO_APPROVE") {
+      setWorkspacePolicyState({
+        type: "error",
+        message: t("settings:workspacePolicy.autoApproveReserved"),
+      });
+      return;
+    }
+
+    const policy: WorkspacePolicy = {
+      approval: { mode: selectedApprovalMode },
+    };
+
+    const previousPolicy =
+      workspacePolicyState.type === "loaded" ||
+      workspacePolicyState.type === "error"
+        ? workspacePolicyState.policy
+        : workspacePolicyState.type === "success"
+          ? workspacePolicyState.currentPolicy
+          : undefined;
+
+    setWorkspacePolicyState({ type: "creating" });
+
+    try {
+      const runtime = createBatchPlaneRuntime(session);
+      const repository = await runtime.settings.getRepository();
+      const pullRequest =
+        await runtime.settings.createWorkspacePolicyPullRequest({
+          defaultBranch: repository.defaultBranch,
+          policy,
+        });
+
+      setWorkspacePolicyState({
+        type: "success",
+        currentPolicy: previousPolicy ?? {
+          approval: { mode: "SELF_APPROVAL_BLOCKED" },
+        },
+        pullRequest,
+        requestedPolicy: policy,
+      });
+    } catch (error) {
+      setWorkspacePolicyState({
+        type: "error",
+        message: formatConnectionError(error, t("settings:errors.unknown")),
+        ...(previousPolicy ? { policy: previousPolicy } : {}),
       });
     }
   }
@@ -322,9 +428,159 @@ export function LiteSetupPage() {
               state={installationState}
             />
           </article>
+
+          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-bp-graphite">
+                  {t("settings:workspacePolicy.title")}
+                </h2>
+                <p className="mt-2 text-sm text-bp-muted">
+                  {t("settings:workspacePolicy.subtitle")}
+                </p>
+              </div>
+              <SlidersHorizontal
+                className="h-5 w-5 text-bp-git"
+                aria-hidden="true"
+              />
+            </div>
+            <WorkspacePolicyStatus
+              mode={selectedApprovalMode}
+              onChangeMode={setSelectedApprovalMode}
+              onCreatePullRequest={() =>
+                void createWorkspacePolicyChangePullRequest()
+              }
+              state={workspacePolicyState}
+            />
+          </article>
         </div>
       </div>
     </section>
+  );
+}
+
+function WorkspacePolicyStatus({
+  mode,
+  onChangeMode,
+  onCreatePullRequest,
+  state,
+}: {
+  mode: WorkspaceApprovalMode;
+  onChangeMode: (mode: WorkspaceApprovalMode) => void;
+  onCreatePullRequest: () => void;
+  state: WorkspacePolicyState;
+}) {
+  const { t } = useTranslation("settings");
+  const persistedPolicy =
+    state.type === "loaded" || state.type === "error"
+      ? state.policy
+      : state.type === "success"
+        ? state.currentPolicy
+        : null;
+  const persistedMode = persistedPolicy?.approval.mode;
+  const changePending = Boolean(persistedMode && mode !== persistedMode);
+  const disabled =
+    state.type === "idle" ||
+    state.type === "checking" ||
+    state.type === "creating" ||
+    state.type === "success" ||
+    mode === "AUTO_APPROVE" ||
+    !changePending;
+
+  return (
+    <div className="mt-5 space-y-4">
+      <label className="block text-sm font-semibold text-bp-graphite">
+        {t("workspacePolicy.modeLabel")}
+        <select
+          className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          disabled={state.type === "idle" || state.type === "checking"}
+          onChange={(event) =>
+            onChangeMode(event.target.value as WorkspaceApprovalMode)
+          }
+          value={mode}
+        >
+          {workspaceApprovalModes.map((approvalMode) => (
+            <option key={approvalMode} value={approvalMode}>
+              {t(`workspacePolicy.modes.${approvalMode}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {persistedMode ? (
+        <StatusRow
+          label={t("workspacePolicy.currentMode")}
+          value={t(`workspacePolicy.modes.${persistedMode}`)}
+        />
+      ) : null}
+
+      {state.type === "success" ? (
+        <StatusRow
+          label={t("workspacePolicy.requestedMode")}
+          value={t(
+            `workspacePolicy.modes.${state.requestedPolicy.approval.mode}`,
+          )}
+        />
+      ) : null}
+
+      {state.type === "idle" ? (
+        <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
+          {t("workspacePolicy.idle")}
+        </p>
+      ) : null}
+
+      {state.type === "checking" || state.type === "creating" ? (
+        <p className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          {state.type === "checking"
+            ? t("workspacePolicy.checking")
+            : t("workspacePolicy.creating")}
+        </p>
+      ) : null}
+
+      {mode === "SELF_APPROVAL_ALLOWED" ? (
+        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+          {t("workspacePolicy.selfApprovalNotice")}
+        </p>
+      ) : null}
+
+      {mode === "AUTO_APPROVE" ? (
+        <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
+          {t("workspacePolicy.autoApproveReserved")}
+        </p>
+      ) : null}
+
+      {state.type === "success" ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <p className="font-semibold">{t("workspacePolicy.success")}</p>
+          <a
+            className="mt-2 inline-flex font-semibold underline"
+            href={state.pullRequest.url}
+            rel="noreferrer"
+            target="_blank"
+          >
+            #{state.pullRequest.number} {state.pullRequest.title}
+          </a>
+        </div>
+      ) : null}
+
+      {state.type === "error" ? (
+        <div className="flex gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <p className="font-semibold">{state.message}</p>
+        </div>
+      ) : null}
+
+      <button
+        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-bp-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+        disabled={disabled}
+        onClick={onCreatePullRequest}
+        type="button"
+      >
+        <GitPullRequest className="h-4 w-4" aria-hidden="true" />
+        {t("workspacePolicy.createPullRequest")}
+      </button>
+    </div>
   );
 }
 

@@ -231,6 +231,70 @@ describe("createGitHubLiteRuntime", () => {
     ]);
   });
 
+  it("reads Workspace policy from repository configuration", async () => {
+    const state = createGitHubLiteMockState();
+    state.files.push({
+      branch: "main",
+      content: [
+        'apiVersion: "batchplane.io/v1"',
+        'kind: "WorkspacePolicy"',
+        "metadata:",
+        '  id: "default"',
+        "spec:",
+        "  approval:",
+        '    mode: "SELF_APPROVAL_ALLOWED"',
+        "",
+      ].join("\n"),
+      path: ".batch-governance/workspace.yml",
+      sha: "workspace-policy-sha",
+    });
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    await expect(runtime.settings.getWorkspacePolicy()).resolves.toEqual({
+      approval: {
+        mode: "SELF_APPROVAL_ALLOWED",
+      },
+    });
+  });
+
+  it("defaults Workspace policy to self-approval blocked when configuration is missing", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    await expect(runtime.settings.getWorkspacePolicy()).resolves.toEqual({
+      approval: {
+        mode: "SELF_APPROVAL_BLOCKED",
+      },
+    });
+  });
+
+  it("creates Workspace policy change pull requests through the SettingsPort", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    const pullRequest = await runtime.settings.createWorkspacePolicyPullRequest(
+      {
+        defaultBranch: "main",
+        policy: { approval: { mode: "SELF_APPROVAL_ALLOWED" } },
+      },
+    );
+
+    expect(pullRequest).toEqual(
+      expect.objectContaining({
+        head: expect.stringContaining("batchplane/workspace/policy-"),
+        title: "Update BatchPlane Workspace policy",
+      }),
+    );
+    expect(
+      client.state.files.find(
+        (file) =>
+          file.branch === pullRequest.head &&
+          file.path === ".batch-governance/workspace.yml",
+      )?.content,
+    ).toContain('mode: "SELF_APPROVAL_ALLOWED"');
+  });
+
   it("maps workflow run detail with request and Gate evidence", async () => {
     const fetcher: typeof fetch = async (input) => {
       const url = input.toString();

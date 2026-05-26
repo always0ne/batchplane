@@ -36,6 +36,7 @@ Installation status is based on the default branch containing:
 
 - `.github/workflows/batchplane-dispatcher.yml`
 - `.batch-governance/README.md`
+- `.batch-governance/workspace.yml`
 - `.batch-governance/batches/.gitkeep`
 - `.batch-governance/schedules/.gitkeep`
 
@@ -192,6 +193,27 @@ digest as the primary decision material.
 
 Execution approval happens in the approvals inbox.
 
+The Workspace approval mode is repository-backed configuration, not browser
+local state. The policy file path is:
+
+```text
+.batch-governance/workspace.yml
+```
+
+If the file is missing, the effective approval mode is `SELF_APPROVAL_BLOCKED`. In
+`SELF_APPROVAL_BLOCKED`, requester and approver must be different users. In
+`SELF_APPROVAL_ALLOWED`, a requester may approve their own execution request,
+but the approval comment must make the self-approval explicit and Gate must
+still verify the approval evidence, batch definition, dispatcher actor, and
+approver authorization. `AUTO_APPROVE` is reserved for a separate implementation
+and must not be treated as implemented self-approval by the UI.
+
+The Workspace screen must allow an operator to prepare a Workspace policy
+change without editing YAML by hand. Saving an approval mode change creates a
+pull request that updates `.batch-governance/workspace.yml`; the effective mode
+changes only after that pull request is merged. The screen must not use
+browser-local settings to weaken approval policy.
+
 The approvals inbox must contain only approval-actionable requests. Failed,
 Gate-blocked, dispatching, dispatched, and rejected execution requests are
 execution evidence or follow-up work, not approval work, and must not be shown
@@ -253,6 +275,8 @@ The same comment must also include BatchPlane approval evidence with:
 - decision
 - approver
 - approved timestamp
+- Workspace approval mode when available
+- explicit self-approval marker when requester and approver are the same user
 - `requestId`
 - `batchId`
 - `requestDigest`

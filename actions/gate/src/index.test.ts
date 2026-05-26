@@ -187,6 +187,59 @@ describe("Gate action runtime", () => {
     });
   });
 
+  it("denies self-approval when Workspace policy is missing or strict", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({
+          comments: [buildApprovalComment({ approver: "developer" })],
+        }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message: "Requester and approver must be different users.",
+      reasonCode: "SELF_APPROVAL_NOT_ALLOWED",
+      result: "DENY",
+    });
+  });
+
+  it("allows self-approval only when Workspace policy explicitly allows it", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({
+          approverRepositoryRoles: ["write"],
+          comments: [buildApprovalComment({ approver: "developer" })],
+          includeWorkspacePolicy: true,
+          workspaceApprovalMode: "SELF_APPROVAL_ALLOWED",
+        }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message:
+        "Execution request, approval evidence, and batch policy are verified.",
+      result: "ALLOW",
+    });
+  });
+
   it("returns BATCH_NOT_FOUND when batch definition file is missing", async () => {
     await expect(
       verifyLiteAuthorization({
@@ -515,7 +568,7 @@ function buildBatchDefinitionYaml({
   ].join("\n");
 }
 
-function buildRoleMappingYaml(): string {
+function buildRoleMappingYamlWithRoles(repositoryRoles: string[]): string {
   return [
     'apiVersion: "batchplane.io/v1"',
     'kind: "RoleMapping"',
@@ -526,7 +579,7 @@ function buildRoleMappingYaml(): string {
     "    requester:",
     '      githubUsers: ["developer"]',
     "    approver:",
-    '      repositoryRoles: ["maintain"]',
+    `      repositoryRoles: ${JSON.stringify(repositoryRoles)}`,
     "    maintainer:",
     '      repositoryRoles: ["admin", "maintain"]',
     "    auditor:",
@@ -534,13 +587,31 @@ function buildRoleMappingYaml(): string {
   ].join("\n");
 }
 
+function buildWorkspacePolicyYaml(
+  mode: "SELF_APPROVAL_BLOCKED" | "SELF_APPROVAL_ALLOWED",
+) {
+  return [
+    'apiVersion: "batchplane.io/v1"',
+    'kind: "WorkspacePolicy"',
+    "metadata:",
+    '  id: "default"',
+    "spec:",
+    "  approval:",
+    `    mode: ${JSON.stringify(mode)}`,
+  ].join("\n");
+}
+
 function createGateFetchMock({
+  approverRepositoryRoles = ["maintain"],
   batchStatus = "ACTIVE",
   comments = [buildApprovalComment()],
+  includeWorkspacePolicy = false,
   includeBatchDefinition = true,
   requestIssueBody,
   requestWorkflowRef = "main",
+  workspaceApprovalMode = "SELF_APPROVAL_BLOCKED",
 }: {
+  approverRepositoryRoles?: string[];
   batchStatus?: "ACTIVE" | "INACTIVE";
   comments?: Array<{
     body: string;
@@ -548,15 +619,19 @@ function createGateFetchMock({
     updated_at?: string;
     user?: { login?: string };
   }>;
+  includeWorkspacePolicy?: boolean;
   includeBatchDefinition?: boolean;
   requestIssueBody?: string;
   requestWorkflowRef?: string;
+  workspaceApprovalMode?: "SELF_APPROVAL_BLOCKED" | "SELF_APPROVAL_ALLOWED";
 } = {}): typeof fetch {
   const issueBody =
     requestIssueBody ??
     buildRequestIssueBody({ workflowRef: requestWorkflowRef });
   const batchDefinitionYaml = buildBatchDefinitionYaml({ status: batchStatus });
-  const roleMappingYaml = buildRoleMappingYaml();
+  const roleMappingYaml = buildRoleMappingYamlWithRoles(
+    approverRepositoryRoles,
+  );
 
   return (async (input: RequestInfo | URL) => {
     const url = input.toString();
@@ -618,6 +693,24 @@ function createGateFetchMock({
         content: Buffer.from(roleMappingYaml).toString("base64"),
         encoding: "base64",
         path: ".batch-governance/policies/role-mapping.yml",
+      });
+    }
+
+    if (
+      url.includes(
+        "/repos/always0ne/batch/contents/.batch-governance/workspace.yml",
+      )
+    ) {
+      if (!includeWorkspacePolicy) {
+        return Response.json({ message: "Not Found" }, { status: 404 });
+      }
+
+      return Response.json({
+        content: Buffer.from(
+          buildWorkspacePolicyYaml(workspaceApprovalMode),
+        ).toString("base64"),
+        encoding: "base64",
+        path: ".batch-governance/workspace.yml",
       });
     }
 

@@ -5,7 +5,7 @@
   },
   "items": {
     "dashboard": "Dashboard",
-    "setup": "Repo Setup",
+    "setup": "Workspace",
     "batches": "Batches",
     "approvals": "Approvals",
     "runs": "Runs",

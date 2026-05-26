@@ -70,6 +70,23 @@ export type ApprovalPolicy = {
   appliesTo: ApprovalSubjectType[];
 };
 
+export type WorkspaceApprovalMode =
+  | "SELF_APPROVAL_BLOCKED"
+  | "SELF_APPROVAL_ALLOWED"
+  | "AUTO_APPROVE";
+
+export type WorkspacePolicy = {
+  approval: {
+    mode: WorkspaceApprovalMode;
+  };
+};
+
+export const defaultWorkspacePolicy: WorkspacePolicy = {
+  approval: {
+    mode: "SELF_APPROVAL_BLOCKED",
+  },
+};
+
 export type RoleMappingRole =
   | "requester"
   | "approver"
@@ -384,12 +401,17 @@ export type AuditPort = {
 export type SettingsPort = {
   getCurrentUser(): Promise<RepositoryUser>;
   getRepository(): Promise<Repository>;
+  getWorkspacePolicy(params?: { ref?: string }): Promise<WorkspacePolicy>;
   checkInstallationStatus(params: {
     ref: string;
   }): Promise<RuntimeInstallationStatus>;
   createInstallationPullRequest(params: {
     defaultBranch: string;
   }): Promise<RuntimeInstallationPullRequestResult>;
+  createWorkspacePolicyPullRequest(params: {
+    defaultBranch: string;
+    policy: WorkspacePolicy;
+  }): Promise<RepositoryPullRequest>;
 };
 
 export type BatchPlaneRuntimePorts = {
@@ -461,6 +483,15 @@ export type RoleMappingFile = {
   spec: RoleMapping;
 };
 
+export type WorkspacePolicyFile = {
+  apiVersion: BatchPlaneApiVersion;
+  kind: "WorkspacePolicy";
+  metadata: {
+    id: string;
+  };
+  spec: WorkspacePolicy;
+};
+
 export type ScheduleDefinitionFile = {
   apiVersion: BatchPlaneApiVersion;
   kind: "ScheduleDefinition";
@@ -518,6 +549,7 @@ export type GitHubLiteRepositoryFile =
   | BatchDefinitionFile
   | ApprovalPolicyFile
   | RoleMappingFile
+  | WorkspacePolicyFile
   | ScheduleDefinitionFile
   | ExecutionRequestPayload;
 
@@ -696,6 +728,76 @@ export function validateApprovalPolicyFile(
   }
 
   return { diagnostics: [], ok: true, value: file as ApprovalPolicyFile };
+}
+
+export function normalizeWorkspacePolicy(
+  policy: Partial<WorkspacePolicy> | null | undefined,
+): WorkspacePolicy {
+  return {
+    approval: {
+      mode: policy?.approval?.mode ?? defaultWorkspacePolicy.approval.mode,
+    },
+  };
+}
+
+export function validateWorkspacePolicy(
+  policy: unknown,
+): FieldValidationDiagnostic[] {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(policy, "$", diagnostics);
+
+  if (!record) {
+    return diagnostics;
+  }
+
+  const approval = requireRecord(record.approval, "approval", diagnostics);
+
+  if (approval) {
+    validateEnumField(
+      approval.mode,
+      "approval.mode",
+      workspaceApprovalModeValues,
+      diagnostics,
+    );
+  }
+
+  return diagnostics;
+}
+
+export function validateWorkspacePolicyFile(
+  file: unknown,
+): ValidationResult<WorkspacePolicyFile> {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(file, "$", diagnostics);
+
+  if (!record) {
+    return { diagnostics, ok: false };
+  }
+
+  validateBatchPlaneApiVersion(record.apiVersion, diagnostics);
+  validateExactValue(record.kind, "kind", "WorkspacePolicy", diagnostics);
+
+  const metadata = requireRecord(record.metadata, "metadata", diagnostics);
+  const spec = requireRecord(record.spec, "spec", diagnostics);
+
+  if (metadata) {
+    requireString(metadata, "id", diagnostics, "metadata.id");
+  }
+
+  if (spec) {
+    diagnostics.push(
+      ...validateWorkspacePolicy(spec).map((diagnostic) => ({
+        ...diagnostic,
+        field: `spec.${diagnostic.field}`,
+      })),
+    );
+  }
+
+  if (diagnostics.length > 0) {
+    return { diagnostics, ok: false };
+  }
+
+  return { diagnostics: [], ok: true, value: file as WorkspacePolicyFile };
 }
 
 export function validateRoleMapping(
@@ -1023,6 +1125,11 @@ const approvalSubjectTypeValues = [
   "BATCH_CHANGE",
   "EXECUTION_REQUEST",
   "SCHEDULE_DEFINITION",
+] as const;
+const workspaceApprovalModeValues = [
+  "SELF_APPROVAL_BLOCKED",
+  "SELF_APPROVAL_ALLOWED",
+  "AUTO_APPROVE",
 ] as const;
 const roleMappingRoles: RoleMappingRole[] = [
   "requester",

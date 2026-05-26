@@ -1,4 +1,8 @@
-import type { BatchPlaneRuntimePorts, ExecutionRun } from "@batchplane/domain";
+import type {
+  BatchPlaneRuntimePorts,
+  ExecutionRun,
+  WorkspacePolicy,
+} from "@batchplane/domain";
 import {
   CheckCircle2,
   ExternalLink,
@@ -13,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import {
   buildExecutionApprovalComment,
   buildExecutionRejectionComment,
+  allowsSelfApproval,
   parseExecutionRequestDetail,
   type ExecutionApprovalRequest,
   type ExecutionRequestDisplayStatus,
@@ -48,6 +53,7 @@ type PageState =
       runLookupFailed: boolean;
       runs: ExecutionRun[];
       session: GitHubSession;
+      workspacePolicy: WorkspacePolicy;
     }
   | { type: "error"; message: string };
 
@@ -95,6 +101,9 @@ export function ExecutionRequestDetailPage({
           runtime.settings.getRepository(),
           runtime.approvals.listExecutionRequestIssues({ state: "all" }),
         ]);
+        const workspacePolicy = await runtime.settings.getWorkspacePolicy({
+          ref: repository.defaultBranch,
+        });
         const issue = issues.find(
           (candidate) => candidate.number === parsedIssueNumber,
         );
@@ -134,6 +143,7 @@ export function ExecutionRequestDetailPage({
           runLookupFailed: relatedRuns.failed,
           runs: relatedRuns.runs,
           session,
+          workspacePolicy,
         });
       } catch (error) {
         if (!ignoreResult) {
@@ -153,7 +163,11 @@ export function ExecutionRequestDetailPage({
   }, [createRuntime, parsedIssueNumber, readSession, reloadToken, t]);
 
   async function approveExecution(request: ExecutionApprovalRequest) {
-    if (state.type !== "loaded" || request.requestedBy === state.login) {
+    if (
+      state.type !== "loaded" ||
+      (request.requestedBy === state.login &&
+        !allowsSelfApproval(state.workspacePolicy))
+    ) {
       return;
     }
 
@@ -165,6 +179,7 @@ export function ExecutionRequestDetailPage({
       await runtime.approvals.approveExecution({
         body: buildExecutionApprovalComment({
           approvedAt: new Date(),
+          approvalMode: state.workspacePolicy.approval.mode,
           approver: state.login,
           request,
         }),
@@ -268,9 +283,18 @@ export function ExecutionRequestDetailPage({
 
   const { request } = state;
   const isActionable = request.status === "REQUESTED";
+  const selfApprovalAllowed = allowsSelfApproval(state.workspacePolicy);
+  const selfApproval =
+    request.requestedBy === state.login && request.requestedBy !== "";
   const selfApprovalBlocked =
-    request.requestedBy === state.login
+    selfApproval && !selfApprovalAllowed
       ? t("detail.values.selfApprovalBlocked")
+      : "";
+  const selfApprovalNotice =
+    selfApproval && selfApprovalAllowed
+      ? t("detail.values.selfApprovalAllowed", {
+          mode: state.workspacePolicy.approval.mode,
+        })
       : "";
   const isBusy = actionState.type === "running";
 
@@ -334,6 +358,11 @@ export function ExecutionRequestDetailPage({
               <p className="mt-2 text-sm text-bp-muted">
                 {t("detail.actions.note")}
               </p>
+              {selfApprovalNotice ? (
+                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                  {selfApprovalNotice}
+                </p>
+              ) : null}
               <ExecutionApprovalActions
                 approveDisabledReason={selfApprovalBlocked}
                 approveLabel={t("detail.actions.approve")}

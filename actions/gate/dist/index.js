@@ -1,5 +1,5 @@
 import { appendFileSync } from "node:fs";
-import { parseYamlDocument, validateBatchDefinitionFile, validateRoleMappingFile, } from "./gate-schema.js";
+import { parseYamlDocument, validateBatchDefinitionFile, validateRoleMappingFile, validateWorkspacePolicyFile, } from "./gate-schema.js";
 export function verifyLiteInput(input) {
     if (input.mode !== "lite") {
         return {
@@ -132,7 +132,19 @@ export async function verifyLiteAuthorization(input) {
         evidence.approval.requestDigest !== evidence.request.requestDigest) {
         return deny("REQUEST_DIGEST_MISMATCH", "Execution approval digest does not match execution request digest.");
     }
-    if (evidence.approval.approver === evidence.request.requestedBy) {
+    let workspaceApprovalMode;
+    try {
+        workspaceApprovalMode = await readWorkspaceApprovalMode({
+            client,
+            configPath: input.configPath,
+            ref: evidence.request.workflowRef || input.ref,
+        });
+    }
+    catch (error) {
+        return deny("WORKSPACE_POLICY_LOOKUP_FAILED", `Workspace policy lookup failed: ${toErrorMessage(error)}`);
+    }
+    if (evidence.approval.approver === evidence.request.requestedBy &&
+        workspaceApprovalMode !== "SELF_APPROVAL_ALLOWED") {
         return deny("SELF_APPROVAL_NOT_ALLOWED", "Requester and approver must be different users.");
     }
     const approverAuthorized = await verifyApproverAuthorization({
@@ -280,6 +292,26 @@ async function validateBatchPolicyEvidence({ batchId, client, configPath, inputR
         return deny("UNKNOWN", "Repository owner is required for team validation.");
     }
     return { message: "Batch policy evidence is verified.", result: "ALLOW" };
+}
+async function readWorkspaceApprovalMode({ client, configPath, ref, }) {
+    const effectiveRef = ref?.trim();
+    if (!effectiveRef) {
+        return "SELF_APPROVAL_BLOCKED";
+    }
+    const workspacePolicyPath = `${configPath.replace(/\/+$/u, "")}/workspace.yml`;
+    const workspacePolicyFile = await client.getFile(workspacePolicyPath, effectiveRef);
+    if (!workspacePolicyFile) {
+        return "SELF_APPROVAL_BLOCKED";
+    }
+    const parsed = parseYamlDocument(workspacePolicyFile.content);
+    if (!parsed.ok) {
+        throw new Error(`Workspace policy YAML is invalid: ${workspacePolicyPath}.`);
+    }
+    const validated = validateWorkspacePolicyFile(parsed.value);
+    if (!validated.ok) {
+        throw new Error(`Workspace policy is invalid: ${workspacePolicyPath}.`);
+    }
+    return validated.value.spec.approval.mode;
 }
 function validateScheduleMapping({ request, scheduleId, }) {
     if (!scheduleId) {

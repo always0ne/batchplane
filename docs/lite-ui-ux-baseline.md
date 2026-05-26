@@ -19,7 +19,8 @@ Lite must read as one connected operational flow:
 
 ## Screen Responsibilities
 
-- Setup shows repository connection and installation readiness.
+- Workspace shows GitHub connection, installation readiness, and
+  repository-backed Workspace policy changes.
 - Registration shows what will be controlled, what will run, where it will run,
   and which files the pull request will create.
 - Approvals shows only work that can still be approved or rejected.
@@ -66,7 +67,19 @@ Lite must read as one connected operational flow:
 - Failed, Gate-blocked, dispatching, dispatched, and rejected execution issues
   are not approval work. They must not be shown with approve/reject controls.
 - Rejecting an execution request must require a reason.
-- Self-approval must be disabled with an explicit reason, not silently hidden.
+- Self-approval must be disabled with an explicit reason unless the effective
+  Workspace policy is `SELF_APPROVAL_ALLOWED`.
+
+## Workspace Settings UX Rules
+
+- The navigation label must use Workspace language, not Repo Settings.
+- GitHub owner/repository fields are connection details inside the Workspace,
+  not the product-level settings concept.
+- Approval mode changes must create a pull request to
+  `.batch-governance/workspace.yml`; the browser must not store approval policy
+  as local UI state.
+- `AUTO_APPROVE` may be visible as reserved future scope, but it must not be
+  actionable until the auto-approval implementation exists.
 
 ## Gate UX Rules
 
