@@ -75,6 +75,8 @@ different workflow path during the initial Lite registration flow.
 
 The generated workflow must include:
 
+- `run-name` containing the Batch ID and request ID so GitHub Actions runs can
+  be correlated back to the BatchPlane execution request.
 - `workflow_dispatch` inputs for `request_id`, `batch_id`, and
   `request_digest`.
 - A `batchplane-gate` job before the batch job.
@@ -201,6 +203,14 @@ path/ref, runner, batch command, request digest, governance checks, canonical
 request payload, approval evidence, dispatcher evidence, and Gate evidence when
 available. The detail screen is the primary place to explain why approval did or
 did not lead to dispatch.
+
+Approved or dispatched execution requests must link to correlated GitHub
+Actions runs when available. The execution run detail screen must show the run
+status, external GitHub Actions link, workflow path/name, run attempt, actor,
+request ID, Batch ID, Gate decision, and job conclusion summary. Gate-blocked
+execution must be visually separated from business command failure: a blocked
+Gate means the batch command did not run, while a failed batch job means Gate
+allowed the run and the downstream command or business job failed.
 
 Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request

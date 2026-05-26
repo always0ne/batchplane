@@ -20,6 +20,7 @@ export const runtimeFixtureIds = [
   "live",
   "happy-path",
   "approval-pending",
+  "business-failed",
   "dispatch-failed",
   "gate-blocked",
 ] as const;
@@ -39,6 +40,7 @@ const mockRuntimeSession: GitHubSession = {
 
 const fixtureScenarioStates = {
   "approval-pending": "requested",
+  "business-failed": "business-failed",
   "dispatch-failed": "failed",
   "gate-blocked": "gate-blocked",
   "happy-path": "dispatched",

@@ -104,14 +104,29 @@ export type GitHubWorkflowRun = {
   id: number;
   workflowId: number;
   name: string;
+  displayTitle?: string;
   status: GitHubWorkflowRunStatus;
   conclusion: GitHubWorkflowRunConclusion;
   url: string;
   event: "workflow_dispatch" | "issue_comment" | "schedule";
   actor: string;
   runAttempt: number;
+  createdAt?: string;
+  startedAt?: string;
+  updatedAt?: string;
   batchId?: string;
   requestId?: string;
+  workflowPath?: string;
+};
+
+export type GitHubWorkflowJob = {
+  id: number;
+  name: string;
+  status: GitHubWorkflowRunStatus;
+  conclusion: GitHubWorkflowRunConclusion;
+  startedAt?: string;
+  completedAt?: string;
+  url?: string;
 };
 
 export type GitHubRepositoryPermission =
@@ -145,6 +160,7 @@ export type GitHubLiteMockExecutionState =
   | "approved"
   | "dispatching"
   | "dispatched"
+  | "business-failed"
   | "rejected"
   | "failed"
   | "gate-blocked";
@@ -236,6 +252,13 @@ export type MergePullRequestParams = RepoRef & {
   mergeMethod?: "merge" | "squash" | "rebase";
 };
 
+export type ListWorkflowRunsParams = RepoRef & {
+  event?: GitHubWorkflowRun["event"];
+  perPage?: number;
+  status?: GitHubWorkflowRunStatus;
+  workflowId?: number | string;
+};
+
 export type GitHubLiteClient = {
   getCurrentUser(): Promise<GitHubUser>;
   getRepository(params: RepoRef): Promise<GitHubRepository>;
@@ -267,6 +290,19 @@ export type GitHubLiteClient = {
   listIssueComments(
     params: RepoRef & { issueNumber: number },
   ): Promise<GitHubIssueComment[]>;
+  listWorkflows(params: RepoRef): Promise<GitHubWorkflow[]>;
+  getWorkflow(
+    params: RepoRef & { workflowId: number | string },
+  ): Promise<GitHubWorkflow | null>;
+  listWorkflowRuns(
+    params: ListWorkflowRunsParams,
+  ): Promise<GitHubWorkflowRun[]>;
+  getWorkflowRun(
+    params: RepoRef & { runId: number },
+  ): Promise<GitHubWorkflowRun | null>;
+  listWorkflowRunJobs(
+    params: RepoRef & { runId: number },
+  ): Promise<GitHubWorkflowJob[]>;
   listLabels(params: RepoRef): Promise<GitHubLabel[]>;
   createLabel(params: RepoRef & GitHubLabel): Promise<GitHubLabel>;
   createIssueComment(
@@ -432,6 +468,55 @@ type GitHubRepositoryPermissionResponse = {
 type GitHubTeamMembershipResponse = {
   state?: string | null;
   role?: string | null;
+};
+
+type GitHubWorkflowResponse = {
+  id: number;
+  name: string;
+  path: string;
+  state?: string | null;
+  html_url: string;
+};
+
+type GitHubWorkflowsResponse = {
+  workflows: GitHubWorkflowResponse[];
+};
+
+type GitHubWorkflowRunResponse = {
+  id: number;
+  workflow_id: number;
+  name?: string | null;
+  display_title?: string | null;
+  status?: string | null;
+  conclusion?: string | null;
+  html_url: string;
+  event?: string | null;
+  actor?: {
+    login?: string | null;
+  } | null;
+  run_attempt?: number | null;
+  created_at?: string | null;
+  run_started_at?: string | null;
+  updated_at?: string | null;
+  path?: string | null;
+};
+
+type GitHubWorkflowRunsResponse = {
+  workflow_runs: GitHubWorkflowRunResponse[];
+};
+
+type GitHubWorkflowJobResponse = {
+  id: number;
+  name: string;
+  status?: string | null;
+  conclusion?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  html_url?: string | null;
+};
+
+type GitHubWorkflowJobsResponse = {
+  jobs: GitHubWorkflowJobResponse[];
 };
 
 export function createGitHubLiteClient({
@@ -808,6 +893,76 @@ export function createGitHubLiteClient({
       return (comments ?? []).map((comment) =>
         mapIssueCommentResponse(comment, issueNumber),
       );
+    },
+
+    async listWorkflows({ owner, repo }) {
+      const workflows = await request<GitHubWorkflowsResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/actions/workflows`,
+      );
+
+      return (workflows?.workflows ?? []).map(mapWorkflowResponse);
+    },
+
+    async getWorkflow({ owner, repo, workflowId }) {
+      const workflow = await request<GitHubWorkflowResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/actions/workflows/${encodePath(String(workflowId))}`,
+        {},
+        { allowNotFound: true },
+      );
+
+      return workflow ? mapWorkflowResponse(workflow) : null;
+    },
+
+    async listWorkflowRuns({
+      owner,
+      repo,
+      event,
+      perPage = 30,
+      status,
+      workflowId,
+    }) {
+      const query = buildQuery({
+        ...(event ? { event } : {}),
+        per_page: String(perPage),
+        ...(status ? { status } : {}),
+      });
+      const path =
+        workflowId === undefined
+          ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+              repo,
+            )}/actions/runs${query}`
+          : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+              repo,
+            )}/actions/workflows/${encodePath(String(workflowId))}/runs${query}`;
+      const runs = await request<GitHubWorkflowRunsResponse>(path);
+
+      return (runs?.workflow_runs ?? []).map(mapWorkflowRunResponse);
+    },
+
+    async getWorkflowRun({ owner, repo, runId }) {
+      const run = await request<GitHubWorkflowRunResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/actions/runs/${runId}`,
+        {},
+        { allowNotFound: true },
+      );
+
+      return run ? mapWorkflowRunResponse(run) : null;
+    },
+
+    async listWorkflowRunJobs({ owner, repo, runId }) {
+      const jobs = await request<GitHubWorkflowJobsResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/actions/runs/${runId}/jobs`,
+      );
+
+      return (jobs?.jobs ?? []).map(mapWorkflowJobResponse);
     },
 
     async listLabels({ owner, repo }) {
@@ -1505,6 +1660,59 @@ export function createMockGitHubLiteClient(
         .map(cloneJson);
     },
 
+    async listWorkflows(params) {
+      assertMockRepository(state, params);
+
+      return state.workflows.map(cloneJson);
+    },
+
+    async getWorkflow(params) {
+      assertMockRepository(state, params);
+
+      const workflowId = String(params.workflowId);
+      const workflow = state.workflows.find(
+        (candidate) =>
+          String(candidate.id) === workflowId ||
+          candidate.path === workflowId ||
+          candidate.path.endsWith(`/${workflowId}`),
+      );
+
+      return workflow ? cloneJson(workflow) : null;
+    },
+
+    async listWorkflowRuns(params) {
+      assertMockRepository(state, params);
+
+      const perPage = params.perPage ?? 30;
+
+      return state.workflowRuns
+        .filter(
+          (run) =>
+            (!params.workflowId ||
+              String(run.workflowId) === String(params.workflowId)) &&
+            (!params.event || run.event === params.event) &&
+            (!params.status || run.status === params.status),
+        )
+        .slice(0, perPage)
+        .map(cloneJson);
+    },
+
+    async getWorkflowRun(params) {
+      assertMockRepository(state, params);
+
+      const run = state.workflowRuns.find(
+        (candidate) => candidate.id === params.runId,
+      );
+
+      return run ? cloneJson(run) : null;
+    },
+
+    async listWorkflowRunJobs(params) {
+      assertMockRepository(state, params);
+
+      return buildMockWorkflowRunJobs(state, params.runId).map(cloneJson);
+    },
+
     async mergePullRequest(params) {
       assertMockRepository(state, params);
 
@@ -1828,7 +2036,6 @@ function applyMockDispatcherStatusTransition(
     batchPlaneLabel("dispatch-failed"),
   ]);
   ensureMockLabel(state, "batchplane:dispatch-failed");
-  ensureMockWorkflowRun(state, scenario, status);
 }
 
 function findMatchingMockExecutionScenario(
@@ -1891,14 +2098,19 @@ function ensureMockWorkflowRun(
     actor: "github-actions[bot]",
     batchId: scenario.batchId,
     conclusion,
+    createdAt: new Date(0).toISOString(),
+    displayTitle: `BatchPlane ${scenario.batchId} ${scenario.requestId}`,
     event: "workflow_dispatch",
     id: workflowRunId,
     name: `Run ${scenario.batchId}`,
     requestId: scenario.requestId,
     runAttempt: 1,
+    startedAt: new Date(0).toISOString(),
     status: runStatus,
+    updatedAt: new Date(0).toISOString(),
     url: `${state.repository.url}/actions/runs/${workflowRunId}`,
     workflowId,
+    workflowPath: `.github/workflows/${scenario.batchId}.yml`,
   });
 }
 
@@ -2008,6 +2220,102 @@ function mapPullRequestResponse(
     body: pullRequest.body ?? "",
     merged: pullRequest.merged ?? Boolean(pullRequest.merged_at),
   };
+}
+
+function mapWorkflowResponse(workflow: GitHubWorkflowResponse): GitHubWorkflow {
+  return {
+    id: workflow.id,
+    name: workflow.name,
+    path: workflow.path,
+    state: workflow.state === "disabled" ? "disabled" : "active",
+    url: workflow.html_url,
+  };
+}
+
+function mapWorkflowRunResponse(
+  run: GitHubWorkflowRunResponse,
+): GitHubWorkflowRun {
+  return {
+    actor: run.actor?.login ?? "",
+    conclusion: mapWorkflowRunConclusion(run.conclusion),
+    ...(run.created_at ? { createdAt: run.created_at } : {}),
+    ...(run.display_title ? { displayTitle: run.display_title } : {}),
+    event: mapWorkflowRunEvent(run.event),
+    id: run.id,
+    name: run.name?.trim() || run.display_title?.trim() || `Run ${run.id}`,
+    runAttempt: run.run_attempt ?? 1,
+    ...(run.run_started_at ? { startedAt: run.run_started_at } : {}),
+    status: mapWorkflowRunStatus(run.status),
+    ...(run.updated_at ? { updatedAt: run.updated_at } : {}),
+    url: run.html_url,
+    workflowId: run.workflow_id,
+    ...(run.path ? { workflowPath: run.path } : {}),
+  };
+}
+
+function mapWorkflowJobResponse(
+  job: GitHubWorkflowJobResponse,
+): GitHubWorkflowJob {
+  return {
+    conclusion: mapWorkflowRunConclusion(job.conclusion),
+    ...(job.completed_at ? { completedAt: job.completed_at } : {}),
+    id: job.id,
+    name: job.name,
+    ...(job.started_at ? { startedAt: job.started_at } : {}),
+    status: mapWorkflowRunStatus(job.status),
+    ...(job.html_url ? { url: job.html_url } : {}),
+  };
+}
+
+function mapWorkflowRunStatus(
+  value: string | null | undefined,
+): GitHubWorkflowRunStatus {
+  const normalized = value?.trim().toLowerCase();
+
+  if (
+    normalized === "queued" ||
+    normalized === "in_progress" ||
+    normalized === "completed"
+  ) {
+    return normalized;
+  }
+
+  return "queued";
+}
+
+function mapWorkflowRunConclusion(
+  value: string | null | undefined,
+): GitHubWorkflowRunConclusion {
+  const normalized = value?.trim().toLowerCase();
+
+  if (
+    normalized === "success" ||
+    normalized === "failure" ||
+    normalized === "cancelled" ||
+    normalized === "skipped" ||
+    normalized === "timed_out" ||
+    normalized === "action_required"
+  ) {
+    return normalized;
+  }
+
+  return null;
+}
+
+function mapWorkflowRunEvent(
+  value: string | null | undefined,
+): GitHubWorkflowRun["event"] {
+  const normalized = value?.trim().toLowerCase();
+
+  if (
+    normalized === "workflow_dispatch" ||
+    normalized === "issue_comment" ||
+    normalized === "schedule"
+  ) {
+    return normalized;
+  }
+
+  return "workflow_dispatch";
 }
 
 function mapRepositoryPermissionValue(
@@ -2319,6 +2627,7 @@ function createMockExecutionScenarios(
     "approved",
     "dispatching",
     "dispatched",
+    "business-failed",
     "rejected",
     "failed",
     "gate-blocked",
@@ -2336,7 +2645,10 @@ function createMockExecutionScenarios(
       ).padStart(8, "0")}`,
       state,
       workflowRunId:
-        state === "requested" || state === "approved"
+        state === "requested" ||
+        state === "approved" ||
+        state === "rejected" ||
+        state === "failed"
           ? undefined
           : 200 + sequence,
     };
@@ -2354,6 +2666,10 @@ function buildMockExecutionIssue(
   }
 
   if (scenario.state === "dispatched") {
+    labels.push("batchplane:dispatched");
+  }
+
+  if (scenario.state === "business-failed") {
     labels.push("batchplane:dispatched");
   }
 
@@ -2376,7 +2692,9 @@ function buildMockExecutionIssue(
     labels,
     number: scenario.issueNumber,
     state:
-      scenario.state === "dispatched" || scenario.state === "rejected"
+      scenario.state === "dispatched" ||
+      scenario.state === "business-failed" ||
+      scenario.state === "rejected"
         ? "closed"
         : "open",
     title: `Run batch ${scenario.batchId} (${scenario.state})`,
@@ -2461,6 +2779,7 @@ function buildMockExecutionComments(
     scenario.state === "approved" ||
     scenario.state === "dispatching" ||
     scenario.state === "dispatched" ||
+    scenario.state === "business-failed" ||
     scenario.state === "failed" ||
     scenario.state === "gate-blocked"
   ) {
@@ -2496,6 +2815,10 @@ function buildMockExecutionComments(
   }
 
   if (scenario.state === "dispatched") {
+    comments.push(buildMockDispatcherComment(scenario, "DISPATCHED"));
+  }
+
+  if (scenario.state === "business-failed") {
     comments.push(buildMockDispatcherComment(scenario, "DISPATCHED"));
   }
 
@@ -2610,14 +2933,79 @@ function buildMockWorkflowRuns(
       actor: "github-actions[bot]",
       batchId: scenario.batchId,
       conclusion,
+      createdAt: "2026-05-14T01:07:00.000Z",
+      displayTitle: `BatchPlane ${scenario.batchId} ${scenario.requestId}`,
       event: "workflow_dispatch",
       id: scenario.workflowRunId,
       name: `Run ${scenario.batchId}`,
       requestId: scenario.requestId,
       runAttempt: scenario.state === "gate-blocked" ? 2 : 1,
+      startedAt: "2026-05-14T01:07:00.000Z",
       status,
+      updatedAt:
+        scenario.state === "dispatching" ? "" : "2026-05-14T01:09:00.000Z",
       url: `${repository.url}/actions/runs/${scenario.workflowRunId}`,
       workflowId,
+      workflowPath: `.github/workflows/${scenario.batchId}.yml`,
+    },
+  ];
+}
+
+function buildMockWorkflowRunJobs(
+  state: GitHubLiteMockState,
+  runId: number,
+): GitHubWorkflowJob[] {
+  const run = state.workflowRuns.find((candidate) => candidate.id === runId);
+
+  if (!run) {
+    return [];
+  }
+
+  const scenario = state.executionScenarios.find(
+    (candidate) => candidate.workflowRunId === runId,
+  );
+  const gateBlocked = scenario?.state === "gate-blocked";
+  const businessFailure = run.conclusion === "failure" && !gateBlocked;
+
+  return [
+    {
+      completedAt:
+        run.status === "queued" ? undefined : "2026-05-14T01:08:00.000Z",
+      conclusion:
+        run.status === "completed"
+          ? gateBlocked
+            ? "failure"
+            : "success"
+          : null,
+      id: runId * 10 + 1,
+      name: "BatchPlane Gate",
+      startedAt: run.startedAt,
+      status: run.status === "queued" ? "queued" : "completed",
+      url: `${state.repository.url}/actions/runs/${runId}/job/${runId * 10 + 1}`,
+    },
+    {
+      completedAt:
+        run.status === "completed" && !gateBlocked
+          ? "2026-05-14T01:09:00.000Z"
+          : undefined,
+      conclusion:
+        run.status !== "completed"
+          ? null
+          : gateBlocked
+            ? "skipped"
+            : businessFailure
+              ? "failure"
+              : "success",
+      id: runId * 10 + 2,
+      name: "Run governed batch",
+      startedAt: gateBlocked ? undefined : "2026-05-14T01:08:00.000Z",
+      status:
+        run.status === "completed"
+          ? "completed"
+          : run.status === "in_progress"
+            ? "in_progress"
+            : "queued",
+      url: `${state.repository.url}/actions/runs/${runId}/job/${runId * 10 + 2}`,
     },
   ];
 }
@@ -2649,6 +3037,7 @@ function buildMockBatchDefinitionYaml(batchId: string): string {
 function buildMockBatchWorkflowYaml(batchId: string): string {
   return [
     `name: "BatchPlane - ${batchId}"`,
+    "run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}",
     "",
     "on:",
     "  workflow_dispatch:",

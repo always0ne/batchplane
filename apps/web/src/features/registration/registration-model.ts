@@ -149,6 +149,7 @@ export function buildBatchWorkflowYaml(
 
   return [
     `name: ${yamlString(`BatchPlane - ${workflowName}`)}`,
+    "run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}",
     "",
     "on:",
     "  workflow_dispatch:",

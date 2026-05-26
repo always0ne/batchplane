@@ -35,6 +35,10 @@ Lite must read as one connected operational flow:
   state, execution target, request actions, and recent evidence.
 - Failure, run detail, my work, and audit screens are post-approval follow-up
   surfaces. They must not be collapsed into the approvals inbox.
+- Execution run detail must separate control evidence from business execution:
+  Gate-blocked runs explain that the batch command did not run, while business
+  failures explain that Gate allowed the run and the downstream command failed.
+  The screen must include a GitHub Actions link and job conclusion summary.
 
 ## Approval UX Rules
 
@@ -69,6 +73,9 @@ Lite must read as one connected operational flow:
   visibility can lag briefly after creation.
 - Browser UI must not imply it directly dispatches governed workflows.
   Dispatch is performed by the repository dispatcher workflow after approval.
+- GitHub Actions visibility can lag after dispatch. Run detail links should
+  appear when correlation evidence is available, and missing runs should be
+  presented as pending visibility rather than as proof that approval failed.
 
 ## PR Checklist
 

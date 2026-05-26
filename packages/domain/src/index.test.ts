@@ -264,6 +264,8 @@ describe("domain model contracts", () => {
           title: "Run batch",
           url: "https://github.com/always0ne/batch/issues/1",
         }),
+        getExecutionRun: async () => null,
+        listExecutionRuns: async () => [],
       },
       registration: {
         checkRegistrationTargets: async () => ({

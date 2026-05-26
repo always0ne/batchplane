@@ -95,6 +95,12 @@ The generated workflow has two jobs:
 
 `run-batch` must declare `needs: batchplane-gate`.
 
+The workflow must set a run name that includes the Batch ID and request ID:
+
+```yaml
+run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}
+```
+
 The workflow is invoked only by `workflow_dispatch` with these inputs:
 
 ```yaml
@@ -292,6 +298,38 @@ The screen must include:
 Duplicate approval comments for the same request ID, Batch ID, and request
 digest must not create a second `workflow_dispatch` call once `DISPATCHING` or
 `DISPATCHED` evidence exists.
+
+## Execution Run Detail Contract
+
+The UI reads GitHub Actions run detail through the target repository API and
+maps it into `ExecutionRun`:
+
+- list workflows and workflow runs with `event=workflow_dispatch`
+- read a specific workflow run by run ID
+- read the workflow run jobs for Gate and business-job conclusions
+- correlate runs to BatchPlane requests using the workflow run name/title,
+  request ID, Batch ID, workflow path, and execution request evidence
+
+Generated workflows must set:
+
+```yaml
+run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}
+```
+
+This makes the request correlation readable in GitHub Actions and recoverable
+by the Lite UI even without a server-side database.
+
+Run status mapping must distinguish control failure from business failure:
+
+- Gate job failure before the batch job runs maps to `BLOCKED`.
+- Gate success plus downstream batch job failure maps to `FAILED`.
+- Completed successful jobs map to `SUCCEEDED`.
+- In-progress GitHub run states map to `QUEUED` or `RUNNING`.
+- Canceled/skipped runs map to `CANCELED` unless Gate evidence proves a
+  control block.
+
+The run detail screen must include an external GitHub Actions link and a job
+summary so operators can move from BatchPlane evidence to native runner logs.
 
 Parsers must accept both BatchPlane and legacy BatchTrail evidence namespaces:
 `batchplane.io/v1` and `batchtrail.io/v1`, plus `batchplane:*` and

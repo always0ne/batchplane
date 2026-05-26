@@ -1,11 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "./App";
 import "../i18n/i18n";
 
 describe("App", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
   it.each([
     { heading: "Dashboard", path: "/dashboard" },
     { heading: "Settings", path: "/lite/setup" },
@@ -34,6 +38,20 @@ describe("App", () => {
 
     expect(
       await screen.findByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the execution run detail route with the development fixture", async () => {
+    sessionStorage.setItem("batchplane.dev.runtimeFixture", "happy-path");
+
+    render(
+      <MemoryRouter initialEntries={["/execution-runs/204"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Execution run detail" }),
     ).toBeInTheDocument();
   });
 
@@ -66,6 +84,9 @@ describe("App", () => {
     expect(
       screen.getByRole("option", { name: "Approval pending" }),
     ).toHaveValue("approval-pending");
+    expect(screen.getByRole("option", { name: "Business failed" })).toHaveValue(
+      "business-failed",
+    );
     expect(screen.getByRole("option", { name: "Dispatch failed" })).toHaveValue(
       "dispatch-failed",
     );

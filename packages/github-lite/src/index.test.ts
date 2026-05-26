@@ -573,6 +573,134 @@ describe("createGitHubLiteClient", () => {
     );
   });
 
+  it("reads workflow runs and job summaries", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+
+      if (requests.length === 1) {
+        return Response.json({
+          workflows: [
+            {
+              id: 101,
+              name: "BatchPlane - Daily Close",
+              path: ".github/workflows/payment.daily-close.yml",
+              state: "active",
+              html_url:
+                "https://github.com/always0ne/batchplane/actions/workflows/payment.daily-close.yml",
+            },
+          ],
+        });
+      }
+
+      if (requests.length === 2) {
+        return Response.json({
+          workflow_runs: [
+            {
+              id: 200,
+              workflow_id: 101,
+              name: "BatchPlane - Daily Close",
+              display_title:
+                "BatchPlane payment.daily-close btr-20260514010400-payment-daily-close-abc12345",
+              status: "completed",
+              conclusion: "success",
+              html_url:
+                "https://github.com/always0ne/batchplane/actions/runs/200",
+              event: "workflow_dispatch",
+              actor: { login: "github-actions[bot]" },
+              run_attempt: 1,
+              created_at: "2026-05-14T01:07:00.000Z",
+              run_started_at: "2026-05-14T01:07:10.000Z",
+              updated_at: "2026-05-14T01:09:00.000Z",
+              path: ".github/workflows/payment.daily-close.yml",
+            },
+          ],
+        });
+      }
+
+      return Response.json({
+        jobs: [
+          {
+            id: 300,
+            name: "BatchPlane Gate",
+            status: "completed",
+            conclusion: "success",
+            started_at: "2026-05-14T01:07:10.000Z",
+            completed_at: "2026-05-14T01:07:20.000Z",
+            html_url:
+              "https://github.com/always0ne/batchplane/actions/runs/200/job/300",
+          },
+        ],
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.listWorkflows({ owner: "always0ne", repo: "batchplane" }),
+    ).resolves.toEqual([
+      {
+        id: 101,
+        name: "BatchPlane - Daily Close",
+        path: ".github/workflows/payment.daily-close.yml",
+        state: "active",
+        url: "https://github.com/always0ne/batchplane/actions/workflows/payment.daily-close.yml",
+      },
+    ]);
+
+    await expect(
+      client.listWorkflowRuns({
+        owner: "always0ne",
+        repo: "batchplane",
+        event: "workflow_dispatch",
+        workflowId: 101,
+      }),
+    ).resolves.toEqual([
+      {
+        actor: "github-actions[bot]",
+        conclusion: "success",
+        createdAt: "2026-05-14T01:07:00.000Z",
+        displayTitle:
+          "BatchPlane payment.daily-close btr-20260514010400-payment-daily-close-abc12345",
+        event: "workflow_dispatch",
+        id: 200,
+        name: "BatchPlane - Daily Close",
+        runAttempt: 1,
+        startedAt: "2026-05-14T01:07:10.000Z",
+        status: "completed",
+        updatedAt: "2026-05-14T01:09:00.000Z",
+        url: "https://github.com/always0ne/batchplane/actions/runs/200",
+        workflowId: 101,
+        workflowPath: ".github/workflows/payment.daily-close.yml",
+      },
+    ]);
+
+    await expect(
+      client.listWorkflowRunJobs({
+        owner: "always0ne",
+        repo: "batchplane",
+        runId: 200,
+      }),
+    ).resolves.toEqual([
+      {
+        completedAt: "2026-05-14T01:07:20.000Z",
+        conclusion: "success",
+        id: 300,
+        name: "BatchPlane Gate",
+        startedAt: "2026-05-14T01:07:10.000Z",
+        status: "completed",
+        url: "https://github.com/always0ne/batchplane/actions/runs/200/job/300",
+      },
+    ]);
+
+    expect(requests[1]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchplane/actions/workflows/101/runs?event=workflow_dispatch&per_page=30",
+    );
+    expect(requests[2]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchplane/actions/runs/200/jobs",
+    );
+  });
+
   it("lists and creates labels", async () => {
     const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
       [];
@@ -778,12 +906,13 @@ describe("createMockGitHubLiteClient", () => {
         "approved",
         "dispatching",
         "dispatched",
+        "business-failed",
         "rejected",
         "failed",
         "gate-blocked",
       ]),
     );
-    expect(state.issues).toHaveLength(7);
+    expect(state.issues).toHaveLength(8);
     expect(
       state.issueComments.some((comment) =>
         comment.body.startsWith("/bgcp approve "),

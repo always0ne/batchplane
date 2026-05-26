@@ -11,6 +11,7 @@
       "live": "실제 GitHub",
       "happy-path": "정상 흐름",
       "approval-pending": "승인 대기",
+      "business-failed": "업무 실패",
       "dispatch-failed": "Dispatch 실패",
       "gate-blocked": "Gate 차단"
     }

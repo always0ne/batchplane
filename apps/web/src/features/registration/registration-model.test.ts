@@ -86,6 +86,9 @@ describe("registration model", () => {
     );
 
     expect(workflowYaml).toContain("workflow_dispatch:");
+    expect(workflowYaml).toContain(
+      "run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}",
+    );
     expect(workflowYaml).toContain('runs-on: "ubuntu-24.04"');
     expect(workflowYaml).toContain("request_id:");
     expect(workflowYaml).toContain("request_digest:");

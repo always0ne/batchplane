@@ -226,4 +226,239 @@ describe("createGitHubLiteRuntime", () => {
       }),
     ]);
   });
+
+  it("maps workflow run detail with request and Gate evidence", async () => {
+    const fetcher: typeof fetch = async (input) => {
+      const url = input.toString();
+
+      if (url.endsWith("/actions/runs/200")) {
+        return Response.json({
+          id: 200,
+          workflow_id: 101,
+          name: "BatchPlane - Daily Close",
+          display_title:
+            "BatchPlane payment.daily-close btr-20260514010400-payment-daily-close-abc12345",
+          status: "completed",
+          conclusion: "failure",
+          html_url: "https://github.com/always0ne/batch/actions/runs/200",
+          event: "workflow_dispatch",
+          actor: { login: "github-actions[bot]" },
+          run_attempt: 2,
+          run_started_at: "2026-05-14T01:07:00.000Z",
+          updated_at: "2026-05-14T01:08:00.000Z",
+          path: ".github/workflows/payment.daily-close.yml",
+        });
+      }
+
+      if (url.endsWith("/actions/runs/200/jobs")) {
+        return Response.json({
+          jobs: [
+            {
+              id: 300,
+              name: "BatchPlane Gate",
+              status: "completed",
+              conclusion: "failure",
+            },
+            {
+              id: 301,
+              name: "Run governed batch",
+              status: "completed",
+              conclusion: "skipped",
+            },
+          ],
+        });
+      }
+
+      if (url.endsWith("/actions/workflows/101")) {
+        return Response.json({
+          id: 101,
+          name: "BatchPlane - Daily Close",
+          path: ".github/workflows/payment.daily-close.yml",
+          state: "active",
+          html_url:
+            "https://github.com/always0ne/batch/actions/workflows/payment.daily-close.yml",
+        });
+      }
+
+      if (url.endsWith("/issues?state=all")) {
+        return Response.json([
+          {
+            number: 104,
+            title: "Run batch payment.daily-close",
+            body: [
+              "- Request ID: `btr-20260514010400-payment-daily-close-abc12345`",
+              "- Batch ID: `payment.daily-close`",
+              "- Request digest: `sha256:abc`",
+              "- Status: `REQUESTED`",
+              "",
+              "<!-- batchplane:execution-request",
+              "requestId=btr-20260514010400-payment-daily-close-abc12345",
+              "batchId=payment.daily-close",
+              "requestDigest=sha256:abc",
+              "status=REQUESTED",
+              "-->",
+            ].join("\n"),
+            labels: ["batchplane:gate-blocked"],
+            html_url: "https://github.com/always0ne/batch/issues/104",
+            state: "closed",
+            user: { login: "developer" },
+          },
+        ]);
+      }
+
+      if (url.endsWith("/issues/104/comments")) {
+        return Response.json([
+          {
+            id: 1044,
+            body: [
+              "## BatchPlane Gate Decision",
+              "",
+              "- Decision: BLOCKED",
+              "- Reason: RERUN_NOT_AUTHORIZED",
+              "",
+              "<!-- batchplane:gate-decision",
+              "allowed=false",
+              "reasonCode=RERUN_NOT_AUTHORIZED",
+              "-->",
+            ].join("\n"),
+            created_at: "2026-05-14T01:08:00.000Z",
+            user: { login: "github-actions[bot]" },
+          },
+        ]);
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const runtime = createGitHubLiteRuntime(session, { fetcher });
+
+    await expect(
+      runtime.executions.getExecutionRun({ runId: "200" }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        batchId: "payment.daily-close",
+        gateDecision: expect.objectContaining({
+          allowed: false,
+          reasonCode: "RERUN_NOT_AUTHORIZED",
+        }),
+        requestId: "btr-20260514010400-payment-daily-close-abc12345",
+        runId: "200",
+        status: "BLOCKED",
+        workflowRunUrl: "https://github.com/always0ne/batch/actions/runs/200",
+      }),
+    );
+  });
+
+  it("does not attach Gate evidence from a different request with the same batch", async () => {
+    const fetcher: typeof fetch = async (input) => {
+      const url = input.toString();
+
+      if (url.endsWith("/actions/runs/201")) {
+        return Response.json({
+          actor: { login: "github-actions[bot]" },
+          conclusion: "success",
+          display_title:
+            "BatchPlane payment.daily-close btr-20260514010400-payment.daily-close-abc12345",
+          event: "workflow_dispatch",
+          html_url: "https://github.com/always0ne/batch/actions/runs/201",
+          id: 201,
+          name: "BatchPlane - Daily Close",
+          path: ".github/workflows/payment.daily-close.yml",
+          run_attempt: 1,
+          status: "completed",
+          workflow_id: 101,
+        });
+      }
+
+      if (url.endsWith("/actions/runs/201/jobs")) {
+        return Response.json({
+          jobs: [
+            {
+              conclusion: "success",
+              id: 310,
+              name: "BatchPlane Gate",
+              status: "completed",
+            },
+            {
+              conclusion: "success",
+              id: 311,
+              name: "Run governed batch",
+              status: "completed",
+            },
+          ],
+        });
+      }
+
+      if (url.endsWith("/actions/workflows/101")) {
+        return Response.json({
+          html_url:
+            "https://github.com/always0ne/batch/actions/workflows/payment.daily-close.yml",
+          id: 101,
+          name: "BatchPlane - Daily Close",
+          path: ".github/workflows/payment.daily-close.yml",
+          state: "active",
+        });
+      }
+
+      if (url.endsWith("/issues?state=all")) {
+        return Response.json([
+          {
+            body: [
+              "- Request ID: `btr-20260514010500-payment.daily-close-def67890`",
+              "- Batch ID: `payment.daily-close`",
+              "- Request digest: `sha256:def`",
+              "- Status: `DISPATCHED`",
+              "",
+              "<!-- batchplane:execution-request",
+              "requestId=btr-20260514010500-payment.daily-close-def67890",
+              "batchId=payment.daily-close",
+              "requestDigest=sha256:def",
+              "status=DISPATCHED",
+              "-->",
+            ].join("\n"),
+            html_url: "https://github.com/always0ne/batch/issues/105",
+            labels: ["batchplane:dispatched"],
+            number: 105,
+            state: "open",
+            title: "Run batch payment.daily-close",
+            user: { login: "developer" },
+          },
+        ]);
+      }
+
+      if (url.endsWith("/issues/105/comments")) {
+        return Response.json([
+          {
+            body: [
+              "## BatchPlane Gate Decision",
+              "",
+              "- Decision: BLOCKED",
+              "- Reason: RERUN_NOT_AUTHORIZED",
+              "",
+              "<!-- batchplane:gate-decision",
+              "allowed=false",
+              "reasonCode=RERUN_NOT_AUTHORIZED",
+              "-->",
+            ].join("\n"),
+            created_at: "2026-05-14T01:08:00.000Z",
+            id: 1054,
+            user: { login: "github-actions[bot]" },
+          },
+        ]);
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const runtime = createGitHubLiteRuntime(session, { fetcher });
+
+    const run = await runtime.executions.getExecutionRun({ runId: "201" });
+
+    expect(run).toEqual(
+      expect.objectContaining({
+        batchId: "payment.daily-close",
+        requestId: "btr-20260514010400-payment.daily-close-abc12345",
+        status: "SUCCEEDED",
+      }),
+    );
+    expect(run?.gateDecision).toBeUndefined();
+  });
 });
