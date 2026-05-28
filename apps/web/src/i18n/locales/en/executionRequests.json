@@ -162,9 +162,12 @@
       "title": "Gate control"
     },
     "jobs": {
+      "batchCommandFallback": "Batch command section marker was not found, so the full job log is shown.",
+      "batchCommandView": "Batch command",
       "description": "Open native GitHub job logs from here. BatchPlane does not store raw log text as audit evidence by default.",
       "downloadLog": "Download log",
       "empty": "No job summary is available for this run yet.",
+      "fullLogView": "Full log",
       "hideLog": "Hide logs",
       "jobId": "Job ID {{jobId}}",
       "kind": {

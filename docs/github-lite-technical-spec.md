@@ -400,7 +400,9 @@ on demand, keeps raw log text in volatile UI state only, limits rendered output,
 supports line filtering and download, and avoids storing raw logs as audit
 evidence by default. GitHub job log downloads use short-lived redirect URLs and
 may expose large or secret-bearing text, so the browser must treat the fetched
-content as transient operator evidence.
+content as transient operator evidence. Business job log viewing defaults to
+the generated `Run batch` step section and offers an explicit full-log mode for
+checkout/setup troubleshooting.
 
 Failure follow-up is separate from approval. Business-failed runs must be able
 to collect an explanation record with explanation text, action taken, owner,

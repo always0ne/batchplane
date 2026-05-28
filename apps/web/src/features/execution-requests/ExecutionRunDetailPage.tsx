@@ -46,6 +46,7 @@ type ExecutionRunDetailPageProps = {
 type ExecutionRunJobItem = NonNullable<ExecutionRun["jobs"]>[number];
 type ExecutionRunJobKind = "business" | "gate";
 type LoadExecutionRunJobLog = (jobId: string) => Promise<ExecutionRunJobLog>;
+type LogViewMode = "focused" | "full";
 type JobLogState =
   | { type: "idle" }
   | { type: "loading" }
@@ -806,7 +807,21 @@ function JobLogViewer({
   setSearchTerm: (value: string) => void;
 }) {
   const { t } = useTranslation("executionRequests");
-  const view = buildLogView(log.content, searchTerm);
+  const kind = getJobKind(job);
+  const [viewMode, setViewMode] = useState<LogViewMode>(
+    kind === "business" ? "focused" : "full",
+  );
+  const focusedLog =
+    kind === "business" ? extractBusinessLogSection(log.content) : null;
+  const visibleContent =
+    kind === "business" && viewMode === "focused" && focusedLog
+      ? focusedLog.content
+      : log.content;
+  const focusedFallback =
+    kind === "business" &&
+    viewMode === "focused" &&
+    focusedLog?.focused === false;
+  const view = buildLogView(visibleContent, searchTerm);
 
   function downloadLog() {
     const blob = new Blob([log.content], { type: "text/plain;charset=utf-8" });
@@ -839,6 +854,37 @@ function JobLogViewer({
           {t("runDetail.jobs.downloadLog")}
         </button>
       </div>
+      {kind === "business" ? (
+        <div className="mt-3 inline-flex rounded-md border border-slate-700 bg-slate-900 p-1">
+          <button
+            className={`rounded px-3 py-1.5 text-sm font-semibold ${
+              viewMode === "focused"
+                ? "bg-slate-100 text-slate-950"
+                : "text-slate-200"
+            }`}
+            onClick={() => setViewMode("focused")}
+            type="button"
+          >
+            {t("runDetail.jobs.batchCommandView")}
+          </button>
+          <button
+            className={`rounded px-3 py-1.5 text-sm font-semibold ${
+              viewMode === "full"
+                ? "bg-slate-100 text-slate-950"
+                : "text-slate-200"
+            }`}
+            onClick={() => setViewMode("full")}
+            type="button"
+          >
+            {t("runDetail.jobs.fullLogView")}
+          </button>
+        </div>
+      ) : null}
+      {focusedFallback ? (
+        <p className="mt-3 rounded-md bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200">
+          {t("runDetail.jobs.batchCommandFallback")}
+        </p>
+      ) : null}
       <label className="mt-3 block text-sm font-semibold text-slate-100">
         {t("runDetail.jobs.searchLog")}
         <input
@@ -899,6 +945,56 @@ function buildLogView(content: string, searchTerm: string) {
     totalMatchedLines: matchedLines.length,
     truncatedByView: matchedLines.length > visibleLines.length,
   };
+}
+
+function extractBusinessLogSection(content: string): {
+  content: string;
+  focused: boolean;
+} {
+  const lines = content.split(/\r?\n/u);
+  const startIndex = lines.findIndex(isBusinessLogStartLine);
+
+  if (startIndex < 0) {
+    return {
+      content,
+      focused: false,
+    };
+  }
+
+  const endGroupIndex = lines.findIndex(
+    (line, index) => index > startIndex && line.includes("##[endgroup]"),
+  );
+
+  if (endGroupIndex >= 0) {
+    return {
+      content: lines.slice(startIndex, endGroupIndex + 1).join("\n"),
+      focused: true,
+    };
+  }
+
+  const nextGroupIndex = lines.findIndex(
+    (line, index) => index > startIndex && line.includes("##[group]"),
+  );
+
+  return {
+    content: lines
+      .slice(startIndex, nextGroupIndex >= 0 ? nextGroupIndex : lines.length)
+      .join("\n"),
+    focused: true,
+  };
+}
+
+function isBusinessLogStartLine(line: string): boolean {
+  const normalized = line.toLowerCase();
+
+  return (
+    normalized.includes("run batch") ||
+    normalized.includes("batchplane approved execution") ||
+    normalized.includes("running governed batch command") ||
+    (normalized.includes("##[group]run") &&
+      !normalized.includes("checkout") &&
+      !normalized.includes("batchplane gate"))
+  );
 }
 
 function formatBytes(sizeBytes: number): string {

@@ -118,6 +118,20 @@ describe("ExecutionRunDetailPage", () => {
       screen.getByText("No failure explanation has been recorded yet."),
     ).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "View business logs" }));
+
+    expect(
+      await screen.findByText("Run governed batch log preview"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Running governed batch command/u),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Syncing repository/u)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Full log" }));
+
+    expect(screen.getByText(/Syncing repository/u)).toBeInTheDocument();
+
     fireEvent.change(screen.getByLabelText("Owner"), {
       target: { value: "ops-team" },
     });

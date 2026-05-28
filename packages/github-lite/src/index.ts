@@ -3130,15 +3130,30 @@ function buildMockWorkflowRunJobs(
 
 function buildMockWorkflowJobLog(job: GitHubWorkflowJob): string {
   const conclusion = job.conclusion ?? "in_progress";
+  const gateJob = job.name.toLowerCase().includes("gate");
+
+  if (!gateJob) {
+    return [
+      `2026-05-14T01:07:50.000Z ##[group]Checkout registered assets`,
+      "2026-05-14T01:07:51.000Z Syncing repository.",
+      "2026-05-14T01:07:52.000Z ##[endgroup]Checkout registered assets",
+      "2026-05-14T01:08:00.000Z ##[group]Run batch",
+      `2026-05-14T01:08:01.000Z Job ID ${job.id}`,
+      `2026-05-14T01:08:02.000Z Status ${job.status}`,
+      `2026-05-14T01:08:03.000Z Conclusion ${conclusion}`,
+      "2026-05-14T01:08:04.000Z BatchPlane approved execution for payment.daily-close.",
+      "2026-05-14T01:08:05.000Z Running governed batch command.",
+      "2026-05-14T01:09:00.000Z ##[endgroup]Run batch",
+      "",
+    ].join("\n");
+  }
 
   return [
     `2026-05-14T01:07:00.000Z ##[group]${job.name}`,
     `2026-05-14T01:07:01.000Z Job ID ${job.id}`,
     `2026-05-14T01:07:02.000Z Status ${job.status}`,
     `2026-05-14T01:07:03.000Z Conclusion ${conclusion}`,
-    job.name.toLowerCase().includes("gate")
-      ? "2026-05-14T01:07:04.000Z BatchPlane Gate evidence verified."
-      : "2026-05-14T01:08:00.000Z Running governed batch command.",
+    "2026-05-14T01:07:04.000Z BatchPlane Gate evidence verified.",
     `2026-05-14T01:09:00.000Z ##[endgroup]${job.name}`,
     "",
   ].join("\n");

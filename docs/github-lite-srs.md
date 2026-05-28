@@ -246,7 +246,9 @@ linking each Gate and business job to its native GitHub Actions job page when
 GitHub returns job URLs. Permission failures must tell the operator that
 Actions read permission is required. Inline log viewing must fetch logs only on
 demand, limit rendered output, support search and download, and avoid
-persisting raw log content into audit evidence by default.
+persisting raw log content into audit evidence by default. Business job logs
+must default to the batch command section and provide a full-log toggle for
+operator troubleshooting.
 
 The execution run list screen is the primary run-history surface. It must show
 recent GitHub Actions workflow_dispatch runs, including queued/running,
