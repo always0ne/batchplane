@@ -390,13 +390,16 @@ Run status mapping must distinguish control failure from business failure:
 - Canceled/skipped runs map to `CANCELED` unless Gate evidence proves a
   control block.
 
-The run detail screen must include an external GitHub Actions link and a job
-summary so operators can move from BatchPlane evidence to native runner logs.
-Inline log viewing is tracked separately because GitHub job log downloads use
-short-lived redirect URLs and may expose large or secret-bearing text. If Lite
-renders logs inline, it must fetch logs on demand, handle expiry/permission
-errors, provide truncation/search/download controls, and avoid storing raw logs
-as audit evidence by default.
+The run detail screen must include an external GitHub Actions run link, a job
+summary, and job-level links to native GitHub Actions logs when `html_url`
+exists on the GitHub job response. Gate and business jobs must be labeled
+separately so operators can inspect control logs before business logs.
+Permission failures must use an actionable Actions-read-permission message
+instead of a raw API error. Inline log viewing is tracked separately because
+GitHub job log downloads use short-lived redirect URLs and may expose large or
+secret-bearing text. If Lite renders logs inline, it must fetch logs on demand,
+handle expiry/permission errors, provide truncation/search/download controls,
+and avoid storing raw logs as audit evidence by default.
 
 Failure follow-up is separate from approval. Business-failed runs must be able
 to collect an explanation record with explanation text, action taken, owner,

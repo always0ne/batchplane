@@ -162,7 +162,17 @@
       "title": "Gate control"
     },
     "jobs": {
+      "description": "Open native GitHub job logs from here. BatchPlane does not store raw log text as audit evidence by default.",
       "empty": "No job summary is available for this run yet.",
+      "jobId": "Job ID {{jobId}}",
+      "kind": {
+        "business": "Business job",
+        "gate": "Gate job"
+      },
+      "logUnavailable": "Log link unavailable",
+      "openBusinessLog": "Open business logs",
+      "openGateLog": "Open Gate logs",
+      "openLogForJob": "Open GitHub Actions logs for {{name}}",
       "title": "Job conclusion summary"
     },
     "jobStatus": {
@@ -174,6 +184,7 @@
       "SUCCEEDED": "Succeeded"
     },
     "states": {
+      "actionsPermission": "GitHub Actions read permission is required to load run evidence and job log links. Check the token permissions for this private repository.",
       "error": "Failed to load execution run detail.",
       "loading": "Loading execution run detail...",
       "noSession": "Connect a GitHub repository before viewing execution runs.",

@@ -242,9 +242,11 @@ execution must be visually separated from business command failure: a blocked
 Gate means the batch command did not run, while a failed batch job means Gate
 allowed the run and the downstream command or business job failed.
 Execution detail must also provide a path to native runner logs, at minimum by
-linking each run/job to GitHub Actions. Inline log viewing is a follow-up
-feature and must handle large logs, token permissions, and secret-bearing text
-without persisting raw log content into audit evidence by default.
+linking each Gate and business job to its native GitHub Actions job page when
+GitHub returns job URLs. Permission failures must tell the operator that
+Actions read permission is required. Inline log viewing is a follow-up feature
+and must handle large logs, token permissions, and secret-bearing text without
+persisting raw log content into audit evidence by default.
 
 The execution run list screen is the primary run-history surface. It must show
 recent GitHub Actions workflow_dispatch runs, including queued/running,

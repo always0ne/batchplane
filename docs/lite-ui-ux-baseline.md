@@ -50,7 +50,7 @@ Lite must read as one connected operational flow:
   Gate-blocked runs explain that the batch command did not run, while business
   failures explain that Gate allowed the run and the downstream command failed.
   The screen must include a GitHub Actions link, job conclusion summary, and a
-  clear path to native runner logs.
+  clear path to native runner logs for both Gate and business jobs.
 
 ## Approval UX Rules
 

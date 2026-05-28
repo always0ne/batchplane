@@ -41,6 +41,9 @@ type ExecutionRunDetailPageProps = {
   readSession?: () => GitHubSession | null;
 };
 
+type ExecutionRunJobItem = NonNullable<ExecutionRun["jobs"]>[number];
+type ExecutionRunJobKind = "business" | "gate";
+
 type PageState =
   | { type: "loading" }
   | { type: "no-session" }
@@ -89,7 +92,7 @@ export function ExecutionRunDetailPage({
         if (!ignoreResult) {
           setState({
             type: "error",
-            message: formatRuntimeError(error, t("runDetail.states.error")),
+            message: formatExecutionRunDetailError(error, t),
           });
         }
       }
@@ -620,6 +623,9 @@ function JobSummaryPanel({ run }: { run: ExecutionRun }) {
           {t("runDetail.jobs.title")}
         </h2>
       </div>
+      <p className="mt-2 text-sm font-semibold text-bp-muted">
+        {t("runDetail.jobs.description")}
+      </p>
       {jobs.length === 0 ? (
         <p className="mt-4 text-sm font-semibold text-bp-muted">
           {t("runDetail.jobs.empty")}
@@ -628,24 +634,68 @@ function JobSummaryPanel({ run }: { run: ExecutionRun }) {
         <ul className="mt-4 divide-y divide-slate-100">
           {jobs.map((job) => (
             <li
-              className="grid gap-3 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_8rem_10rem]"
+              className="grid gap-3 py-3 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_8rem_9rem_11rem]"
               key={job.jobId}
             >
               <div>
-                <p className="font-semibold text-bp-graphite">{job.name}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-bp-graphite">{job.name}</p>
+                  <JobKindBadge kind={getJobKind(job)} />
+                </div>
                 <p className="mt-1 font-mono text-xs text-bp-muted">
-                  {job.jobId}
+                  {t("runDetail.jobs.jobId", { jobId: job.jobId })}
                 </p>
               </div>
               <RunStatusBadge status={job.status} variant="job" />
               <p className="text-sm font-semibold text-bp-muted">
                 {job.conclusion || t("runDetail.values.inProgress")}
               </p>
+              <JobLogAction job={job} />
             </li>
           ))}
         </ul>
       )}
     </article>
+  );
+}
+
+function JobKindBadge({ kind }: { kind: ExecutionRunJobKind }) {
+  const { t } = useTranslation("executionRequests");
+  const className =
+    kind === "gate" ? "bg-orange-50 text-orange-800" : "bg-sky-50 text-sky-800";
+
+  return (
+    <span className={`rounded-md px-2 py-1 text-xs font-bold ${className}`}>
+      {t(`runDetail.jobs.kind.${kind}`)}
+    </span>
+  );
+}
+
+function JobLogAction({ job }: { job: ExecutionRunJobItem }) {
+  const { t } = useTranslation("executionRequests");
+  const kind = getJobKind(job);
+
+  if (!job.url) {
+    return (
+      <span className="text-sm font-semibold text-bp-muted">
+        {t("runDetail.jobs.logUnavailable")}
+      </span>
+    );
+  }
+
+  return (
+    <a
+      aria-label={t("runDetail.jobs.openLogForJob", { name: job.name })}
+      className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+      href={job.url}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <ExternalLink className="h-4 w-4" aria-hidden="true" />
+      {kind === "gate"
+        ? t("runDetail.jobs.openGateLog")
+        : t("runDetail.jobs.openBusinessLog")}
+    </a>
   );
 }
 
@@ -699,11 +749,37 @@ function getRunStatusPalette(status: ExecutionRun["status"]): string {
   }
 }
 
+function getJobKind(job: ExecutionRunJobItem): ExecutionRunJobKind {
+  return isGateJob(job) ? "gate" : "business";
+}
+
 function hasSuccessfulGateJob(run: ExecutionRun): boolean {
   return Boolean(
-    run.jobs?.some(
-      (job) =>
-        job.name.toLowerCase().includes("gate") && job.status === "SUCCEEDED",
-    ),
+    run.jobs?.some((job) => isGateJob(job) && job.status === "SUCCEEDED"),
   );
+}
+
+function isGateJob(job: Pick<ExecutionRunJobItem, "name">): boolean {
+  return job.name.toLowerCase().includes("gate");
+}
+
+function formatExecutionRunDetailError(
+  error: unknown,
+  t: ReturnType<typeof useTranslation<"executionRequests">>["t"],
+): string {
+  if (isGitHubForbiddenError(error)) {
+    return t("runDetail.states.actionsPermission");
+  }
+
+  return formatRuntimeError(error, t("runDetail.states.error"));
+}
+
+function isGitHubForbiddenError(error: unknown): boolean {
+  if (!(error instanceof Error) || error.name !== "GitHubLiteApiError") {
+    return false;
+  }
+
+  const candidate = error as { code?: unknown; status?: unknown };
+
+  return candidate.code === "forbidden" || candidate.status === 403;
 }

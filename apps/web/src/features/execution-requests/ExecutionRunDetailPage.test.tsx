@@ -52,6 +52,24 @@ describe("ExecutionRunDetailPage", () => {
     ).toHaveAttribute("href", run.url);
     expect(screen.getByText("Job conclusion summary")).toBeInTheDocument();
     expect(screen.getByText("BatchPlane Gate")).toBeInTheDocument();
+    expect(screen.getByText("Gate job")).toBeInTheDocument();
+    expect(screen.getByText("Business job")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: "Open GitHub Actions logs for BatchPlane Gate",
+      }),
+    ).toHaveAttribute(
+      "href",
+      `${sessionUrl(state)}/actions/runs/${run.id}/job/${run.id * 10 + 1}`,
+    );
+    expect(
+      screen.getByRole("link", {
+        name: "Open GitHub Actions logs for Run governed batch",
+      }),
+    ).toHaveAttribute(
+      "href",
+      `${sessionUrl(state)}/actions/runs/${run.id}/job/${run.id * 10 + 2}`,
+    );
   });
 
   it("shows business failure when Gate allowed but the batch job failed", async () => {
@@ -134,6 +152,34 @@ describe("ExecutionRunDetailPage", () => {
       screen.getByText("Business execution status: Running."),
     ).toBeInTheDocument();
   });
+
+  it("shows an actionable permission message when Actions evidence is forbidden", async () => {
+    renderDetail({
+      createRuntime: () =>
+        ({
+          executions: {
+            getExecutionRun: async () => {
+              const error = new Error("Resource not accessible by token");
+              error.name = "GitHubLiteApiError";
+              Object.assign(error, {
+                code: "forbidden",
+                status: 403,
+              });
+
+              throw error;
+            },
+          },
+        }) as unknown as BatchPlaneRuntimePorts,
+      readSession: () => session,
+      runId: 209,
+    });
+
+    expect(
+      await screen.findByText(
+        "GitHub Actions read permission is required to load run evidence and job log links. Check the token permissions for this private repository.",
+      ),
+    ).toBeInTheDocument();
+  });
 });
 
 function renderDetail({
@@ -170,4 +216,8 @@ function findFirstWorkflowRun(state: GitHubLiteMockState) {
   }
 
   return run;
+}
+
+function sessionUrl(state: GitHubLiteMockState) {
+  return state.repository.url;
 }
