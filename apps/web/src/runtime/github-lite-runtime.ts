@@ -206,7 +206,11 @@ export function createGitHubLiteRuntime(
           client,
           repositoryRef,
         );
-        const request = findExecutionRequestForRun(run, requests);
+        const request = findExecutionRequestForRun(
+          run,
+          requests,
+          run.workflowPath,
+        );
 
         if (!request) {
           throw new Error(
@@ -219,7 +223,10 @@ export function createGitHubLiteRuntime(
           actionTaken,
           author: user.login,
           batchId:
-            run.batchId ?? request.batchId ?? parseBatchIdFromRun(run) ?? "",
+            run.batchId ??
+            request.batchId ??
+            parseBatchIdFromRun(run, run.workflowPath) ??
+            "",
           createdAt: new Date().toISOString(),
           explanation,
           followUpId: createFailureFollowUpId(run.id),
@@ -278,19 +285,24 @@ export function createGitHubLiteRuntime(
           return null;
         }
 
-        const [jobs, requests] = await Promise.all([
+        const [jobs, requests, workflow] = await Promise.all([
           client.listWorkflowRunJobs({
             ...repositoryRef,
             runId: numericRunId,
           }),
           loadExecutionApprovalRequests(client, repositoryRef),
+          findWorkflowForRun(client, repositoryRef, run),
         ]);
-        const request = findExecutionRequestForRun(run, requests);
+        const request = findExecutionRequestForRun(
+          run,
+          requests,
+          workflow?.path,
+        );
 
         return toExecutionRun(run, {
           jobs,
           request,
-          workflow: await findWorkflowForRun(client, repositoryRef, run),
+          workflow,
         });
       },
 
@@ -312,14 +324,25 @@ export function createGitHubLiteRuntime(
         const workflowById = new Map(
           workflows.map((workflow) => [workflow.id, workflow]),
         );
+        const jobsByRunId = await loadWorkflowRunJobsForList({
+          client,
+          repositoryRef,
+          runs,
+        });
 
         return runs
           .map((run) => {
-            const request = findExecutionRequestForRun(run, requests);
+            const workflow = workflowById.get(run.workflowId);
+            const request = findExecutionRequestForRun(
+              run,
+              requests,
+              workflow?.path,
+            );
 
             return toExecutionRun(run, {
+              jobs: jobsByRunId.get(run.id),
               request,
-              workflow: workflowById.get(run.workflowId),
+              workflow,
             });
           })
           .filter((run) => !batchId || run.batchId === batchId)
@@ -544,12 +567,40 @@ async function findWorkflowForRun(
   );
 }
 
+async function loadWorkflowRunJobsForList({
+  client,
+  repositoryRef,
+  runs,
+}: {
+  client: GitHubLiteClient;
+  repositoryRef: RuntimeRepositoryRef;
+  runs: GitHubWorkflowRun[];
+}): Promise<Map<number, GitHubWorkflowJob[]>> {
+  const jobsByRunId = await Promise.all(
+    runs.filter(shouldLoadJobsForRunList).map(async (run) => {
+      const jobs = await client.listWorkflowRunJobs({
+        ...repositoryRef,
+        runId: run.id,
+      });
+
+      return [run.id, jobs] as const;
+    }),
+  );
+
+  return new Map(jobsByRunId);
+}
+
+function shouldLoadJobsForRunList(run: GitHubWorkflowRun): boolean {
+  return run.status === "completed" && run.conclusion !== "success";
+}
+
 function findExecutionRequestForRun(
   run: GitHubWorkflowRun,
   requests: ExecutionRequestForRun[],
+  workflowPath?: string,
 ): ExecutionRequestForRun | undefined {
   const explicitRequestId = run.requestId ?? parseRequestIdFromRun(run);
-  const explicitBatchId = run.batchId ?? parseBatchIdFromRun(run);
+  const explicitBatchId = run.batchId ?? parseBatchIdFromRun(run, workflowPath);
 
   return requests.find((request) => {
     if (explicitRequestId) {
@@ -580,10 +631,11 @@ function toExecutionRun(
     ? toGateDecision(request.gateDecision)
     : undefined;
   const mappedJobs = jobs.map(toExecutionRunJob);
+  const inferredBatchId = parseBatchIdFromRun(run, workflow?.path);
 
   return {
     actor: run.actor,
-    batchId: run.batchId ?? request?.batchId ?? parseBatchIdFromRun(run) ?? "",
+    batchId: run.batchId ?? request?.batchId ?? inferredBatchId ?? "",
     ...(run.updatedAt ? { completedAt: run.updatedAt } : {}),
     event: run.event,
     ...(gateDecision ? { gateDecision } : {}),
@@ -710,15 +762,18 @@ function toExecutionRunStatus(
 }
 
 function hasBlockedGateJob(jobs: ExecutionRunJob[]): boolean {
-  return jobs.some(
-    (job) =>
-      job.name.toLowerCase().includes("gate") &&
-      job.status === "FAILED" &&
-      jobs.some(
-        (candidate) =>
-          candidate.name !== job.name && candidate.status === "CANCELED",
-      ),
+  const gateJobFailed = jobs.some(
+    (job) => isGateJob(job) && job.status === "FAILED",
   );
+  const businessJobFailed = jobs.some(
+    (job) => !isGateJob(job) && job.status === "FAILED",
+  );
+
+  return gateJobFailed && !businessJobFailed;
+}
+
+function isGateJob(job: ExecutionRunJob): boolean {
+  return job.name.toLowerCase().includes("gate");
 }
 
 function parseRequestIdFromRun(run: GitHubWorkflowRun): string | undefined {
@@ -728,15 +783,47 @@ function parseRequestIdFromRun(run: GitHubWorkflowRun): string | undefined {
   return match?.[0];
 }
 
-function parseBatchIdFromRun(run: GitHubWorkflowRun): string | undefined {
+function parseBatchIdFromRun(
+  run: GitHubWorkflowRun,
+  workflowPath?: string,
+): string | undefined {
   const requestId = parseRequestIdFromRun(run);
 
   if (requestId) {
     const match = requestId.match(/^btr-\d{14}-(.+)-[a-f0-9]{8}$/u);
-    return match?.[1];
+    if (match?.[1]) {
+      return match[1];
+    }
   }
 
-  return run.batchId;
+  return (
+    run.batchId ??
+    parseBatchIdFromWorkflowPath(workflowPath) ??
+    parseBatchIdFromWorkflowPath(run.workflowPath)
+  );
+}
+
+function parseBatchIdFromWorkflowPath(
+  workflowPath: string | undefined,
+): string | undefined {
+  const fileName = workflowPath?.split("/").pop();
+  const match = fileName?.match(/^(.+)\.ya?ml$/u);
+  const batchId = match?.[1];
+
+  if (!batchId || isGenericWorkflowFileName(batchId)) {
+    return undefined;
+  }
+
+  return batchId;
+}
+
+function isGenericWorkflowFileName(fileName: string): boolean {
+  return [
+    "batchplane-dispatcher",
+    "batchplane-sample-target",
+    "batchtrail-dispatcher",
+    "batchtrail-sample-target",
+  ].includes(fileName.toLowerCase());
 }
 
 function toRepositoryIssueComment(

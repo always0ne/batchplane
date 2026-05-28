@@ -78,6 +78,9 @@ describe("ExecutionRunDetailPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Failure follow-up")).toBeInTheDocument();
     expect(
+      screen.getByText("Failure follow-up").closest("article"),
+    ).toHaveAttribute("id", "failure-follow-up");
+    expect(
       screen.getByText("No failure explanation has been recorded yet."),
     ).toBeInTheDocument();
 

@@ -5,7 +5,9 @@
     "githubRun": "GitHub run",
     "openRun": "Open run",
     "openSetup": "Open setup",
-    "refresh": "Refresh"
+    "recordFollowUp": "Record follow-up",
+    "refresh": "Refresh",
+    "viewFollowUp": "View follow-up"
   },
   "fields": {
     "completedAt": "Completed",
@@ -49,7 +51,7 @@
     "canceled": "The workflow run was canceled or skipped.",
     "explanationNeeded": "Explanation needed",
     "explanationRecorded": "Explanation submitted",
-    "gateBlocked": "Gate blocked before the batch command.",
+    "gateBlocked": "Gate stopped before the batch command ran.",
     "inProgress": "In progress",
     "succeeded": "The workflow run completed successfully.",
     "unknown": "Unknown",

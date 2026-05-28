@@ -369,6 +369,11 @@ function ExecutionRunRow({
     view === "failures"
       ? `/execution-runs/${run.runId}?from=failures`
       : `/execution-runs/${run.runId}`;
+  const followUpPath =
+    view === "failures"
+      ? `/execution-runs/${run.runId}?from=failures#failure-follow-up`
+      : runDetailPath;
+  const hasFailureFollowUp = (run.failureFollowUps ?? []).length > 0;
 
   return (
     <li className="grid gap-4 py-4 first:pt-0 last:pb-0 xl:grid-cols-[minmax(0,1fr)_auto]">
@@ -417,6 +422,16 @@ function ExecutionRunRow({
         </dl>
       </div>
       <div className="flex flex-wrap items-start gap-2 xl:justify-end">
+        {view === "failures" && run.status === "FAILED" ? (
+          <Link
+            className="inline-flex items-center whitespace-nowrap rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white"
+            to={followUpPath}
+          >
+            {hasFailureFollowUp
+              ? t("actions.viewFollowUp")
+              : t("actions.recordFollowUp")}
+          </Link>
+        ) : null}
         {run.workflowRunUrl ? (
           <a
             className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-muted"
@@ -429,7 +444,12 @@ function ExecutionRunRow({
           </a>
         ) : null}
         <Link
-          className="inline-flex items-center whitespace-nowrap rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white"
+          className={[
+            "inline-flex items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold",
+            view === "failures" && run.status === "FAILED"
+              ? "border border-slate-300 bg-white text-bp-graphite"
+              : "bg-bp-control text-white",
+          ].join(" ")}
           to={runDetailPath}
         >
           {t("actions.openRun")}
