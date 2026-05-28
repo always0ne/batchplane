@@ -2,16 +2,19 @@ import type {
   GitHubLiteClient,
   GitHubPullRequest,
 } from "@batchplane/github-lite";
+import { parseYamlDocument, validateRoleMappingFile } from "@batchplane/domain";
 import { describe, expect, it } from "vitest";
 
 import {
   buildDispatcherWorkflowYaml,
+  buildRoleMappingYaml,
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
   checkLiteInstallationStatus,
   createLiteInstallationPullRequest,
   createWorkspacePolicyPullRequest,
   liteDispatcherWorkflowPath,
+  liteRoleMappingPath,
   liteSampleTargetWorkflowPath,
   liteWorkspacePolicyPath,
 } from "./installation-model";
@@ -37,6 +40,7 @@ describe("Lite installation model", () => {
         liteDispatcherWorkflowPath,
         liteSampleTargetWorkflowPath,
         liteWorkspacePolicyPath,
+        liteRoleMappingPath,
         ".batch-governance/batches/.gitkeep",
         ".batch-governance/schedules/.gitkeep",
       ],
@@ -46,6 +50,7 @@ describe("Lite installation model", () => {
         liteSampleTargetWorkflowPath,
         ".batch-governance/README.md",
         liteWorkspacePolicyPath,
+        liteRoleMappingPath,
         ".batch-governance/batches/.gitkeep",
         ".batch-governance/schedules/.gitkeep",
       ],
@@ -104,6 +109,10 @@ describe("Lite installation model", () => {
           expect(content).toContain('kind: "WorkspacePolicy"');
           expect(content).toContain('mode: "SELF_APPROVAL_BLOCKED"');
         }
+        if (path === liteRoleMappingPath) {
+          expect(content).toContain('kind: "RoleMapping"');
+          expect(content).toContain('repositoryRoles: ["maintain", "admin"]');
+        }
         return { path, sha: `sha-${path}` };
       },
       createPullRequest: async ({ title, head, base }) => {
@@ -135,6 +144,7 @@ describe("Lite installation model", () => {
           liteSampleTargetWorkflowPath,
           ".batch-governance/README.md",
           liteWorkspacePolicyPath,
+          liteRoleMappingPath,
           ".batch-governance/batches/.gitkeep",
           ".batch-governance/schedules/.gitkeep",
         ],
@@ -144,6 +154,7 @@ describe("Lite installation model", () => {
           liteSampleTargetWorkflowPath,
           ".batch-governance/README.md",
           liteWorkspacePolicyPath,
+          liteRoleMappingPath,
           ".batch-governance/batches/.gitkeep",
           ".batch-governance/schedules/.gitkeep",
         ],
@@ -156,6 +167,7 @@ describe("Lite installation model", () => {
       `put-file:${liteSampleTargetWorkflowPath}`,
       "put-file:.batch-governance/README.md",
       `put-file:${liteWorkspacePolicyPath}`,
+      `put-file:${liteRoleMappingPath}`,
       "put-file:.batch-governance/batches/.gitkeep",
       "put-file:.batch-governance/schedules/.gitkeep",
       "create-pr:Install BatchPlane Lite:batchplane/install/lite-20260513010203:main",
@@ -193,6 +205,19 @@ describe("Lite installation model", () => {
     expect(buildWorkspacePolicyYaml()).toContain('kind: "WorkspacePolicy"');
     expect(buildWorkspacePolicyYaml()).toContain(
       'mode: "SELF_APPROVAL_BLOCKED"',
+    );
+  });
+
+  it("ships a default role mapping for maintainer approvals", () => {
+    const parsed = parseYamlDocument(buildRoleMappingYaml());
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.ok ? validateRoleMappingFile(parsed.value).ok : false).toBe(
+      true,
+    );
+    expect(buildRoleMappingYaml()).toContain('kind: "RoleMapping"');
+    expect(buildRoleMappingYaml()).toContain(
+      'repositoryRoles: ["maintain", "admin"]',
     );
   });
 

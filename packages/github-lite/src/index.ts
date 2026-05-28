@@ -1182,6 +1182,12 @@ export function createGitHubLiteMockState(
       },
       {
         branch: "main",
+        content: buildMockRoleMappingYaml(),
+        path: ".batch-governance/policies/role-mapping.yml",
+        sha: "mock-role-mapping-sha",
+      },
+      {
+        branch: "main",
         content: "Batch definitions created by BatchPlane Lite live here.\n",
         path: ".batch-governance/batches/.gitkeep",
         sha: "mock-batches-gitkeep-sha",
@@ -3059,6 +3065,26 @@ function buildMockBatchWorkflowYaml(batchId: string): string {
     "    runs-on: ubuntu-latest",
     "    steps:",
     "      - run: echo mock batch",
+    "",
+  ].join("\n");
+}
+
+function buildMockRoleMappingYaml(): string {
+  return [
+    'apiVersion: "batchplane.io/v1"',
+    'kind: "RoleMapping"',
+    "metadata:",
+    '  id: "default"',
+    "spec:",
+    "  roles:",
+    "    requester:",
+    '      repositoryRoles: ["write", "maintain", "admin"]',
+    "    approver:",
+    '      repositoryRoles: ["maintain", "admin"]',
+    "    maintainer:",
+    '      repositoryRoles: ["maintain", "admin"]',
+    "    auditor:",
+    '      repositoryRoles: ["triage"]',
     "",
   ].join("\n");
 }

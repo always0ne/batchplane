@@ -22,6 +22,8 @@ export const liteSampleTargetWorkflowPath =
 export const legacyLiteSampleTargetWorkflowPath =
   ".github/workflows/batchtrail-sample-target.yml";
 export const liteWorkspacePolicyPath = ".batch-governance/workspace.yml";
+export const liteRoleMappingPath =
+  ".batch-governance/policies/role-mapping.yml";
 
 export type LiteInstallationFile = {
   content: string;
@@ -95,6 +97,10 @@ export function buildLiteInstallationFiles(): LiteInstallationFile[] {
     {
       path: liteWorkspacePolicyPath,
       content: buildWorkspacePolicyYaml(),
+    },
+    {
+      path: liteRoleMappingPath,
+      content: buildRoleMappingYaml(),
     },
     {
       path: ".batch-governance/batches/.gitkeep",
@@ -338,6 +344,26 @@ export function buildWorkspacePolicyYaml(
   ].join("\n");
 }
 
+export function buildRoleMappingYaml(): string {
+  return [
+    'apiVersion: "batchplane.io/v1"',
+    'kind: "RoleMapping"',
+    "metadata:",
+    '  id: "default"',
+    "spec:",
+    "  roles:",
+    "    requester:",
+    '      repositoryRoles: ["write", "maintain", "admin"]',
+    "    approver:",
+    '      repositoryRoles: ["maintain", "admin"]',
+    "    maintainer:",
+    '      repositoryRoles: ["maintain", "admin"]',
+    "    auditor:",
+    '      repositoryRoles: ["triage"]',
+    "",
+  ].join("\n");
+}
+
 export function buildDispatcherWorkflowYaml(): string {
   return [
     "name: BatchPlane Dispatcher",
@@ -434,6 +460,7 @@ function buildGovernanceReadme(): string {
     "- `batches/`: approved batch definitions and optional execution artifacts",
     "- `schedules/`: approved schedule definitions",
     "- `workspace.yml`: Workspace-level approval mode. Default is `SELF_APPROVAL_BLOCKED`; use `SELF_APPROVAL_ALLOWED` only when the repository intentionally permits requester approval.",
+    "- `policies/role-mapping.yml`: repository-side approver role mapping used by Gate when self-approval is not explicitly allowed.",
     "- `.github/workflows/batchplane-sample-target.yml`: sample governed target workflow",
     "",
   ].join("\n");

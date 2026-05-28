@@ -240,6 +240,63 @@ describe("Gate action runtime", () => {
     });
   });
 
+  it("allows explicit Workspace self-approval without role mapping", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({
+          comments: [buildApprovalComment({ approver: "developer" })],
+          includeRoleMapping: false,
+          includeWorkspacePolicy: true,
+          workspaceApprovalMode: "SELF_APPROVAL_ALLOWED",
+        }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message:
+        "Execution request, approval evidence, and batch policy are verified.",
+      result: "ALLOW",
+    });
+  });
+
+  it("still requires role mapping for non-self approvals", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({
+          comments: [buildApprovalComment({ approver: "maintainer" })],
+          includeRoleMapping: false,
+          includeWorkspacePolicy: true,
+          workspaceApprovalMode: "SELF_APPROVAL_ALLOWED",
+        }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message:
+        "Role mapping file was not found: .batch-governance/policies/role-mapping.yml.",
+      reasonCode: "APPROVER_NOT_AUTHORIZED",
+      result: "DENY",
+    });
+  });
+
   it("returns BATCH_NOT_FOUND when batch definition file is missing", async () => {
     await expect(
       verifyLiteAuthorization({
@@ -607,6 +664,7 @@ function createGateFetchMock({
   comments = [buildApprovalComment()],
   includeWorkspacePolicy = false,
   includeBatchDefinition = true,
+  includeRoleMapping = true,
   requestIssueBody,
   requestWorkflowRef = "main",
   workspaceApprovalMode = "SELF_APPROVAL_BLOCKED",
@@ -621,6 +679,7 @@ function createGateFetchMock({
   }>;
   includeWorkspacePolicy?: boolean;
   includeBatchDefinition?: boolean;
+  includeRoleMapping?: boolean;
   requestIssueBody?: string;
   requestWorkflowRef?: string;
   workspaceApprovalMode?: "SELF_APPROVAL_BLOCKED" | "SELF_APPROVAL_ALLOWED";
@@ -689,6 +748,10 @@ function createGateFetchMock({
         "/repos/always0ne/batch/contents/.batch-governance/policies/role-mapping.yml",
       )
     ) {
+      if (!includeRoleMapping) {
+        return Response.json({ message: "Not Found" }, { status: 404 });
+      }
+
       return Response.json({
         content: Buffer.from(roleMappingYaml).toString("base64"),
         encoding: "base64",
