@@ -475,6 +475,64 @@ describe("createGitHubLiteRuntime", () => {
     );
   });
 
+  it("maps list run batch IDs from workflow paths and separates Gate job failures", async () => {
+    const state = createGitHubLiteMockState({
+      executionScenarios: [
+        {
+          batchId: "test3",
+          issueNumber: 999,
+          requestDigest: "sha256:test3",
+          requestId: "btr-20260514010900-test3-00000009",
+          state: "gate-blocked",
+          workflowRunId: 264,
+        },
+      ],
+      issueComments: [],
+      issues: [],
+      workflowRuns: [
+        {
+          actor: "github-actions[bot]",
+          conclusion: "failure",
+          createdAt: "2026-05-14T01:07:00.000Z",
+          displayTitle: "BatchPlane",
+          event: "workflow_dispatch",
+          id: 264,
+          name: "BatchPlane - Test3",
+          runAttempt: 1,
+          startedAt: "2026-05-14T01:07:00.000Z",
+          status: "completed",
+          updatedAt: "2026-05-14T01:09:00.000Z",
+          url: "https://github.com/always0ne/batch/actions/runs/264",
+          workflowId: 303,
+          workflowPath: ".github/workflows/test3.yml",
+        },
+      ],
+      workflows: [
+        {
+          id: 303,
+          name: "BatchPlane - Test3",
+          path: ".github/workflows/test3.yml",
+          state: "active",
+          url: "https://github.com/always0ne/batch/actions/workflows/test3.yml",
+        },
+      ],
+    });
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    await expect(
+      runtime.executions.listExecutionRuns({ limit: 100 }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        batchId: "test3",
+        requestId: "",
+        runId: "264",
+        status: "BLOCKED",
+        workflowPath: ".github/workflows/test3.yml",
+      }),
+    ]);
+  });
+
   it("does not attach Gate evidence from a different request with the same batch", async () => {
     const fetcher: typeof fetch = async (input) => {
       const url = input.toString();

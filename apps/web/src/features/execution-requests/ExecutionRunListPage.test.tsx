@@ -104,6 +104,12 @@ describe("ExecutionRunListPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Failure follow-up")).toBeInTheDocument();
     expect(screen.getByText("Explanation needed")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Record follow-up" }),
+    ).toHaveAttribute(
+      "href",
+      "/execution-runs/205?from=failures#failure-follow-up",
+    );
     expect(screen.queryByRole("button", { name: "Active" })).toBeNull();
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(

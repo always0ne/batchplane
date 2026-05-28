@@ -321,7 +321,10 @@ function FailureFollowUpPanel({
   }
 
   return (
-    <article className="rounded-lg border border-red-200 bg-white p-5 shadow-sm">
+    <article
+      className="rounded-lg border border-red-200 bg-white p-5 shadow-sm"
+      id="failure-follow-up"
+    >
       <div className="flex items-center gap-2">
         <AlertTriangle className="h-5 w-5 text-red-700" aria-hidden="true" />
         <h2 className="text-base font-bold text-bp-graphite">
