@@ -70,6 +70,22 @@ describe("ExecutionRunDetailPage", () => {
       "href",
       `${sessionUrl(state)}/actions/runs/${run.id}/job/${run.id * 10 + 2}`,
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "View Gate logs" }));
+
+    expect(
+      await screen.findByText("BatchPlane Gate log preview"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/BatchPlane Gate evidence verified/u),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Search log")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search log"), {
+      target: { value: "verified" },
+    });
+
+    expect(screen.getByText(/evidence verified/u)).toBeInTheDocument();
   });
 
   it("shows business failure when Gate allowed but the batch job failed", async () => {

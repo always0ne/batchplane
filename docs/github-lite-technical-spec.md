@@ -395,11 +395,12 @@ summary, and job-level links to native GitHub Actions logs when `html_url`
 exists on the GitHub job response. Gate and business jobs must be labeled
 separately so operators can inspect control logs before business logs.
 Permission failures must use an actionable Actions-read-permission message
-instead of a raw API error. Inline log viewing is tracked separately because
-GitHub job log downloads use short-lived redirect URLs and may expose large or
-secret-bearing text. If Lite renders logs inline, it must fetch logs on demand,
-handle expiry/permission errors, provide truncation/search/download controls,
-and avoid storing raw logs as audit evidence by default.
+instead of a raw API error. Inline log viewing uses the GitHub job log endpoint
+on demand, keeps raw log text in volatile UI state only, limits rendered output,
+supports line filtering and download, and avoids storing raw logs as audit
+evidence by default. GitHub job log downloads use short-lived redirect URLs and
+may expose large or secret-bearing text, so the browser must treat the fetched
+content as transient operator evidence.
 
 Failure follow-up is separate from approval. Business-failed runs must be able
 to collect an explanation record with explanation text, action taken, owner,

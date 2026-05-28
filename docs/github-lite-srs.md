@@ -244,8 +244,8 @@ allowed the run and the downstream command or business job failed.
 Execution detail must also provide a path to native runner logs, at minimum by
 linking each Gate and business job to its native GitHub Actions job page when
 GitHub returns job URLs. Permission failures must tell the operator that
-Actions read permission is required. Inline log viewing is a follow-up feature
-and must handle large logs, token permissions, and secret-bearing text without
+Actions read permission is required. Inline log viewing must fetch logs only on
+demand, limit rendered output, support search and download, and avoid
 persisting raw log content into audit evidence by default.
 
 The execution run list screen is the primary run-history surface. It must show

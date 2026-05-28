@@ -1,6 +1,7 @@
 import type {
   BatchPlaneRuntimePorts,
   ExecutionRun,
+  ExecutionRunJobLog,
   FailureFollowUp,
   FailureFollowUpStatus,
 } from "@batchplane/domain";
@@ -9,6 +10,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronLeft,
+  Download,
   ExternalLink,
   GitBranch,
   Loader2,
@@ -43,6 +45,14 @@ type ExecutionRunDetailPageProps = {
 
 type ExecutionRunJobItem = NonNullable<ExecutionRun["jobs"]>[number];
 type ExecutionRunJobKind = "business" | "gate";
+type LoadExecutionRunJobLog = (jobId: string) => Promise<ExecutionRunJobLog>;
+type JobLogState =
+  | { type: "idle" }
+  | { type: "loading" }
+  | { type: "loaded"; log: ExecutionRunJobLog }
+  | { type: "error"; message: string };
+
+const maxRenderedLogLines = 500;
 
 type PageState =
   | { type: "loading" }
@@ -203,6 +213,16 @@ export function ExecutionRunDetailPage({
     );
   }
 
+  async function loadExecutionRunJobLog(jobId: string) {
+    const session = readSession();
+
+    if (!session) {
+      throw new Error(t("runDetail.states.noSession"));
+    }
+
+    return createRuntime(session).executions.getExecutionRunJobLog({ jobId });
+  }
+
   return (
     <section>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -260,7 +280,7 @@ export function ExecutionRunDetailPage({
           </div>
         ) : null}
         <div className="xl:col-span-2">
-          <JobSummaryPanel run={run} />
+          <JobSummaryPanel onLoadLog={loadExecutionRunJobLog} run={run} />
         </div>
       </div>
     </section>
@@ -611,7 +631,13 @@ function BusinessOutcomePanel({ run }: { run: ExecutionRun }) {
   );
 }
 
-function JobSummaryPanel({ run }: { run: ExecutionRun }) {
+function JobSummaryPanel({
+  onLoadLog,
+  run,
+}: {
+  onLoadLog: LoadExecutionRunJobLog;
+  run: ExecutionRun;
+}) {
   const { t } = useTranslation("executionRequests");
   const jobs = run.jobs ?? [];
 
@@ -650,7 +676,7 @@ function JobSummaryPanel({ run }: { run: ExecutionRun }) {
               <p className="text-sm font-semibold text-bp-muted">
                 {job.conclusion || t("runDetail.values.inProgress")}
               </p>
-              <JobLogAction job={job} />
+              <JobLogAction job={job} onLoadLog={onLoadLog} />
             </li>
           ))}
         </ul>
@@ -671,31 +697,179 @@ function JobKindBadge({ kind }: { kind: ExecutionRunJobKind }) {
   );
 }
 
-function JobLogAction({ job }: { job: ExecutionRunJobItem }) {
+function JobLogAction({
+  job,
+  onLoadLog,
+}: {
+  job: ExecutionRunJobItem;
+  onLoadLog: LoadExecutionRunJobLog;
+}) {
   const { t } = useTranslation("executionRequests");
   const kind = getJobKind(job);
+  const [logState, setLogState] = useState<JobLogState>({ type: "idle" });
+  const [searchTerm, setSearchTerm] = useState("");
+
+  async function loadLog() {
+    if (logState.type === "loaded") {
+      setLogState({ type: "idle" });
+      return;
+    }
+
+    setLogState({ type: "loading" });
+
+    try {
+      setLogState({
+        log: await onLoadLog(job.jobId),
+        type: "loaded",
+      });
+    } catch (error) {
+      setLogState({
+        message: formatExecutionRunDetailError(error, t),
+        type: "error",
+      });
+    }
+  }
 
   if (!job.url) {
     return (
-      <span className="text-sm font-semibold text-bp-muted">
+      <div className="text-sm font-semibold text-bp-muted">
         {t("runDetail.jobs.logUnavailable")}
-      </span>
+      </div>
     );
   }
 
   return (
-    <a
-      aria-label={t("runDetail.jobs.openLogForJob", { name: job.name })}
-      className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-      href={job.url}
-      rel="noreferrer"
-      target="_blank"
-    >
-      <ExternalLink className="h-4 w-4" aria-hidden="true" />
-      {kind === "gate"
-        ? t("runDetail.jobs.openGateLog")
-        : t("runDetail.jobs.openBusinessLog")}
-    </a>
+    <>
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="inline-flex w-fit items-center gap-2 rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            disabled={logState.type === "loading"}
+            onClick={loadLog}
+            type="button"
+          >
+            {logState.type === "loading" ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <GitBranch className="h-4 w-4" aria-hidden="true" />
+            )}
+            {logState.type === "loaded"
+              ? t("runDetail.jobs.hideLog")
+              : logState.type === "loading"
+                ? t("runDetail.jobs.loadingLog")
+                : kind === "gate"
+                  ? t("runDetail.jobs.viewGateLog")
+                  : t("runDetail.jobs.viewBusinessLog")}
+          </button>
+          <a
+            aria-label={t("runDetail.jobs.openLogForJob", { name: job.name })}
+            className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+            href={job.url}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            {kind === "gate"
+              ? t("runDetail.jobs.openGateLog")
+              : t("runDetail.jobs.openBusinessLog")}
+          </a>
+        </div>
+        {logState.type === "error" ? (
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
+            {logState.message}
+          </p>
+        ) : null}
+      </div>
+      {logState.type === "loaded" ? (
+        <div className="lg:col-span-4">
+          <JobLogViewer
+            job={job}
+            log={logState.log}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+          />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function JobLogViewer({
+  job,
+  log,
+  searchTerm,
+  setSearchTerm,
+}: {
+  job: ExecutionRunJobItem;
+  log: ExecutionRunJobLog;
+  searchTerm: string;
+  setSearchTerm: (value: string) => void;
+}) {
+  const { t } = useTranslation("executionRequests");
+  const view = buildLogView(log.content, searchTerm);
+
+  function downloadLog() {
+    const blob = new Blob([log.content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = `batchplane-job-${log.jobId}.log`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-slate-950 p-3 text-slate-100">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold">
+            {t("runDetail.jobs.logPreview", { name: job.name })}
+          </h3>
+          <p className="mt-1 text-xs font-semibold text-slate-300">
+            {t("runDetail.jobs.rawLogNotPersisted")}
+          </p>
+        </div>
+        <button
+          className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-100"
+          onClick={downloadLog}
+          type="button"
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          {t("runDetail.jobs.downloadLog")}
+        </button>
+      </div>
+      <label className="mt-3 block text-sm font-semibold text-slate-100">
+        {t("runDetail.jobs.searchLog")}
+        <input
+          className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 font-mono text-sm text-slate-100"
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder={t("runDetail.jobs.searchPlaceholder")}
+          value={searchTerm}
+        />
+      </label>
+      {log.truncated ? (
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+          {t("runDetail.jobs.logTruncated", {
+            size: formatBytes(log.sizeBytes),
+          })}
+        </p>
+      ) : null}
+      {view.truncatedByView ? (
+        <p className="mt-3 rounded-md bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200">
+          {t("runDetail.jobs.logViewTruncated", {
+            count: view.totalMatchedLines,
+            limit: maxRenderedLogLines,
+          })}
+        </p>
+      ) : null}
+      <pre className="mt-3 max-h-96 overflow-auto rounded-md bg-black p-3 text-xs leading-relaxed text-slate-100">
+        {view.text ||
+          (searchTerm.trim()
+            ? t("runDetail.jobs.searchEmpty")
+            : t("runDetail.jobs.logEmpty"))}
+      </pre>
+    </section>
   );
 }
 
@@ -710,6 +884,33 @@ function DetailFact({ label, value }: { label: string; value: string }) {
       </dd>
     </div>
   );
+}
+
+function buildLogView(content: string, searchTerm: string) {
+  const query = searchTerm.trim().toLowerCase();
+  const lines = content.split(/\r?\n/u);
+  const matchedLines = query
+    ? lines.filter((line) => line.toLowerCase().includes(query))
+    : lines;
+  const visibleLines = matchedLines.slice(0, maxRenderedLogLines);
+
+  return {
+    text: visibleLines.join("\n"),
+    totalMatchedLines: matchedLines.length,
+    truncatedByView: matchedLines.length > visibleLines.length,
+  };
+}
+
+function formatBytes(sizeBytes: number): string {
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} B`;
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function RunStatusBadge({

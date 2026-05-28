@@ -163,16 +163,29 @@
     },
     "jobs": {
       "description": "Open native GitHub job logs from here. BatchPlane does not store raw log text as audit evidence by default.",
+      "downloadLog": "Download log",
       "empty": "No job summary is available for this run yet.",
+      "hideLog": "Hide logs",
       "jobId": "Job ID {{jobId}}",
       "kind": {
         "business": "Business job",
         "gate": "Gate job"
       },
+      "loadingLog": "Loading logs...",
+      "logEmpty": "Log is empty.",
+      "logPreview": "{{name}} log preview",
+      "logTruncated": "This log is {{size}} and was truncated before rendering. Download from GitHub for the complete raw log.",
       "logUnavailable": "Log link unavailable",
+      "logViewTruncated": "Showing the first {{limit}} of {{count}} matching log lines.",
       "openBusinessLog": "Open business logs",
       "openGateLog": "Open Gate logs",
       "openLogForJob": "Open GitHub Actions logs for {{name}}",
+      "rawLogNotPersisted": "Loaded on demand from GitHub. Raw log text is not written to audit evidence.",
+      "searchEmpty": "No matching log lines.",
+      "searchLog": "Search log",
+      "searchPlaceholder": "Filter visible log lines",
+      "viewBusinessLog": "View business logs",
+      "viewGateLog": "View Gate logs",
       "title": "Job conclusion summary"
     },
     "jobStatus": {

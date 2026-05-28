@@ -3,6 +3,7 @@ import type {
   BatchPlaneRuntimePorts,
   ExecutionRun,
   ExecutionRunJob,
+  ExecutionRunJobLog,
   ExecutionRunStatus,
   FailureFollowUp,
   GateDecision,
@@ -26,6 +27,7 @@ import {
   type GitHubLiteClientOptions,
   type GitHubPullRequest,
   type GitHubWorkflowJob,
+  type GitHubWorkflowJobLog,
   type GitHubWorkflowRun,
 } from "@batchplane/github-lite";
 
@@ -304,6 +306,21 @@ export function createGitHubLiteRuntime(
           request,
           workflow,
         });
+      },
+
+      async getExecutionRunJobLog({ jobId }) {
+        const numericJobId = Number(jobId);
+
+        if (!Number.isInteger(numericJobId) || numericJobId <= 0) {
+          throw new Error("Execution run job ID must be a positive number.");
+        }
+
+        return toExecutionRunJobLog(
+          await client.getWorkflowJobLog({
+            ...repositoryRef,
+            jobId: numericJobId,
+          }),
+        );
       },
 
       async listExecutionRuns({
@@ -709,6 +726,15 @@ function toExecutionRunJob(job: GitHubWorkflowJob): ExecutionRunJob {
     ...(job.startedAt ? { startedAt: job.startedAt } : {}),
     status: toExecutionRunStatus(job),
     ...(job.url ? { url: job.url } : {}),
+  };
+}
+
+function toExecutionRunJobLog(log: GitHubWorkflowJobLog): ExecutionRunJobLog {
+  return {
+    content: log.content,
+    jobId: String(log.jobId),
+    sizeBytes: log.sizeBytes,
+    truncated: log.truncated,
   };
 }
 

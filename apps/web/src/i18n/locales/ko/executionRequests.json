@@ -163,16 +163,29 @@
     },
     "jobs": {
       "description": "여기서 GitHub 원본 job 로그를 엽니다. BatchPlane은 기본적으로 로그 본문을 감사 증적으로 저장하지 않습니다.",
+      "downloadLog": "로그 다운로드",
       "empty": "아직 이 run의 job 요약을 확인할 수 없습니다.",
+      "hideLog": "로그 접기",
       "jobId": "Job ID {{jobId}}",
       "kind": {
         "business": "업무 job",
         "gate": "Gate job"
       },
+      "loadingLog": "로그 불러오는 중...",
+      "logEmpty": "로그가 비어 있습니다.",
+      "logPreview": "{{name}} 로그 미리보기",
+      "logTruncated": "이 로그는 {{size}}라서 화면 렌더링 전에 잘렸습니다. 전체 원문은 GitHub에서 다운로드하세요.",
       "logUnavailable": "로그 링크 없음",
+      "logViewTruncated": "일치하는 로그 {{count}}줄 중 처음 {{limit}}줄만 표시합니다.",
       "openBusinessLog": "업무 로그 열기",
       "openGateLog": "Gate 로그 열기",
       "openLogForJob": "{{name}} GitHub Actions 로그 열기",
+      "rawLogNotPersisted": "GitHub에서 필요할 때만 불러옵니다. 로그 본문은 감사 증적으로 기록하지 않습니다.",
+      "searchEmpty": "일치하는 로그 라인이 없습니다.",
+      "searchLog": "로그 검색",
+      "searchPlaceholder": "표시할 로그 라인을 필터링",
+      "viewBusinessLog": "업무 로그 보기",
+      "viewGateLog": "Gate 로그 보기",
       "title": "Job 결과 요약"
     },
     "jobStatus": {

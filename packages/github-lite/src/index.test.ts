@@ -701,6 +701,34 @@ describe("createGitHubLiteClient", () => {
     );
   });
 
+  it("downloads and truncates workflow job logs", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return new Response("line 1\nline 2\nline 3\n");
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.getWorkflowJobLog({
+        owner: "always0ne",
+        repo: "batchplane",
+        jobId: 300,
+        maxBytes: 12,
+      }),
+    ).resolves.toEqual({
+      content: "line 1\nline ",
+      jobId: 300,
+      sizeBytes: 21,
+      truncated: true,
+    });
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchplane/actions/jobs/300/logs",
+    );
+  });
+
   it("lists and creates labels", async () => {
     const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
       [];
