@@ -23,6 +23,7 @@ import {
   type ExecutionRequestDisplayStatus,
 } from "../approvals/approval-model";
 import { ExecutionApprovalActions } from "../approvals/ExecutionApprovalActions";
+import { removeStoredExecutionApprovalHandoff } from "../approvals/approval-handoff";
 import type { GitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
@@ -192,6 +193,7 @@ export function ExecutionRequestDetailPage({
           requestId: request.requestId,
         }),
       });
+      removeStoredExecutionApprovalHandoff(request.issue.number);
       setReloadToken((current) => current + 1);
     } catch (error) {
       setActionState({
@@ -230,6 +232,7 @@ export function ExecutionRequestDetailPage({
           requestId: request.requestId,
         }),
       });
+      removeStoredExecutionApprovalHandoff(request.issue.number);
       setReloadToken((current) => current + 1);
     } catch (error) {
       setActionState({

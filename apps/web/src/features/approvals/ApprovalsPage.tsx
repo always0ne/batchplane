@@ -32,7 +32,10 @@ import {
   mergeExecutionApprovalRequests,
   mergeRegistrationApprovalRequests,
   normalizeApprovalHandoff,
+  pruneApprovalHandoff,
   removeExecutionApprovalHandoff,
+  removeStoredExecutionApprovalHandoff,
+  writeStoredApprovalHandoff,
 } from "./approval-handoff";
 import { ExecutionApprovalActions } from "./ExecutionApprovalActions";
 
@@ -143,6 +146,13 @@ export function ApprovalsPage() {
           const listedRegistrationRequests = pullRequests.filter(
             isRegistrationApprovalRequest,
           );
+          const pendingHandoff = pruneApprovalHandoff(currentHandoff, {
+            listedExecutionRequests,
+            listedRegistrationRequests,
+          });
+
+          approvalHandoffRef.current = pendingHandoff;
+          writeStoredApprovalHandoff(pendingHandoff);
 
           setState({
             type: "loaded",
@@ -255,6 +265,7 @@ export function ApprovalsPage() {
       approvalHandoffRef.current,
       issueNumber,
     );
+    removeStoredExecutionApprovalHandoff(issueNumber);
     setState((current) => {
       if (current.type !== "loaded") {
         return current;
