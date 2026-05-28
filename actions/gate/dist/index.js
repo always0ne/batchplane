@@ -147,7 +147,10 @@ export async function verifyLiteAuthorization(input) {
         workspaceApprovalMode !== "SELF_APPROVAL_ALLOWED") {
         return deny("SELF_APPROVAL_NOT_ALLOWED", "Requester and approver must be different users.");
     }
+    const selfApprovalAllowedWithoutRoleMapping = evidence.approval.approver === evidence.request.requestedBy &&
+        workspaceApprovalMode === "SELF_APPROVAL_ALLOWED";
     const approverAuthorized = await verifyApproverAuthorization({
+        allowMissingRoleMapping: selfApprovalAllowedWithoutRoleMapping,
         approver: evidence.approval.approver,
         client,
         configPath: input.configPath,
@@ -273,21 +276,6 @@ async function validateBatchPolicyEvidence({ batchId, client, configPath, inputR
     if (!effectiveRef) {
         return deny("REQUEST_EVIDENCE_MISMATCH", `Workflow ref information is missing for batch ${batchId} validation.`);
     }
-    const roleMappingPath = `${effectiveConfigPath}/policies/role-mapping.yml`;
-    const roleMappingFile = await client.getFile(roleMappingPath, effectiveRef);
-    if (!roleMappingFile) {
-        return deny("ROLE_MAPPING_NOT_FOUND", `Role mapping file was not found: ${roleMappingPath}.`);
-    }
-    const roleMapping = parseApproverSelectorFromRoleMappingFile(roleMappingFile.content);
-    if (!roleMapping) {
-        return deny("ROLE_MAPPING_INVALID", `Role mapping file is invalid: ${roleMappingPath}.`);
-    }
-    const hasSelector = roleMapping.githubUsers.length > 0 ||
-        roleMapping.githubTeams.length > 0 ||
-        roleMapping.repositoryRoles.length > 0;
-    if (!hasSelector) {
-        return deny("ROLE_MAPPING_INVALID", `Approver selector is empty in role mapping file: ${roleMappingPath}.`);
-    }
     if (repository.owner.trim() === "") {
         return deny("UNKNOWN", "Repository owner is required for team validation.");
     }
@@ -322,7 +310,7 @@ function validateScheduleMapping({ request, scheduleId, }) {
     }
     return { message: "Schedule mapping is verified.", result: "ALLOW" };
 }
-async function verifyApproverAuthorization({ approver, client, configPath, ref, repository, }) {
+async function verifyApproverAuthorization({ allowMissingRoleMapping, approver, client, configPath, ref, repository, }) {
     const effectiveRef = ref?.trim();
     if (!effectiveRef) {
         return {
@@ -333,6 +321,9 @@ async function verifyApproverAuthorization({ approver, client, configPath, ref, 
     const roleMappingPath = `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`;
     const roleMappingFile = await client.getFile(roleMappingPath, effectiveRef);
     if (!roleMappingFile) {
+        if (allowMissingRoleMapping) {
+            return { allowed: true };
+        }
         return {
             allowed: false,
             message: `Role mapping file was not found: ${roleMappingPath}.`,

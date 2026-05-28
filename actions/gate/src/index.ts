@@ -275,7 +275,11 @@ export async function verifyLiteAuthorization(
     );
   }
 
+  const selfApprovalAllowedWithoutRoleMapping =
+    evidence.approval.approver === evidence.request.requestedBy &&
+    workspaceApprovalMode === "SELF_APPROVAL_ALLOWED";
   const approverAuthorized = await verifyApproverAuthorization({
+    allowMissingRoleMapping: selfApprovalAllowedWithoutRoleMapping,
     approver: evidence.approval.approver,
     client,
     configPath: input.configPath,
@@ -567,39 +571,6 @@ async function validateBatchPolicyEvidence({
     );
   }
 
-  const roleMappingPath = `${effectiveConfigPath}/policies/role-mapping.yml`;
-  const roleMappingFile = await client.getFile(roleMappingPath, effectiveRef);
-
-  if (!roleMappingFile) {
-    return deny(
-      "ROLE_MAPPING_NOT_FOUND",
-      `Role mapping file was not found: ${roleMappingPath}.`,
-    );
-  }
-
-  const roleMapping = parseApproverSelectorFromRoleMappingFile(
-    roleMappingFile.content,
-  );
-
-  if (!roleMapping) {
-    return deny(
-      "ROLE_MAPPING_INVALID",
-      `Role mapping file is invalid: ${roleMappingPath}.`,
-    );
-  }
-
-  const hasSelector =
-    roleMapping.githubUsers.length > 0 ||
-    roleMapping.githubTeams.length > 0 ||
-    roleMapping.repositoryRoles.length > 0;
-
-  if (!hasSelector) {
-    return deny(
-      "ROLE_MAPPING_INVALID",
-      `Approver selector is empty in role mapping file: ${roleMappingPath}.`,
-    );
-  }
-
   if (repository.owner.trim() === "") {
     return deny("UNKNOWN", "Repository owner is required for team validation.");
   }
@@ -671,12 +642,14 @@ function validateScheduleMapping({
 }
 
 async function verifyApproverAuthorization({
+  allowMissingRoleMapping,
   approver,
   client,
   configPath,
   ref,
   repository,
 }: {
+  allowMissingRoleMapping?: boolean;
   approver: string;
   client: GateGitHubClient;
   configPath: string;
@@ -696,6 +669,10 @@ async function verifyApproverAuthorization({
   const roleMappingFile = await client.getFile(roleMappingPath, effectiveRef);
 
   if (!roleMappingFile) {
+    if (allowMissingRoleMapping) {
+      return { allowed: true };
+    }
+
     return {
       allowed: false,
       message: `Role mapping file was not found: ${roleMappingPath}.`,
