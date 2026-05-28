@@ -41,6 +41,7 @@ import {
   type RegistrationRequestBodySummary,
   type RegistrationReviewState,
 } from "./registration-approval-model";
+import { removeStoredRegistrationApprovalHandoff } from "./approval-handoff";
 
 type RegistrationApprovalDetailPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
@@ -209,6 +210,7 @@ export function RegistrationApprovalDetailPage({
           number: state.pullRequest.number,
         }),
       });
+      removeStoredRegistrationApprovalHandoff(state.pullRequest.number);
       setReloadToken((current) => current + 1);
     } catch (error) {
       setActionState({
@@ -246,6 +248,7 @@ export function RegistrationApprovalDetailPage({
           number: state.pullRequest.number,
         }),
       });
+      removeStoredRegistrationApprovalHandoff(state.pullRequest.number);
       setReloadToken((current) => current + 1);
     } catch (error) {
       setActionState({

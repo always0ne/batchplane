@@ -2,16 +2,23 @@ import type {
   RepositoryIssue,
   RepositoryPullRequest,
 } from "@batchplane/domain";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  approvalHandoffStorageKey,
   buildExecutionApprovalHandoff,
   buildRegistrationApprovalHandoff,
   mergeExecutionApprovalRequests,
   mergeRegistrationApprovalRequests,
   normalizeApprovalHandoff,
+  pruneApprovalHandoff,
+  readStoredApprovalHandoff,
   removeExecutionApprovalHandoff,
   removeRegistrationApprovalHandoff,
+  removeStoredExecutionApprovalHandoff,
+  removeStoredRegistrationApprovalHandoff,
+  saveExecutionApprovalHandoff,
+  saveRegistrationApprovalHandoff,
 } from "./approval-handoff";
 import { parseExecutionApprovalRequest } from "./approval-model";
 
@@ -56,6 +63,10 @@ const executionIssue: RepositoryIssue = {
 };
 
 describe("approval handoff", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
   it("normalizes route state created after request creation", () => {
     expect(
       normalizeApprovalHandoff(
@@ -124,6 +135,55 @@ describe("approval handoff", () => {
     expect(removeExecutionApprovalHandoff(handoff, 34)).toEqual({
       executionIssues: [],
       registrationRequests: [registrationPullRequest],
+    });
+  });
+
+  it("stores handoff entries until GitHub list APIs catch up", () => {
+    saveExecutionApprovalHandoff(executionIssue, sessionStorage);
+    saveRegistrationApprovalHandoff(registrationPullRequest, sessionStorage);
+
+    expect(sessionStorage.getItem(approvalHandoffStorageKey)).not.toBeNull();
+    expect(readStoredApprovalHandoff(sessionStorage)).toEqual({
+      executionIssues: [executionIssue],
+      registrationRequests: [registrationPullRequest],
+    });
+
+    const listedExecutionRequest =
+      parseExecutionApprovalRequest(executionIssue);
+
+    expect(listedExecutionRequest).not.toBeNull();
+
+    if (!listedExecutionRequest) {
+      return;
+    }
+
+    expect(
+      pruneApprovalHandoff(readStoredApprovalHandoff(sessionStorage), {
+        listedExecutionRequests: [listedExecutionRequest],
+        listedRegistrationRequests: [registrationPullRequest],
+      }),
+    ).toEqual({
+      executionIssues: [],
+      registrationRequests: [],
+    });
+  });
+
+  it("removes stored handoff entries after approval actions", () => {
+    saveExecutionApprovalHandoff(executionIssue, sessionStorage);
+    saveRegistrationApprovalHandoff(registrationPullRequest, sessionStorage);
+
+    removeStoredExecutionApprovalHandoff(34, sessionStorage);
+
+    expect(readStoredApprovalHandoff(sessionStorage)).toEqual({
+      executionIssues: [],
+      registrationRequests: [registrationPullRequest],
+    });
+
+    removeStoredRegistrationApprovalHandoff(12, sessionStorage);
+
+    expect(readStoredApprovalHandoff(sessionStorage)).toEqual({
+      executionIssues: [],
+      registrationRequests: [],
     });
   });
 });

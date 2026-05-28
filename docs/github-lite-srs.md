@@ -145,6 +145,11 @@ panel with:
 - a short handoff note that creation routes the PR to approvals and GitHub list
   results can lag briefly
 
+Registration PR creation stores the returned PR in browser session handoff
+state until the approvals inbox observes the PR from GitHub list APIs or the
+approval action removes it. This keeps the UI deterministic while GitHub list
+results catch up.
+
 The review panel is the primary operator surface. YAML preview is supporting
 evidence, not the first thing the user should have to interpret.
 
@@ -158,6 +163,9 @@ Creating an execution request must:
 - Compute a SHA-256 request digest over the canonical payload.
 - Create a GitHub Issue with a BatchPlane execution request marker.
 - Route the UI to the approvals inbox after creation.
+- Store the returned Issue in browser session handoff state until the approvals
+  inbox observes the Issue from GitHub list APIs or the approval action removes
+  it.
 
 The execution request UI must route users through a request form before Issue
 creation. Batch list and batch detail actions must not directly create a request

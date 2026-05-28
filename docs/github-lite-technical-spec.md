@@ -348,6 +348,19 @@ Duplicate approval comments for the same request ID, Batch ID, and request
 digest must not create a second `workflow_dispatch` call once `DISPATCHING` or
 `DISPATCHED` evidence exists.
 
+## Mutation Handoff And GitHub Lag
+
+GitHub Lite treats mutation responses as authoritative immediate handoff
+evidence. After the browser creates a registration PR or execution request
+Issue, it stores the returned PR/Issue in `sessionStorage` and routes the user
+to the approvals inbox. The approvals inbox merges this stored handoff with
+GitHub list results, deduplicating by Issue or PR number.
+
+The handoff entry is pruned when the corresponding GitHub list API returns the
+same PR/Issue, or when the user completes an approval or rejection action. This
+keeps the UI deterministic during GitHub API propagation without treating the
+browser as the source of governance truth.
+
 ## Execution Run Detail Contract
 
 The UI reads GitHub Actions run detail through the target repository API and
