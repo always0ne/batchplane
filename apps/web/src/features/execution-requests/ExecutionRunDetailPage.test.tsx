@@ -126,6 +126,9 @@ describe("ExecutionRunDetailPage", () => {
     expect(
       screen.getByText(/Running governed batch command/u),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/##\[group\]BatchPlane batch command/u),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Syncing repository/u)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Full log" }));

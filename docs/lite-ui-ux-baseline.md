@@ -53,8 +53,8 @@ Lite must read as one connected operational flow:
   clear path to native runner logs for both Gate and business jobs. Inline log
   viewing must be on demand, searchable, bounded, downloadable, and clearly
   described as non-persisted raw text. Business logs should open on the batch
-  command section first, with full-log mode available when setup or checkout
-  evidence matters.
+  command runner group first, with full-log mode available when setup or
+  checkout evidence matters.
 
 ## Approval UX Rules
 

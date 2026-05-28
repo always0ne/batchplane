@@ -198,6 +198,8 @@ export function buildBatchWorkflowYaml(
     "",
     "      - name: Run batch",
     "        run: |",
+    '          echo "::group::BatchPlane batch command"',
+    "          trap 'status=$?; echo \"::endgroup::\"; exit $status' EXIT",
     `          echo ${yamlString(`BatchPlane approved execution for ${batchId}`)}`,
     ...runCommandLines,
     "",
