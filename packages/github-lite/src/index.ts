@@ -352,9 +352,11 @@ export type GitHubLiteClientOptions = {
 
 export type GitHubLiteApiErrorCode =
   | "bad-request"
+  | "conflict"
   | "unauthorized"
   | "forbidden"
   | "not-found"
+  | "validation"
   | "rate-limited"
   | "unknown";
 
@@ -573,11 +575,7 @@ export function createGitHubLiteClient({
     }
 
     if (!response.ok) {
-      throw new GitHubLiteApiError(
-        await readErrorMessage(response),
-        mapStatusToErrorCode(response.status),
-        response.status,
-      );
+      throw await buildGitHubApiError(response);
     }
 
     if (response.status === 204) {
@@ -597,11 +595,7 @@ export function createGitHubLiteClient({
     });
 
     if (!response.ok) {
-      throw new GitHubLiteApiError(
-        await readErrorMessage(response),
-        mapStatusToErrorCode(response.status),
-        response.status,
-      );
+      throw await buildGitHubApiError(response);
     }
 
     return response.text();
@@ -2576,8 +2570,12 @@ async function readErrorMessage(response: Response): Promise<string> {
 }
 
 function mapStatusToErrorCode(status: number): GitHubLiteApiErrorCode {
-  if (status === 400 || status === 422) {
+  if (status === 400) {
     return "bad-request";
+  }
+
+  if (status === 409) {
+    return "conflict";
   }
 
   if (status === 401) {
@@ -2592,11 +2590,49 @@ function mapStatusToErrorCode(status: number): GitHubLiteApiErrorCode {
     return "not-found";
   }
 
+  if (status === 422) {
+    return "validation";
+  }
+
   if (status === 429) {
     return "rate-limited";
   }
 
   return "unknown";
+}
+
+async function buildGitHubApiError(
+  response: Response,
+): Promise<GitHubLiteApiError> {
+  const message = await readErrorMessage(response);
+
+  return new GitHubLiteApiError(
+    message,
+    isRateLimitedResponse(response, message)
+      ? "rate-limited"
+      : mapStatusToErrorCode(response.status),
+    response.status,
+  );
+}
+
+function isRateLimitedResponse(response: Response, message: string): boolean {
+  if (response.status === 429) {
+    return true;
+  }
+
+  if (response.status !== 403) {
+    return false;
+  }
+
+  if (response.headers.get("x-ratelimit-remaining") === "0") {
+    return true;
+  }
+
+  if (response.headers.has("retry-after")) {
+    return true;
+  }
+
+  return message.toLowerCase().includes("rate limit");
 }
 
 function assertMockRepository(state: GitHubLiteMockState, repo: RepoRef) {

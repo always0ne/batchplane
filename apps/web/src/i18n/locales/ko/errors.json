@@ -50,5 +50,15 @@
       "WORKFLOW_DISPATCH_FAILED": "Workflow dispatch에 실패했습니다.",
       "WORKFLOW_NOT_FOUND": "대상 workflow를 찾을 수 없습니다."
     }
+  },
+  "githubApi": {
+    "badRequest": "GitHub 요청 payload가 잘못되었습니다. 저장소, 브랜치, 파일 경로, 요청 필드를 확인하세요.",
+    "unauthorized": "GitHub 인증에 실패했습니다. 토큰 값과 로그인 상태를 확인하세요.",
+    "forbidden": "GitHub가 요청을 거부했습니다. 토큰 권한, 저장소 접근 권한, 조직 제한을 확인하세요.",
+    "notFound": "요청한 GitHub 리소스를 찾을 수 없습니다. 저장소, 브랜치, workflow 경로, 요청 식별자를 확인하세요.",
+    "conflict": "GitHub 저장소 상태 충돌이 발생했습니다. 최신 저장소 상태를 새로 반영한 뒤 다시 시도하세요.",
+    "validation": "GitHub가 잘못되었거나 이미 사용 중인 필드 때문에 요청을 거부했습니다.",
+    "rateLimited": "GitHub API 호출 한도에 도달했습니다. 한도 초기화 후 다시 시도하세요.",
+    "unknown": "GitHub 요청에 실패했습니다. 저장소 상태를 확인한 뒤 다시 시도하세요."
   }
 }

@@ -50,5 +50,15 @@
       "WORKFLOW_DISPATCH_FAILED": "Workflow dispatch failed.",
       "WORKFLOW_NOT_FOUND": "Target workflow was not found."
     }
+  },
+  "githubApi": {
+    "badRequest": "GitHub rejected the request payload. Check the repository, branch, file path, and request fields.",
+    "unauthorized": "GitHub authentication failed. Check the token value and sign in again.",
+    "forbidden": "GitHub denied this request. Check token permissions, repository access, and organization restrictions.",
+    "notFound": "The requested GitHub resource was not found. Check the repository, branch, workflow path, or request identifier.",
+    "conflict": "GitHub reported a repository conflict. Refresh the latest repository state and retry the operation.",
+    "validation": "GitHub rejected the request because one or more fields are invalid or already in use.",
+    "rateLimited": "GitHub API rate limit was reached. Wait for the limit to reset and retry.",
+    "unknown": "GitHub request failed. Check the repository state and try again."
   }
 }
