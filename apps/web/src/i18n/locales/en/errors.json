@@ -41,6 +41,7 @@
       "REQUEST_FIELD_MISMATCH": "Request fields do not match the approval evidence.",
       "REQUEST_NOT_FOUND": "Execution request was not found.",
       "REQUEST_NOT_REQUESTED": "The request is not in requested status.",
+      "RETRY_DISPATCH_NOT_ALLOWED": "Retry dispatch is allowed only after dispatcher evidence records DISPATCH_FAILED.",
       "RERUN_NOT_AUTHORIZED": "GitHub Actions rerun is not authorized.",
       "SCHEDULE_NOT_MAPPED": "Schedule mapping does not match the request.",
       "SELF_APPROVAL_NOT_ALLOWED": "Requester and approver must be different users.",

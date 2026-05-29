@@ -339,6 +339,9 @@ The dispatcher must ignore duplicate approval comments when matching
 `DISPATCHING` or `DISPATCHED` evidence already exists for the same request ID,
 Batch ID, and request digest.
 
+An explicit `retry-dispatch` comment may reuse the existing approval evidence
+only when the latest matching dispatcher state is `DISPATCH_FAILED`.
+
 Readers must continue to accept legacy `batchtrail.io/v1`, `batchtrail:*`
 markers, and `batchtrail:*` labels so existing Lite repositories remain
 auditable after the BatchPlane rebrand.

@@ -32,11 +32,12 @@ export async function dispatchApprovedExecutionRequest({ apiBaseUrl = "https://a
         repo,
         token: githubToken,
     });
-    const [issue, approvalComment] = await Promise.all([
+    const [issue, commandComment, issueComments] = await Promise.all([
         client.getIssue(issueNumber),
         client.getIssueComment(commentId),
+        client.listIssueComments(issueNumber),
     ]);
-    const command = parseDispatcherCommand(approvalComment.body);
+    const command = parseDispatcherCommand(commandComment.body);
     if (command === "ignore") {
         return {
             message: "Comment is not a BatchPlane dispatcher command.",
@@ -44,8 +45,15 @@ export async function dispatchApprovedExecutionRequest({ apiBaseUrl = "https://a
             status: "ignored",
         };
     }
+    const approvalCommentBody = command === "retry-dispatch"
+        ? (findRetryApprovalCommentBody({
+            commandCommentBody: commandComment.body,
+            issueBody: issue.body,
+            issueComments,
+        }) ?? commandComment.body)
+        : commandComment.body;
     const verification = verifyDispatcherEvidence({
-        approvalCommentBody: approvalComment.body,
+        approvalCommentBody,
         issueBody: issue.body,
         now,
     });
@@ -57,8 +65,24 @@ export async function dispatchApprovedExecutionRequest({ apiBaseUrl = "https://a
             status: "failed",
         };
     }
+    if (command === "retry-dispatch") {
+        const retryState = verifyRetryDispatchState({
+            comments: issueComments,
+            dispatchPlan: verification.dispatchPlan,
+            labels: issue.labels,
+        });
+        if (!retryState.ok) {
+            await client.createIssueComment(issueNumber, buildDispatchFailureComment(retryState.message, retryState.reasonCode, verification.dispatchPlan));
+            return {
+                dispatchPlan: verification.dispatchPlan,
+                message: retryState.message,
+                reasonCode: retryState.reasonCode,
+                status: "failed",
+            };
+        }
+    }
     const dispatchState = findExistingDispatchState({
-        comments: await client.listIssueComments(issueNumber),
+        comments: issueComments,
         dispatchPlan: verification.dispatchPlan,
         labels: issue.labels,
     });
@@ -75,6 +99,9 @@ export async function dispatchApprovedExecutionRequest({ apiBaseUrl = "https://a
         dispatcherLabels.dispatched,
         dispatcherLabels.dispatchFailed,
     ]);
+    if (command === "retry-dispatch") {
+        await removeDispatchFailedLabels(client, issueNumber);
+    }
     await client.addIssueLabels(issueNumber, [dispatcherLabels.dispatching.name]);
     await client.createIssueComment(issueNumber, buildDispatchingComment(verification.dispatchPlan));
     try {
@@ -406,14 +433,7 @@ function getWorkflowId(workflowPath) {
     return workflowPath.replace(/^\.github\/workflows\//, "");
 }
 function findExistingDispatchState({ comments, dispatchPlan, labels, }) {
-    const matchingStatus = comments
-        .map(parseDispatcherStatusEvidence)
-        .find((status) => status
-        ? status.requestId === dispatchPlan.requestId &&
-            status.batchId === dispatchPlan.batchId &&
-            status.requestDigest === dispatchPlan.requestDigest &&
-            (status.status === "DISPATCHING" || status.status === "DISPATCHED")
-        : false);
+    const matchingStatus = findLatestDispatcherStatus(comments, dispatchPlan);
     if (matchingStatus?.status === "DISPATCHED") {
         return {
             handled: true,
@@ -444,9 +464,83 @@ function findExistingDispatchState({ comments, dispatchPlan, labels, }) {
     }
     return { handled: false };
 }
+function verifyRetryDispatchState({ comments, dispatchPlan, labels, }) {
+    const latestStatus = findLatestDispatcherStatus(comments, dispatchPlan);
+    if (latestStatus?.status === "DISPATCH_FAILED") {
+        return { ok: true };
+    }
+    if (latestStatus?.status === "DISPATCHED") {
+        return {
+            ok: false,
+            message: "Execution request has already been dispatched.",
+            reasonCode: "DISPATCH_ALREADY_HANDLED",
+        };
+    }
+    if (latestStatus?.status === "DISPATCHING") {
+        return {
+            ok: false,
+            message: "Execution request dispatch is already in progress.",
+            reasonCode: "DISPATCH_IN_PROGRESS",
+        };
+    }
+    if (hasBatchPlaneLabel(labels, "dispatch-failed")) {
+        return { ok: true };
+    }
+    if (hasBatchPlaneLabel(labels, "dispatched")) {
+        return {
+            ok: false,
+            message: "Execution request has already been dispatched.",
+            reasonCode: "DISPATCH_ALREADY_HANDLED",
+        };
+    }
+    if (hasBatchPlaneLabel(labels, "dispatching")) {
+        return {
+            ok: false,
+            message: "Execution request dispatch is already in progress.",
+            reasonCode: "DISPATCH_IN_PROGRESS",
+        };
+    }
+    return {
+        ok: false,
+        message: "Retry dispatch is allowed only after dispatcher evidence records DISPATCH_FAILED.",
+        reasonCode: "RETRY_DISPATCH_NOT_ALLOWED",
+    };
+}
+function findLatestDispatcherStatus(comments, dispatchPlan) {
+    return (comments
+        .slice()
+        .reverse()
+        .map(parseDispatcherStatusEvidence)
+        .find((status) => status
+        ? status.requestId === dispatchPlan.requestId &&
+            status.batchId === dispatchPlan.batchId &&
+            status.requestDigest === dispatchPlan.requestDigest
+        : false) ?? null);
+}
+function findRetryApprovalCommentBody({ commandCommentBody, issueBody, issueComments, }) {
+    const request = parseExecutionRequestEvidence(issueBody);
+    if (!request) {
+        return null;
+    }
+    const comments = [...issueComments, commandCommentBody];
+    return (comments
+        .slice()
+        .reverse()
+        .find((commentBody) => {
+        const approval = parseExecutionApprovalEvidence(commentBody);
+        return (approval?.decision === "APPROVED" &&
+            approval.requestId === request.requestId &&
+            approval.batchId === request.batchId &&
+            approval.requestDigest === request.requestDigest);
+    }) ?? null);
+}
 function hasBatchPlaneLabel(labels, name) {
     return (labels.includes(`batchplane:${name}`) ||
         labels.includes(`batchtrail:${name}`));
+}
+async function removeDispatchFailedLabels(client, issueNumber) {
+    await client.removeIssueLabel(issueNumber, dispatcherLabels.dispatchFailed.name);
+    await client.removeIssueLabel(issueNumber, "batchtrail:dispatch-failed");
 }
 function buildDispatchingComment(dispatchPlan) {
     return [

@@ -322,6 +322,8 @@ The dispatcher writes state evidence as Issue labels and comments:
   marker after `workflow_dispatch` succeeds
 - `batchplane:dispatch-failed` with a `DISPATCH_FAILED`
   `batchplane:bgcp:dispatcher` marker when dispatch fails
+- `retry-dispatch` comments may reuse the existing matching approval evidence
+  only when the latest dispatcher state for that request is `DISPATCH_FAILED`
 
 ## Registration Approval Detail Contract
 
