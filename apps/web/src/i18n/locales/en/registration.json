@@ -1,6 +1,8 @@
 {
   "title": "Registration",
   "subtitle": "Create a pull request for a governed batch definition and its BatchPlane-protected workflow.",
+  "titleChange": "Change request",
+  "subtitleChange": "Update an existing governed batch definition and workflow through a controlled pull request.",
   "form": {
     "definition": "Batch definition",
     "workflow": "Workflow",
@@ -27,6 +29,7 @@
   "review": {
     "title": "PR review",
     "subtitle": "Confirm the GitHub pull request contents before creating it.",
+    "subtitleChange": "Confirm the governed file updates before creating the change pull request.",
     "files": {
       "title": "Generated files",
       "batchDefinition": "Batch definition",
@@ -49,15 +52,25 @@
   },
   "actions": {
     "createPullRequest": "Create registration PR",
-    "openApprovals": "Review in approvals"
+    "createChangePullRequest": "Create change PR",
+    "openApprovals": "Review in approvals",
+    "openSetup": "Open setup"
   },
   "result": {
-    "success": "Registration pull request created."
+    "success": "Registration pull request created.",
+    "changeSuccess": "Change request pull request created."
+  },
+  "states": {
+    "changeLoading": "Loading the current governed batch definition.",
+    "changeLoadError": "Failed to load the current batch definition for change mode.",
+    "changeNotFound": "Batch {{batchId}} was not found.",
+    "noSession": "Connect a GitHub repository in setup before loading change mode."
   },
   "errors": {
     "required": "Required fields are missing: {{fields}}",
     "noSession": "Connect a GitHub repository in setup before creating a registration PR.",
     "alreadyExists": "A batch definition already exists at {{path}}.",
+    "changeMissingDefinition": "The governed batch definition was not found at {{path}}.",
     "workflowAlreadyExists": "A workflow already exists at {{path}}.",
     "fileRead": "Failed to read the uploaded execution file.",
     "unknown": "Failed to create the registration pull request."

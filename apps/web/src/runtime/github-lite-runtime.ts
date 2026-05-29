@@ -485,29 +485,32 @@ export function createGitHubLiteRuntime(
         });
 
         await client.createBranch({ ...repositoryRef, branch, sha: baseSha });
-        await client.putFile({
-          ...repositoryRef,
+        await putRegistrationFile({
           branch,
+          client,
           content: batchDefinitionYaml,
           message: title,
           path: batchDefinitionPath,
+          repositoryRef,
         });
-        await client.putFile({
-          ...repositoryRef,
+        await putRegistrationFile({
           branch,
+          client,
           content: workflowYaml,
           message: title,
           path: workflowPath,
+          repositoryRef,
         });
 
         if (artifact) {
-          await client.putFile({
-            ...repositoryRef,
+          await putRegistrationFile({
             branch,
+            client,
             content: artifact.content,
             encoding: artifact.encoding,
             message: title,
             path: artifact.path,
+            repositoryRef,
           });
         }
 
@@ -580,6 +583,40 @@ export function createGitHubLiteRuntime(
       },
     },
   };
+}
+
+async function putRegistrationFile({
+  branch,
+  client,
+  content,
+  encoding,
+  message,
+  path,
+  repositoryRef,
+}: {
+  branch: string;
+  client: GitHubLiteClient;
+  content: string;
+  encoding?: "utf-8" | "base64";
+  message: string;
+  path: string;
+  repositoryRef: { owner: string; repo: string };
+}) {
+  const existingFile = await client.getFile({
+    ...repositoryRef,
+    path,
+    ref: branch,
+  });
+
+  await client.putFile({
+    ...repositoryRef,
+    branch,
+    content,
+    encoding,
+    message,
+    path,
+    ...(existingFile?.sha ? { sha: existingFile.sha } : {}),
+  });
 }
 
 function parseWorkspacePolicyFile(content: string): WorkspacePolicy {

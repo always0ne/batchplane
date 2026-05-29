@@ -1,6 +1,8 @@
 {
   "title": "등록",
   "subtitle": "통제 대상 배치 정의와 BatchPlane Gate가 적용된 Workflow를 Pull Request로 생성합니다.",
+  "titleChange": "변경 요청",
+  "subtitleChange": "기존 통제 대상 배치 정의와 Workflow를 통제된 Pull Request로 변경합니다.",
   "form": {
     "definition": "배치 정의",
     "workflow": "Workflow",
@@ -27,6 +29,7 @@
   "review": {
     "title": "PR 검토",
     "subtitle": "GitHub Pull Request로 생성될 내용을 먼저 확인합니다.",
+    "subtitleChange": "변경 Pull Request로 반영될 통제 파일 변경사항을 먼저 확인합니다.",
     "files": {
       "title": "생성 파일",
       "batchDefinition": "배치 정의",
@@ -49,15 +52,25 @@
   },
   "actions": {
     "createPullRequest": "등록 PR 생성",
-    "openApprovals": "승인함에서 검토"
+    "createChangePullRequest": "변경 PR 생성",
+    "openApprovals": "승인함에서 검토",
+    "openSetup": "설정 열기"
   },
   "result": {
-    "success": "등록 Pull Request가 생성되었습니다."
+    "success": "등록 Pull Request가 생성되었습니다.",
+    "changeSuccess": "변경 요청 Pull Request가 생성되었습니다."
+  },
+  "states": {
+    "changeLoading": "현재 통제 대상 배치 정의를 불러오는 중입니다.",
+    "changeLoadError": "변경 모드용 현재 배치 정의를 불러오지 못했습니다.",
+    "changeNotFound": "배치 {{batchId}}를 찾지 못했습니다.",
+    "noSession": "변경 모드를 불러오기 전에 설정에서 GitHub 저장소를 연결하세요."
   },
   "errors": {
     "required": "필수 항목이 누락되었습니다: {{fields}}",
     "noSession": "등록 PR을 생성하기 전에 설정에서 GitHub 저장소를 연결하세요.",
     "alreadyExists": "{{path}}에 이미 배치 정의가 있습니다.",
+    "changeMissingDefinition": "{{path}}에서 통제 대상 배치 정의를 찾지 못했습니다.",
     "workflowAlreadyExists": "{{path}}에 이미 Workflow가 있습니다.",
     "fileRead": "업로드한 실행 파일을 읽지 못했습니다.",
     "unknown": "등록 Pull Request 생성에 실패했습니다."
