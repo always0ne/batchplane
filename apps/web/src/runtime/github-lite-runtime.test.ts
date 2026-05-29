@@ -586,6 +586,32 @@ describe("createGitHubLiteRuntime", () => {
     ]);
   });
 
+  it("uses only dispatchable workflows when listing execution runs", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+    const workflowCalls: Array<{ dispatchableOnly?: boolean }> = [];
+    const wrappedClient = {
+      ...client,
+      async listWorkflows(params: Parameters<typeof client.listWorkflows>[0]) {
+        workflowCalls.push({
+          dispatchableOnly: params.dispatchableOnly,
+        });
+
+        return client.listWorkflows(params);
+      },
+    };
+    const runtime = createGitHubLiteRuntime(session, {
+      client: wrappedClient,
+    });
+
+    await runtime.executions.listExecutionRuns({ limit: 20 });
+
+    expect(workflowCalls).toEqual([
+      expect.objectContaining({
+        dispatchableOnly: true,
+      }),
+    ]);
+  });
+
   it("does not attach Gate evidence from a different request with the same batch", async () => {
     const fetcher: typeof fetch = async (input) => {
       const url = input.toString();

@@ -367,6 +367,8 @@ The UI reads GitHub Actions run detail through the target repository API and
 maps it into `ExecutionRun`:
 
 - list workflows and workflow runs with `event=workflow_dispatch`
+- when workflow lists are used for execution contexts, exclude workflows whose
+  YAML does not declare `workflow_dispatch`
 - read a specific workflow run by run ID
 - read the workflow run jobs for Gate and business-job conclusions
 - correlate runs to BatchPlane requests using the workflow run name/title,
