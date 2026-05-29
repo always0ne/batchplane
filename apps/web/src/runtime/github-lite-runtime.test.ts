@@ -77,6 +77,141 @@ describe("createGitHubLiteRuntime", () => {
     ]);
   });
 
+  it("updates existing governed files with file SHAs during change-mode PR creation", async () => {
+    const requests: Array<{ body: unknown; method: string; url: string }> = [];
+    const branch = "batchplane/change/payment.daily-close-20260514010203";
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(init.body.toString()) : null;
+      const parsedUrl = new URL(url);
+
+      requests.push({ body, method, url });
+
+      if (url.endsWith("/git/ref/heads/main")) {
+        return Response.json({
+          object: { sha: "mock-main-sha", type: "commit", url: "" },
+          ref: "refs/heads/main",
+        });
+      }
+
+      if (url.endsWith("/git/refs") && method === "POST") {
+        return Response.json({
+          object: { sha: "mock-main-sha", type: "commit", url: "" },
+          ref: `refs/heads/${branch}`,
+        });
+      }
+
+      if (
+        parsedUrl.pathname ===
+          "/repos/always0ne/batch/contents/.batch-governance/batches/payment.daily-close.yml" &&
+        parsedUrl.searchParams.get("ref") === branch
+      ) {
+        return Response.json({
+          content: btoa('metadata:\n  id: "payment.daily-close"\n'),
+          encoding: "base64",
+          path: ".batch-governance/batches/payment.daily-close.yml",
+          sha: "existing-batch-sha",
+        });
+      }
+
+      if (
+        parsedUrl.pathname ===
+          "/repos/always0ne/batch/contents/.github/workflows/payment.daily-close.yml" &&
+        parsedUrl.searchParams.get("ref") === branch
+      ) {
+        return Response.json({
+          content: btoa("name: Existing workflow\n"),
+          encoding: "base64",
+          path: ".github/workflows/payment.daily-close.yml",
+          sha: "existing-workflow-sha",
+        });
+      }
+
+      if (
+        url.endsWith(
+          "/contents/.batch-governance/batches/payment.daily-close.yml",
+        ) &&
+        method === "PUT"
+      ) {
+        return Response.json({
+          content: {
+            path: ".batch-governance/batches/payment.daily-close.yml",
+            sha: "updated-batch-sha",
+          },
+        });
+      }
+
+      if (
+        url.endsWith("/contents/.github/workflows/payment.daily-close.yml") &&
+        method === "PUT"
+      ) {
+        return Response.json({
+          content: {
+            path: ".github/workflows/payment.daily-close.yml",
+            sha: "updated-workflow-sha",
+          },
+        });
+      }
+
+      if (url.endsWith("/pulls") && method === "POST") {
+        return Response.json({
+          base: { ref: "main" },
+          body: "body",
+          head: { ref: branch },
+          html_url: "https://github.com/always0ne/batch/pull/13",
+          number: 13,
+          state: "open",
+          title: "Change batch payment.daily-close",
+          user: { login: "maintainer" },
+        });
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const runtime = createGitHubLiteRuntime(session, { fetcher });
+
+    await expect(
+      runtime.registration.createRegistrationPullRequest({
+        baseBranch: "main",
+        batchDefinitionPath:
+          ".batch-governance/batches/payment.daily-close.yml",
+        batchDefinitionYaml: 'metadata:\n  id: "payment.daily-close"\n',
+        body: "body",
+        branch,
+        title: "Change batch payment.daily-close",
+        workflowPath: ".github/workflows/payment.daily-close.yml",
+        workflowYaml: "name: Updated workflow\n",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        number: 13,
+        title: "Change batch payment.daily-close",
+      }),
+    );
+
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          body: expect.objectContaining({
+            branch,
+            sha: "existing-batch-sha",
+          }),
+          method: "PUT",
+          url: "https://api.github.com/repos/always0ne/batch/contents/.batch-governance/batches/payment.daily-close.yml",
+        }),
+        expect.objectContaining({
+          body: expect.objectContaining({
+            branch,
+            sha: "existing-workflow-sha",
+          }),
+          method: "PUT",
+          url: "https://api.github.com/repos/always0ne/batch/contents/.github/workflows/payment.daily-close.yml",
+        }),
+      ]),
+    );
+  });
+
   it("approves registration requests through the ApprovalPort", async () => {
     const requests: Array<{ body: unknown; method: string; url: string }> = [];
     const fetcher: typeof fetch = async (input, init) => {

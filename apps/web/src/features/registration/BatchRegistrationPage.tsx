@@ -1,4 +1,5 @@
 import type {
+  BatchDefinition,
   BatchStatus,
   Criticality,
   RepositoryPullRequest,
@@ -21,7 +22,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -29,6 +30,11 @@ import {
   saveRegistrationApprovalHandoff,
 } from "../approvals/approval-handoff";
 import { PageHeader } from "../../shared/components/PageHeader";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../shared/components/PageState";
 import {
   createBatchPlaneRuntime,
   readRuntimeSession,
@@ -43,9 +49,11 @@ import {
   getBatchArtifactPath,
   getBatchDefinitionPath,
   serializeBatchDefinitionYaml,
+  toBatchRegistrationFormValues,
   toBatchDefinition,
   validateBatchRegistration,
   type BatchRegistrationFormValues,
+  type RegistrationRequestMode,
 } from "./registration-model";
 
 type SubmissionState =
@@ -58,6 +66,13 @@ type UploadedExecutionFile = {
   contentBase64: string;
   name: string;
 };
+
+type PrefillState =
+  | { type: "ready" }
+  | { type: "loading" }
+  | { type: "no-session" }
+  | { type: "not-found"; batchId: string }
+  | { type: "error"; message: string };
 
 const criticalityOptions: Criticality[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const statusOptions: BatchStatus[] = ["ACTIVE", "INACTIVE"];
@@ -72,24 +87,37 @@ const runnerOptions = [
 export function BatchRegistrationPage() {
   const { t } = useTranslation("registration");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [values, setValues] = useState<BatchRegistrationFormValues>(
     defaultBatchRegistrationValues,
   );
+  const [prefillState, setPrefillState] = useState<PrefillState>({
+    type: "ready",
+  });
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     type: "idle",
   });
   const [uploadedFile, setUploadedFile] =
     useState<UploadedExecutionFile | null>(null);
   const [autoFileCommand, setAutoFileCommand] = useState<string | null>(null);
+  const [existingArtifactPath, setExistingArtifactPath] = useState<
+    string | null
+  >(null);
+  const changeBatchId = searchParams.get("change")?.trim() ?? "";
+  const mode: RegistrationRequestMode = changeBatchId ? "change" : "create";
+  const pageTitle = t(mode === "change" ? "titleChange" : "title");
+  const pageSubtitle = t(mode === "change" ? "subtitleChange" : "subtitle");
 
   const baseDefinition = useMemo(() => toBatchDefinition(values), [values]);
   const uploadedFilePath =
     uploadedFile && baseDefinition.batchId
-      ? getBatchArtifactPath(baseDefinition.batchId, uploadedFile.name)
+      ? existingArtifactPath ||
+        getBatchArtifactPath(baseDefinition.batchId, uploadedFile.name)
       : null;
+  const resolvedArtifactPath = uploadedFilePath ?? existingArtifactPath;
   const definition = useMemo(
-    () => toBatchDefinition(values, { artifactPath: uploadedFilePath }),
-    [uploadedFilePath, values],
+    () => toBatchDefinition(values, { artifactPath: resolvedArtifactPath }),
+    [resolvedArtifactPath, values],
   );
   const yaml = useMemo(
     () => serializeBatchDefinitionYaml(definition),
@@ -115,8 +143,8 @@ export function BatchRegistrationPage() {
   }, [definition, values.runCommand, values.runnerLabel]);
   const batchPath = getBatchDefinitionPath(definition.batchId);
   const workflowPath = definition.workflow.path;
-  const nextAutoFileCommand = uploadedFilePath
-    ? buildExecutionFileCommand(uploadedFilePath)
+  const nextAutoFileCommand = resolvedArtifactPath
+    ? buildExecutionFileCommand(resolvedArtifactPath)
     : null;
   const selectedRunner = runnerOptions.includes(
     values.runnerLabel as (typeof runnerOptions)[number],
@@ -140,6 +168,86 @@ export function BatchRegistrationPage() {
     );
     setAutoFileCommand(nextAutoFileCommand);
   }, [autoFileCommand, nextAutoFileCommand]);
+
+  useEffect(() => {
+    if (mode === "change") {
+      return;
+    }
+
+    setPrefillState({ type: "ready" });
+    setExistingArtifactPath(null);
+    setUploadedFile(null);
+    setAutoFileCommand(null);
+    setValues(defaultBatchRegistrationValues);
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "change") {
+      return;
+    }
+
+    let ignoreResult = false;
+
+    async function loadChangeTarget() {
+      const session = readRuntimeSession();
+
+      if (!session) {
+        if (!ignoreResult) {
+          setPrefillState({ type: "no-session" });
+        }
+        return;
+      }
+
+      setPrefillState({ type: "loading" });
+
+      try {
+        const runtime = createBatchPlaneRuntime(session);
+        const repository = await runtime.settings.getRepository();
+        const batches = await runtime.batches.listBatchDefinitions({
+          ref: repository.defaultBranch,
+        });
+        const batch = batches.find(
+          (candidate) => candidate.batchId === changeBatchId,
+        );
+
+        if (!batch) {
+          if (!ignoreResult) {
+            setPrefillState({ type: "not-found", batchId: changeBatchId });
+          }
+          return;
+        }
+
+        if (!ignoreResult) {
+          applyPrefill(batch);
+        }
+      } catch (error) {
+        if (!ignoreResult) {
+          setPrefillState({
+            type: "error",
+            message: formatRegistrationError(
+              error,
+              t("states.changeLoadError"),
+            ),
+          });
+        }
+      }
+    }
+
+    void loadChangeTarget();
+
+    return () => {
+      ignoreResult = true;
+    };
+  }, [changeBatchId, mode, t]);
+
+  function applyPrefill(batch: BatchDefinition) {
+    setValues(toBatchRegistrationFormValues(batch));
+    setExistingArtifactPath(batch.execution?.artifactPath ?? null);
+    setUploadedFile(null);
+    setAutoFileCommand(null);
+    setSubmissionState({ type: "idle" });
+    setPrefillState({ type: "ready" });
+  }
 
   function updateTextField(
     field: keyof Omit<
@@ -192,7 +300,7 @@ export function BatchRegistrationPage() {
           workflowPath,
         });
 
-      if (registrationTargets.batchDefinitionExists) {
+      if (mode === "create" && registrationTargets.batchDefinitionExists) {
         setSubmissionState({
           type: "error",
           message: t("errors.alreadyExists", { path: batchPath }),
@@ -200,7 +308,7 @@ export function BatchRegistrationPage() {
         return;
       }
 
-      if (registrationTargets.workflowExists) {
+      if (mode === "create" && registrationTargets.workflowExists) {
         setSubmissionState({
           type: "error",
           message: t("errors.workflowAlreadyExists", { path: workflowPath }),
@@ -208,8 +316,16 @@ export function BatchRegistrationPage() {
         return;
       }
 
-      const branch = createRegistrationBranchName(definition.batchId);
-      const title = buildRegistrationPullRequestTitle(definition);
+      if (mode === "change" && !registrationTargets.batchDefinitionExists) {
+        setSubmissionState({
+          type: "error",
+          message: t("errors.changeMissingDefinition", { path: batchPath }),
+        });
+        return;
+      }
+
+      const branch = createRegistrationBranchName(definition.batchId, mode);
+      const title = buildRegistrationPullRequestTitle(definition, mode);
       const pullRequest =
         await runtime.registration.createRegistrationPullRequest({
           artifact:
@@ -223,7 +339,7 @@ export function BatchRegistrationPage() {
           baseBranch: repository.defaultBranch,
           batchDefinitionPath: batchPath,
           batchDefinitionYaml: yaml,
-          body: buildRegistrationPullRequestBody(definition),
+          body: buildRegistrationPullRequestBody(definition, mode),
           branch,
           title,
           workflowPath,
@@ -243,9 +359,59 @@ export function BatchRegistrationPage() {
     }
   }
 
+  if (prefillState.type === "loading") {
+    return (
+      <section>
+        <PageHeader subtitle={pageSubtitle} title={pageTitle} />
+        <LoadingState message={t("states.changeLoading")} />
+      </section>
+    );
+  }
+
+  if (prefillState.type === "no-session") {
+    return (
+      <section>
+        <PageHeader subtitle={pageSubtitle} title={pageTitle} />
+        <EmptyState
+          action={
+            <Link
+              className="font-semibold text-bp-control underline"
+              to="/lite/setup"
+            >
+              {t("actions.openSetup")}
+            </Link>
+          }
+          message={t("states.noSession")}
+        />
+      </section>
+    );
+  }
+
+  if (prefillState.type === "not-found") {
+    return (
+      <section>
+        <PageHeader subtitle={pageSubtitle} title={pageTitle} />
+        <ErrorState
+          message={t("states.changeNotFound", {
+            batchId: prefillState.batchId,
+          })}
+        />
+      </section>
+    );
+  }
+
+  if (prefillState.type === "error") {
+    return (
+      <section>
+        <PageHeader subtitle={pageSubtitle} title={pageTitle} />
+        <ErrorState message={prefillState.message} />
+      </section>
+    );
+  }
+
   return (
     <section>
-      <PageHeader title={t("title")} subtitle={t("subtitle")} />
+      <PageHeader title={pageTitle} subtitle={pageSubtitle} />
       <form
         className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]"
         onSubmit={(event) => void createRegistrationPullRequest(event)}
@@ -256,12 +422,19 @@ export function BatchRegistrationPage() {
               {t("form.definition")}
             </h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <TextField
-                label={t("form.batchId")}
-                onChange={updateTextField("batchId")}
-                placeholder="payment.daily-close"
-                value={values.batchId}
-              />
+              {mode === "change" ? (
+                <ReadOnlyField
+                  label={t("form.batchId")}
+                  value={values.batchId}
+                />
+              ) : (
+                <TextField
+                  label={t("form.batchId")}
+                  onChange={updateTextField("batchId")}
+                  placeholder="payment.daily-close"
+                  value={values.batchId}
+                />
+              )}
               <TextField
                 label={t("form.name")}
                 onChange={updateTextField("name")}
@@ -356,13 +529,15 @@ export function BatchRegistrationPage() {
             </div>
             <FileUploadField
               disabled={!definition.batchId}
-              filePath={uploadedFilePath}
+              filePath={resolvedArtifactPath}
               label={t("form.executionFile")}
               onChange={(file) => {
                 void handleExecutionFileChange({
                   file,
                   onLoaded: ({ contentBase64, name }) => {
-                    const path = getBatchArtifactPath(definition.batchId, name);
+                    const path =
+                      existingArtifactPath ||
+                      getBatchArtifactPath(definition.batchId, name);
                     const command = buildExecutionFileCommand(path);
 
                     setUploadedFile({ contentBase64, name });
@@ -395,7 +570,7 @@ export function BatchRegistrationPage() {
             />
           </article>
 
-          <SubmissionBanner state={submissionState} />
+          <SubmissionBanner mode={mode} state={submissionState} />
         </div>
 
         <aside className="space-y-4">
@@ -404,8 +579,9 @@ export function BatchRegistrationPage() {
             canSubmit={canSubmit}
             definition={definition}
             missingFields={missingFields}
+            mode={mode}
             submissionState={submissionState}
-            uploadedFilePath={uploadedFilePath}
+            uploadedFilePath={resolvedArtifactPath}
             workflowPath={workflowPath}
           />
           <YamlPreviewPanel
@@ -425,6 +601,7 @@ function PullRequestReviewPanel({
   canSubmit,
   definition,
   missingFields,
+  mode,
   submissionState,
   uploadedFilePath,
   workflowPath,
@@ -433,6 +610,7 @@ function PullRequestReviewPanel({
   canSubmit: boolean;
   definition: ReturnType<typeof toBatchDefinition>;
   missingFields: string[];
+  mode: RegistrationRequestMode;
   submissionState: SubmissionState;
   uploadedFilePath: string | null;
   workflowPath: string;
@@ -446,7 +624,9 @@ function PullRequestReviewPanel({
         <h2 className="text-lg font-semibold text-bp-graphite">
           {t("review.title")}
         </h2>
-        <p className="mt-2 text-sm text-bp-muted">{t("review.subtitle")}</p>
+        <p className="mt-2 text-sm text-bp-muted">
+          {t(mode === "change" ? "review.subtitleChange" : "review.subtitle")}
+        </p>
       </div>
 
       <section className="mt-5">
@@ -521,7 +701,11 @@ function PullRequestReviewPanel({
         ) : (
           <GitPullRequest className="h-4 w-4" aria-hidden="true" />
         )}
-        {t("actions.createPullRequest")}
+        {t(
+          mode === "change"
+            ? "actions.createChangePullRequest"
+            : "actions.createPullRequest",
+        )}
       </button>
     </article>
   );
@@ -746,13 +930,21 @@ function SelectField({
   );
 }
 
-function SubmissionBanner({ state }: { state: SubmissionState }) {
+function SubmissionBanner({
+  mode,
+  state,
+}: {
+  mode: RegistrationRequestMode;
+  state: SubmissionState;
+}) {
   const { t } = useTranslation("registration");
 
   if (state.type === "success") {
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-        <p className="font-semibold">{t("result.success")}</p>
+        <p className="font-semibold">
+          {t(mode === "change" ? "result.changeSuccess" : "result.success")}
+        </p>
         <div className="mt-3 flex flex-wrap gap-3">
           <a
             className="inline-flex font-semibold underline"

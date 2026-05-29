@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildBatchWorkflowYaml,
   buildRegistrationPullRequestBody,
+  buildRegistrationPullRequestTitle,
   createRegistrationBranchName,
   getBatchArtifactPath,
   getBatchDefinitionPath,
   getBatchWorkflowPath,
   parseBatchDefinitionYaml,
   serializeBatchDefinitionYaml,
+  toBatchRegistrationFormValues,
   toBatchDefinition,
   validateBatchRegistration,
   type BatchRegistrationFormValues,
@@ -132,9 +134,20 @@ describe("registration model", () => {
     expect(
       createRegistrationBranchName(
         "Payment Daily Close",
+        "create",
         new Date("2026-05-09T01:02:03.000Z"),
       ),
     ).toBe("batchplane/register/payment-daily-close-20260509010203");
+  });
+
+  it("creates a stable change branch name", () => {
+    expect(
+      createRegistrationBranchName(
+        "Payment Daily Close",
+        "change",
+        new Date("2026-05-09T01:02:03.000Z"),
+      ),
+    ).toBe("batchplane/change/payment-daily-close-20260509010203");
   });
 
   it("creates a PR body with auditable registration context", () => {
@@ -149,6 +162,24 @@ describe("registration model", () => {
     );
     expect(buildRegistrationPullRequestBody(definition)).toContain(
       "./scripts/daily-close.sh",
+    );
+  });
+
+  it("creates change-oriented PR metadata when requested", () => {
+    expect(buildRegistrationPullRequestTitle(definition, "change")).toBe(
+      "Change batch payment.daily-close",
+    );
+    expect(buildRegistrationPullRequestBody(definition, "change")).toContain(
+      "## BatchPlane Change",
+    );
+    expect(buildRegistrationPullRequestBody(definition, "change")).toContain(
+      "- Request type: CHANGE",
+    );
+  });
+
+  it("maps an existing batch definition back to form values", () => {
+    expect(toBatchRegistrationFormValues(definition)).toEqual(
+      registrationValues,
     );
   });
 });

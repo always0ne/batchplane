@@ -79,6 +79,34 @@ describe("BatchRegistrationPage", () => {
       screen.getByRole("link", { name: "Open PR" }).getAttribute("href"),
     ).toContain("https://github.com/always0ne/batch/pull/");
   });
+
+  it("prefills the existing batch when opened in change mode", async () => {
+    writeRuntimeFixtureSelection("approval-pending");
+
+    render(
+      <MemoryRouter
+        initialEntries={["/batches/new?change=payment.daily-close"]}
+      >
+        <Routes>
+          <Route path="/batches/new" element={<BatchRegistrationPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Change request" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("payment.daily-close").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByDisplayValue("Daily Close")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("ops-team")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("payments")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("echo mock batch")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create change PR" }),
+    ).toBeInTheDocument();
+  });
 });
 
 function renderRegistrationPage() {
