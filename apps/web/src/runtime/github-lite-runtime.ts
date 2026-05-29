@@ -1,4 +1,5 @@
 import type {
+  AuditTimelineItem,
   BatchDefinition,
   BatchPlaneRuntimePorts,
   ExecutionRun,
@@ -32,6 +33,11 @@ import {
 } from "@batchplane/github-lite";
 
 import { parseExecutionRequestDetail } from "../features/approvals/approval-model";
+import {
+  deriveRegistrationReviewState,
+  parseRegistrationApprovalDecision,
+  parseRegistrationRequestSummary,
+} from "../features/approvals/registration-approval-model";
 import { parseBatchDefinitionYaml } from "../features/registration/registration-model";
 import type { GitHubSession } from "../features/lite-setup/github-session";
 import {
@@ -155,8 +161,70 @@ export function createGitHubLiteRuntime(
     },
 
     audit: {
-      async listAuditTimeline() {
-        return [];
+      async listAuditTimeline({ limit = 50 } = {}) {
+        const [issues, pullRequests, workflowRuns, workflows] =
+          await Promise.all([
+            client.listIssues({
+              ...repositoryRef,
+              state: "all",
+            }),
+            client.listPullRequests({
+              ...repositoryRef,
+              state: "all",
+            }),
+            client.listWorkflowRuns({
+              ...repositoryRef,
+              event: "workflow_dispatch",
+              perPage: Math.max(limit, 20),
+            }),
+            client.listWorkflows(repositoryRef),
+          ]);
+        const [issueComments, pullRequestComments] = await Promise.all([
+          Promise.all(
+            issues.map((issue) =>
+              client.listIssueComments({
+                ...repositoryRef,
+                issueNumber: issue.number,
+              }),
+            ),
+          ),
+          Promise.all(
+            pullRequests.map((pullRequest) =>
+              client.listIssueComments({
+                ...repositoryRef,
+                issueNumber: pullRequest.number,
+              }),
+            ),
+          ),
+        ]);
+        const workflowById = new Map(
+          workflows.map((workflow) => [workflow.id, workflow]),
+        );
+
+        return [
+          ...pullRequests.flatMap((pullRequest, index) =>
+            toRegistrationAuditItems(
+              toRepositoryPullRequest(pullRequest),
+              (pullRequestComments[index] ?? []).map(toRepositoryIssueComment),
+            ),
+          ),
+          ...issues.flatMap((issue, index) => {
+            const mappedIssue = toRepositoryIssue(issue);
+            const comments = (issueComments[index] ?? []).map(
+              toRepositoryIssueComment,
+            );
+            const request = parseExecutionRequestDetail(mappedIssue, comments);
+
+            return request ? toExecutionRequestAuditItems(request) : [];
+          }),
+          ...workflowRuns.map((run) => {
+            const workflow = workflowById.get(run.workflowId);
+
+            return toWorkflowRunAuditItem(run, workflow?.path);
+          }),
+        ]
+          .sort(compareAuditItemsDesc)
+          .slice(0, limit);
       },
     },
 
@@ -543,6 +611,202 @@ type RuntimeRepositoryRef = {
 type ExecutionRequestForRun = NonNullable<
   ReturnType<typeof parseExecutionRequestDetail>
 >;
+
+function toRegistrationAuditItems(
+  pullRequest: RepositoryPullRequest,
+  comments: RepositoryIssueComment[],
+): AuditTimelineItem[] {
+  if (!isRegistrationAuditPullRequest(pullRequest)) {
+    return [];
+  }
+
+  const summary = parseRegistrationRequestSummary(pullRequest);
+  const decision = parseRegistrationApprovalDecision(comments);
+  const reviewState = deriveRegistrationReviewState(pullRequest, decision);
+  const batchId = summary.batchId || pullRequest.title;
+  const items: AuditTimelineItem[] = [
+    {
+      actor: pullRequest.author,
+      itemId: `registration-pr-${pullRequest.number}`,
+      occurredAt: pullRequest.createdAt ?? pullRequest.updatedAt ?? "",
+      sourceUrl: pullRequest.url,
+      subjectId: batchId,
+      subjectType: "BATCH",
+      summary: `Registration request #${pullRequest.number}: ${pullRequest.title}`,
+      type: pullRequest.merged ? "BATCH_REGISTERED" : "BATCH_CHANGED",
+      metadata: compactAuditMetadata({
+        batchId,
+        pullNumber: pullRequest.number,
+        reviewState,
+      }),
+    },
+  ];
+
+  if (decision) {
+    items.push({
+      actor: decision.actor,
+      itemId: `registration-pr-${pullRequest.number}-decision-${decision.commentId}`,
+      occurredAt: decision.decidedAt,
+      sourceUrl: pullRequest.url,
+      subjectId: batchId,
+      subjectType: "BATCH",
+      summary: `Registration ${decision.decision.toLowerCase()} for ${batchId}`,
+      type: "APPROVAL_RECORDED",
+      metadata: compactAuditMetadata({
+        batchId,
+        decision: decision.decision,
+        pullNumber: pullRequest.number,
+        reviewState,
+      }),
+    });
+  }
+
+  return items;
+}
+
+function isRegistrationAuditPullRequest(
+  pullRequest: RepositoryPullRequest,
+): boolean {
+  return (
+    pullRequest.head.startsWith("batchplane/register/") ||
+    pullRequest.head.startsWith("batchtrail/register/") ||
+    pullRequest.title.startsWith("Register batch ")
+  );
+}
+
+function toExecutionRequestAuditItems(
+  request: ExecutionRequestForRun,
+): AuditTimelineItem[] {
+  const items: AuditTimelineItem[] = [
+    {
+      actor: request.requestedBy,
+      itemId: `execution-request-${request.requestId}`,
+      occurredAt: request.requestedAt || request.issue.createdAt || "",
+      sourceUrl: request.issue.url,
+      subjectId: request.requestId,
+      subjectType: "EXECUTION_REQUEST",
+      summary: `Execution requested for ${request.batchId}`,
+      type: "EXECUTION_REQUESTED",
+      metadata: compactAuditMetadata({
+        batchId: request.batchId,
+        issueNumber: request.issue.number,
+        requestId: request.requestId,
+        status: request.status,
+      }),
+    },
+  ];
+
+  if (request.approvalDecision) {
+    items.push({
+      actor: request.approvalDecision.actor,
+      itemId: `execution-request-${request.requestId}-approval`,
+      occurredAt: request.approvalDecision.decidedAt,
+      sourceUrl: request.issue.url,
+      subjectId: request.requestId,
+      subjectType: "EXECUTION_REQUEST",
+      summary: `Execution ${request.approvalDecision.decision.toLowerCase()} for ${request.batchId}`,
+      type: "APPROVAL_RECORDED",
+      metadata: compactAuditMetadata({
+        batchId: request.batchId,
+        decision: request.approvalDecision.decision,
+        issueNumber: request.issue.number,
+        requestId: request.requestId,
+      }),
+    });
+  }
+
+  if (request.dispatcherStatus) {
+    items.push({
+      actor: request.dispatcherStatus.actor,
+      itemId: `execution-request-${request.requestId}-dispatch-${request.dispatcherStatus.status}`,
+      occurredAt: request.dispatcherStatus.createdAt,
+      sourceUrl: request.issue.url,
+      subjectId: request.requestId,
+      subjectType: "EXECUTION_REQUEST",
+      summary: `Dispatcher recorded ${request.dispatcherStatus.status.toLowerCase()} for ${request.batchId}`,
+      type: "DISPATCH_RECORDED",
+      metadata: compactAuditMetadata({
+        batchId: request.batchId,
+        issueNumber: request.issue.number,
+        requestId: request.requestId,
+        status: request.dispatcherStatus.status,
+      }),
+    });
+  }
+
+  if (request.gateDecision) {
+    items.push({
+      actor: request.gateDecision.actor,
+      itemId: `execution-request-${request.requestId}-gate`,
+      occurredAt: request.gateDecision.createdAt,
+      sourceUrl: request.issue.url,
+      subjectId: request.requestId,
+      subjectType: "EXECUTION_REQUEST",
+      summary: `Gate ${request.gateDecision.allowed ? "allowed" : "blocked"} ${request.batchId}`,
+      type: "GATE_DECIDED",
+      metadata: compactAuditMetadata({
+        batchId: request.batchId,
+        gateResult: request.gateDecision.allowed ? "ALLOWED" : "BLOCKED",
+        issueNumber: request.issue.number,
+        reasonCode: request.gateDecision.reasonCode,
+        requestId: request.requestId,
+      }),
+    });
+  }
+
+  return items;
+}
+
+function toWorkflowRunAuditItem(
+  run: GitHubWorkflowRun,
+  workflowPath?: string,
+): AuditTimelineItem {
+  const requestId = run.requestId ?? parseRequestIdFromRun(run) ?? "";
+  const batchId = run.batchId ?? parseBatchIdFromRun(run, workflowPath) ?? "";
+
+  return {
+    actor: run.actor,
+    itemId: `workflow-run-${run.id}`,
+    occurredAt: run.updatedAt || run.startedAt || run.createdAt || "",
+    sourceUrl: run.url,
+    subjectId: String(run.id),
+    subjectType: "EXECUTION_RUN",
+    summary: `Workflow run ${run.conclusion ?? run.status} for ${batchId || run.name}`,
+    type: "RUN_COMPLETED",
+    metadata: compactAuditMetadata({
+      batchId,
+      conclusion: run.conclusion ?? "",
+      requestId,
+      runId: run.id,
+      status: run.status,
+      workflowPath: workflowPath ?? run.workflowPath ?? "",
+    }),
+  };
+}
+
+function compactAuditMetadata(
+  metadata: Record<string, string | number | boolean | undefined>,
+): Record<string, string | number | boolean> {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(
+      (entry): entry is [string, string | number | boolean] =>
+        entry[1] !== undefined && entry[1] !== "",
+    ),
+  );
+}
+
+function compareAuditItemsDesc(
+  left: AuditTimelineItem,
+  right: AuditTimelineItem,
+): number {
+  return auditTimestamp(right.occurredAt) - auditTimestamp(left.occurredAt);
+}
+
+function auditTimestamp(value: string): number {
+  const timestamp = Date.parse(value);
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
 
 async function loadExecutionApprovalRequests(
   client: GitHubLiteClient,

@@ -1,4 +1,62 @@
 {
   "title": "My Work",
-  "subtitle": "Requests and approvals connected to the current user."
+  "subtitle": "Requests, approvals, registrations, and failure follow-ups connected to the current user.",
+  "actions": {
+    "open": "Open",
+    "refresh": "Refresh",
+    "showAll": "Show all"
+  },
+  "filters": {
+    "all": "All"
+  },
+  "itemActions": {
+    "reviewApproval": "Review",
+    "viewRegistration": "View request",
+    "viewRequest": "View request",
+    "writeFollowUp": "Write follow-up",
+    "reviewGateEvidence": "Review evidence"
+  },
+  "itemDescriptions": {
+    "registrationMine": "Open the registration detail and review current evidence.",
+    "registrationReview": "Registration approval is waiting for review.",
+    "executionMine": "Open the execution request detail and review current evidence.",
+    "executionApproval": "Execution approval is waiting for a maintainer.",
+    "failureMissing": "Failure follow-up has not been recorded.",
+    "failureAssigned": "Failure follow-up is assigned to the current user.",
+    "failureOpen": "Failure follow-up is still open.",
+    "gateBlockedMine": "Gate blocked this run before the batch command executed.",
+    "gateBlockedAssigned": "Gate-block follow-up is assigned to the current user."
+  },
+  "itemLabels": {
+    "approval": "Approval",
+    "businessFailure": "Business failure",
+    "executionApproval": "Execution approval",
+    "failureFollowUp": "Failure follow-up",
+    "gateBlocked": "Gate blocked",
+    "registration": "Registration",
+    "registrationApproval": "Registration approval",
+    "request": "My request"
+  },
+  "kinds": {
+    "approval": "Approvals",
+    "registration": "Registrations",
+    "request": "My requests",
+    "failureFollowUp": "Failure follow-up"
+  },
+  "queue": {
+    "title": "Work queue",
+    "subtitle": "Current user: @{{login}}"
+  },
+  "states": {
+    "loading": "Loading work items.",
+    "noSession": "Connect a GitHub repository to view your work.",
+    "empty": "No work items match this view.",
+    "error": "My Work could not be loaded."
+  },
+  "values": {
+    "actorTime": "{{actor}} - {{time}}",
+    "highPriority": "Action needed",
+    "unknownActor": "unknown",
+    "unknownTime": "Unknown time"
+  }
 }

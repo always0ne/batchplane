@@ -414,6 +414,20 @@ repository evidence files, so it remains auditable without a database. The
 follow-up record is a submitted explanation, not final closure. Workspace
 manager review decisions are a separate evidence type and workflow.
 
+The Lite runtime exposes `audit.listAuditTimeline({ limit })` by composing
+GitHub repository evidence rather than reading a database. The GitHub adapter
+loads registration pull requests, execution request Issues and comments,
+workflow_dispatch runs, and workflow metadata, then normalizes them into
+`AuditTimelineItem` rows with optional `sourceUrl` values. UI filtering is
+client-side for the first Lite implementation and uses normalized metadata keys
+such as `batchId`, `requestId`, `runId`, `status`, and `reasonCode`.
+
+The My Work screen is a UI aggregation over existing ports. It loads the
+current GitHub user, registration pull requests, execution request Issues and
+comments, and recent execution runs. Items are classified into approvals,
+registrations, user requests, and failure follow-ups, then linked to the
+corresponding BatchPlane detail route.
+
 Parsers must accept both BatchPlane and legacy BatchTrail evidence namespaces:
 `batchplane.io/v1` and `batchtrail.io/v1`, plus `batchplane:*` and
 `batchtrail:*` hidden markers/labels. Writers emit BatchPlane identifiers.

@@ -36,6 +36,12 @@ Lite must read as one connected operational flow:
   state, execution target, request actions, and recent evidence.
 - Failure, run detail, my work, and audit screens are post-approval follow-up
   surfaces. They must not be collapsed into the approvals inbox.
+- My Work is the current user's work queue. It should compactly group approval
+  work, the user's own registration and execution requests, and failure
+  follow-up items, with each row linking to the relevant BatchPlane detail
+  route.
+- Audit Trail is the evidence timeline. It should show event type, actor, time,
+  source link, and compact metadata, with Batch ID and request ID filters.
 - Execution run list is the primary run-history surface. It must show normal,
   active, business failed, and Gate-blocked workflow runs before failure-only
   shortcuts are added.

@@ -295,6 +295,36 @@ describe("createGitHubLiteRuntime", () => {
     ).toContain('mode: "SELF_APPROVAL_ALLOWED"');
   });
 
+  it("builds an audit timeline from GitHub Issues, PRs, and workflow runs", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    const items = await runtime.audit.listAuditTimeline({ limit: 100 });
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceUrl: "https://github.com/always0ne/batch/pull/12",
+          subjectType: "BATCH",
+          type: "BATCH_CHANGED",
+        }),
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            batchId: "payment.daily-close",
+            requestId: "btr-20260514010100-payment.daily-close-00000001",
+          }),
+          sourceUrl: "https://github.com/always0ne/batch/issues/101",
+          type: "EXECUTION_REQUESTED",
+        }),
+        expect.objectContaining({
+          sourceUrl: "https://github.com/always0ne/batch/actions/runs/204",
+          subjectType: "EXECUTION_RUN",
+          type: "RUN_COMPLETED",
+        }),
+      ]),
+    );
+  });
+
   it("maps workflow run detail with request and Gate evidence", async () => {
     const fetcher: typeof fetch = async (input) => {
       const url = input.toString();

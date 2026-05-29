@@ -478,7 +478,7 @@ function createDashboardCards(
       icon: History,
       key: "auditTrail",
       tone: "neutral",
-      to: "#recent-audit",
+      to: "/audit",
       value: summary.auditItems.length,
     },
   ];

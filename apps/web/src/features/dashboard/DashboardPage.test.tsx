@@ -39,9 +39,10 @@ describe("DashboardPage", () => {
       screen.getByText("Gate evidence, not approval work"),
     ).toBeInTheDocument();
     expect(screen.getByText("Recent audit trail")).toBeInTheDocument();
-    expect(
-      screen.getByText("No audit records are available yet."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Audit trail").closest("a")).toHaveAttribute(
+      "href",
+      "/audit",
+    );
   });
 
   it("renders an empty state when no runtime session is available", async () => {

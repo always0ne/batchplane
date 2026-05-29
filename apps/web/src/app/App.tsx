@@ -3,6 +3,8 @@ import {
   AlertTriangle,
   ClipboardCheck,
   GitBranch,
+  History,
+  Inbox,
   LayoutDashboard,
   ListChecks,
   Settings,
@@ -18,9 +20,11 @@ import { ExecutionRequestPage } from "../features/execution-requests/ExecutionRe
 import { ExecutionRunDetailPage } from "../features/execution-requests/ExecutionRunDetailPage";
 import { ExecutionRunListPage } from "../features/execution-requests/ExecutionRunListPage";
 import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
+import { AuditPage } from "../features/audit/AuditPage";
 import { RegistrationApprovalDetailPage } from "../features/approvals/RegistrationApprovalDetailPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
+import { MyWorkPage } from "../features/my-work/MyWorkPage";
 import { BatchRegistrationPage } from "../features/registration/BatchRegistrationPage";
 import {
   localeLabels,
@@ -38,11 +42,13 @@ import {
 
 const navItems = [
   { icon: LayoutDashboard, labelKey: "items.dashboard", to: "/dashboard" },
+  { icon: Inbox, labelKey: "items.myWork", to: "/my-work" },
   { icon: Settings, labelKey: "items.setup", to: "/lite/setup" },
   { icon: ListChecks, labelKey: "items.batches", to: "/batches" },
   { icon: Activity, labelKey: "items.runs", to: "/runs" },
   { icon: AlertTriangle, labelKey: "items.failures", to: "/failures" },
   { icon: ClipboardCheck, labelKey: "items.approvals", to: "/approvals" },
+  { icon: History, labelKey: "items.audit", to: "/audit" },
 ] as const;
 const compactMarkSrc = `${import.meta.env.BASE_URL}assets/batchplane-compact-mark.svg`;
 
@@ -157,6 +163,7 @@ export function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/my-work" element={<MyWorkPage />} />
             <Route path="/batches" element={<BatchesPage />} />
             <Route path="/batches/new" element={<BatchRegistrationPage />} />
             <Route path="/batches/:batchId" element={<BatchDetailPage />} />
@@ -182,6 +189,7 @@ export function App() {
               path="/approvals/registration/:pullNumber"
               element={<RegistrationApprovalDetailPage />}
             />
+            <Route path="/audit" element={<AuditPage />} />
             <Route path="/lite/setup" element={<LiteSetupPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

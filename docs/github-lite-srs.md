@@ -227,6 +227,13 @@ Gate-blocked, dispatching, dispatched, and rejected execution requests are
 execution evidence or follow-up work, not approval work, and must not be shown
 with approve/reject controls.
 
+The My Work screen must aggregate work connected to the current GitHub user:
+registration requests authored by the user, registration review items awaiting
+another maintainer, execution requests authored by the user, execution approval
+items awaiting review, and failed or Gate-blocked runs that require follow-up.
+Every row must route to the relevant BatchPlane detail screen rather than only
+to a raw GitHub page.
+
 Each execution request must also have a BatchPlane detail screen. The detail
 screen must show request status, requester, batch, environment, workflow
 path/ref, runner, batch command, request digest, governance checks, canonical
@@ -275,6 +282,13 @@ files, refresh action, and GitHub pull request link. Approval wording on this
 screen must be explicit that approval merges the registration pull request.
 Registration approve/reject actions are executed from this detail screen, not
 directly from the approvals list card.
+
+The Audit Trail screen must render GitHub-backed audit events as one timeline.
+The first Lite implementation must include registration pull request evidence,
+execution request Issues, approval comments, dispatcher comments, Gate decision
+comments, and workflow_dispatch run records. The timeline must support filtering
+by Batch ID and request ID and show GitHub source links for each event when the
+source URL is available.
 
 Approving an execution request must write an approval comment that starts with:
 
