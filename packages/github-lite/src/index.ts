@@ -270,6 +270,10 @@ export type ListWorkflowRunsParams = RepoRef & {
   workflowId?: number | string;
 };
 
+export type ListWorkflowsParams = RepoRef & {
+  dispatchableOnly?: boolean;
+};
+
 export type GetWorkflowJobLogParams = RepoRef & {
   jobId: number;
   maxBytes?: number;
@@ -306,7 +310,7 @@ export type GitHubLiteClient = {
   listIssueComments(
     params: RepoRef & { issueNumber: number },
   ): Promise<GitHubIssueComment[]>;
-  listWorkflows(params: RepoRef): Promise<GitHubWorkflow[]>;
+  listWorkflows(params: ListWorkflowsParams): Promise<GitHubWorkflow[]>;
   getWorkflow(
     params: RepoRef & { workflowId: number | string },
   ): Promise<GitHubWorkflow | null>;
@@ -599,6 +603,48 @@ export function createGitHubLiteClient({
     }
 
     return response.text();
+  }
+
+  async function readWorkflowContent({
+    owner,
+    path,
+    repo,
+  }: RepoRef & { path: string }): Promise<string | null> {
+    const content = await request<GitHubContentResponse>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+        repo,
+      )}/contents/${encodePath(path)}`,
+      {},
+      { allowNotFound: true },
+    );
+
+    if (!content) {
+      return null;
+    }
+
+    if (content.encoding !== "base64") {
+      throw new GitHubLiteApiError(
+        `Unsupported GitHub content encoding: ${content.encoding}`,
+        "unknown",
+        500,
+      );
+    }
+
+    return decodeBase64(content.content);
+  }
+
+  async function workflowSupportsDispatch({
+    owner,
+    path,
+    repo,
+  }: RepoRef & { path: string }): Promise<boolean> {
+    const content = await readWorkflowContent({
+      owner,
+      path,
+      repo,
+    });
+
+    return content ? hasWorkflowDispatchTrigger(content) : false;
   }
 
   return {
@@ -933,14 +979,35 @@ export function createGitHubLiteClient({
       );
     },
 
-    async listWorkflows({ owner, repo }) {
+    async listWorkflows({ dispatchableOnly = false, owner, repo }) {
       const workflows = await request<GitHubWorkflowsResponse>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
           repo,
         )}/actions/workflows`,
       );
 
-      return (workflows?.workflows ?? []).map(mapWorkflowResponse);
+      const mappedWorkflows = (workflows?.workflows ?? []).map(
+        mapWorkflowResponse,
+      );
+
+      if (!dispatchableOnly) {
+        return mappedWorkflows;
+      }
+
+      const dispatchable = await Promise.all(
+        mappedWorkflows.map(async (workflow) => ({
+          supported: await workflowSupportsDispatch({
+            owner,
+            path: workflow.path,
+            repo,
+          }),
+          workflow,
+        })),
+      );
+
+      return dispatchable
+        .filter((candidate) => candidate.supported)
+        .map((candidate) => candidate.workflow);
     },
 
     async getWorkflow({ owner, repo, workflowId }) {
@@ -1725,7 +1792,21 @@ export function createMockGitHubLiteClient(
     async listWorkflows(params) {
       assertMockRepository(state, params);
 
-      return state.workflows.map(cloneJson);
+      const workflows = state.workflows.filter((workflow) => {
+        if (!params.dispatchableOnly) {
+          return true;
+        }
+
+        const file = state.files.find(
+          (candidate) =>
+            candidate.branch === state.repository.defaultBranch &&
+            candidate.path === workflow.path,
+        );
+
+        return file ? hasWorkflowDispatchTrigger(file.content) : false;
+      });
+
+      return workflows.map(cloneJson);
     },
 
     async getWorkflow(params) {
@@ -2556,6 +2637,10 @@ function truncateTextByBytes(
 
 function getByteLength(content: string): number {
   return new TextEncoder().encode(content).byteLength;
+}
+
+function hasWorkflowDispatchTrigger(content: string): boolean {
+  return /(^|\n)\s*workflow_dispatch\s*:/m.test(content);
 }
 
 async function readErrorMessage(response: Response): Promise<string> {

@@ -729,6 +729,74 @@ describe("createGitHubLiteClient", () => {
     );
   });
 
+  it("filters out workflows without workflow_dispatch when requested", async () => {
+    const fetcher: typeof fetch = async (input) => {
+      const url = input.toString();
+
+      if (url.endsWith("/actions/workflows")) {
+        return Response.json({
+          workflows: [
+            {
+              html_url:
+                "https://github.com/always0ne/batchplane/actions/workflows/payment.daily-close.yml",
+              id: 101,
+              name: "BatchPlane - Daily Close",
+              path: ".github/workflows/payment.daily-close.yml",
+              state: "active",
+            },
+            {
+              html_url:
+                "https://github.com/always0ne/batchplane/actions/workflows/batchplane-dispatcher.yml",
+              id: 102,
+              name: "BatchPlane Dispatcher",
+              path: ".github/workflows/batchplane-dispatcher.yml",
+              state: "active",
+            },
+          ],
+        });
+      }
+
+      if (url.endsWith("/contents/.github/workflows/payment.daily-close.yml")) {
+        return Response.json({
+          content: btoa("on:\n  workflow_dispatch:\n"),
+          encoding: "base64",
+          path: ".github/workflows/payment.daily-close.yml",
+          sha: "workflow-sha",
+        });
+      }
+
+      if (
+        url.endsWith("/contents/.github/workflows/batchplane-dispatcher.yml")
+      ) {
+        return Response.json({
+          content: btoa("on:\n  issue_comment:\n"),
+          encoding: "base64",
+          path: ".github/workflows/batchplane-dispatcher.yml",
+          sha: "dispatcher-sha",
+        });
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.listWorkflows({
+        dispatchableOnly: true,
+        owner: "always0ne",
+        repo: "batchplane",
+      }),
+    ).resolves.toEqual([
+      {
+        id: 101,
+        name: "BatchPlane - Daily Close",
+        path: ".github/workflows/payment.daily-close.yml",
+        state: "active",
+        url: "https://github.com/always0ne/batchplane/actions/workflows/payment.daily-close.yml",
+      },
+    ]);
+  });
+
   it("lists and creates labels", async () => {
     const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
       [];
@@ -1109,6 +1177,16 @@ describe("createMockGitHubLiteClient", () => {
         content: expect.stringContaining('kind: "BatchDefinition"'),
       }),
     );
+    await expect(
+      client.listWorkflows({
+        ...repo,
+        dispatchableOnly: true,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        path: ".github/workflows/payment.daily-close.yml",
+      }),
+    ]);
 
     await client.createBranch({
       ...repo,

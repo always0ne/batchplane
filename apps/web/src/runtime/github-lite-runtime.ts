@@ -177,7 +177,10 @@ export function createGitHubLiteRuntime(
               event: "workflow_dispatch",
               perPage: Math.max(limit, 20),
             }),
-            client.listWorkflows(repositoryRef),
+            client.listWorkflows({
+              ...repositoryRef,
+              dispatchableOnly: true,
+            }),
           ]);
         const [issueComments, pullRequestComments] = await Promise.all([
           Promise.all(
@@ -403,7 +406,10 @@ export function createGitHubLiteRuntime(
             event: "workflow_dispatch",
             perPage: limit,
           }),
-          client.listWorkflows(repositoryRef),
+          client.listWorkflows({
+            ...repositoryRef,
+            dispatchableOnly: true,
+          }),
           loadExecutionApprovalRequests(client, repositoryRef),
         ]);
         const workflowById = new Map(
