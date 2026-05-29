@@ -909,18 +909,85 @@ describe("createGitHubLiteClient", () => {
     );
   });
 
-  it("maps GitHub API errors", async () => {
-    const fetcher: typeof fetch = async () =>
-      Response.json({ message: "Bad credentials" }, { status: 401 });
-    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
-
-    await expect(client.getCurrentUser()).rejects.toMatchObject({
+  it.each([
+    {
       code: "unauthorized",
+      headers: {},
       message: "Bad credentials",
       status: 401,
-    });
-  });
+    },
+    {
+      code: "forbidden",
+      headers: {},
+      message: "Resource not accessible by integration",
+      status: 403,
+    },
+    {
+      code: "not-found",
+      headers: {},
+      message: "Not Found",
+      status: 404,
+    },
+    {
+      code: "conflict",
+      headers: {},
+      message: "Conflict",
+      status: 409,
+    },
+    {
+      code: "validation",
+      headers: {},
+      message: "Validation Failed",
+      status: 422,
+    },
+    {
+      code: "rate-limited",
+      headers: {},
+      message: "Too Many Requests",
+      status: 429,
+    },
+    {
+      code: "rate-limited",
+      headers: { "x-ratelimit-remaining": "0" },
+      message: "API rate limit exceeded for user",
+      status: 403,
+    },
+  ])(
+    "maps GitHub API errors for status $status to $code",
+    async ({ code, headers, message, status }) => {
+      const fetcher: typeof fetch = async () =>
+        new Response(JSON.stringify({ message }), {
+          headers: buildResponseHeaders(headers),
+          status,
+        });
+      const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+      await expect(client.getCurrentUser()).rejects.toMatchObject({
+        code,
+        message,
+        status,
+      });
+    },
+  );
 });
+
+function buildResponseHeaders(
+  headers: Record<string, string | undefined>,
+): Headers {
+  const responseHeaders = new Headers({
+    "Content-Type": "application/json",
+  });
+
+  for (const [key, value] of Object.entries(headers)) {
+    if (value === undefined) {
+      continue;
+    }
+
+    responseHeaders.set(key, value);
+  }
+
+  return responseHeaders;
+}
 
 describe("createMockGitHubLiteClient", () => {
   it("provides execution fixtures for every BatchPlane request state", () => {
