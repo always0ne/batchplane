@@ -34,6 +34,8 @@ export type GitHubIssue = {
   url: string;
   state: GitHubIssueState;
   author: string;
+  createdAt?: string;
+  updatedAt?: string;
   isPullRequest: boolean;
 };
 
@@ -50,6 +52,8 @@ export type GitHubPullRequest = {
   state: Exclude<GitHubPullRequestState, "all">;
   author: string;
   body: string;
+  createdAt?: string;
+  updatedAt?: string;
   merged: boolean;
 };
 
@@ -399,6 +403,8 @@ type GitHubIssueResponse = {
   labels: Array<string | { name?: string }>;
   html_url: string;
   state?: "open" | "closed";
+  created_at?: string;
+  updated_at?: string;
   user?: {
     login: string;
   } | null;
@@ -453,6 +459,8 @@ type GitHubPullRequestResponse = {
   html_url: string;
   body: string | null;
   state: "open" | "closed";
+  created_at?: string;
+  updated_at?: string;
   merged?: boolean;
   merged_at?: string | null;
   user: {
@@ -1291,6 +1299,7 @@ export function createGitHubLiteMockState(
         author: "developer",
         base: "main",
         body: "Register payment daily close batch.",
+        createdAt: "2026-05-14T01:01:00.000Z",
         head: "batchplane/register/payment.daily-close-20260514010203",
         merged: false,
         number: 12,
@@ -2257,6 +2266,8 @@ function mapIssueResponse(issue: GitHubIssueResponse | null): GitHubIssue {
     url: issue.html_url,
     state: issue.state ?? "open",
     author: issue.user?.login ?? "",
+    ...(issue.created_at ? { createdAt: issue.created_at } : {}),
+    ...(issue.updated_at ? { updatedAt: issue.updated_at } : {}),
     isPullRequest: Boolean(issue.pull_request),
   };
 }
@@ -2306,6 +2317,8 @@ function mapPullRequestResponse(
     state: pullRequest.state,
     author: pullRequest.user?.login ?? "",
     body: pullRequest.body ?? "",
+    ...(pullRequest.created_at ? { createdAt: pullRequest.created_at } : {}),
+    ...(pullRequest.updated_at ? { updatedAt: pullRequest.updated_at } : {}),
     merged: pullRequest.merged ?? Boolean(pullRequest.merged_at),
   };
 }
@@ -2806,6 +2819,7 @@ function buildMockExecutionIssue(
   return {
     author: "developer",
     body: buildMockExecutionIssueBody(scenario),
+    createdAt: "2026-05-14T01:02:03.000Z",
     isPullRequest: false,
     labels,
     number: scenario.issueNumber,

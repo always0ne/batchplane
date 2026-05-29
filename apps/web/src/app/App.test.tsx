@@ -12,12 +12,14 @@ describe("App", () => {
 
   it.each([
     { heading: "Dashboard", path: "/dashboard" },
+    { heading: "My Work", path: "/my-work" },
     { heading: "Workspace", path: "/lite/setup" },
     { heading: "Batches", path: "/batches" },
     { heading: "Registration", path: "/batches/new" },
     { heading: "Executions", path: "/runs" },
     { heading: "Failures", path: "/failures" },
     { heading: "Approvals", path: "/approvals" },
+    { heading: "Audit Trail", path: "/audit" },
   ])("renders the $path route", async ({ heading, path }) => {
     render(
       <MemoryRouter initialEntries={[path]}>

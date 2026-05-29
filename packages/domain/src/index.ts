@@ -231,6 +231,7 @@ export type AuditTimelineItem = {
   actor: string;
   occurredAt: string;
   summary: string;
+  sourceUrl?: string;
   metadata?: Record<string, string | number | boolean>;
 };
 
@@ -261,6 +262,8 @@ export type RepositoryIssue = {
   url: string;
   state: Exclude<RepositoryIssueState, "all">;
   author: string;
+  createdAt?: string;
+  updatedAt?: string;
   isPullRequest: boolean;
 };
 
@@ -283,6 +286,8 @@ export type RepositoryPullRequest = {
   state: Exclude<RepositoryPullRequestState, "all">;
   author: string;
   body: string;
+  createdAt?: string;
+  updatedAt?: string;
   merged: boolean;
 };
 

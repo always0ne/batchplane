@@ -1,4 +1,48 @@
 {
   "title": "Audit Trail",
-  "subtitle": "Trace requests, approvals, dispatches, and Gate decisions."
+  "subtitle": "Trace requests, approvals, dispatches, Gate decisions, and workflow runs.",
+  "actions": {
+    "openSource": "GitHub source",
+    "refresh": "Refresh"
+  },
+  "filters": {
+    "title": "Timeline filters",
+    "batch": "Batch",
+    "request": "Request ID",
+    "allBatches": "All batches",
+    "allRequests": "All requests"
+  },
+  "metadata": {
+    "batchId": "Batch",
+    "requestId": "Request",
+    "runId": "Run",
+    "gateResult": "Gate",
+    "status": "Status",
+    "reasonCode": "Reason"
+  },
+  "states": {
+    "loading": "Loading audit timeline.",
+    "noSession": "Connect a GitHub repository to inspect the audit trail.",
+    "empty": "No audit records match this filter.",
+    "error": "Audit timeline could not be loaded."
+  },
+  "summaries": {
+    "BATCH_REGISTERED": "Batch registered by PR #{{pullNumber}} for {{batchId}}",
+    "BATCH_CHANGED": "Batch change requested by PR #{{pullNumber}} for {{batchId}}",
+    "EXECUTION_REQUESTED": "Execution requested for {{batchId}}",
+    "APPROVAL_RECORDED": "Approval recorded for {{batchId}}",
+    "DISPATCH_RECORDED": "Dispatcher recorded {{status}} for {{batchId}}",
+    "GATE_DECIDED": "Gate {{gateResult}} for {{batchId}}",
+    "RUN_COMPLETED": "Workflow run {{conclusion}} for {{batchId}}",
+    "SCHEDULE_OCCURRED": "Schedule occurrence for {{batchId}}"
+  },
+  "values": {
+    "actor": "Actor: {{actor}}",
+    "gateResult": {
+      "ALLOWED": "allowed",
+      "BLOCKED": "blocked"
+    },
+    "unknownActor": "unknown",
+    "unknownTime": "Unknown time"
+  }
 }
