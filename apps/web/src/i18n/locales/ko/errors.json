@@ -41,6 +41,7 @@
       "REQUEST_FIELD_MISMATCH": "요청 필드가 승인 증적과 일치하지 않습니다.",
       "REQUEST_NOT_FOUND": "실행 요청을 찾을 수 없습니다.",
       "REQUEST_NOT_REQUESTED": "요청 상태가 REQUESTED가 아닙니다.",
+      "RETRY_DISPATCH_NOT_ALLOWED": "Dispatcher 증적이 DISPATCH_FAILED를 기록한 경우에만 retry dispatch가 허용됩니다.",
       "RERUN_NOT_AUTHORIZED": "GitHub Actions rerun은 허용되지 않습니다.",
       "SCHEDULE_NOT_MAPPED": "스케줄 매핑 정보가 실행 요청과 일치하지 않습니다.",
       "SELF_APPROVAL_NOT_ALLOWED": "요청자와 승인자는 달라야 합니다.",
