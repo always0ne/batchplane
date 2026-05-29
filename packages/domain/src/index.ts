@@ -166,6 +166,13 @@ export type ExecutionRunJob = {
   url?: string;
 };
 
+export type ExecutionRunJobLog = {
+  jobId: string;
+  content: string;
+  truncated: boolean;
+  sizeBytes: number;
+};
+
 export type FailureFollowUpStatus =
   | "OPEN"
   | "INVESTIGATING"
@@ -355,6 +362,7 @@ export type ExecutionPort = {
     title: string;
   }): Promise<RepositoryIssue>;
   getExecutionRun(params: { runId: string }): Promise<ExecutionRun | null>;
+  getExecutionRunJobLog(params: { jobId: string }): Promise<ExecutionRunJobLog>;
   listExecutionRuns(params?: {
     batchId?: string;
     limit?: number;

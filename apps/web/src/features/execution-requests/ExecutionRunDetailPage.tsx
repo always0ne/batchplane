@@ -1,6 +1,7 @@
 import type {
   BatchPlaneRuntimePorts,
   ExecutionRun,
+  ExecutionRunJobLog,
   FailureFollowUp,
   FailureFollowUpStatus,
 } from "@batchplane/domain";
@@ -9,6 +10,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronLeft,
+  Download,
   ExternalLink,
   GitBranch,
   Loader2,
@@ -40,6 +42,18 @@ type ExecutionRunDetailPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   readSession?: () => GitHubSession | null;
 };
+
+type ExecutionRunJobItem = NonNullable<ExecutionRun["jobs"]>[number];
+type ExecutionRunJobKind = "business" | "gate";
+type LoadExecutionRunJobLog = (jobId: string) => Promise<ExecutionRunJobLog>;
+type LogViewMode = "focused" | "full";
+type JobLogState =
+  | { type: "idle" }
+  | { type: "loading" }
+  | { type: "loaded"; log: ExecutionRunJobLog }
+  | { type: "error"; message: string };
+
+const maxRenderedLogLines = 500;
 
 type PageState =
   | { type: "loading" }
@@ -89,7 +103,7 @@ export function ExecutionRunDetailPage({
         if (!ignoreResult) {
           setState({
             type: "error",
-            message: formatRuntimeError(error, t("runDetail.states.error")),
+            message: formatExecutionRunDetailError(error, t),
           });
         }
       }
@@ -200,6 +214,16 @@ export function ExecutionRunDetailPage({
     );
   }
 
+  async function loadExecutionRunJobLog(jobId: string) {
+    const session = readSession();
+
+    if (!session) {
+      throw new Error(t("runDetail.states.noSession"));
+    }
+
+    return createRuntime(session).executions.getExecutionRunJobLog({ jobId });
+  }
+
   return (
     <section>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -257,7 +281,7 @@ export function ExecutionRunDetailPage({
           </div>
         ) : null}
         <div className="xl:col-span-2">
-          <JobSummaryPanel run={run} />
+          <JobSummaryPanel onLoadLog={loadExecutionRunJobLog} run={run} />
         </div>
       </div>
     </section>
@@ -608,7 +632,13 @@ function BusinessOutcomePanel({ run }: { run: ExecutionRun }) {
   );
 }
 
-function JobSummaryPanel({ run }: { run: ExecutionRun }) {
+function JobSummaryPanel({
+  onLoadLog,
+  run,
+}: {
+  onLoadLog: LoadExecutionRunJobLog;
+  run: ExecutionRun;
+}) {
   const { t } = useTranslation("executionRequests");
   const jobs = run.jobs ?? [];
 
@@ -620,6 +650,9 @@ function JobSummaryPanel({ run }: { run: ExecutionRun }) {
           {t("runDetail.jobs.title")}
         </h2>
       </div>
+      <p className="mt-2 text-sm font-semibold text-bp-muted">
+        {t("runDetail.jobs.description")}
+      </p>
       {jobs.length === 0 ? (
         <p className="mt-4 text-sm font-semibold text-bp-muted">
           {t("runDetail.jobs.empty")}
@@ -628,24 +661,261 @@ function JobSummaryPanel({ run }: { run: ExecutionRun }) {
         <ul className="mt-4 divide-y divide-slate-100">
           {jobs.map((job) => (
             <li
-              className="grid gap-3 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_8rem_10rem]"
+              className="grid gap-3 py-3 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_8rem_9rem_11rem]"
               key={job.jobId}
             >
               <div>
-                <p className="font-semibold text-bp-graphite">{job.name}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-bp-graphite">{job.name}</p>
+                  <JobKindBadge kind={getJobKind(job)} />
+                </div>
                 <p className="mt-1 font-mono text-xs text-bp-muted">
-                  {job.jobId}
+                  {t("runDetail.jobs.jobId", { jobId: job.jobId })}
                 </p>
               </div>
               <RunStatusBadge status={job.status} variant="job" />
               <p className="text-sm font-semibold text-bp-muted">
                 {job.conclusion || t("runDetail.values.inProgress")}
               </p>
+              <JobLogAction job={job} onLoadLog={onLoadLog} />
             </li>
           ))}
         </ul>
       )}
     </article>
+  );
+}
+
+function JobKindBadge({ kind }: { kind: ExecutionRunJobKind }) {
+  const { t } = useTranslation("executionRequests");
+  const className =
+    kind === "gate" ? "bg-orange-50 text-orange-800" : "bg-sky-50 text-sky-800";
+
+  return (
+    <span className={`rounded-md px-2 py-1 text-xs font-bold ${className}`}>
+      {t(`runDetail.jobs.kind.${kind}`)}
+    </span>
+  );
+}
+
+function JobLogAction({
+  job,
+  onLoadLog,
+}: {
+  job: ExecutionRunJobItem;
+  onLoadLog: LoadExecutionRunJobLog;
+}) {
+  const { t } = useTranslation("executionRequests");
+  const kind = getJobKind(job);
+  const [logState, setLogState] = useState<JobLogState>({ type: "idle" });
+  const [searchTerm, setSearchTerm] = useState("");
+
+  async function loadLog() {
+    if (logState.type === "loaded") {
+      setLogState({ type: "idle" });
+      return;
+    }
+
+    setLogState({ type: "loading" });
+
+    try {
+      setLogState({
+        log: await onLoadLog(job.jobId),
+        type: "loaded",
+      });
+    } catch (error) {
+      setLogState({
+        message: formatExecutionRunDetailError(error, t),
+        type: "error",
+      });
+    }
+  }
+
+  if (!job.url) {
+    return (
+      <div className="text-sm font-semibold text-bp-muted">
+        {t("runDetail.jobs.logUnavailable")}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="inline-flex w-fit items-center gap-2 rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            disabled={logState.type === "loading"}
+            onClick={loadLog}
+            type="button"
+          >
+            {logState.type === "loading" ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <GitBranch className="h-4 w-4" aria-hidden="true" />
+            )}
+            {logState.type === "loaded"
+              ? t("runDetail.jobs.hideLog")
+              : logState.type === "loading"
+                ? t("runDetail.jobs.loadingLog")
+                : kind === "gate"
+                  ? t("runDetail.jobs.viewGateLog")
+                  : t("runDetail.jobs.viewBusinessLog")}
+          </button>
+          <a
+            aria-label={t("runDetail.jobs.openLogForJob", { name: job.name })}
+            className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+            href={job.url}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            {kind === "gate"
+              ? t("runDetail.jobs.openGateLog")
+              : t("runDetail.jobs.openBusinessLog")}
+          </a>
+        </div>
+        {logState.type === "error" ? (
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
+            {logState.message}
+          </p>
+        ) : null}
+      </div>
+      {logState.type === "loaded" ? (
+        <div className="lg:col-span-4">
+          <JobLogViewer
+            job={job}
+            log={logState.log}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+          />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function JobLogViewer({
+  job,
+  log,
+  searchTerm,
+  setSearchTerm,
+}: {
+  job: ExecutionRunJobItem;
+  log: ExecutionRunJobLog;
+  searchTerm: string;
+  setSearchTerm: (value: string) => void;
+}) {
+  const { t } = useTranslation("executionRequests");
+  const kind = getJobKind(job);
+  const [viewMode, setViewMode] = useState<LogViewMode>(
+    kind === "business" ? "focused" : "full",
+  );
+  const focusedLog =
+    kind === "business" ? extractBusinessLogSection(log.content) : null;
+  const visibleContent =
+    kind === "business" && viewMode === "focused" && focusedLog
+      ? focusedLog.content
+      : log.content;
+  const focusedFallback =
+    kind === "business" &&
+    viewMode === "focused" &&
+    focusedLog?.focused === false;
+  const view = buildLogView(visibleContent, searchTerm);
+
+  function downloadLog() {
+    const blob = new Blob([log.content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = `batchplane-job-${log.jobId}.log`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-slate-950 p-3 text-slate-100">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold">
+            {t("runDetail.jobs.logPreview", { name: job.name })}
+          </h3>
+          <p className="mt-1 text-xs font-semibold text-slate-300">
+            {t("runDetail.jobs.rawLogNotPersisted")}
+          </p>
+        </div>
+        <button
+          className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-100"
+          onClick={downloadLog}
+          type="button"
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          {t("runDetail.jobs.downloadLog")}
+        </button>
+      </div>
+      {kind === "business" ? (
+        <div className="mt-3 inline-flex rounded-md border border-slate-700 bg-slate-900 p-1">
+          <button
+            className={`rounded px-3 py-1.5 text-sm font-semibold ${
+              viewMode === "focused"
+                ? "bg-slate-100 text-slate-950"
+                : "text-slate-200"
+            }`}
+            onClick={() => setViewMode("focused")}
+            type="button"
+          >
+            {t("runDetail.jobs.batchCommandView")}
+          </button>
+          <button
+            className={`rounded px-3 py-1.5 text-sm font-semibold ${
+              viewMode === "full"
+                ? "bg-slate-100 text-slate-950"
+                : "text-slate-200"
+            }`}
+            onClick={() => setViewMode("full")}
+            type="button"
+          >
+            {t("runDetail.jobs.fullLogView")}
+          </button>
+        </div>
+      ) : null}
+      {focusedFallback ? (
+        <p className="mt-3 rounded-md bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200">
+          {t("runDetail.jobs.batchCommandFallback")}
+        </p>
+      ) : null}
+      <label className="mt-3 block text-sm font-semibold text-slate-100">
+        {t("runDetail.jobs.searchLog")}
+        <input
+          className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 font-mono text-sm text-slate-100"
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder={t("runDetail.jobs.searchPlaceholder")}
+          value={searchTerm}
+        />
+      </label>
+      {log.truncated ? (
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+          {t("runDetail.jobs.logTruncated", {
+            size: formatBytes(log.sizeBytes),
+          })}
+        </p>
+      ) : null}
+      {view.truncatedByView ? (
+        <p className="mt-3 rounded-md bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200">
+          {t("runDetail.jobs.logViewTruncated", {
+            count: view.totalMatchedLines,
+            limit: maxRenderedLogLines,
+          })}
+        </p>
+      ) : null}
+      <pre className="mt-3 max-h-96 overflow-auto rounded-md bg-black p-3 text-xs leading-relaxed text-slate-100">
+        {view.text ||
+          (searchTerm.trim()
+            ? t("runDetail.jobs.searchEmpty")
+            : t("runDetail.jobs.logEmpty"))}
+      </pre>
+    </section>
   );
 }
 
@@ -660,6 +930,124 @@ function DetailFact({ label, value }: { label: string; value: string }) {
       </dd>
     </div>
   );
+}
+
+function buildLogView(content: string, searchTerm: string) {
+  const query = searchTerm.trim().toLowerCase();
+  const lines = content.split(/\r?\n/u);
+  const matchedLines = query
+    ? lines.filter((line) => line.toLowerCase().includes(query))
+    : lines;
+  const visibleLines = matchedLines.slice(0, maxRenderedLogLines);
+
+  return {
+    text: visibleLines.join("\n"),
+    totalMatchedLines: matchedLines.length,
+    truncatedByView: matchedLines.length > visibleLines.length,
+  };
+}
+
+function extractBusinessLogSection(content: string): {
+  content: string;
+  focused: boolean;
+} {
+  const lines = content.split(/\r?\n/u);
+  const markerSection = extractLogGroup(lines, isBatchPlaneBatchCommandGroup);
+
+  if (markerSection) {
+    return {
+      content: markerSection,
+      focused: true,
+    };
+  }
+
+  const runBatchSection = extractLogGroup(lines, isRunBatchGroup);
+
+  if (runBatchSection) {
+    return {
+      content: runBatchSection,
+      focused: true,
+    };
+  }
+
+  const startIndex = lines.findIndex(isLegacyBusinessLogStartLine);
+
+  if (startIndex < 0) {
+    return {
+      content,
+      focused: false,
+    };
+  }
+
+  const endGroupIndex = lines.findIndex(
+    (line, index) => index > startIndex && line.includes("##[endgroup]"),
+  );
+
+  if (endGroupIndex >= 0) {
+    return {
+      content: lines.slice(startIndex, endGroupIndex + 1).join("\n"),
+      focused: true,
+    };
+  }
+
+  const nextGroupIndex = lines.findIndex(
+    (line, index) => index > startIndex && line.includes("##[group]"),
+  );
+
+  return {
+    content: lines
+      .slice(startIndex, nextGroupIndex >= 0 ? nextGroupIndex : lines.length)
+      .join("\n"),
+    focused: true,
+  };
+}
+
+function extractLogGroup(
+  lines: string[],
+  isStartLine: (line: string) => boolean,
+): string | null {
+  const startIndex = lines.findIndex(isStartLine);
+
+  if (startIndex < 0) {
+    return null;
+  }
+
+  const endIndex = lines.findIndex(
+    (line, index) => index > startIndex && line.includes("##[endgroup]"),
+  );
+
+  return lines
+    .slice(startIndex, endIndex >= 0 ? endIndex + 1 : lines.length)
+    .join("\n");
+}
+
+function isBatchPlaneBatchCommandGroup(line: string): boolean {
+  return line.includes("##[group]BatchPlane batch command");
+}
+
+function isRunBatchGroup(line: string): boolean {
+  return line.includes("##[group]Run batch");
+}
+
+function isLegacyBusinessLogStartLine(line: string): boolean {
+  const normalized = line.toLowerCase();
+
+  return (
+    normalized.includes("batchplane approved execution") ||
+    normalized.includes("running governed batch command")
+  );
+}
+
+function formatBytes(sizeBytes: number): string {
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} B`;
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function RunStatusBadge({
@@ -699,11 +1087,37 @@ function getRunStatusPalette(status: ExecutionRun["status"]): string {
   }
 }
 
+function getJobKind(job: ExecutionRunJobItem): ExecutionRunJobKind {
+  return isGateJob(job) ? "gate" : "business";
+}
+
 function hasSuccessfulGateJob(run: ExecutionRun): boolean {
   return Boolean(
-    run.jobs?.some(
-      (job) =>
-        job.name.toLowerCase().includes("gate") && job.status === "SUCCEEDED",
-    ),
+    run.jobs?.some((job) => isGateJob(job) && job.status === "SUCCEEDED"),
   );
+}
+
+function isGateJob(job: Pick<ExecutionRunJobItem, "name">): boolean {
+  return job.name.toLowerCase().includes("gate");
+}
+
+function formatExecutionRunDetailError(
+  error: unknown,
+  t: ReturnType<typeof useTranslation<"executionRequests">>["t"],
+): string {
+  if (isGitHubForbiddenError(error)) {
+    return t("runDetail.states.actionsPermission");
+  }
+
+  return formatRuntimeError(error, t("runDetail.states.error"));
+}
+
+function isGitHubForbiddenError(error: unknown): boolean {
+  if (!(error instanceof Error) || error.name !== "GitHubLiteApiError") {
+    return false;
+  }
+
+  const candidate = error as { code?: unknown; status?: unknown };
+
+  return candidate.code === "forbidden" || candidate.status === 403;
 }

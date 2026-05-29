@@ -99,6 +99,10 @@ describe("registration model", () => {
     );
     expect(workflowYaml).toContain("github-token: ${{ secrets.GITHUB_TOKEN }}");
     expect(workflowYaml).toContain("needs: batchplane-gate");
+    expect(workflowYaml).toContain('echo "::group::BatchPlane batch command"');
+    expect(workflowYaml).toContain(
+      "trap 'status=$?; echo \"::endgroup::\"; exit $status' EXIT",
+    );
     expect(workflowYaml).toContain("./scripts/daily-close.sh");
   });
 

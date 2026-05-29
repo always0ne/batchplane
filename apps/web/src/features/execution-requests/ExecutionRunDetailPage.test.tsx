@@ -52,6 +52,40 @@ describe("ExecutionRunDetailPage", () => {
     ).toHaveAttribute("href", run.url);
     expect(screen.getByText("Job conclusion summary")).toBeInTheDocument();
     expect(screen.getByText("BatchPlane Gate")).toBeInTheDocument();
+    expect(screen.getByText("Gate job")).toBeInTheDocument();
+    expect(screen.getByText("Business job")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: "Open GitHub Actions logs for BatchPlane Gate",
+      }),
+    ).toHaveAttribute(
+      "href",
+      `${sessionUrl(state)}/actions/runs/${run.id}/job/${run.id * 10 + 1}`,
+    );
+    expect(
+      screen.getByRole("link", {
+        name: "Open GitHub Actions logs for Run governed batch",
+      }),
+    ).toHaveAttribute(
+      "href",
+      `${sessionUrl(state)}/actions/runs/${run.id}/job/${run.id * 10 + 2}`,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "View Gate logs" }));
+
+    expect(
+      await screen.findByText("BatchPlane Gate log preview"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/BatchPlane Gate evidence verified/u),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Search log")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search log"), {
+      target: { value: "verified" },
+    });
+
+    expect(screen.getByText(/evidence verified/u)).toBeInTheDocument();
   });
 
   it("shows business failure when Gate allowed but the batch job failed", async () => {
@@ -83,6 +117,23 @@ describe("ExecutionRunDetailPage", () => {
     expect(
       screen.getByText("No failure explanation has been recorded yet."),
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "View business logs" }));
+
+    expect(
+      await screen.findByText("Run governed batch log preview"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Running governed batch command/u),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/##\[group\]BatchPlane batch command/u),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Syncing repository/u)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Full log" }));
+
+    expect(screen.getByText(/Syncing repository/u)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Owner"), {
       target: { value: "ops-team" },
@@ -134,6 +185,34 @@ describe("ExecutionRunDetailPage", () => {
       screen.getByText("Business execution status: Running."),
     ).toBeInTheDocument();
   });
+
+  it("shows an actionable permission message when Actions evidence is forbidden", async () => {
+    renderDetail({
+      createRuntime: () =>
+        ({
+          executions: {
+            getExecutionRun: async () => {
+              const error = new Error("Resource not accessible by token");
+              error.name = "GitHubLiteApiError";
+              Object.assign(error, {
+                code: "forbidden",
+                status: 403,
+              });
+
+              throw error;
+            },
+          },
+        }) as unknown as BatchPlaneRuntimePorts,
+      readSession: () => session,
+      runId: 209,
+    });
+
+    expect(
+      await screen.findByText(
+        "GitHub Actions read permission is required to load run evidence and job log links. Check the token permissions for this private repository.",
+      ),
+    ).toBeInTheDocument();
+  });
 });
 
 function renderDetail({
@@ -170,4 +249,8 @@ function findFirstWorkflowRun(state: GitHubLiteMockState) {
   }
 
   return run;
+}
+
+function sessionUrl(state: GitHubLiteMockState) {
+  return state.repository.url;
 }

@@ -475,6 +475,29 @@ describe("createGitHubLiteRuntime", () => {
     );
   });
 
+  it("loads execution run job logs on demand", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+    const run = state.workflowRuns[0];
+
+    if (!run) {
+      throw new Error("Expected a workflow run fixture.");
+    }
+
+    await expect(
+      runtime.executions.getExecutionRunJobLog({
+        jobId: String(run.id * 10 + 1),
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        content: expect.stringContaining("BatchPlane Gate evidence verified."),
+        jobId: String(run.id * 10 + 1),
+        truncated: false,
+      }),
+    );
+  });
+
   it("maps list run batch IDs from workflow paths and separates Gate job failures", async () => {
     const state = createGitHubLiteMockState({
       executionScenarios: [

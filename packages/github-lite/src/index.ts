@@ -129,6 +129,13 @@ export type GitHubWorkflowJob = {
   url?: string;
 };
 
+export type GitHubWorkflowJobLog = {
+  jobId: number;
+  content: string;
+  truncated: boolean;
+  sizeBytes: number;
+};
+
 export type GitHubRepositoryPermission =
   | "admin"
   | "maintain"
@@ -259,6 +266,11 @@ export type ListWorkflowRunsParams = RepoRef & {
   workflowId?: number | string;
 };
 
+export type GetWorkflowJobLogParams = RepoRef & {
+  jobId: number;
+  maxBytes?: number;
+};
+
 export type GitHubLiteClient = {
   getCurrentUser(): Promise<GitHubUser>;
   getRepository(params: RepoRef): Promise<GitHubRepository>;
@@ -303,6 +315,9 @@ export type GitHubLiteClient = {
   listWorkflowRunJobs(
     params: RepoRef & { runId: number },
   ): Promise<GitHubWorkflowJob[]>;
+  getWorkflowJobLog(
+    params: GetWorkflowJobLogParams,
+  ): Promise<GitHubWorkflowJobLog>;
   listLabels(params: RepoRef): Promise<GitHubLabel[]>;
   createLabel(params: RepoRef & GitHubLabel): Promise<GitHubLabel>;
   createIssueComment(
@@ -525,6 +540,7 @@ export function createGitHubLiteClient({
   fetcher = fetch,
 }: GitHubLiteClientOptions): GitHubLiteClient {
   const trimmedToken = token.trim();
+  const defaultLogMaxBytes = 200_000;
 
   if (!trimmedToken) {
     throw new GitHubLiteApiError(
@@ -561,6 +577,26 @@ export function createGitHubLiteClient({
     }
 
     return (await response.json()) as T;
+  }
+
+  async function requestText(
+    path: string,
+    init: RequestInit = {},
+  ): Promise<string> {
+    const response = await fetcher(`${apiBaseUrl}${path}`, {
+      ...init,
+      headers: buildHeaders(trimmedToken, init.headers),
+    });
+
+    if (!response.ok) {
+      throw new GitHubLiteApiError(
+        await readErrorMessage(response),
+        mapStatusToErrorCode(response.status),
+        response.status,
+      );
+    }
+
+    return response.text();
   }
 
   return {
@@ -963,6 +999,23 @@ export function createGitHubLiteClient({
       );
 
       return (jobs?.jobs ?? []).map(mapWorkflowJobResponse);
+    },
+
+    async getWorkflowJobLog({ owner, repo, jobId, maxBytes }) {
+      const content = await requestText(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/actions/jobs/${jobId}/logs`,
+      );
+      const limit = maxBytes ?? defaultLogMaxBytes;
+      const truncatedContent = truncateTextByBytes(content, limit);
+
+      return {
+        content: truncatedContent.content,
+        jobId,
+        sizeBytes: getByteLength(content),
+        truncated: truncatedContent.truncated,
+      };
     },
 
     async listLabels({ owner, repo }) {
@@ -1719,6 +1772,35 @@ export function createMockGitHubLiteClient(
       return buildMockWorkflowRunJobs(state, params.runId).map(cloneJson);
     },
 
+    async getWorkflowJobLog(params) {
+      assertMockRepository(state, params);
+
+      const job = state.workflowRuns
+        .flatMap((run) => buildMockWorkflowRunJobs(state, run.id))
+        .find((candidate) => candidate.id === params.jobId);
+
+      if (!job) {
+        throw new GitHubLiteApiError(
+          `GitHub workflow job not found: ${params.jobId}`,
+          "not-found",
+          404,
+        );
+      }
+
+      const content = buildMockWorkflowJobLog(job);
+      const truncated = truncateTextByBytes(
+        content,
+        params.maxBytes ?? 200_000,
+      );
+
+      return {
+        content: truncated.content,
+        jobId: params.jobId,
+        sizeBytes: getByteLength(content),
+        truncated: truncated.truncated,
+      };
+    },
+
     async mergePullRequest(params) {
       assertMockRepository(state, params);
 
@@ -2439,6 +2521,36 @@ function encodeBase64(value: string): string {
   return btoa(binary);
 }
 
+function truncateTextByBytes(
+  content: string,
+  maxBytes: number,
+): { content: string; truncated: boolean } {
+  if (maxBytes <= 0) {
+    return {
+      content: "",
+      truncated: getByteLength(content) > 0,
+    };
+  }
+
+  const bytes = new TextEncoder().encode(content);
+
+  if (bytes.byteLength <= maxBytes) {
+    return {
+      content,
+      truncated: false,
+    };
+  }
+
+  return {
+    content: new TextDecoder().decode(bytes.slice(0, maxBytes)),
+    truncated: true,
+  };
+}
+
+function getByteLength(content: string): number {
+  return new TextEncoder().encode(content).byteLength;
+}
+
 async function readErrorMessage(response: Response): Promise<string> {
   try {
     const payload = (await response.json()) as { message?: string };
@@ -3014,6 +3126,39 @@ function buildMockWorkflowRunJobs(
       url: `${state.repository.url}/actions/runs/${runId}/job/${runId * 10 + 2}`,
     },
   ];
+}
+
+function buildMockWorkflowJobLog(job: GitHubWorkflowJob): string {
+  const conclusion = job.conclusion ?? "in_progress";
+  const gateJob = job.name.toLowerCase().includes("gate");
+
+  if (!gateJob) {
+    return [
+      `2026-05-14T01:07:50.000Z ##[group]Checkout registered assets`,
+      "2026-05-14T01:07:51.000Z Syncing repository.",
+      "2026-05-14T01:07:52.000Z ##[endgroup]Checkout registered assets",
+      "2026-05-14T01:08:00.000Z ##[group]Run batch",
+      "2026-05-14T01:08:01.000Z ##[group]BatchPlane batch command",
+      `2026-05-14T01:08:02.000Z Job ID ${job.id}`,
+      `2026-05-14T01:08:03.000Z Status ${job.status}`,
+      `2026-05-14T01:08:04.000Z Conclusion ${conclusion}`,
+      "2026-05-14T01:08:05.000Z BatchPlane approved execution for payment.daily-close.",
+      "2026-05-14T01:08:06.000Z Running governed batch command.",
+      "2026-05-14T01:08:59.000Z ##[endgroup]BatchPlane batch command",
+      "2026-05-14T01:09:00.000Z ##[endgroup]Run batch",
+      "",
+    ].join("\n");
+  }
+
+  return [
+    `2026-05-14T01:07:00.000Z ##[group]${job.name}`,
+    `2026-05-14T01:07:01.000Z Job ID ${job.id}`,
+    `2026-05-14T01:07:02.000Z Status ${job.status}`,
+    `2026-05-14T01:07:03.000Z Conclusion ${conclusion}`,
+    "2026-05-14T01:07:04.000Z BatchPlane Gate evidence verified.",
+    `2026-05-14T01:09:00.000Z ##[endgroup]${job.name}`,
+    "",
+  ].join("\n");
 }
 
 function buildMockBatchDefinitionYaml(batchId: string): string {
