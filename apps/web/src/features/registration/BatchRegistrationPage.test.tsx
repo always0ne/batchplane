@@ -71,7 +71,7 @@ describe("BatchRegistrationPage", () => {
       screen.getByRole("button", { name: "Create registration PR" }),
     );
 
-    expect(await screen.findByText("Registration changes")).toBeInTheDocument();
+    expect(await screen.findByText("Governed changes")).toBeInTheDocument();
     expect(
       screen.getByText(/Register batch settlement.daily-rollup/),
     ).toBeInTheDocument();

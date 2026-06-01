@@ -1,0 +1,53 @@
+{
+  "title": "Register schedule",
+  "titleChange": "Change schedule",
+  "subtitle": "Create a governed schedule definition for {{batchName}} ({{batchId}}).",
+  "subtitleChange": "Update the governed schedule definition for {{batchName}} ({{batchId}}).",
+  "subtitleFallback": "Batch: {{batchId}}",
+  "actions": {
+    "openSetup": "Open setup",
+    "requestRegister": "Create schedule PR",
+    "requestChange": "Create change PR"
+  },
+  "states": {
+    "loading": "Loading schedule definition context...",
+    "loadError": "Failed to load schedule definition context.",
+    "noSession": "Connect a GitHub repository before managing schedules.",
+    "batchNotFound": "Batch {{batchId}} was not found.",
+    "scheduleNotFound": "Schedule {{scheduleId}} was not found."
+  },
+  "form": {
+    "definition": "Schedule definition",
+    "schedule": "Schedule rule",
+    "scheduleId": "Schedule ID",
+    "batchId": "Batch ID",
+    "name": "Name",
+    "approvalPolicyId": "Approval policy ID",
+    "cron": "Cron",
+    "timezone": "Timezone",
+    "enabled": "Enabled"
+  },
+  "review": {
+    "title": "Pull request review",
+    "batch": "Batch",
+    "requestType": "Request type",
+    "definitionPath": "Definition path",
+    "approvalPolicy": "Approval policy",
+    "missingFields": "Complete required fields before opening a governed pull request: {{fields}}",
+    "ready": "The governed schedule definition is ready for pull-request creation."
+  },
+  "preview": {
+    "title": "YAML preview"
+  },
+  "errors": {
+    "required": "Required fields are missing: {{fields}}",
+    "noSession": "Connect a GitHub repository before creating schedule changes.",
+    "alreadyExists": "A governed schedule definition already exists at {{path}}.",
+    "changeMissingDefinition": "The governed schedule definition does not exist at {{path}}.",
+    "unknown": "Failed to create schedule pull request."
+  },
+  "result": {
+    "created": "Schedule PR #{{number}} was created.",
+    "changeCreated": "Schedule change PR #{{number}} was created."
+  }
+}

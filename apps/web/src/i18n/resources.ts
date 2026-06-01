@@ -10,6 +10,7 @@ import failuresEn from "./locales/en/failures.json";
 import myWorkEn from "./locales/en/myWork.json";
 import navigationEn from "./locales/en/navigation.json";
 import registrationEn from "./locales/en/registration.json";
+import schedulesEn from "./locales/en/schedules.json";
 import settingsEn from "./locales/en/settings.json";
 import auditKo from "./locales/ko/audit.json";
 import approvalsKo from "./locales/ko/approvals.json";
@@ -23,6 +24,7 @@ import failuresKo from "./locales/ko/failures.json";
 import myWorkKo from "./locales/ko/myWork.json";
 import navigationKo from "./locales/ko/navigation.json";
 import registrationKo from "./locales/ko/registration.json";
+import schedulesKo from "./locales/ko/schedules.json";
 import settingsKo from "./locales/ko/settings.json";
 
 export const defaultNamespace = "common";
@@ -34,6 +36,7 @@ export const namespaces = [
   "approvals",
   "batches",
   "registration",
+  "schedules",
   "executionRequests",
   "executions",
   "failures",
@@ -57,6 +60,7 @@ export const resources = {
     myWork: myWorkEn,
     navigation: navigationEn,
     registration: registrationEn,
+    schedules: schedulesEn,
     settings: settingsEn,
   },
   ko: {
@@ -72,6 +76,7 @@ export const resources = {
     myWork: myWorkKo,
     navigation: navigationKo,
     registration: registrationKo,
+    schedules: schedulesKo,
     settings: settingsKo,
   },
 } as const;

@@ -11,6 +11,7 @@ import {
   buildExecutionRejectionComment,
   buildRegistrationApprovalComment,
   buildRegistrationRejectionComment,
+  getGovernedChangeRequestKind,
   isRegistrationApprovalRequest,
   parseExecutionApprovalRequest,
   parseExecutionRequestDetail,
@@ -147,6 +148,20 @@ describe("approval model", () => {
   it("detects registration pull requests", () => {
     expect(isRegistrationApprovalRequest(pullRequest)).toBe(true);
     expect(
+      getGovernedChangeRequestKind({
+        ...pullRequest,
+        head: "batchplane/change/payment.daily-close-20260509010203",
+        title: "Change batch payment.daily-close",
+      }),
+    ).toBe("batch");
+    expect(
+      getGovernedChangeRequestKind({
+        ...pullRequest,
+        head: "batchplane/schedule/register/payment.daily-close-daily-20260509010203",
+        title: "Register schedule payment.daily-close-daily",
+      }),
+    ).toBe("schedule");
+    expect(
       isRegistrationApprovalRequest({
         ...pullRequest,
         head: "feature/demo",
@@ -156,6 +171,13 @@ describe("approval model", () => {
   });
 
   it("builds an auditable approval comment", () => {
+    expect(
+      buildRegistrationApprovalComment({
+        approvedAt: new Date("2026-05-09T01:02:03.000Z"),
+        approver: "maintainer",
+        pullRequest,
+      }),
+    ).toContain("## BatchPlane Governed Change Approval");
     expect(
       buildRegistrationApprovalComment({
         approvedAt: new Date("2026-05-09T01:02:03.000Z"),

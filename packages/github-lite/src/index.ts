@@ -1304,6 +1304,12 @@ export function createGitHubLiteMockState(
       },
       {
         branch: "main",
+        content: buildMockScheduleDefinitionYaml(batchId),
+        path: `.batch-governance/schedules/${batchId}-daily.yml`,
+        sha: "mock-schedule-definition-sha",
+      },
+      {
+        branch: "main",
         content: buildMockRoleMappingYaml(),
         path: ".batch-governance/policies/role-mapping.yml",
         sha: "mock-role-mapping-sha",
@@ -3345,6 +3351,23 @@ function buildMockBatchWorkflowYaml(batchId: string): string {
     "    runs-on: ubuntu-latest",
     "    steps:",
     "      - run: echo mock batch",
+    "",
+  ].join("\n");
+}
+
+function buildMockScheduleDefinitionYaml(batchId: string): string {
+  return [
+    'apiVersion: "batchplane.io/v1"',
+    'kind: "ScheduleDefinition"',
+    "metadata:",
+    `  id: "${batchId}-daily"`,
+    `  batchId: "${batchId}"`,
+    '  name: "Daily settlement window"',
+    "spec:",
+    '  cron: "0 5 * * *"',
+    '  timezone: "Asia/Seoul"',
+    "  enabled: true",
+    '  approvalPolicyId: "prod-self-approval-blocked"',
     "",
   ].join("\n");
 }

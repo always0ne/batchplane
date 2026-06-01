@@ -1,0 +1,53 @@
+{
+  "title": "스케줄 등록",
+  "titleChange": "스케줄 변경",
+  "subtitle": "{{batchName}} ({{batchId}})용 통제 스케줄 정의를 생성합니다.",
+  "subtitleChange": "{{batchName}} ({{batchId}})용 통제 스케줄 정의를 변경합니다.",
+  "subtitleFallback": "배치: {{batchId}}",
+  "actions": {
+    "openSetup": "설정 열기",
+    "requestRegister": "스케줄 PR 생성",
+    "requestChange": "변경 PR 생성"
+  },
+  "states": {
+    "loading": "스케줄 정의 컨텍스트를 불러오는 중입니다...",
+    "loadError": "스케줄 정의 컨텍스트를 불러오지 못했습니다.",
+    "noSession": "스케줄을 관리하려면 GitHub 저장소를 먼저 연결하세요.",
+    "batchNotFound": "{{batchId}} 배치를 찾을 수 없습니다.",
+    "scheduleNotFound": "{{scheduleId}} 스케줄을 찾을 수 없습니다."
+  },
+  "form": {
+    "definition": "스케줄 정의",
+    "schedule": "스케줄 규칙",
+    "scheduleId": "Schedule ID",
+    "batchId": "Batch ID",
+    "name": "이름",
+    "approvalPolicyId": "승인정책 ID",
+    "cron": "Cron",
+    "timezone": "Timezone",
+    "enabled": "활성화"
+  },
+  "review": {
+    "title": "PR 검토",
+    "batch": "배치",
+    "requestType": "요청 유형",
+    "definitionPath": "정의 경로",
+    "approvalPolicy": "승인정책",
+    "missingFields": "통제 PR을 열기 전에 필수 항목을 입력하세요: {{fields}}",
+    "ready": "통제 스케줄 정의가 PR 생성 준비 상태입니다."
+  },
+  "preview": {
+    "title": "YAML 미리보기"
+  },
+  "errors": {
+    "required": "필수 항목이 누락되었습니다: {{fields}}",
+    "noSession": "스케줄 변경 요청을 생성하려면 GitHub 저장소를 연결하세요.",
+    "alreadyExists": "{{path}} 경로에 통제 스케줄 정의가 이미 존재합니다.",
+    "changeMissingDefinition": "{{path}} 경로에 통제 스케줄 정의가 없습니다.",
+    "unknown": "스케줄 PR을 생성하지 못했습니다."
+  },
+  "result": {
+    "created": "스케줄 PR #{{number}}가 생성되었습니다.",
+    "changeCreated": "스케줄 변경 PR #{{number}}가 생성되었습니다."
+  }
+}

@@ -34,13 +34,31 @@ describe("RegistrationApprovalDetailPage", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Registration approval detail",
+        name: "Governed change detail",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Governance checklist")).toBeInTheDocument();
     expect(screen.getByText("YAML diff summary")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Approve and merge PR" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows schedule metadata when the PR is a schedule definition change", async () => {
+    const runtime = createRuntimeWithScheduleFixture();
+
+    renderDetail({
+      createRuntime: () => runtime,
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByText("payment.daily-close-daily"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("0 5 * * *")).toBeInTheDocument();
+    expect(screen.getByText("prod-self-approval-blocked")).toBeInTheDocument();
+    expect(
+      screen.getByText("Cron expression is recorded."),
     ).toBeInTheDocument();
   });
 
@@ -115,6 +133,70 @@ function createRuntimeWithRegistrationFixture() {
   const client = createMockGitHubLiteClient(
     withRegistrationEvidence(state, pullRequest.head),
   );
+
+  return createGitHubLiteRuntime(session, { client });
+}
+
+function createRuntimeWithScheduleFixture() {
+  const state = createGitHubLiteMockState();
+  const pullRequest = state.pullRequests[0];
+
+  if (!pullRequest) {
+    throw new Error("Expected a registration pull request fixture.");
+  }
+
+  const headBranch =
+    "batchplane/schedule/register/payment.daily-close-daily-20260514010203";
+  const client = createMockGitHubLiteClient({
+    ...state,
+    branches: {
+      ...state.branches,
+      [headBranch]: state.branches.main || "mock-schedule-head-sha",
+    },
+    files: [
+      ...state.files,
+      {
+        branch: headBranch,
+        content: [
+          'apiVersion: "batchplane.io/v1"',
+          'kind: "ScheduleDefinition"',
+          "metadata:",
+          '  id: "payment.daily-close-daily"',
+          '  batchId: "payment.daily-close"',
+          '  name: "Daily settlement window"',
+          "spec:",
+          '  cron: "0 5 * * *"',
+          '  timezone: "Asia/Seoul"',
+          "  enabled: true",
+          '  approvalPolicyId: "prod-self-approval-blocked"',
+          "",
+        ].join("\n"),
+        path: ".batch-governance/schedules/payment.daily-close-daily.yml",
+        sha: "mock-head-schedule-sha",
+      },
+    ],
+    pullRequests: [
+      {
+        ...pullRequest,
+        body: [
+          "## BatchPlane Schedule Registration",
+          "",
+          "- Request type: REGISTER",
+          "- Target kind: SCHEDULE",
+          "- Batch ID: `payment.daily-close`",
+          "- Schedule ID: `payment.daily-close-daily`",
+          "- Name: Daily settlement window",
+          "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+          "- Cron: `0 5 * * *`",
+          "- Timezone: `Asia/Seoul`",
+          "- Enabled: true",
+          "- Approval policy: `prod-self-approval-blocked`",
+        ].join("\n"),
+        head: headBranch,
+        title: "Register schedule payment.daily-close-daily",
+      },
+    ],
+  });
 
   return createGitHubLiteRuntime(session, { client });
 }

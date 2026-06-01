@@ -414,26 +414,59 @@ function RegistrationSummaryPanel({
         />
         <DetailMeta label={t("fields.head")} value={pullRequest.head} />
         <DetailMeta label={t("fields.base")} value={pullRequest.base} />
-        <DetailMeta
-          label={t("fields.batchId")}
-          value={summary.batchId || t("values.unknown")}
-        />
-        <DetailMeta
-          label={t("fields.workflow")}
-          value={summary.workflowPath || t("values.unknown")}
-        />
       </dl>
 
-      <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
-        <DetailMeta
-          label={t("fields.runsOn")}
-          value={summary.runsOn || t("values.unknown")}
-        />
-        <DetailMeta
-          label={t("fields.command")}
-          value={summary.batchCommand || t("values.unknown")}
-        />
-      </div>
+      {summary.kind === "batch" ? (
+        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+          <DetailMeta
+            label={t("fields.batchId")}
+            value={summary.batchId || t("values.unknown")}
+          />
+          <DetailMeta
+            label={t("fields.workflow")}
+            value={summary.workflowPath || t("values.unknown")}
+          />
+          <DetailMeta
+            label={t("fields.runsOn")}
+            value={summary.runsOn || t("values.unknown")}
+          />
+          <DetailMeta
+            label={t("fields.command")}
+            value={summary.batchCommand || t("values.unknown")}
+          />
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+          <DetailMeta
+            label={t("fields.batchId")}
+            value={summary.batchId || t("values.unknown")}
+          />
+          <DetailMeta
+            label={t("fields.scheduleId")}
+            value={summary.scheduleId || t("values.unknown")}
+          />
+          <DetailMeta
+            label={t("fields.schedulePath")}
+            value={summary.definitionPath || t("values.unknown")}
+          />
+          <DetailMeta
+            label={t("fields.cron")}
+            value={summary.cron || t("values.unknown")}
+          />
+          <DetailMeta
+            label={t("fields.timezone")}
+            value={summary.timezone || t("values.unknown")}
+          />
+          <DetailMeta
+            label={t("fields.approvalPolicy")}
+            value={summary.approvalPolicyId || t("values.unknown")}
+          />
+          <DetailMeta
+            label={t("fields.enabled")}
+            value={summary.enabled ? t("values.enabled") : t("values.disabled")}
+          />
+        </div>
+      )}
     </article>
   );
 }
@@ -506,8 +539,31 @@ function RegistrationChecklistPanel({
   summary: RegistrationRequestBodySummary;
 }) {
   const { t } = useTranslation("approvals");
-  const checks = useMemo(
-    () => [
+  const checks = useMemo(() => {
+    if (summary.kind === "schedule") {
+      return [
+        {
+          ready: Boolean(
+            summary.batchId && summary.scheduleId && summary.definitionPath,
+          ),
+          text: t("registrationDetail.checklist.schedulePath"),
+        },
+        {
+          ready: Boolean(summary.cron),
+          text: t("registrationDetail.checklist.cronRecorded"),
+        },
+        {
+          ready: Boolean(summary.timezone),
+          text: t("registrationDetail.checklist.timezoneRecorded"),
+        },
+        {
+          ready: Boolean(summary.approvalPolicyId),
+          text: t("registrationDetail.checklist.approvalPolicyRecorded"),
+        },
+      ];
+    }
+
+    return [
       {
         ready: Boolean(summary.batchId && summary.workflowPath),
         text: t("registrationDetail.checklist.batchPaths"),
@@ -524,16 +580,8 @@ function RegistrationChecklistPanel({
         ready: Boolean(summary.batchCommand),
         text: t("registrationDetail.checklist.commandRecorded"),
       },
-    ],
-    [
-      summary.batchCommand,
-      summary.batchId,
-      summary.gateRequired,
-      summary.runsOn,
-      summary.workflowPath,
-      t,
-    ],
-  );
+    ];
+  }, [summary, t]);
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

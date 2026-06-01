@@ -1,6 +1,6 @@
 {
   "title": "내처리함",
-  "subtitle": "현재 사용자와 연결된 요청, 승인, 등록, 실패 후속처리를 확인합니다.",
+  "subtitle": "현재 사용자와 연결된 요청, 승인, 통제 변경, 실패 후속처리를 확인합니다.",
   "actions": {
     "open": "열기",
     "refresh": "새로고침",
@@ -19,6 +19,8 @@
   "itemDescriptions": {
     "registrationMine": "등록 상세에서 현재 증적을 확인합니다.",
     "registrationReview": "등록 승인 검토가 필요합니다.",
+    "scheduleMine": "변경 상세에서 현재 스케줄 증적을 확인합니다.",
+    "scheduleReview": "스케줄 승인 검토가 필요합니다.",
     "executionMine": "실행 요청 상세에서 현재 증적을 확인합니다.",
     "executionApproval": "실행 승인이 maintainer 검토를 기다리고 있습니다.",
     "failureMissing": "실패 후속처리 소명이 아직 기록되지 않았습니다.",
@@ -35,11 +37,13 @@
     "gateBlocked": "Gate 차단",
     "registration": "등록",
     "registrationApproval": "등록 승인",
+    "schedule": "스케줄",
+    "scheduleApproval": "스케줄 승인",
     "request": "내 요청"
   },
   "kinds": {
     "approval": "승인",
-    "registration": "등록",
+    "registration": "통제 변경",
     "request": "내 요청",
     "failureFollowUp": "실패 후속처리"
   },

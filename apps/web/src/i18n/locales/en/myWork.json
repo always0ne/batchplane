@@ -1,6 +1,6 @@
 {
   "title": "My Work",
-  "subtitle": "Requests, approvals, registrations, and failure follow-ups connected to the current user.",
+  "subtitle": "Requests, approvals, governed changes, and failure follow-ups connected to the current user.",
   "actions": {
     "open": "Open",
     "refresh": "Refresh",
@@ -19,6 +19,8 @@
   "itemDescriptions": {
     "registrationMine": "Open the registration detail and review current evidence.",
     "registrationReview": "Registration approval is waiting for review.",
+    "scheduleMine": "Open the change detail and review the current schedule evidence.",
+    "scheduleReview": "Schedule approval is waiting for review.",
     "executionMine": "Open the execution request detail and review current evidence.",
     "executionApproval": "Execution approval is waiting for a maintainer.",
     "failureMissing": "Failure follow-up has not been recorded.",
@@ -35,11 +37,13 @@
     "gateBlocked": "Gate blocked",
     "registration": "Registration",
     "registrationApproval": "Registration approval",
+    "schedule": "Schedule",
+    "scheduleApproval": "Schedule approval",
     "request": "My request"
   },
   "kinds": {
     "approval": "Approvals",
-    "registration": "Registrations",
+    "registration": "Governed changes",
     "request": "My requests",
     "failureFollowUp": "Failure follow-up"
   },

@@ -12,6 +12,8 @@ import {
   validateBatchDefinitionFile,
   validateRoleMapping,
   validateRoleMappingFile,
+  validateScheduleDefinition,
+  validateScheduleDefinitionFile,
   validateWorkspacePolicy,
   validateWorkspacePolicyFile,
 } from "./index";
@@ -31,6 +33,8 @@ import type {
   GitHubLiteRepositoryFile,
   RoleMapping,
   RoleMappingFile,
+  ScheduleDefinition,
+  ScheduleDefinitionFile,
   ScheduleOccurrenceRef,
   WorkspacePolicy,
   WorkspacePolicyFile,
@@ -84,6 +88,17 @@ const workspacePolicy: WorkspacePolicy = {
   approval: {
     mode: "SELF_APPROVAL_BLOCKED",
   },
+};
+
+const scheduleDefinition: ScheduleDefinition = {
+  approvalPolicyId: "prod-self-approval-blocked",
+  batchId: batchDefinition.batchId,
+  cron: "0 5 * * *",
+  definitionPath: ".batch-governance/schedules/payment.daily-close-daily.yml",
+  enabled: true,
+  name: "Daily settlement window",
+  scheduleId: "payment.daily-close-daily",
+  timezone: "Asia/Seoul",
 };
 
 describe("domain model contracts", () => {
@@ -192,6 +207,21 @@ describe("domain model contracts", () => {
       },
       spec: workspacePolicy,
     };
+    const scheduleFile: ScheduleDefinitionFile = {
+      apiVersion: "batchplane.io/v1",
+      kind: "ScheduleDefinition",
+      metadata: {
+        batchId: scheduleDefinition.batchId,
+        id: scheduleDefinition.scheduleId,
+        name: scheduleDefinition.name,
+      },
+      spec: {
+        approvalPolicyId: scheduleDefinition.approvalPolicyId,
+        cron: scheduleDefinition.cron,
+        enabled: scheduleDefinition.enabled,
+        timezone: scheduleDefinition.timezone,
+      },
+    };
     const requestPayload: ExecutionRequestPayload = {
       apiVersion: "batchplane.io/v1",
       kind: "ExecutionRequest",
@@ -225,6 +255,7 @@ describe("domain model contracts", () => {
       approvalPolicyFile,
       roleMappingFile,
       workspacePolicyFile,
+      scheduleFile,
       requestPayload,
     ];
 
@@ -234,6 +265,7 @@ describe("domain model contracts", () => {
       "ApprovalPolicy",
       "RoleMapping",
       "WorkspacePolicy",
+      "ScheduleDefinition",
       "ExecutionRequest",
     ]);
   });
@@ -322,6 +354,23 @@ describe("domain model contracts", () => {
           title: "Register batch payment.daily-close",
           url: "https://github.com/always0ne/batch/pull/2",
         }),
+      },
+      schedules: {
+        checkScheduleDefinitionTarget: async () => ({
+          scheduleDefinitionExists: false,
+        }),
+        createScheduleDefinitionPullRequest: async () => ({
+          author: "requester",
+          base: "main",
+          body: "body",
+          head: "batchplane/schedule/register/payment.daily-close-daily",
+          merged: false,
+          number: 5,
+          state: "open",
+          title: "Register schedule payment.daily-close-daily",
+          url: "https://github.com/always0ne/batch/pull/5",
+        }),
+        listScheduleDefinitions: async () => [scheduleDefinition],
       },
       settings: {
         checkInstallationStatus: async () => ({
@@ -437,6 +486,82 @@ describe("domain schema validation", () => {
         }),
       ]),
     );
+  });
+
+  it("validates required schedule definition fields", () => {
+    expect(validateScheduleDefinition(scheduleDefinition)).toEqual([]);
+    expect(
+      validateScheduleDefinition({
+        ...scheduleDefinition,
+        approvalPolicyId: "",
+        cron: "",
+        timezone: "",
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "required",
+          field: "cron",
+        }),
+        expect.objectContaining({
+          code: "required",
+          field: "timezone",
+        }),
+        expect.objectContaining({
+          code: "required",
+          field: "approvalPolicyId",
+        }),
+      ]),
+    );
+  });
+
+  it("validates schedule definition file documents", () => {
+    const file: ScheduleDefinitionFile = {
+      apiVersion: "batchplane.io/v1",
+      kind: "ScheduleDefinition",
+      metadata: {
+        batchId: scheduleDefinition.batchId,
+        id: scheduleDefinition.scheduleId,
+        name: scheduleDefinition.name,
+      },
+      spec: {
+        approvalPolicyId: scheduleDefinition.approvalPolicyId,
+        cron: scheduleDefinition.cron,
+        enabled: scheduleDefinition.enabled,
+        timezone: scheduleDefinition.timezone,
+      },
+    };
+
+    expect(validateScheduleDefinitionFile(file)).toEqual({
+      diagnostics: [],
+      ok: true,
+      value: file,
+    });
+    expect(
+      validateScheduleDefinitionFile({
+        ...file,
+        metadata: {
+          ...file.metadata,
+          batchId: "",
+        },
+        spec: {
+          ...file.spec,
+          cron: "",
+        },
+      }),
+    ).toEqual({
+      diagnostics: expect.arrayContaining([
+        expect.objectContaining({
+          code: "required",
+          field: "metadata.batchId",
+        }),
+        expect.objectContaining({
+          code: "required",
+          field: "spec.cron",
+        }),
+      ]),
+      ok: false,
+    });
   });
 
   it("validates batch definition repository files", () => {

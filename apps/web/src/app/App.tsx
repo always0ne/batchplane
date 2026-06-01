@@ -26,6 +26,7 @@ import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
 import { MyWorkPage } from "../features/my-work/MyWorkPage";
 import { BatchRegistrationPage } from "../features/registration/BatchRegistrationPage";
+import { ScheduleDefinitionPage } from "../features/schedules/ScheduleDefinitionPage";
 import {
   localeLabels,
   supportedLocales,
@@ -167,6 +168,10 @@ export function App() {
             <Route path="/batches" element={<BatchesPage />} />
             <Route path="/batches/new" element={<BatchRegistrationPage />} />
             <Route path="/batches/:batchId" element={<BatchDetailPage />} />
+            <Route
+              path="/batches/:batchId/schedules/new"
+              element={<ScheduleDefinitionPage />}
+            />
             <Route
               path="/batches/:batchId/execution-requests/new"
               element={<ExecutionRequestPage />}

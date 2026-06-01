@@ -96,7 +96,18 @@
     },
     "schedules": {
       "title": "Schedules",
-      "empty": "No schedules are registered for this batch yet."
+      "subtitle": "Governed schedule definitions linked to this batch.",
+      "register": "Register schedule",
+      "change": "Change schedule",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "empty": "No schedules are registered for this batch yet.",
+      "fields": {
+        "cron": "Cron",
+        "timezone": "Timezone",
+        "approvalPolicy": "Approval policy",
+        "path": "Definition path"
+      }
     },
     "recentRuns": {
       "title": "Recent execution evidence",

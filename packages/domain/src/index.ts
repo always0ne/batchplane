@@ -115,6 +115,17 @@ export type ScheduleOccurrenceRef = {
   definitionCommitSha: string;
 };
 
+export type ScheduleDefinition = {
+  scheduleId: string;
+  batchId: string;
+  name: string;
+  cron: string;
+  timezone: string;
+  enabled: boolean;
+  approvalPolicyId: string;
+  definitionPath: string;
+};
+
 export type ExecutionRequest = {
   requestId: string;
   batchId: string;
@@ -326,6 +337,10 @@ export type RegistrationTargetStatus = {
   workflowExists: boolean;
 };
 
+export type ScheduleDefinitionTargetStatus = {
+  scheduleDefinitionExists: boolean;
+};
+
 export type CreateRegistrationPullRequestInput = {
   artifact?: RegistrationArtifactInput;
   baseBranch: string;
@@ -338,8 +353,31 @@ export type CreateRegistrationPullRequestInput = {
   workflowYaml: string;
 };
 
+export type CreateScheduleDefinitionPullRequestInput = {
+  baseBranch: string;
+  body: string;
+  branch: string;
+  scheduleDefinitionPath: string;
+  scheduleDefinitionYaml: string;
+  title: string;
+};
+
 export type BatchPort = {
   listBatchDefinitions(params: { ref: string }): Promise<BatchDefinition[]>;
+};
+
+export type SchedulePort = {
+  listScheduleDefinitions(params: {
+    ref: string;
+    batchId?: string;
+  }): Promise<ScheduleDefinition[]>;
+  checkScheduleDefinitionTarget(params: {
+    baseBranch: string;
+    scheduleDefinitionPath: string;
+  }): Promise<ScheduleDefinitionTargetStatus>;
+  createScheduleDefinitionPullRequest(
+    params: CreateScheduleDefinitionPullRequestInput,
+  ): Promise<RepositoryPullRequest>;
 };
 
 export type RegistrationPort = {
@@ -433,6 +471,7 @@ export type BatchPlaneRuntimePorts = {
   batches: BatchPort;
   executions: ExecutionPort;
   registration: RegistrationPort;
+  schedules: SchedulePort;
   settings: SettingsPort;
 };
 
@@ -741,6 +780,80 @@ export function validateApprovalPolicyFile(
   }
 
   return { diagnostics: [], ok: true, value: file as ApprovalPolicyFile };
+}
+
+export function validateScheduleDefinition(
+  definition: unknown,
+): FieldValidationDiagnostic[] {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(definition, "$", diagnostics);
+
+  if (!record) {
+    return diagnostics;
+  }
+
+  requireString(record, "scheduleId", diagnostics);
+  requireString(record, "batchId", diagnostics);
+  requireString(record, "name", diagnostics);
+  requireString(record, "cron", diagnostics);
+  requireString(record, "timezone", diagnostics);
+  requireBoolean(record, "enabled", diagnostics);
+  requireString(record, "approvalPolicyId", diagnostics);
+
+  return diagnostics;
+}
+
+export function validateScheduleDefinitionFile(
+  file: unknown,
+): ValidationResult<ScheduleDefinitionFile> {
+  const diagnostics: FieldValidationDiagnostic[] = [];
+  const record = requireRecord(file, "$", diagnostics);
+
+  if (!record) {
+    return { diagnostics, ok: false };
+  }
+
+  validateBatchPlaneApiVersion(record.apiVersion, diagnostics);
+  validateExactValue(record.kind, "kind", "ScheduleDefinition", diagnostics);
+
+  const metadata = requireRecord(record.metadata, "metadata", diagnostics);
+  const spec = requireRecord(record.spec, "spec", diagnostics);
+
+  if (metadata) {
+    requireString(metadata, "id", diagnostics, "metadata.id");
+    requireString(metadata, "batchId", diagnostics, "metadata.batchId");
+    requireString(metadata, "name", diagnostics, "metadata.name");
+  }
+
+  if (metadata && spec) {
+    diagnostics.push(
+      ...validateScheduleDefinition({
+        approvalPolicyId: spec.approvalPolicyId,
+        batchId: metadata.batchId,
+        cron: spec.cron,
+        enabled: spec.enabled,
+        name: metadata.name,
+        scheduleId: metadata.id,
+        timezone: spec.timezone,
+      }).map((diagnostic) => ({
+        ...diagnostic,
+        field:
+          diagnostic.field === "scheduleId"
+            ? "metadata.id"
+            : diagnostic.field === "batchId"
+              ? "metadata.batchId"
+              : diagnostic.field === "name"
+                ? "metadata.name"
+                : `spec.${diagnostic.field}`,
+      })),
+    );
+  }
+
+  if (diagnostics.length > 0) {
+    return { diagnostics, ok: false };
+  }
+
+  return { diagnostics: [], ok: true, value: file as ScheduleDefinitionFile };
 }
 
 export function normalizeWorkspacePolicy(
@@ -1198,6 +1311,31 @@ function requireString(
       value === undefined || value === ""
         ? `${field} is required.`
         : `${field} must be a non-empty string.`,
+    severity: "error",
+  });
+
+  return undefined;
+}
+
+function requireBoolean(
+  record: UnknownRecord,
+  key: string,
+  diagnostics: FieldValidationDiagnostic[],
+  field = key,
+): boolean | undefined {
+  const value = record[key];
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  diagnostics.push({
+    code: value === undefined ? "required" : "invalid_type",
+    field,
+    message:
+      value === undefined
+        ? `${field} is required.`
+        : `${field} must be a boolean.`,
     severity: "error",
   });
 

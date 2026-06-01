@@ -53,6 +53,8 @@ describe("registration approval model", () => {
       executionFilePath:
         ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
       gateRequired: true,
+      kind: "batch",
+      name: "Daily Close",
       runsOn: "ubuntu-latest",
       workflowPath: ".github/workflows/payment.daily-close.yml",
     });
@@ -68,12 +70,51 @@ describe("registration approval model", () => {
     ]);
   });
 
+  it("parses schedule request evidence and derived file paths", () => {
+    const schedulePullRequest: RepositoryPullRequest = {
+      ...pullRequest,
+      body: [
+        "## BatchPlane Schedule Registration",
+        "",
+        "- Request type: REGISTER",
+        "- Target kind: SCHEDULE",
+        "- Batch ID: `payment.daily-close`",
+        "- Schedule ID: `payment.daily-close-daily`",
+        "- Name: Daily settlement window",
+        "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+        "- Cron: `0 5 * * *`",
+        "- Timezone: `Asia/Seoul`",
+        "- Enabled: true",
+        "- Approval policy: `prod-self-approval-blocked`",
+      ].join("\n"),
+      head: "batchplane/schedule/register/payment.daily-close-daily-20260514010203",
+      title: "Register schedule payment.daily-close-daily",
+    };
+    const summary = parseRegistrationRequestSummary(schedulePullRequest);
+
+    expect(summary).toEqual({
+      approvalPolicyId: "prod-self-approval-blocked",
+      batchId: "payment.daily-close",
+      cron: "0 5 * * *",
+      definitionPath:
+        ".batch-governance/schedules/payment.daily-close-daily.yml",
+      enabled: true,
+      kind: "schedule",
+      name: "Daily settlement window",
+      scheduleId: "payment.daily-close-daily",
+      timezone: "Asia/Seoul",
+    });
+    expect(deriveRegistrationFilePaths(summary)).toEqual([
+      ".batch-governance/schedules/payment.daily-close-daily.yml",
+    ]);
+  });
+
   it("parses latest registration decision and review state", () => {
     const comments: RepositoryIssueComment[] = [
       {
         author: "maintainer",
         body: [
-          "## BatchPlane Registration Approval",
+          "## BatchPlane Governed Change Approval",
           "",
           "- Decision: APPROVED",
           "- Approver: @maintainer",

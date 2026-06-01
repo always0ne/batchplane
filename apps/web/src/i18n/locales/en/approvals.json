@@ -1,6 +1,6 @@
 {
   "title": "Approvals",
-  "subtitle": "Review registration changes and execution requests before they affect governed batches.",
+  "subtitle": "Review governed change requests and execution requests before they affect governed batches.",
   "actions": {
     "approveAndMerge": "Approve and merge",
     "approveExecution": "Approve execution",
@@ -14,13 +14,16 @@
     "rejectReason": "Rejection reason",
     "rejectReasonPlaceholder": "Explain why this execution request cannot proceed.",
     "viewDetails": "View details",
-    "viewRegistrationDetails": "Registration detail"
+    "viewRegistrationDetails": "Change detail"
   },
   "fields": {
+    "approvalPolicy": "Approval policy",
     "author": "Author",
     "base": "Base",
     "batchId": "Batch ID",
     "command": "Batch command",
+    "cron": "Cron",
+    "enabled": "Enabled",
     "expiresAt": "Expires at",
     "gate": "Gate",
     "head": "Head",
@@ -30,6 +33,9 @@
     "requestId": "Request ID",
     "repository": "Repository",
     "runsOn": "Runs on",
+    "scheduleId": "Schedule ID",
+    "schedulePath": "Schedule definition",
+    "timezone": "Timezone",
     "workflow": "Workflow"
   },
   "context": {
@@ -43,9 +49,11 @@
   },
   "sections": {
     "execution": "Execution requests",
-    "registration": "Registration changes"
+    "registration": "Governed changes"
   },
   "values": {
+    "disabled": "Disabled",
+    "enabled": "Enabled",
     "gateApprovalBlocked": "Gate non-compliant requests cannot be approved.",
     "gateNonCompliant": "Non-compliant",
     "gateRequired": "Required before batch command",
@@ -58,30 +66,34 @@
     "githubLagHint": "GitHub issue/PR updates can take a few seconds to appear.",
     "loading": "Loading approval requests...",
     "noSession": "Connect a GitHub repository before reviewing approvals.",
-    "registrationReviewHint": "Open registration detail to review checklist and decide merge or rejection."
+    "registrationReviewHint": "Open change detail to review checklist and decide merge or rejection."
   },
   "registrationDetail": {
-    "title": "Registration approval detail",
+    "title": "Governed change detail",
     "subtitle": "PR #{{pullNumber}}",
     "actions": {
       "actionFailed": "Failed to update registration approval.",
       "approve": "Approve and merge PR",
       "backToApprovals": "Back to approvals",
-      "closedTitle": "Registration review completed",
-      "note": "Approving merges this registration PR into the repository for BatchPlane Lite governance.",
+      "closedTitle": "Change review completed",
+      "note": "Approving merges this governed change PR into the repository for BatchPlane Lite governance.",
       "title": "Approval action"
     },
     "states": {
-      "error": "Failed to load registration approval detail.",
+      "error": "Failed to load change approval detail.",
       "githubLagHint": "Recent GitHub updates can take a few seconds to appear.",
-      "loading": "Loading registration approval detail...",
-      "noSession": "Connect a GitHub repository before reviewing registration approvals.",
-      "notFound": "Registration PR #{{pullNumber}} was not found in this repository."
+      "loading": "Loading change approval detail...",
+      "noSession": "Connect a GitHub repository before reviewing governed changes.",
+      "notFound": "Governed change PR #{{pullNumber}} was not found in this repository."
     },
     "checklist": {
       "title": "Governance checklist",
       "batchPaths": "Batch definition and workflow paths are derived from Batch ID.",
+      "schedulePath": "Schedule definition path is derived from Schedule ID.",
       "gateRequired": "BatchPlane Gate is required before batch command execution.",
+      "cronRecorded": "Cron expression is recorded.",
+      "timezoneRecorded": "Timezone is recorded.",
+      "approvalPolicyRecorded": "Approval policy reference is recorded.",
       "runnerRecorded": "Execution environment (runs-on) is recorded.",
       "commandRecorded": "Batch command is recorded."
     },
@@ -101,12 +113,12 @@
     },
     "fileSummary": {
       "title": "YAML diff summary",
-      "subtitle": "Compare base and head revisions for governed registration files.",
+      "subtitle": "Compare base and head revisions for governed change files.",
       "preview": "Compare revisions",
       "baseRevision": "Base revision",
-      "headRevision": "Registration branch revision",
-      "emptyBase": "No file on base branch.",
-      "emptyHead": "No file on registration branch.",
+      "headRevision": "Change branch revision",
+      "emptyBase": "No file on the base branch.",
+      "emptyHead": "No file on the change branch.",
       "status": {
         "ADDED": "Added",
         "UPDATED": "Updated",
