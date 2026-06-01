@@ -7,6 +7,9 @@
     ".": "./dist/index.js"
   },
   "types": "./dist/index.d.ts",
+  "dependencies": {
+    "@batchplane/digest": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

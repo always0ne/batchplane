@@ -132,6 +132,19 @@ export async function verifyLiteAuthorization(input) {
         evidence.approval.requestDigest !== evidence.request.requestDigest) {
         return deny("REQUEST_DIGEST_MISMATCH", "Execution approval digest does not match execution request digest.");
     }
+    if (evidence.approval.approvalType === "SCHEDULE_DELEGATED") {
+        if (evidence.request.triggerType !== "SCHEDULE" ||
+            !evidence.request.scheduleId) {
+            return deny("SCHEDULE_DELEGATED_APPROVAL_INVALID", "Delegated schedule approval requires a scheduled execution request.");
+        }
+        if (evidence.approval.approver !== expectedActor) {
+            return deny("SCHEDULE_DELEGATED_APPROVER_INVALID", `Delegated schedule approval must be recorded by ${expectedActor}.`);
+        }
+        return {
+            result: "ALLOW",
+            message: "Scheduled execution request, delegated approval evidence, and batch policy are verified.",
+        };
+    }
     let workspaceApprovalMode;
     try {
         workspaceApprovalMode = await readWorkspaceApprovalMode({
@@ -271,6 +284,14 @@ async function validateBatchPolicyEvidence({ batchId, client, configPath, inputR
         const registeredPath = snapshot.workflowPath.trim();
         if (requestPath && registeredPath && requestPath !== registeredPath) {
             return deny("WORKFLOW_NOT_ALLOWED", `Workflow path ${requestPath} is not registered for batch ${batchId}.`);
+        }
+    }
+    if (request.triggerType === "SCHEDULE") {
+        if (!request.scheduleId) {
+            return deny("SCHEDULE_NOT_MAPPED", "Scheduled execution request does not contain a schedule identifier.");
+        }
+        if (!snapshot.enabledScheduleIds.includes(request.scheduleId)) {
+            return deny("SCHEDULE_NOT_REGISTERED", `Schedule ${request.scheduleId} is not enabled in batch ${batchId}.`);
         }
     }
     if (!effectiveRef) {
@@ -493,6 +514,7 @@ function parseExecutionRequestEvidence(issueBody) {
     const requestedBy = readMarkdownField(issueBody, "Requested by").replace(/^@/, "") ||
         readRequestedBy(payload);
     const scheduleId = readScheduleId(payload);
+    const triggerType = readTriggerType(payload);
     if (!requestId || !batchId || !requestDigest || !status) {
         return null;
     }
@@ -502,6 +524,7 @@ function parseExecutionRequestEvidence(issueBody) {
         requestedBy,
         requestDigest,
         requestId,
+        ...(triggerType ? { triggerType } : {}),
         status,
         workflowPath: workflow.path,
         workflowRef: workflow.ref,
@@ -519,10 +542,13 @@ function parseExecutionApprovalEvidence(comment) {
     const batchId = marker.get("batchId") ?? readMarkdownField(commentBody, "Batch ID");
     const requestDigest = marker.get("requestDigest") ??
         readMarkdownField(commentBody, "Request digest");
+    const approvalType = marker.get("approvalType") ??
+        readMarkdownField(commentBody, "Approval type");
     if (decision !== "APPROVED" || !requestId || !batchId || !requestDigest) {
         return null;
     }
     return {
+        ...(approvalType ? { approvalType } : {}),
         approver: comment.author ||
             readMarkdownField(commentBody, "Approver").replace(/^@/, ""),
         batchId,
@@ -543,6 +569,9 @@ function parseBatchDefinitionSnapshot(content) {
     }
     const value = validated.value;
     return {
+        enabledScheduleIds: value.spec.schedules
+            ?.filter((schedule) => schedule.enabled)
+            .map((schedule) => schedule.id) ?? [],
         gateRequired: value.spec.gateRequired,
         status: value.spec.status,
         workflowPath: value.spec.workflow.path,
@@ -621,6 +650,17 @@ function readScheduleId(payload) {
     }
     const scheduleId = schedule.scheduleId;
     return typeof scheduleId === "string" ? scheduleId : "";
+}
+function readTriggerType(payload) {
+    if (!payload || typeof payload !== "object") {
+        return "";
+    }
+    const spec = payload.spec;
+    if (!spec || typeof spec !== "object") {
+        return "";
+    }
+    const triggerType = spec.triggerType;
+    return typeof triggerType === "string" ? triggerType : "";
 }
 function parseApprovalCommand(body) {
     const firstLine = body.split("\n", 1)[0]?.trim();

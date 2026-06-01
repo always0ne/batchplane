@@ -1,0 +1,39 @@
+name: BatchPlane Schedule Request
+description: Create or reuse a delegated scheduled execution request.
+outputs:
+  status:
+    description: Request handling result
+  issue-number:
+    description: GitHub issue number for the scheduled execution request
+  request-id:
+    description: BatchPlane execution request ID
+  request-digest:
+    description: BatchPlane execution request digest
+  approval-comment-id:
+    description: Approval comment ID to pass into the dispatcher action
+inputs:
+  batch-id:
+    required: true
+    description: Batch definition ID
+  schedule-id:
+    required: true
+    description: Schedule identifier
+  cron:
+    required: true
+    description: Cron expression for the governed schedule
+  timezone:
+    required: true
+    description: IANA timezone for the governed schedule
+  definition-path:
+    required: true
+    description: Batch definition file path
+  config-path:
+    required: false
+    default: .batch-governance
+    description: BatchPlane repository config path
+  github-token:
+    required: true
+    description: GitHub token used to create request and approval evidence
+runs:
+  using: node24
+  main: dist/index.js

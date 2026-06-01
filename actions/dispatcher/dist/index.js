@@ -120,6 +120,7 @@ export async function dispatchApprovedExecutionRequest({ apiBaseUrl = "https://a
             status: "failed",
         };
     }
+    await removeDispatchFailedLabels(client, issueNumber);
     await client.addIssueLabels(issueNumber, [dispatcherLabels.dispatched.name]);
     await client.removeIssueLabel(issueNumber, dispatcherLabels.dispatching.name);
     await client.createIssueComment(issueNumber, buildDispatchSuccessComment(verification.dispatchPlan));
@@ -199,6 +200,7 @@ export function verifyDispatcherEvidence({ approvalCommentBody, issueBody, now =
                 batch_id: request.batchId,
                 request_digest: request.requestDigest,
                 request_id: request.requestId,
+                ...(request.scheduleId ? { schedule_id: request.scheduleId } : {}),
             },
             workflowPath: request.workflowPath,
             workflowRef: request.workflowRef,
@@ -225,6 +227,7 @@ export function parseExecutionRequestEvidence(issueBody) {
         requestedAt: readMarkdownField(issueBody, "Requested at"),
         requestedBy: readMarkdownField(issueBody, "Requested by").replace(/^@/, ""),
         requestId,
+        ...(readScheduleId(payload) ? { scheduleId: readScheduleId(payload) } : {}),
         status,
         workflowPath: workflow.path,
         workflowRef: workflow.ref,
@@ -319,6 +322,21 @@ function readWorkflowTarget(payload) {
         path: typeof path === "string" ? path : "",
         ref: typeof ref === "string" ? ref : "",
     };
+}
+function readScheduleId(payload) {
+    if (!payload || typeof payload !== "object") {
+        return "";
+    }
+    const spec = payload.spec;
+    if (!spec || typeof spec !== "object") {
+        return "";
+    }
+    const schedule = spec.schedule;
+    if (!schedule || typeof schedule !== "object") {
+        return "";
+    }
+    const scheduleId = schedule.scheduleId;
+    return typeof scheduleId === "string" ? scheduleId : "";
 }
 function readMarkdownField(body, label) {
     const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

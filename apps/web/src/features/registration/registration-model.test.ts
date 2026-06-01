@@ -142,6 +142,45 @@ describe("registration model", () => {
     ).toContain('runs-on: ["self-hosted", "linux", "prod"]');
   });
 
+  it("builds schedule-triggered request jobs without direct cron execution", () => {
+    const scheduledDefinition = toBatchDefinition(registrationValues, {
+      schedules: [
+        {
+          cron: "0 5 * * *",
+          enabled: true,
+          name: "Daily settlement window",
+          scheduleId: "payment.daily-close-daily",
+          timezone: "Asia/Seoul",
+        },
+      ],
+    });
+    const workflowYaml = buildBatchWorkflowYaml(
+      scheduledDefinition,
+      "./scripts/daily-close.sh",
+      "ubuntu-latest",
+    );
+
+    expect(workflowYaml).toContain("schedule:");
+    expect(workflowYaml).toContain('- cron: "0 5 * * *"');
+    expect(workflowYaml).toContain('timezone: "Asia/Seoul"');
+    expect(workflowYaml).toContain("id: schedule_request");
+    expect(workflowYaml).toContain("schedule_payment_daily_close_daily:");
+    expect(workflowYaml).toContain("concurrency:");
+    expect(workflowYaml).toContain(
+      'group: "batchplane-schedule-payment_daily_close-payment_daily_close_daily"',
+    );
+    expect(workflowYaml).toContain(
+      "uses: always0ne/batchplane/actions/schedule-request@main",
+    );
+    expect(workflowYaml).toContain(
+      "uses: always0ne/batchplane/actions/dispatcher@main",
+    );
+    expect(workflowYaml).toContain("schedule-id: ${{ inputs.schedule_id }}");
+    expect(workflowYaml).not.toContain(
+      "if: github.event_name == 'schedule'\n    needs: batchplane-gate",
+    );
+  });
+
   it("validates required fields", () => {
     expect(
       validateBatchRegistration({ ...definition, batchId: "", owner: "" }),

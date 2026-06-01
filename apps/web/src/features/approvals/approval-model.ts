@@ -1,4 +1,5 @@
 import type {
+  ExecutionRequestPayload,
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
@@ -6,6 +7,7 @@ import type {
   WorkspaceApprovalMode,
   WorkspacePolicy,
 } from "@batchplane/domain";
+import { buildExecutionApprovalComment as buildExecutionApprovalEvidence } from "@batchplane/domain";
 
 export type ExecutionRequestDisplayStatus =
   | "REQUESTED"
@@ -36,7 +38,9 @@ export type ExecutionApprovalRequest = {
   requestedAt: string;
   requestedBy: string;
   requestId: string;
+  schedule?: NonNullable<ExecutionRequestPayload["spec"]["schedule"]>;
   status: ExecutionRequestDisplayStatus;
+  triggerType: "MANUAL" | "SCHEDULE";
   workflow?: {
     path: string;
     ref: string;
@@ -219,7 +223,9 @@ export function parseExecutionRequestDetail(
       "",
     ),
     requestId,
+    ...(payload?.spec?.schedule ? { schedule: payload.spec.schedule } : {}),
     status: displayStatus,
+    triggerType: payload?.spec?.triggerType ?? "MANUAL",
     ...(payload?.spec?.workflow ? { workflow: payload.spec.workflow } : {}),
   };
 }
@@ -235,33 +241,12 @@ export function buildExecutionApprovalComment({
   approver: string;
   request: ExecutionApprovalRequest;
 }): string {
-  const selfApproval = approver === request.requestedBy;
-
-  return [
-    `/bgcp approve requestDigest=${request.requestDigest}`,
-    "",
-    "## BatchPlane Execution Approval",
-    "",
-    "- Decision: APPROVED",
-    `- Approver: @${approver}`,
-    `- Approved at: ${approvedAt.toISOString()}`,
-    ...(approvalMode ? [`- Approval mode: ${approvalMode}`] : []),
-    ...(selfApproval ? ["- Self approval: ALLOWED_BY_WORKSPACE_POLICY"] : []),
-    `- Request ID: \`${request.requestId}\``,
-    `- Batch ID: \`${request.batchId}\``,
-    `- Request digest: \`${request.requestDigest}\``,
-    "",
-    "This approval evidence was recorded by BatchPlane Lite.",
-    "",
-    "<!-- batchplane:execution-approval",
-    "decision=APPROVED",
-    `requestId=${request.requestId}`,
-    `batchId=${request.batchId}`,
-    `requestDigest=${request.requestDigest}`,
-    ...(approvalMode ? [`approvalMode=${approvalMode}`] : []),
-    ...(selfApproval ? ["selfApproval=true"] : []),
-    "-->",
-  ].join("\n");
+  return buildExecutionApprovalEvidence({
+    approvedAt,
+    approvalMode,
+    approver,
+    request,
+  });
 }
 
 export function allowsSelfApproval(policy: WorkspacePolicy): boolean {
@@ -499,24 +484,7 @@ function readMarkdownField(body: string, label: string): string {
   return value.replace(/^`|`$/g, "").trim();
 }
 
-type CanonicalExecutionPayload = {
-  spec?: {
-    batch?: {
-      environment?: string;
-    };
-    execution?: {
-      artifactPath?: string;
-      command: string;
-      gateRequired: boolean;
-      runsOn: RunnerLabel;
-    };
-    reason?: string;
-    workflow?: {
-      path: string;
-      ref: string;
-    };
-  };
-};
+type CanonicalExecutionPayload = Pick<ExecutionRequestPayload, "spec">;
 
 function parseCanonicalPayload(body: string): CanonicalExecutionPayload | null {
   const match = body.match(

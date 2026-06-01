@@ -7,6 +7,7 @@ export type ExecutionRequestEvidence = {
   requestedAt: string;
   requestedBy: string;
   requestId: string;
+  scheduleId?: string;
   status: string;
   workflowPath: string;
   workflowRef: string;
@@ -262,6 +263,7 @@ export async function dispatchApprovedExecutionRequest({
     };
   }
 
+  await removeDispatchFailedLabels(client, issueNumber);
   await client.addIssueLabels(issueNumber, [dispatcherLabels.dispatched.name]);
   await client.removeIssueLabel(issueNumber, dispatcherLabels.dispatching.name);
   await client.createIssueComment(
@@ -362,6 +364,7 @@ export function verifyDispatcherEvidence({
         batch_id: request.batchId,
         request_digest: request.requestDigest,
         request_id: request.requestId,
+        ...(request.scheduleId ? { schedule_id: request.scheduleId } : {}),
       },
       workflowPath: request.workflowPath,
       workflowRef: request.workflowRef,
@@ -397,6 +400,7 @@ export function parseExecutionRequestEvidence(
     requestedAt: readMarkdownField(issueBody, "Requested at"),
     requestedBy: readMarkdownField(issueBody, "Requested by").replace(/^@/, ""),
     requestId,
+    ...(readScheduleId(payload) ? { scheduleId: readScheduleId(payload) } : {}),
     status,
     workflowPath: workflow.path,
     workflowRef: workflow.ref,
@@ -536,6 +540,28 @@ function readWorkflowTarget(payload: unknown): { path: string; ref: string } {
     path: typeof path === "string" ? path : "",
     ref: typeof ref === "string" ? ref : "",
   };
+}
+
+function readScheduleId(payload: unknown): string {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  const spec = (payload as { spec?: unknown }).spec;
+
+  if (!spec || typeof spec !== "object") {
+    return "";
+  }
+
+  const schedule = (spec as { schedule?: unknown }).schedule;
+
+  if (!schedule || typeof schedule !== "object") {
+    return "";
+  }
+
+  const scheduleId = (schedule as { scheduleId?: unknown }).scheduleId;
+
+  return typeof scheduleId === "string" ? scheduleId : "";
 }
 
 function readMarkdownField(body: string, label: string): string {

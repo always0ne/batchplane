@@ -1,6 +1,11 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
+  addHours,
+  buildExecutionApprovalComment,
+  buildExecutionRequestIssue,
+  createExecutionRequestId,
+  createScheduledExecutionRequestId,
   formatYamlDiagnostics,
   normalizeWorkspacePolicy,
   normalizeApprovalPolicy,
@@ -420,6 +425,89 @@ describe("domain model contracts", () => {
     };
 
     expect(runtime).toBeDefined();
+  });
+});
+
+describe("execution request builders", () => {
+  const executableBatch: BatchDefinition = {
+    ...batchDefinition,
+    execution: {
+      command: "echo close payments",
+      runsOn: "ubuntu-latest",
+    },
+    schedules: [
+      {
+        cron: "0 5 * * *",
+        enabled: true,
+        name: "Daily settlement window",
+        scheduleId: "payment.daily-close-daily",
+        timezone: "Asia/Seoul",
+      },
+    ],
+  };
+
+  it("creates manual execution request ids", () => {
+    expect(
+      createExecutionRequestId(
+        "Payment Daily Close",
+        new Date("2026-05-09T01:02:03.000Z"),
+        "abcdef12",
+      ),
+    ).toBe("btr-20260509010203-payment-daily-close-abcdef12");
+  });
+
+  it("creates deterministic scheduled execution request ids", () => {
+    expect(
+      createScheduledExecutionRequestId(
+        "payment.daily-close",
+        "payment.daily-close-daily",
+        "2026-05-13T05:00:00.000Z",
+      ),
+    ).toBe("btr-20260513050000-payment.daily-close-payment.daily-close-dail");
+  });
+
+  it("builds a scheduled execution request with delegated evidence fields", async () => {
+    const issue = await buildExecutionRequestIssue({
+      batch: executableBatch,
+      expiresAt: addHours(new Date("2026-05-13T05:01:00.000Z"), 24),
+      requestedAt: new Date("2026-05-13T05:01:00.000Z"),
+      requestedBy: "github-actions[bot]",
+      schedule: {
+        definitionCommitSha: "abc123",
+        definitionPath: ".batch-governance/batches/payment.daily-close.yml",
+        scheduleId: "payment.daily-close-daily",
+        scheduledAt: "2026-05-13T05:00:00.000Z",
+      },
+      triggerType: "SCHEDULE",
+      workflowRef: "main",
+    });
+
+    expect(issue.title).toBe("Scheduled run payment.daily-close");
+    expect(issue.labels).toEqual([
+      "batchplane:execution-request",
+      "batchplane:scheduled-execution",
+    ]);
+    expect(issue.body).toContain("- Trigger type: `SCHEDULE`");
+    expect(issue.body).toContain("- Schedule ID: `payment.daily-close-daily`");
+    expect(issue.request.requestDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
+  });
+
+  it("builds delegated schedule approval comments", () => {
+    expect(
+      buildExecutionApprovalComment({
+        approvalType: "SCHEDULE_DELEGATED",
+        approvedAt: new Date("2026-05-13T05:01:30.000Z"),
+        approver: "github-actions[bot]",
+        request: {
+          batchId: "payment.daily-close",
+          requestDigest:
+            "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+          requestId:
+            "btr-20260513050000-payment.daily-close-payment.daily-close-d",
+          requestedBy: "github-actions[bot]",
+        },
+      }),
+    ).toContain("approvalType=SCHEDULE_DELEGATED");
   });
 });
 

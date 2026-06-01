@@ -14,8 +14,6 @@ Governance records live in the target GitHub repository:
     {batchId}/
       artifacts/
         {uploadedExecutionFile}
-  schedules/
-    {scheduleId}.yml
 .github/
   workflows/
     {batchId}.yml
@@ -128,8 +126,9 @@ spec:
 
 ## Generated Batch Workflow
 
-The generated workflow has two jobs:
+The generated workflow has:
 
+- one schedule-occurrence job per enabled schedule
 - `batchplane-gate`
 - `run-batch`
 
@@ -151,6 +150,22 @@ batch_id:
 request_digest:
   required: true
 ```
+
+If the batch definition contains enabled schedules, the generated workflow also
+declares `on.schedule` and creates one scheduler job per enabled schedule. The
+scheduler job must:
+
+- run only on `github.event_name == 'schedule'`
+- match its own cron expression
+- reject reruns with `github.run_attempt == 1`
+- serialize by schedule-specific `concurrency` so duplicate GitHub cron
+  deliveries cannot create parallel requests for the same schedule
+- emit both `cron` and `timezone` in each `on.schedule` entry
+- call `always0ne/batchplane/actions/schedule-request@main`
+- call `always0ne/batchplane/actions/dispatcher@main` directly when delegated
+  approval evidence was created or reused
+
+The scheduler job must not execute the batch command directly.
 
 The batch job runs on the selected runner label and then executes the Batch
 command. Uploaded execution files are committed as repository artifacts and are
@@ -259,8 +274,8 @@ Only after those checks may the dispatcher call `workflow_dispatch`.
 
 ## Dispatcher Workflow Contract
 
-The target repository needs a dispatcher workflow that listens to approval
-comments and invokes `actions/dispatcher`.
+The target repository needs a dispatcher workflow that listens to manual
+approval comments and invokes `actions/dispatcher`.
 
 Minimum dispatcher workflow:
 
@@ -293,11 +308,16 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-`always0ne/batchplane` is the current action repository reference. Legacy target
-repositories that still reference `always0ne/batchtrail` depend on GitHub
-repository redirects until their setup artifacts are regenerated.
+`always0ne/batchplane` is the current action repository reference. Legacy
+target repositories that still reference `always0ne/batchtrail` depend on
+GitHub repository redirects until their setup artifacts are regenerated.
 
 The browser UI must not directly dispatch governed batch workflows in Lite mode.
+Scheduled occurrences also must not rely on `issue_comment.created` from
+`github-actions[bot]`, because GitHub token-authored Issue comments are not a
+reliable trigger source for a second workflow. Generated schedule jobs invoke
+`actions/dispatcher` directly after they create or reuse delegated approval
+evidence.
 
 The dispatcher workflow is responsible for:
 
@@ -480,3 +500,8 @@ The scheduler may inspect the latest request for:
 
 The scheduler must not use the latest request as authorization for a new
 occurrence.
+
+Scheduled occurrences do not enter the human approval inbox. The approved batch
+definition is the approval source of truth; each occurrence writes delegated
+approval evidence and then dispatches through the same dispatcher-plus-Gate
+path used by manual requests.

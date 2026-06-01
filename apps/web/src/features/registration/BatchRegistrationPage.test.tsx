@@ -41,7 +41,9 @@ describe("BatchRegistrationPage", () => {
     expect(
       await screen.findAllByText(/payment.daily-close.yml/),
     ).not.toHaveLength(0);
-    expect(screen.getByText(/id: "payment.daily-close"/)).toBeInTheDocument();
+    expect(screen.getAllByText(/id: "payment.daily-close"/)).not.toHaveLength(
+      0,
+    );
     expect(
       screen.getByText(/path: ".github\/workflows\/payment.daily-close.yml"/),
     ).toBeInTheDocument();
