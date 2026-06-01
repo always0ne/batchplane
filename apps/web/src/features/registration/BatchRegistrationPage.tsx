@@ -821,7 +821,10 @@ function PullRequestReviewPanel({
   const execution = definition.execution;
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <article
+      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+      id="schedules"
+    >
       <div>
         <h2 className="text-lg font-semibold text-bp-graphite">
           {t("review.title")}

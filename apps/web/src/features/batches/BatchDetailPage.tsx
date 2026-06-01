@@ -316,7 +316,7 @@ function BatchProfileCard({
       </div>
 
       <section className="mt-5 border-t border-slate-100 pt-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
           <div>
             <h3 className="text-sm font-bold text-bp-graphite">
               {t("detail.schedules.title")}
@@ -324,13 +324,10 @@ function BatchProfileCard({
             <p className="mt-1 text-sm text-bp-muted">
               {t("detail.schedules.subtitle")}
             </p>
+            <p className="mt-2 text-sm font-medium text-bp-muted">
+              {t("detail.schedules.managementHint")}
+            </p>
           </div>
-          <Link
-            className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-            to={`/batches/${encodeURIComponent(batch.batchId)}/schedules/new`}
-          >
-            {t("detail.schedules.register")}
-          </Link>
         </div>
 
         {schedules.length === 0 ? (
@@ -367,12 +364,6 @@ function BatchProfileCard({
                       {schedule.scheduleId}
                     </p>
                   </div>
-                  <Link
-                    className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-                    to={`/batches/${encodeURIComponent(batch.batchId)}/schedules/new?change=${encodeURIComponent(schedule.scheduleId)}`}
-                  >
-                    {t("detail.schedules.change")}
-                  </Link>
                 </div>
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
                   <DetailFact

@@ -45,6 +45,20 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("redirects direct schedule routes into the batch change request flow", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/batches/payment.daily-close/schedules/new"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Change request" }),
+    ).toBeInTheDocument();
+  });
+
   it("renders the execution run detail route with the development fixture", async () => {
     sessionStorage.setItem("batchplane.dev.runtimeFixture", "happy-path");
 
