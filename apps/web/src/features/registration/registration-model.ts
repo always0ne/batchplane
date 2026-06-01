@@ -13,7 +13,11 @@ import type {
   YamlValue,
 } from "@batchplane/domain";
 
-import { batchPlaneGateActionRef } from "../../shared/github-action-references";
+import {
+  batchPlaneDispatcherActionRef,
+  batchPlaneGateActionRef,
+  batchPlaneScheduleRequestActionRef,
+} from "../../shared/github-action-references";
 
 export type BatchRegistrationFormValues = {
   batchId: string;
@@ -182,6 +186,24 @@ export function buildBatchWorkflowYaml(
   const batchId = definition.batchId || "batch-id";
   const runCommandLines = indentRunCommand(runCommand);
   const runner = formatRunnerLabel(runnerLabel);
+  const batchPath = getBatchDefinitionPath(batchId);
+  const enabledSchedules = (definition.schedules ?? []).filter(
+    (schedule) => schedule.enabled,
+  );
+  const scheduleEntries = Array.from(
+    new Map(
+      enabledSchedules
+        .map((schedule) => ({
+          cron: schedule.cron.trim(),
+          timezone: schedule.timezone.trim(),
+        }))
+        .filter((schedule) => schedule.cron)
+        .map((schedule) => [
+          `${schedule.cron}@@${schedule.timezone}`,
+          schedule,
+        ]),
+    ).values(),
+  );
 
   return [
     `name: ${yamlString(`BatchPlane - ${workflowName}`)}`,
@@ -202,15 +224,35 @@ export function buildBatchWorkflowYaml(
     "        description: BatchPlane approved request digest",
     "        required: true",
     "        type: string",
-    "",
-    "permissions:",
-    "  contents: read",
-    "  issues: read",
+    "      schedule_id:",
+    "        description: BatchPlane schedule identifier for scheduled dispatches",
+    "        required: false",
+    "        type: string",
+    ...(scheduleEntries.length > 0
+      ? [
+          "  schedule:",
+          ...scheduleEntries.flatMap((schedule) => [
+            `    - cron: ${yamlString(schedule.cron)}`,
+            `      timezone: ${yamlString(schedule.timezone)}`,
+          ]),
+        ]
+      : []),
     "",
     "jobs:",
+    ...enabledSchedules.flatMap((schedule) =>
+      buildScheduledRequestJobLines({
+        batchId,
+        batchPath,
+        schedule,
+      }),
+    ),
     "  batchplane-gate:",
     "    name: BatchPlane Gate",
+    "    if: github.event_name == 'workflow_dispatch'",
     "    runs-on: ubuntu-latest",
+    "    permissions:",
+    "      contents: read",
+    "      issues: read",
     "    steps:",
     "      - name: Verify approved execution evidence",
     `        uses: ${batchPlaneGateActionRef}`,
@@ -222,12 +264,16 @@ export function buildBatchWorkflowYaml(
     "          approval-source: issue",
     "          approval-ref: ${{ inputs.request_id }}",
     "          request-digest: ${{ inputs.request_digest }}",
+    "          schedule-id: ${{ inputs.schedule_id }}",
     "          github-token: ${{ secrets.GITHUB_TOKEN }}",
     "",
     "  run-batch:",
     "    name: Run governed batch",
+    "    if: github.event_name == 'workflow_dispatch'",
     `    runs-on: ${runner}`,
     "    needs: batchplane-gate",
+    "    permissions:",
+    "      contents: read",
     "    steps:",
     "      - name: Checkout registered assets",
     "        uses: actions/checkout@v4",
@@ -593,4 +639,61 @@ function formatRunnerLabel(runnerLabel: string): string {
   }
 
   return yamlString(runner);
+}
+
+function buildScheduledRequestJobLines({
+  batchId,
+  batchPath,
+  schedule,
+}: {
+  batchId: string;
+  batchPath: string;
+  schedule: BatchSchedule;
+}): string[] {
+  const jobId = toWorkflowJobId(`schedule-${schedule.scheduleId}`);
+
+  return [
+    `  ${jobId}:`,
+    `    name: ${yamlString(`Schedule ${schedule.name || schedule.scheduleId}`)}`,
+    `    if: github.event_name == 'schedule' && github.event.schedule == ${yamlString(schedule.cron)} && github.run_attempt == 1`,
+    "    concurrency:",
+    `      group: ${yamlString(`batchplane-schedule-${toWorkflowJobId(batchId)}-${toWorkflowJobId(schedule.scheduleId)}`)}`,
+    "      cancel-in-progress: false",
+    "    runs-on: ubuntu-latest",
+    "    permissions:",
+    "      actions: write",
+    "      contents: read",
+    "      issues: write",
+    "    steps:",
+    "      - name: Create or reuse scheduled execution request",
+    "        id: schedule_request",
+    `        uses: ${batchPlaneScheduleRequestActionRef}`,
+    "        with:",
+    `          batch-id: ${yamlString(batchId)}`,
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          cron: ${yamlString(schedule.cron)}`,
+    `          timezone: ${yamlString(schedule.timezone)}`,
+    `          definition-path: ${yamlString(batchPath)}`,
+    "          config-path: .batch-governance",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "      - name: Dispatch approved scheduled request",
+    "        if: steps.schedule_request.outputs.approval-comment-id != ''",
+    `        uses: ${batchPlaneDispatcherActionRef}`,
+    "        with:",
+    "          issue-number: ${{ steps.schedule_request.outputs.issue-number }}",
+    "          comment-id: ${{ steps.schedule_request.outputs.approval-comment-id }}",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "",
+  ];
+}
+
+function toWorkflowJobId(value: string): string {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 48) || "schedule_request"
+  );
 }

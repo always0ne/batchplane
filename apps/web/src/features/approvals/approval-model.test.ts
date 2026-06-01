@@ -40,6 +40,7 @@ const executionIssue: RepositoryIssue = {
     "- Requested by: @developer",
     "- Requested at: 2026-05-09T01:02:03.000Z",
     "- Expires at: 2026-05-09T02:02:03.000Z",
+    "- Trigger type: `MANUAL`",
     "- Request digest: `sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`",
     "- Status: REQUESTED",
     "",
@@ -213,6 +214,7 @@ describe("approval model", () => {
       requestedAt: "2026-05-09T01:02:03.000Z",
       requestedBy: "developer",
       requestId: "btr-20260509010203-payment.daily-close-abcdef12",
+      triggerType: "MANUAL",
       status: "REQUESTED",
       workflow: {
         path: ".github/workflows/payment.daily-close.yml",

@@ -1,3 +1,9 @@
+import {
+  createParameterDigest,
+  createRequestDigest,
+  type CanonicalValue,
+} from "@batchplane/digest";
+
 export const batchPlaneApiVersion = "batchplane.io/v1";
 export const legacyBatchPlaneApiVersion = "batchtrail.io/v1";
 export const supportedBatchPlaneApiVersions = [
@@ -620,6 +626,312 @@ export type ExecutionRequestPayload = {
     schedule?: ScheduleOccurrenceRef;
   };
 };
+
+export type ExecutionRequestParameterInput = {
+  name: string;
+  sensitive: boolean;
+  value: string;
+};
+
+export type ExecutionRequestIssue = {
+  body: string;
+  labels: string[];
+  payload: ExecutionRequestPayload;
+  request: ExecutionRequest;
+  title: string;
+};
+
+export type ExecutionApprovalCommentType = "MANUAL" | "SCHEDULE_DELEGATED";
+
+export type BuildExecutionRequestIssueParams = {
+  batch: BatchDefinition;
+  expiresAt: Date;
+  parameters?: ExecutionRequestParameterInput[];
+  reason?: string;
+  requestId?: string;
+  requestedAt: Date;
+  requestedBy: string;
+  schedule?: ScheduleOccurrenceRef;
+  triggerType?: ExecutionTriggerType;
+  workflowRef?: string;
+};
+
+export type BuildExecutionApprovalCommentParams = {
+  approvedAt: Date;
+  approvalMode?: WorkspaceApprovalMode;
+  approvalType?: ExecutionApprovalCommentType;
+  approver: string;
+  request: Pick<
+    ExecutionRequest,
+    "batchId" | "requestDigest" | "requestId" | "requestedBy"
+  >;
+};
+
+export async function buildExecutionRequestIssue({
+  batch,
+  expiresAt,
+  parameters = [],
+  reason = "Manual request from BatchPlane Lite.",
+  requestId,
+  requestedAt,
+  requestedBy,
+  schedule,
+  triggerType = "MANUAL",
+  workflowRef,
+}: BuildExecutionRequestIssueParams): Promise<ExecutionRequestIssue> {
+  const effectiveRequestId =
+    requestId ??
+    (triggerType === "SCHEDULE" && schedule
+      ? createScheduledExecutionRequestId(
+          batch.batchId,
+          schedule.scheduleId,
+          schedule.scheduledAt,
+        )
+      : createExecutionRequestId(batch.batchId, requestedAt));
+  const requestedAtIso = requestedAt.toISOString();
+  const expiresAtIso = expiresAt.toISOString();
+  const parameterPayload = await buildParameterPayload(parameters);
+  const effectiveWorkflowRef = workflowRef?.trim() || batch.workflow.ref;
+  const payload: ExecutionRequestPayload = {
+    apiVersion: batchPlaneApiVersion,
+    kind: "ExecutionRequest",
+    metadata: {
+      batchId: batch.batchId,
+      requestId: effectiveRequestId,
+    },
+    spec: {
+      batch: {
+        criticality: batch.criticality,
+        domain: batch.domain,
+        environment: batch.environment,
+        name: batch.name,
+        owner: batch.owner,
+      },
+      execution: batch.execution
+        ? {
+            ...(batch.execution.artifactPath
+              ? { artifactPath: batch.execution.artifactPath }
+              : {}),
+            command: batch.execution.command,
+            gateRequired: batch.gateRequired,
+            runsOn: batch.execution.runsOn,
+          }
+        : undefined,
+      expiresAt: expiresAtIso,
+      reason,
+      requestedAt: requestedAtIso,
+      requestedBy,
+      ...(parameterPayload ? { parameters: parameterPayload } : {}),
+      ...(triggerType !== "MANUAL" ? { triggerType } : {}),
+      workflow: {
+        path: batch.workflow.path,
+        ref: effectiveWorkflowRef,
+      },
+      ...(schedule ? { schedule } : {}),
+    },
+  };
+  const requestDigest = await createRequestDigest(
+    payload as unknown as CanonicalValue,
+  );
+  const request: ExecutionRequest = {
+    batchId: batch.batchId,
+    expiresAt: expiresAtIso,
+    requestDigest,
+    requestedAt: requestedAtIso,
+    requestedBy,
+    requestId: effectiveRequestId,
+    status: "REQUESTED",
+    ...(reason ? { reason } : {}),
+    ...(triggerType !== "MANUAL" ? { triggerType } : {}),
+    ...(schedule ? { schedule } : {}),
+  };
+
+  return {
+    body: buildExecutionRequestBody({ payload, request }),
+    labels:
+      triggerType === "SCHEDULE"
+        ? ["batchplane:execution-request", "batchplane:scheduled-execution"]
+        : ["batchplane:execution-request"],
+    payload,
+    request,
+    title:
+      triggerType === "SCHEDULE"
+        ? `Scheduled run ${batch.batchId}`
+        : `Run batch ${batch.batchId}`,
+  };
+}
+
+export function createExecutionRequestId(
+  batchId: string,
+  date = new Date(),
+  entropy = createEntropy(),
+): string {
+  return `btr-${formatRequestTimestamp(date.toISOString())}-${toRequestSlug(
+    batchId,
+    48,
+  )}-${entropy}`;
+}
+
+export function createScheduledExecutionRequestId(
+  batchId: string,
+  scheduleId: string,
+  scheduledAt: string | Date,
+): string {
+  return `btr-${formatRequestTimestamp(
+    scheduledAt instanceof Date ? scheduledAt.toISOString() : scheduledAt,
+  )}-${toRequestSlug(batchId, 24)}-${toRequestSlug(scheduleId, 24)}`;
+}
+
+export function addHours(date: Date, hours: number): Date {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
+export function buildExecutionApprovalComment({
+  approvedAt,
+  approvalMode,
+  approvalType = "MANUAL",
+  approver,
+  request,
+}: BuildExecutionApprovalCommentParams): string {
+  const selfApproval = approver === request.requestedBy;
+  const scheduleDelegated = approvalType === "SCHEDULE_DELEGATED";
+
+  return [
+    `/bgcp approve requestDigest=${request.requestDigest}`,
+    "",
+    "## BatchPlane Execution Approval",
+    "",
+    "- Decision: APPROVED",
+    `- Approver: @${approver}`,
+    `- Approved at: ${approvedAt.toISOString()}`,
+    ...(approvalMode ? [`- Approval mode: ${approvalMode}`] : []),
+    ...(scheduleDelegated ? ["- Approval type: SCHEDULE_DELEGATED"] : []),
+    ...(!scheduleDelegated && selfApproval
+      ? ["- Self approval: ALLOWED_BY_WORKSPACE_POLICY"]
+      : []),
+    `- Request ID: \`${request.requestId}\``,
+    `- Batch ID: \`${request.batchId}\``,
+    `- Request digest: \`${request.requestDigest}\``,
+    "",
+    "This approval evidence was recorded by BatchPlane Lite.",
+    "",
+    "<!-- batchplane:execution-approval",
+    "decision=APPROVED",
+    `requestId=${request.requestId}`,
+    `batchId=${request.batchId}`,
+    `requestDigest=${request.requestDigest}`,
+    ...(approvalMode ? [`approvalMode=${approvalMode}`] : []),
+    ...(scheduleDelegated ? ["approvalType=SCHEDULE_DELEGATED"] : []),
+    ...(!scheduleDelegated && selfApproval ? ["selfApproval=true"] : []),
+    "-->",
+  ].join("\n");
+}
+
+function buildExecutionRequestBody({
+  payload,
+  request,
+}: {
+  payload: ExecutionRequestPayload;
+  request: ExecutionRequest;
+}): string {
+  return [
+    "## BatchPlane Execution Request",
+    "",
+    `- Request ID: \`${request.requestId}\``,
+    `- Batch ID: \`${request.batchId}\``,
+    `- Requested by: @${request.requestedBy}`,
+    `- Requested at: ${request.requestedAt}`,
+    `- Expires at: ${request.expiresAt}`,
+    `- Trigger type: \`${request.triggerType ?? "MANUAL"}\``,
+    ...(request.schedule
+      ? [
+          `- Schedule ID: \`${request.schedule.scheduleId}\``,
+          `- Scheduled at: ${request.schedule.scheduledAt}`,
+        ]
+      : []),
+    `- Request digest: \`${request.requestDigest}\``,
+    `- Status: ${request.status}`,
+    "",
+    "### Canonical payload",
+    "",
+    "```json",
+    JSON.stringify(payload, null, 2),
+    "```",
+    "",
+    "<!-- batchplane:execution-request",
+    `requestId=${request.requestId}`,
+    `batchId=${request.batchId}`,
+    `requestDigest=${request.requestDigest}`,
+    `status=${request.status}`,
+    "-->",
+  ].join("\n");
+}
+
+function createEntropy(): string {
+  const bytes = new Uint8Array(4);
+
+  globalThis.crypto.getRandomValues(bytes);
+
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
+async function buildParameterPayload(
+  parameters: ExecutionRequestParameterInput[],
+): Promise<ExecutionRequestPayload["spec"]["parameters"] | undefined> {
+  const entries = await Promise.all(
+    parameters
+      .map((parameter) => ({
+        name: parameter.name.trim(),
+        sensitive: parameter.sensitive,
+        value: parameter.value,
+      }))
+      .filter((parameter) => parameter.name.length > 0)
+      .map(async (parameter) => {
+        if (parameter.sensitive) {
+          return [
+            parameter.name,
+            {
+              sensitive: true,
+              valueDigest: await createParameterDigest({
+                [parameter.name]: parameter.value,
+              }),
+            },
+          ] as const;
+        }
+
+        return [
+          parameter.name,
+          {
+            value: parameter.value,
+          },
+        ] as const;
+      }),
+  );
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function formatRequestTimestamp(value: string): string {
+  return value
+    .replaceAll("-", "")
+    .replaceAll(":", "")
+    .replaceAll(".", "")
+    .replaceAll("T", "")
+    .replaceAll("Z", "")
+    .slice(0, 14);
+}
+
+function toRequestSlug(value: string, maxLength: number): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug.slice(0, maxLength) || "batch";
+}
 
 export type GitHubLiteRepositoryFile =
   | BatchGovernanceConfigFile

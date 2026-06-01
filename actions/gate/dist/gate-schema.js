@@ -133,6 +133,17 @@ export function validateBatchDefinitionFile(file) {
             },
             spec: {
                 gateRequired: spec.gateRequired,
+                schedules: Array.isArray(spec.schedules)
+                    ? spec.schedules
+                        .map(asRecord)
+                        .filter((schedule) => schedule !== null &&
+                        isString(schedule.id) &&
+                        isBoolean(schedule.enabled))
+                        .map((schedule) => ({
+                        enabled: schedule.enabled,
+                        id: schedule.id,
+                    }))
+                    : undefined,
                 status: spec.status,
                 workflow: {
                     path: workflow.path,

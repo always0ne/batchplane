@@ -51,6 +51,11 @@ number, comment ID, and repository `GITHUB_TOKEN`. It must serialize runs per
 execution request Issue using workflow `concurrency` so duplicate approval
 comments cannot dispatch the same request in parallel.
 
+This dispatcher workflow is for manual approvals. Scheduled occurrences do not
+wait in the approval inbox. Their generated workflow job creates or reuses the
+occurrence request, records delegated approval evidence, and then invokes
+`actions/dispatcher` directly inside the same workflow run.
+
 New generated workflows must use the renamed action repository reference
 `always0ne/batchplane`. Legacy target repositories that still reference
 `always0ne/batchtrail` rely on GitHub repository redirects until they regenerate
@@ -83,6 +88,19 @@ The generated workflow must include:
 - A batch job that depends on `batchplane-gate`.
 - Checkout before running repository-registered execution assets.
 - The user-defined batch command after Gate.
+
+If schedules are enabled for the batch, the generated workflow must also
+include:
+
+- `on.schedule` entries derived from `BatchDefinition.schedules[]`
+- one scheduler job per enabled schedule
+- job-level `concurrency` per schedule so duplicate cron deliveries do not
+  create parallel occurrence requests
+- `actions/schedule-request` before any dispatch attempt
+- direct invocation of `actions/dispatcher` after delegated approval evidence
+  exists
+
+The scheduler job must never run the batch command directly.
 
 `gateRequired` is an invariant. It is not an optional checkbox.
 
@@ -370,6 +388,9 @@ Each scheduled occurrence request must include:
 Automatic approval is allowed only when the request is derived from an approved
 schedule definition. This is equivalent to delegated approval, not to skipping
 approval.
+
+Scheduled occurrence requests must not appear in the manual approval inbox.
+They are auditable execution records, not human approval tasks.
 
 The latest request status may be used for idempotency, overlap prevention,
 retry, and skip policy. It must not be used as authorization for a new

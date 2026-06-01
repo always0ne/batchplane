@@ -87,6 +87,16 @@ branch, and removes the request from the approval inbox. Return to `Batches` and
 choose `Refresh`; the approved batch definition should appear from the
 repository's `.batch-governance/batches` directory.
 
+To test schedule execution, include at least one enabled schedule during batch
+registration or change approval. After the registration PR is merged, GitHub
+Actions cron triggers create one execution request Issue per occurrence,
+record delegated approval evidence automatically, and dispatch the governed
+workflow through the same Gate-protected path as manual requests. Scheduled
+occurrences do not wait in `Approvals`; they appear as execution request/audit
+evidence and in execution run history. GitHub Actions scheduled workflows run
+from the latest commit on the repository's default branch, support a minimum
+interval of 5 minutes, and may be delayed during high-load periods.
+
 Lite currently covers repository installation PR creation, registration
 request, approval, merge, repo-backed batch listing, execution request creation,
 execution approval evidence, and dispatcher-side `workflow_dispatch`. Target

@@ -29,6 +29,10 @@ export type BatchDefinitionFile = {
       path: string;
       ref: string;
     };
+    schedules?: Array<{
+      id: string;
+      enabled: boolean;
+    }>;
   };
 };
 
@@ -262,6 +266,25 @@ export function validateBatchDefinitionFile(
       },
       spec: {
         gateRequired: spec.gateRequired,
+        schedules: Array.isArray(spec.schedules)
+          ? spec.schedules
+              .map(asRecord)
+              .filter(
+                (
+                  schedule,
+                ): schedule is {
+                  id: string;
+                  enabled: boolean;
+                } =>
+                  schedule !== null &&
+                  isString(schedule.id) &&
+                  isBoolean(schedule.enabled),
+              )
+              .map((schedule) => ({
+                enabled: schedule.enabled,
+                id: schedule.id,
+              }))
+          : undefined,
         status: spec.status,
         workflow: {
           path: workflow.path,
