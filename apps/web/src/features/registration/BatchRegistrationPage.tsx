@@ -4,6 +4,7 @@ import type {
   Criticality,
   RepositoryPullRequest,
   RunnerLabel,
+  ScheduleDefinition,
 } from "@batchplane/domain";
 import {
   AlertCircle,
@@ -12,7 +13,9 @@ import {
   FileText,
   GitPullRequest,
   Loader2,
+  Plus,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import {
   type ChangeEvent,
@@ -55,6 +58,14 @@ import {
   type BatchRegistrationFormValues,
   type RegistrationRequestMode,
 } from "./registration-model";
+import {
+  defaultScheduleFormValues,
+  serializeScheduleDefinitionYaml,
+  toScheduleDefinition,
+  toScheduleFormValues,
+  validateScheduleRegistration,
+  type ScheduleFormValues,
+} from "../schedules/schedule-model";
 
 type SubmissionState =
   | { type: "idle" }
@@ -65,6 +76,12 @@ type SubmissionState =
 type UploadedExecutionFile = {
   contentBase64: string;
   name: string;
+};
+
+type ScheduleDraft = {
+  key: string;
+  locked: boolean;
+  values: ScheduleFormValues;
 };
 
 type PrefillState =
@@ -83,6 +100,7 @@ const runnerOptions = [
   "macos-latest",
   "self-hosted",
 ] as const;
+let scheduleDraftSequence = 0;
 
 export function BatchRegistrationPage() {
   const { t } = useTranslation("registration");
@@ -99,6 +117,7 @@ export function BatchRegistrationPage() {
   });
   const [uploadedFile, setUploadedFile] =
     useState<UploadedExecutionFile | null>(null);
+  const [scheduleDrafts, setScheduleDrafts] = useState<ScheduleDraft[]>([]);
   const [autoFileCommand, setAutoFileCommand] = useState<string | null>(null);
   const [existingArtifactPath, setExistingArtifactPath] = useState<
     string | null
@@ -128,6 +147,13 @@ export function BatchRegistrationPage() {
       buildBatchWorkflowYaml(definition, values.runCommand, values.runnerLabel),
     [definition, values.runCommand, values.runnerLabel],
   );
+  const scheduleDefinitions = useMemo(
+    () =>
+      scheduleDrafts.map((draft) =>
+        toScheduleDefinition(definition.batchId, draft.values),
+      ),
+    [definition.batchId, scheduleDrafts],
+  );
   const missingFields = useMemo(() => {
     const fields = validateBatchRegistration(definition);
 
@@ -139,8 +165,34 @@ export function BatchRegistrationPage() {
       fields.push("runnerLabel");
     }
 
+    const scheduleIdToIndexes = new Map<string, number[]>();
+    scheduleDefinitions.forEach((schedule, index) => {
+      validateScheduleRegistration(schedule)
+        .filter((field) => field !== "batchId")
+        .forEach((field) => fields.push(`schedule[${index + 1}].${field}`));
+
+      if (!schedule.scheduleId) {
+        return;
+      }
+
+      const existingIndexes =
+        scheduleIdToIndexes.get(schedule.scheduleId) ?? [];
+      existingIndexes.push(index + 1);
+      scheduleIdToIndexes.set(schedule.scheduleId, existingIndexes);
+    });
+
+    for (const [scheduleId, indexes] of scheduleIdToIndexes.entries()) {
+      if (indexes.length > 1) {
+        indexes.forEach((index) =>
+          fields.push(
+            `schedule[${index}].scheduleId duplicate (${scheduleId})`,
+          ),
+        );
+      }
+    }
+
     return fields;
-  }, [definition, values.runCommand, values.runnerLabel]);
+  }, [definition, scheduleDefinitions, values.runCommand, values.runnerLabel]);
   const batchPath = getBatchDefinitionPath(definition.batchId);
   const workflowPath = definition.workflow.path;
   const nextAutoFileCommand = resolvedArtifactPath
@@ -177,6 +229,7 @@ export function BatchRegistrationPage() {
     setPrefillState({ type: "ready" });
     setExistingArtifactPath(null);
     setUploadedFile(null);
+    setScheduleDrafts([]);
     setAutoFileCommand(null);
     setValues(defaultBatchRegistrationValues);
   }, [mode]);
@@ -203,9 +256,15 @@ export function BatchRegistrationPage() {
       try {
         const runtime = createBatchPlaneRuntime(session);
         const repository = await runtime.settings.getRepository();
-        const batches = await runtime.batches.listBatchDefinitions({
-          ref: repository.defaultBranch,
-        });
+        const [batches, schedules] = await Promise.all([
+          runtime.batches.listBatchDefinitions({
+            ref: repository.defaultBranch,
+          }),
+          runtime.schedules.listScheduleDefinitions({
+            batchId: changeBatchId,
+            ref: repository.defaultBranch,
+          }),
+        ]);
         const batch = batches.find(
           (candidate) => candidate.batchId === changeBatchId,
         );
@@ -218,7 +277,7 @@ export function BatchRegistrationPage() {
         }
 
         if (!ignoreResult) {
-          applyPrefill(batch);
+          applyPrefill(batch, schedules);
         }
       } catch (error) {
         if (!ignoreResult) {
@@ -240,13 +299,51 @@ export function BatchRegistrationPage() {
     };
   }, [changeBatchId, mode, t]);
 
-  function applyPrefill(batch: BatchDefinition) {
+  function applyPrefill(
+    batch: BatchDefinition,
+    schedules: ScheduleDefinition[] = [],
+  ) {
     setValues(toBatchRegistrationFormValues(batch));
     setExistingArtifactPath(batch.execution?.artifactPath ?? null);
     setUploadedFile(null);
+    setScheduleDrafts(
+      schedules.map((schedule) => ({
+        key: nextScheduleDraftKey(),
+        locked: true,
+        values: toScheduleFormValues(schedule),
+      })),
+    );
     setAutoFileCommand(null);
     setSubmissionState({ type: "idle" });
     setPrefillState({ type: "ready" });
+  }
+
+  function addScheduleDraft() {
+    setScheduleDrafts((current) => [
+      ...current,
+      {
+        key: nextScheduleDraftKey(),
+        locked: false,
+        values: { ...defaultScheduleFormValues },
+      },
+    ]);
+  }
+
+  function removeScheduleDraft(key: string) {
+    setScheduleDrafts((current) =>
+      current.filter((draft) => draft.key !== key),
+    );
+  }
+
+  function updateScheduleDraft(
+    key: string,
+    updater: (values: ScheduleFormValues) => ScheduleFormValues,
+  ) {
+    setScheduleDrafts((current) =>
+      current.map((draft) =>
+        draft.key === key ? { ...draft, values: updater(draft.values) } : draft,
+      ),
+    );
   }
 
   function updateTextField(
@@ -293,12 +390,16 @@ export function BatchRegistrationPage() {
     try {
       const runtime = createBatchPlaneRuntime(session);
       const repository = await runtime.settings.getRepository();
-      const registrationTargets =
-        await runtime.registration.checkRegistrationTargets({
+      const [registrationTargets, existingSchedules] = await Promise.all([
+        runtime.registration.checkRegistrationTargets({
           baseBranch: repository.defaultBranch,
           batchDefinitionPath: batchPath,
           workflowPath,
-        });
+        }),
+        runtime.schedules.listScheduleDefinitions({
+          ref: repository.defaultBranch,
+        }),
+      ]);
 
       if (mode === "create" && registrationTargets.batchDefinitionExists) {
         setSubmissionState({
@@ -324,6 +425,36 @@ export function BatchRegistrationPage() {
         return;
       }
 
+      const conflictingSchedule = scheduleDefinitions.find((schedule) => {
+        if (!schedule.scheduleId) {
+          return false;
+        }
+
+        const existing = existingSchedules.find(
+          (candidate) => candidate.scheduleId === schedule.scheduleId,
+        );
+
+        if (!existing) {
+          return false;
+        }
+
+        if (mode === "change" && existing.batchId === definition.batchId) {
+          return false;
+        }
+
+        return true;
+      });
+
+      if (conflictingSchedule) {
+        setSubmissionState({
+          type: "error",
+          message: t("errors.scheduleAlreadyExists", {
+            path: conflictingSchedule.definitionPath,
+          }),
+        });
+        return;
+      }
+
       const branch = createRegistrationBranchName(definition.batchId, mode);
       const title = buildRegistrationPullRequestTitle(definition, mode);
       const pullRequest =
@@ -339,8 +470,16 @@ export function BatchRegistrationPage() {
           baseBranch: repository.defaultBranch,
           batchDefinitionPath: batchPath,
           batchDefinitionYaml: yaml,
-          body: buildRegistrationPullRequestBody(definition, mode),
+          body: buildRegistrationPullRequestBody(
+            definition,
+            mode,
+            scheduleDefinitions,
+          ),
           branch,
+          scheduleDefinitions: scheduleDefinitions.map((schedule) => ({
+            path: schedule.definitionPath,
+            yaml: serializeScheduleDefinitionYaml(schedule),
+          })),
           title,
           workflowPath,
           workflowYaml: generatedWorkflowYaml,
@@ -570,6 +709,14 @@ export function BatchRegistrationPage() {
             />
           </article>
 
+          <ScheduleDefinitionsPanel
+            drafts={scheduleDrafts}
+            mode={mode}
+            onAdd={addScheduleDraft}
+            onRemove={removeScheduleDraft}
+            onUpdate={updateScheduleDraft}
+          />
+
           <SubmissionBanner mode={mode} state={submissionState} />
         </div>
 
@@ -580,6 +727,7 @@ export function BatchRegistrationPage() {
             definition={definition}
             missingFields={missingFields}
             mode={mode}
+            scheduleDefinitions={scheduleDefinitions}
             submissionState={submissionState}
             uploadedFilePath={resolvedArtifactPath}
             workflowPath={workflowPath}
@@ -587,6 +735,7 @@ export function BatchRegistrationPage() {
           <YamlPreviewPanel
             batchPath={batchPath}
             batchYaml={yaml}
+            scheduleDefinitions={scheduleDefinitions}
             workflowPath={workflowPath}
             workflowYaml={generatedWorkflowYaml}
           />
@@ -602,6 +751,7 @@ function PullRequestReviewPanel({
   definition,
   missingFields,
   mode,
+  scheduleDefinitions,
   submissionState,
   uploadedFilePath,
   workflowPath,
@@ -611,6 +761,7 @@ function PullRequestReviewPanel({
   definition: ReturnType<typeof toBatchDefinition>;
   missingFields: string[];
   mode: RegistrationRequestMode;
+  scheduleDefinitions: ScheduleDefinition[];
   submissionState: SubmissionState;
   uploadedFilePath: string | null;
   workflowPath: string;
@@ -642,6 +793,19 @@ function PullRequestReviewPanel({
             label={t("review.files.workflow")}
             value={workflowPath || t("review.files.pending")}
           />
+          <ReviewFileRow
+            label={t("review.files.scheduleCount")}
+            value={String(scheduleDefinitions.length)}
+          />
+          {scheduleDefinitions.map((schedule, index) => (
+            <ReviewFileRow
+              key={`${schedule.scheduleId || "schedule"}-${index}`}
+              label={t("review.files.scheduleDefinition", {
+                scheduleId: schedule.scheduleId || index + 1,
+              })}
+              value={schedule.definitionPath}
+            />
+          ))}
           <ReviewFileRow
             label={t("review.files.executionFile")}
             value={uploadedFilePath || t("review.files.noExecutionFile")}
@@ -683,6 +847,14 @@ function PullRequestReviewPanel({
                 ? t("review.checklist.commandMissing")
                 : t("review.checklist.commandRecorded")
             }
+          />
+          <ReviewCheckItem
+            ready={
+              !missingFields.some((field) => field.startsWith("schedule["))
+            }
+            text={t("review.checklist.scheduleDefinitionsRecorded", {
+              count: scheduleDefinitions.length,
+            })}
           />
         </ul>
       </section>
@@ -745,11 +917,13 @@ function ReviewCheckItem({ ready, text }: { ready: boolean; text: string }) {
 function YamlPreviewPanel({
   batchPath,
   batchYaml,
+  scheduleDefinitions,
   workflowPath,
   workflowYaml,
 }: {
   batchPath: string;
   batchYaml: string;
+  scheduleDefinitions: ScheduleDefinition[];
   workflowPath: string;
   workflowYaml: string;
 }) {
@@ -774,7 +948,177 @@ function YamlPreviewPanel({
           title={t("preview.workflowTitle")}
           yaml={workflowYaml}
         />
+        {scheduleDefinitions.map((schedule, index) => (
+          <PreviewDetails
+            icon={<FileText className="h-4 w-4 text-bp-git" aria-hidden />}
+            key={`${schedule.scheduleId || "schedule"}-${index}`}
+            path={schedule.definitionPath}
+            title={t("preview.scheduleTitle", {
+              scheduleId: schedule.scheduleId || index + 1,
+            })}
+            yaml={serializeScheduleDefinitionYaml(schedule)}
+          />
+        ))}
       </div>
+    </article>
+  );
+}
+
+function ScheduleDefinitionsPanel({
+  drafts,
+  mode,
+  onAdd,
+  onRemove,
+  onUpdate,
+}: {
+  drafts: ScheduleDraft[];
+  mode: RegistrationRequestMode;
+  onAdd: () => void;
+  onRemove: (key: string) => void;
+  onUpdate: (
+    key: string,
+    updater: (values: ScheduleFormValues) => ScheduleFormValues,
+  ) => void;
+}) {
+  const { t } = useTranslation("registration");
+
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-bp-graphite">
+            {t("form.schedules.title")}
+          </h2>
+          <p className="mt-1 text-sm text-bp-muted">
+            {t(
+              mode === "change"
+                ? "form.schedules.subtitleChange"
+                : "form.schedules.subtitle",
+            )}
+          </p>
+        </div>
+        <button
+          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+          onClick={onAdd}
+          type="button"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          {t("form.schedules.add")}
+        </button>
+      </div>
+
+      {drafts.length === 0 ? (
+        <p className="mt-4 text-sm text-bp-muted">
+          {t("form.schedules.empty")}
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {drafts.map((draft, index) => (
+            <section
+              className="rounded-md border border-slate-200 bg-slate-50 p-4"
+              key={draft.key}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-bp-graphite">
+                    {t("form.schedules.itemTitle", { index: index + 1 })}
+                  </h3>
+                  <p className="mt-1 text-xs text-bp-muted">
+                    {draft.locked
+                      ? t("form.schedules.existing")
+                      : t("form.schedules.new")}
+                  </p>
+                </div>
+                {!draft.locked ? (
+                  <button
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+                    onClick={() => onRemove(draft.key)}
+                    type="button"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    {t("form.schedules.remove")}
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {draft.locked ? (
+                  <ReadOnlyField
+                    label={t("form.schedules.scheduleId")}
+                    value={draft.values.scheduleId}
+                  />
+                ) : (
+                  <TextField
+                    label={t("form.schedules.scheduleId")}
+                    onChange={(event) =>
+                      onUpdate(draft.key, (values) => ({
+                        ...values,
+                        scheduleId: event.target.value,
+                      }))
+                    }
+                    placeholder="payment.daily-close-daily"
+                    value={draft.values.scheduleId}
+                  />
+                )}
+                <TextField
+                  label={t("form.schedules.name")}
+                  onChange={(event) =>
+                    onUpdate(draft.key, (values) => ({
+                      ...values,
+                      name: event.target.value,
+                    }))
+                  }
+                  placeholder="Daily settlement window"
+                  value={draft.values.name}
+                />
+                <TextField
+                  label={t("form.schedules.approvalPolicyId")}
+                  onChange={(event) =>
+                    onUpdate(draft.key, (values) => ({
+                      ...values,
+                      approvalPolicyId: event.target.value,
+                    }))
+                  }
+                  placeholder="prod-self-approval-blocked"
+                  value={draft.values.approvalPolicyId}
+                />
+                <TextField
+                  label={t("form.schedules.cron")}
+                  onChange={(event) =>
+                    onUpdate(draft.key, (values) => ({
+                      ...values,
+                      cron: event.target.value,
+                    }))
+                  }
+                  placeholder="0 5 * * *"
+                  value={draft.values.cron}
+                />
+                <TextField
+                  label={t("form.schedules.timezone")}
+                  onChange={(event) =>
+                    onUpdate(draft.key, (values) => ({
+                      ...values,
+                      timezone: event.target.value,
+                    }))
+                  }
+                  placeholder="Asia/Seoul"
+                  value={draft.values.timezone}
+                />
+                <CheckboxField
+                  checked={draft.values.enabled}
+                  label={t("form.schedules.enabled")}
+                  onChange={(checked) =>
+                    onUpdate(draft.key, (values) => ({
+                      ...values,
+                      enabled: checked,
+                    }))
+                  }
+                />
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </article>
   );
 }
@@ -930,6 +1274,28 @@ function SelectField({
   );
 }
 
+function CheckboxField({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-10 items-center gap-3 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite">
+      <input
+        checked={checked}
+        className="h-4 w-4 rounded border-slate-300 text-bp-control"
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
 function SubmissionBanner({
   mode,
   state,
@@ -1017,4 +1383,10 @@ function buildExecutionFileCommand(path: string): string {
 
 function formatRunnerLabelDisplay(runsOn: RunnerLabel): string {
   return Array.isArray(runsOn) ? runsOn.join(", ") : runsOn;
+}
+
+function nextScheduleDraftKey(): string {
+  scheduleDraftSequence += 1;
+
+  return `schedule-draft-${scheduleDraftSequence}`;
 }

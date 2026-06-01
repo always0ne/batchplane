@@ -27,12 +27,25 @@ const pullRequest: RepositoryPullRequest = {
     "- Runs on: ubuntu-latest",
     "- BatchPlane Gate: required",
     "- Execution file: `.batch-governance/batches/payment.daily-close/artifacts/run.sh`",
+    "- Schedule count: 1",
     "",
     "### Batch command",
     "",
     "```sh",
     "./.batch-governance/batches/payment.daily-close/artifacts/run.sh",
     "```",
+    "",
+    "### Schedule definitions",
+    "",
+    "#### Schedule 1",
+    "- Batch ID: `payment.daily-close`",
+    "- Schedule ID: `payment.daily-close-daily`",
+    "- Name: Daily settlement window",
+    "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+    "- Cron: `0 5 * * *`",
+    "- Timezone: `Asia/Seoul`",
+    "- Enabled: true",
+    "- Approval policy: `prod-self-approval-blocked`",
   ].join("\n"),
   head: "batchplane/register/payment.daily-close-20260514010203",
   merged: false,
@@ -56,6 +69,20 @@ describe("registration approval model", () => {
       kind: "batch",
       name: "Daily Close",
       runsOn: "ubuntu-latest",
+      schedules: [
+        {
+          approvalPolicyId: "prod-self-approval-blocked",
+          batchId: "payment.daily-close",
+          cron: "0 5 * * *",
+          definitionPath:
+            ".batch-governance/schedules/payment.daily-close-daily.yml",
+          enabled: true,
+          kind: "schedule",
+          name: "Daily settlement window",
+          scheduleId: "payment.daily-close-daily",
+          timezone: "Asia/Seoul",
+        },
+      ],
       workflowPath: ".github/workflows/payment.daily-close.yml",
     });
   });
@@ -67,6 +94,7 @@ describe("registration approval model", () => {
       ".batch-governance/batches/payment.daily-close.yml",
       ".github/workflows/payment.daily-close.yml",
       ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
+      ".batch-governance/schedules/payment.daily-close-daily.yml",
     ]);
   });
 

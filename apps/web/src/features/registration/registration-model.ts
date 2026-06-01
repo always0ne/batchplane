@@ -8,6 +8,7 @@ import type {
   BatchStatus,
   Criticality,
   RunnerLabel,
+  ScheduleDefinition,
   YamlValue,
 } from "@batchplane/domain";
 
@@ -320,6 +321,7 @@ export function buildRegistrationPullRequestTitle(
 export function buildRegistrationPullRequestBody(
   definition: BatchDefinition,
   mode: RegistrationRequestMode = "create",
+  schedules: ScheduleDefinition[] = [],
 ) {
   const execution = definition.execution;
   const heading =
@@ -345,12 +347,32 @@ export function buildRegistrationPullRequestBody(
     ...(execution?.artifactPath
       ? [`- Execution file: \`${execution.artifactPath}\``]
       : []),
+    `- Schedule count: ${schedules.length}`,
     "",
     "### Batch command",
     "",
     "```sh",
     execution?.command || "",
     "```",
+    ...(schedules.length > 0
+      ? [
+          "",
+          "### Schedule definitions",
+          "",
+          ...schedules.flatMap((schedule, index) => [
+            `#### Schedule ${index + 1}`,
+            `- Batch ID: \`${schedule.batchId}\``,
+            `- Schedule ID: \`${schedule.scheduleId}\``,
+            `- Name: ${schedule.name}`,
+            `- Schedule definition: \`${schedule.definitionPath}\``,
+            `- Cron: \`${schedule.cron}\``,
+            `- Timezone: \`${schedule.timezone}\``,
+            `- Enabled: ${schedule.enabled ? "true" : "false"}`,
+            `- Approval policy: \`${schedule.approvalPolicyId}\``,
+            "",
+          ]),
+        ]
+      : []),
     "",
     summary,
   ].join("\n");

@@ -332,6 +332,11 @@ export type RegistrationArtifactInput = {
   encoding?: "utf-8" | "base64";
 };
 
+export type RegistrationScheduleDefinitionInput = {
+  path: string;
+  yaml: string;
+};
+
 export type RegistrationTargetStatus = {
   batchDefinitionExists: boolean;
   workflowExists: boolean;
@@ -348,6 +353,7 @@ export type CreateRegistrationPullRequestInput = {
   batchDefinitionYaml: string;
   body: string;
   branch: string;
+  scheduleDefinitions?: RegistrationScheduleDefinitionInput[];
   title: string;
   workflowPath: string;
   workflowYaml: string;

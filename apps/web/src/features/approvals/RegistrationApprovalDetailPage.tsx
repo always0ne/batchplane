@@ -434,6 +434,10 @@ function RegistrationSummaryPanel({
             label={t("fields.command")}
             value={summary.batchCommand || t("values.unknown")}
           />
+          <DetailMeta
+            label={t("fields.scheduleCount")}
+            value={String(summary.schedules.length)}
+          />
         </div>
       ) : (
         <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -467,6 +471,27 @@ function RegistrationSummaryPanel({
           />
         </div>
       )}
+
+      {summary.kind === "batch" && summary.schedules.length > 0 ? (
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <p className="text-xs font-semibold uppercase text-bp-muted">
+            {t("fields.schedules")}
+          </p>
+          <ul className="mt-2 space-y-2">
+            {summary.schedules.map((schedule) => (
+              <li
+                className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-bp-graphite"
+                key={schedule.scheduleId}
+              >
+                <div className="font-semibold">{schedule.name}</div>
+                <div className="mt-1 font-mono text-xs text-bp-muted">
+                  {schedule.scheduleId}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -579,6 +604,19 @@ function RegistrationChecklistPanel({
       {
         ready: Boolean(summary.batchCommand),
         text: t("registrationDetail.checklist.commandRecorded"),
+      },
+      {
+        ready: !summary.schedules.some(
+          (schedule) =>
+            !schedule.scheduleId ||
+            !schedule.definitionPath ||
+            !schedule.cron ||
+            !schedule.timezone ||
+            !schedule.approvalPolicyId,
+        ),
+        text: t("registrationDetail.checklist.scheduleDefinitionsRecorded", {
+          count: summary.schedules.length,
+        }),
       },
     ];
   }, [summary, t]);

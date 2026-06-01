@@ -39,6 +39,8 @@ describe("RegistrationApprovalDetailPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Governance checklist")).toBeInTheDocument();
     expect(screen.getByText("YAML diff summary")).toBeInTheDocument();
+    expect(screen.getByText("Daily settlement window")).toBeInTheDocument();
+    expect(screen.getByText("Schedule count")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Approve and merge PR" }),
     ).toBeInTheDocument();
@@ -223,6 +225,25 @@ function withRegistrationEvidence(
       {
         branch: headBranch,
         content: [
+          'apiVersion: "batchplane.io/v1"',
+          'kind: "ScheduleDefinition"',
+          "metadata:",
+          '  batchId: "payment.daily-close"',
+          '  id: "payment.daily-close-daily"',
+          '  name: "Daily settlement window"',
+          "spec:",
+          '  approvalPolicyId: "prod-self-approval-blocked"',
+          '  cron: "0 5 * * *"',
+          "  enabled: true",
+          '  timezone: "Asia/Seoul"',
+          "",
+        ].join("\n"),
+        path: ".batch-governance/schedules/payment.daily-close-daily.yml",
+        sha: "mock-head-schedule-sha",
+      },
+      {
+        branch: headBranch,
+        content: [
           'apiVersion: "batchtrail.io/v1"',
           'kind: "BatchDefinition"',
           "metadata:",
@@ -264,12 +285,25 @@ function withRegistrationEvidence(
           "- Runtime: GitHub Actions / BatchPlane Lite",
           "- Runs on: ubuntu-latest",
           "- BatchPlane Gate: required",
+          "- Schedule count: 1",
           "",
           "### Batch command",
           "",
           "```sh",
           "echo close payments",
           "```",
+          "",
+          "### Schedule definitions",
+          "",
+          "#### Schedule 1",
+          "- Batch ID: `payment.daily-close`",
+          "- Schedule ID: `payment.daily-close-daily`",
+          "- Name: Daily settlement window",
+          "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+          "- Cron: `0 5 * * *`",
+          "- Timezone: `Asia/Seoul`",
+          "- Enabled: true",
+          "- Approval policy: `prod-self-approval-blocked`",
         ].join("\n"),
       },
     ],

@@ -15,6 +15,7 @@ import {
   validateBatchRegistration,
   type BatchRegistrationFormValues,
 } from "./registration-model";
+import type { ScheduleDefinition } from "@batchplane/domain";
 
 const registrationValues = {
   batchId: "payment.daily-close",
@@ -29,6 +30,16 @@ const registrationValues = {
   workflowRef: "main",
 } satisfies BatchRegistrationFormValues;
 const definition = toBatchDefinition(registrationValues);
+const scheduleDefinition: ScheduleDefinition = {
+  approvalPolicyId: "prod-self-approval-blocked",
+  batchId: "payment.daily-close",
+  cron: "0 5 * * *",
+  definitionPath: ".batch-governance/schedules/payment.daily-close-daily.yml",
+  enabled: true,
+  name: "Daily settlement window",
+  scheduleId: "payment.daily-close-daily",
+  timezone: "Asia/Seoul",
+};
 
 describe("registration model", () => {
   it("serializes a batch definition as deterministic YAML", () => {
@@ -151,17 +162,37 @@ describe("registration model", () => {
   });
 
   it("creates a PR body with auditable registration context", () => {
-    expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "Batch ID: `payment.daily-close`",
-    );
-    expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "BatchPlane Gate: required",
-    );
-    expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "Runtime: GitHub Actions / BatchPlane Lite",
-    );
-    expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "./scripts/daily-close.sh",
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("Batch ID: `payment.daily-close`");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("BatchPlane Gate: required");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("Runtime: GitHub Actions / BatchPlane Lite");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("./scripts/daily-close.sh");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("#### Schedule 1");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain(
+      "Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
     );
   });
 

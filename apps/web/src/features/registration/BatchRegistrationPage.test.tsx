@@ -16,6 +16,16 @@ describe("BatchRegistrationPage", () => {
     renderRegistrationPage();
 
     fillRequiredFields();
+    fireEvent.click(screen.getByRole("button", { name: "Add schedule" }));
+    fireEvent.change(screen.getByLabelText("Schedule ID"), {
+      target: { value: "payment.daily-close-daily" },
+    });
+    fireEvent.change(screen.getByLabelText("Approval policy ID"), {
+      target: { value: "prod-self-approval-blocked" },
+    });
+    fireEvent.change(screen.getAllByLabelText("Name")[1]!, {
+      target: { value: "Daily settlement window" },
+    });
     expect(screen.queryByText(/new-batch/)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Batch command"), {
@@ -41,6 +51,12 @@ describe("BatchRegistrationPage", () => {
     expect(
       screen.getByText("BatchPlane Gate always runs before the batch command."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Schedule definitions")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        ".batch-governance/schedules/payment.daily-close-daily.yml",
+      ).length,
+    ).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByText("Workflow YAML"));
 
@@ -50,6 +66,9 @@ describe("BatchRegistrationPage", () => {
     expect(screen.getAllByText(/.\/scripts\/daily-close.sh/)).not.toHaveLength(
       0,
     );
+    expect(
+      screen.getByText(/approvalPolicyId: "prod-self-approval-blocked"/),
+    ).toBeInTheDocument();
   });
 
   it("routes a created mock PR to approvals with the resulting PR link", async () => {
@@ -103,6 +122,10 @@ describe("BatchRegistrationPage", () => {
     expect(screen.getByDisplayValue("ops-team")).toBeInTheDocument();
     expect(screen.getByDisplayValue("payments")).toBeInTheDocument();
     expect(screen.getByDisplayValue("echo mock batch")).toBeInTheDocument();
+    expect(screen.getByText("payment.daily-close-daily")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Daily settlement window"),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create change PR" }),
     ).toBeInTheDocument();

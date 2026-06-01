@@ -6,6 +6,23 @@
   "form": {
     "definition": "Batch definition",
     "workflow": "Workflow",
+    "schedules": {
+      "title": "Schedules",
+      "subtitle": "Add governed schedules while registering the batch so approvers review the operating plan in one PR.",
+      "subtitleChange": "Review and update governed schedules for this batch in the same change request.",
+      "add": "Add schedule",
+      "empty": "No schedule definitions are included yet.",
+      "itemTitle": "Schedule {{index}}",
+      "existing": "Existing governed schedule",
+      "new": "New schedule",
+      "remove": "Remove",
+      "scheduleId": "Schedule ID",
+      "name": "Name",
+      "approvalPolicyId": "Approval policy ID",
+      "cron": "Cron",
+      "timezone": "Timezone",
+      "enabled": "Enabled"
+    },
     "batchId": "Batch ID",
     "name": "Name",
     "owner": "Owner",
@@ -24,7 +41,8 @@
   "preview": {
     "title": "YAML preview",
     "batchDefinitionTitle": "Batch definition YAML",
-    "workflowTitle": "Workflow YAML"
+    "workflowTitle": "Workflow YAML",
+    "scheduleTitle": "Schedule YAML: {{scheduleId}}"
   },
   "review": {
     "title": "PR review",
@@ -34,6 +52,8 @@
       "title": "Generated files",
       "batchDefinition": "Batch definition",
       "workflow": "Workflow",
+      "scheduleCount": "Schedule definitions",
+      "scheduleDefinition": "Schedule {{scheduleId}}",
       "executionFile": "Execution file",
       "noExecutionFile": "No uploaded execution file",
       "pending": "Enter a Batch ID to generate the path"
@@ -46,7 +66,10 @@
       "runnerSelected": "Execution environment: {{runner}}",
       "runnerMissing": "Execution environment is required.",
       "commandRecorded": "Batch command will be recorded in the batch definition.",
-      "commandMissing": "Batch command is required before PR creation."
+      "commandMissing": "Batch command is required before PR creation.",
+      "scheduleDefinitionsRecorded_zero": "No governed schedule definitions are included in this PR.",
+      "scheduleDefinitionsRecorded_one": "1 governed schedule definition will be reviewed in this PR.",
+      "scheduleDefinitionsRecorded_other": "{{count}} governed schedule definitions will be reviewed in this PR."
     },
     "nextStep": "After creation, BatchPlane routes the PR to approvals. GitHub list results can take a few seconds to catch up."
   },
@@ -71,6 +94,7 @@
     "noSession": "Connect a GitHub repository in setup before creating a registration PR.",
     "alreadyExists": "A batch definition already exists at {{path}}.",
     "changeMissingDefinition": "The governed batch definition was not found at {{path}}.",
+    "scheduleAlreadyExists": "A schedule definition already exists at {{path}}.",
     "workflowAlreadyExists": "A workflow already exists at {{path}}.",
     "fileRead": "Failed to read the uploaded execution file.",
     "unknown": "Failed to create the registration pull request."

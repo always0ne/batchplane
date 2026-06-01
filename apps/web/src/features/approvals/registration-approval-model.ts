@@ -23,6 +23,7 @@ export type BatchRegistrationRequestBodySummary = {
   gateRequired: boolean;
   name: string;
   runsOn: string;
+  schedules: ScheduleRegistrationRequestBodySummary[];
   workflowPath: string;
 };
 
@@ -93,6 +94,7 @@ function parseBatchSummary(
     kind: "batch",
     name: readMarkdownField(pullRequest.body, "Name"),
     runsOn: readMarkdownField(pullRequest.body, "Runs on"),
+    schedules: parseEmbeddedSchedules(pullRequest.body),
     workflowPath,
   };
 }
@@ -131,6 +133,7 @@ export function deriveRegistrationFilePaths(
     summary.batchId ? getBatchDefinitionPath(summary.batchId) : "",
     summary.workflowPath,
     summary.executionFilePath,
+    ...summary.schedules.map((schedule) => schedule.definitionPath),
   ];
 
   return [...new Set(candidates.filter(Boolean))];
@@ -245,6 +248,45 @@ function readCommandBlock(body: string): string {
     );
 
   return match?.[1]?.trim() || "";
+}
+
+function parseEmbeddedSchedules(
+  body: string,
+): ScheduleRegistrationRequestBodySummary[] {
+  const matches = body.matchAll(
+    /(?:^|\n)#### Schedule(?:\s+\d+)?\s*\n([\s\S]*?)(?=\n#### Schedule(?:\s+\d+)?\s*\n|\n##\s|$)/g,
+  );
+
+  return [...matches]
+    .map((match) => parseScheduleBlock(match[1] ?? ""))
+    .filter(
+      (schedule): schedule is ScheduleRegistrationRequestBodySummary =>
+        schedule !== null,
+    );
+}
+
+function parseScheduleBlock(
+  block: string,
+): ScheduleRegistrationRequestBodySummary | null {
+  const scheduleId = readMarkdownField(block, "Schedule ID");
+
+  if (!scheduleId) {
+    return null;
+  }
+
+  return {
+    approvalPolicyId: readMarkdownField(block, "Approval policy"),
+    batchId: readMarkdownField(block, "Batch ID"),
+    cron: readMarkdownField(block, "Cron"),
+    definitionPath:
+      readMarkdownField(block, "Schedule definition") ||
+      getScheduleDefinitionPath(scheduleId),
+    enabled: readMarkdownBoolean(block, "Enabled"),
+    kind: "schedule",
+    name: readMarkdownField(block, "Name"),
+    scheduleId,
+    timezone: readMarkdownField(block, "Timezone"),
+  };
 }
 
 function readDecisionActor(

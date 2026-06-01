@@ -33,8 +33,10 @@
     "requestId": "Request ID",
     "repository": "Repository",
     "runsOn": "Runs on",
+    "scheduleCount": "Schedule count",
     "scheduleId": "Schedule ID",
     "schedulePath": "Schedule definition",
+    "schedules": "Schedules",
     "timezone": "Timezone",
     "workflow": "Workflow"
   },
@@ -95,7 +97,9 @@
       "timezoneRecorded": "Timezone is recorded.",
       "approvalPolicyRecorded": "Approval policy reference is recorded.",
       "runnerRecorded": "Execution environment (runs-on) is recorded.",
-      "commandRecorded": "Batch command is recorded."
+      "commandRecorded": "Batch command is recorded.",
+      "scheduleDefinitionsRecorded_one": "1 schedule definition is included in this governed change.",
+      "scheduleDefinitionsRecorded_other": "{{count}} schedule definitions are included in this governed change."
     },
     "review": {
       "title": "Review state",

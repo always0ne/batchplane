@@ -476,6 +476,7 @@ export function createGitHubLiteRuntime(
         batchDefinitionYaml,
         body,
         branch,
+        scheduleDefinitions = [],
         title,
         workflowPath,
         workflowYaml,
@@ -502,6 +503,16 @@ export function createGitHubLiteRuntime(
           path: workflowPath,
           repositoryRef,
         });
+        for (const scheduleDefinition of scheduleDefinitions) {
+          await putRepositoryFile({
+            branch,
+            client,
+            content: scheduleDefinition.yaml,
+            message: title,
+            path: scheduleDefinition.path,
+            repositoryRef,
+          });
+        }
 
         if (artifact) {
           await putRepositoryFile({
