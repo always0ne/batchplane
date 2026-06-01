@@ -99,9 +99,9 @@
       "enabledRecorded": "Enabled state is recorded.",
       "runnerRecorded": "Execution environment (runs-on) is recorded.",
       "commandRecorded": "Batch command is recorded.",
-      "scheduleDefinitionsRecorded_one": "1 schedule definition is included in this governed change.",
-      "scheduleDefinitionsRecorded_other": "{{count}} schedule definitions are included in this governed change.",
-      "scheduleDeletionsRecorded_zero": "No schedule definitions are deleted in this governed change.",
+      "scheduleDefinitionsRecorded_one": "1 schedule is included in this governed change.",
+      "scheduleDefinitionsRecorded_other": "{{count}} schedules are included in this governed change.",
+      "scheduleDeletionsRecorded_zero": "No schedules are deleted in this governed change.",
       "scheduleDeletionsRecorded_one": "1 pending schedule deletion is included in this governed change.",
       "scheduleDeletionsRecorded_other": "{{count}} pending schedule deletions are included in this governed change."
     },

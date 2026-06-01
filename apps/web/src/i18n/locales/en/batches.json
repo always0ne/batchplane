@@ -96,7 +96,7 @@
     },
     "schedules": {
       "title": "Schedules",
-      "subtitle": "Governed schedule definitions linked to this batch.",
+      "subtitle": "Governed schedules derived from this batch definition.",
       "managementHint": "Add, change, and delete schedules only within a batch change request.",
       "register": "Register schedule",
       "change": "Change schedule",

@@ -4,6 +4,7 @@ import {
   serializeYamlDocument,
 } from "@batchplane/domain";
 import type {
+  BatchSchedule,
   BatchDefinition,
   BatchStatus,
   Criticality,
@@ -31,6 +32,7 @@ export type RegistrationRequestMode = "create" | "change";
 
 export type BatchDefinitionOptions = {
   artifactPath?: string | null;
+  schedules?: BatchSchedule[];
 };
 
 export const defaultBatchRegistrationValues: BatchRegistrationFormValues = {
@@ -88,6 +90,13 @@ export function toBatchDefinition(
       command,
       runsOn: parseRunnerLabel(values.runnerLabel),
     },
+    schedules: options.schedules?.map((schedule) => ({
+      cron: schedule.cron.trim(),
+      enabled: schedule.enabled,
+      name: schedule.name.trim(),
+      scheduleId: schedule.scheduleId.trim(),
+      timezone: schedule.timezone.trim(),
+    })),
   };
 }
 
@@ -153,6 +162,13 @@ export function serializeBatchDefinitionYaml(
             runsOn: definition.execution.runsOn,
           }
         : undefined,
+      schedules: definition.schedules?.map((schedule) => ({
+        cron: schedule.cron,
+        enabled: schedule.enabled,
+        id: schedule.scheduleId,
+        name: schedule.name,
+        timezone: schedule.timezone,
+      })),
     },
   });
 }
@@ -240,6 +256,7 @@ export function parseBatchDefinitionYaml(yaml: string): BatchDefinition {
   const spec = asYamlRecord(document.spec);
   const workflow = asYamlRecord(spec.workflow);
   const execution = asYamlRecord(spec.execution);
+  const schedules = readYamlSchedules(spec, "schedules");
   const criticality = parseCriticality(readYamlString(spec, "criticality"));
   const status = parseBatchStatus(readYamlString(spec, "status"));
   const command = readYamlString(execution, "command");
@@ -267,6 +284,7 @@ export function parseBatchDefinitionYaml(yaml: string): BatchDefinition {
             runsOn: runsOn || "",
           }
         : undefined,
+    schedules: schedules.length > 0 ? schedules : undefined,
   };
 }
 
@@ -366,7 +384,7 @@ export function buildRegistrationPullRequestBody(
             `- Batch ID: \`${schedule.batchId}\``,
             `- Schedule ID: \`${schedule.scheduleId}\``,
             `- Name: ${schedule.name}`,
-            `- Schedule definition: \`${schedule.definitionPath}\``,
+            `- Batch definition: \`${schedule.definitionPath}\``,
             `- Cron: \`${schedule.cron}\``,
             `- Timezone: \`${schedule.timezone}\``,
             `- Enabled: ${schedule.enabled ? "true" : "false"}`,
@@ -384,7 +402,7 @@ export function buildRegistrationPullRequestBody(
             `- Batch ID: \`${schedule.batchId}\``,
             `- Schedule ID: \`${schedule.scheduleId}\``,
             `- Name: ${schedule.name}`,
-            `- Schedule definition: \`${schedule.definitionPath}\``,
+            `- Batch definition: \`${schedule.definitionPath}\``,
             `- Cron: \`${schedule.cron}\``,
             `- Timezone: \`${schedule.timezone}\``,
             `- Enabled: ${schedule.enabled ? "true" : "false"}`,
@@ -447,6 +465,34 @@ function readYamlBoolean(
   key: string,
 ): boolean {
   return record[key] === true;
+}
+
+function readYamlSchedules(
+  record: Record<string, YamlValue | undefined>,
+  key: string,
+): BatchSchedule[] {
+  const value = record[key];
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => asYamlRecord(item))
+    .map((item) => ({
+      cron: readYamlString(item, "cron"),
+      enabled: readYamlBoolean(item, "enabled"),
+      name: readYamlString(item, "name"),
+      scheduleId: readYamlString(item, "id"),
+      timezone: readYamlString(item, "timezone"),
+    }))
+    .filter(
+      (schedule) =>
+        Boolean(schedule.scheduleId) ||
+        Boolean(schedule.name) ||
+        Boolean(schedule.cron) ||
+        Boolean(schedule.timezone),
+    );
 }
 
 function parseCriticality(value: string): Criticality {

@@ -30,10 +30,11 @@ const registrationValues = {
   workflowRef: "main",
 } satisfies BatchRegistrationFormValues;
 const definition = toBatchDefinition(registrationValues);
+const batchDefinitionPath = ".batch-governance/batches/payment.daily-close.yml";
 const scheduleDefinition: ScheduleDefinition = {
   batchId: "payment.daily-close",
   cron: "0 5 * * *",
-  definitionPath: ".batch-governance/schedules/payment.daily-close-daily.yml",
+  definitionPath: batchDefinitionPath,
   enabled: true,
   name: "Daily settlement window",
   scheduleId: "payment.daily-close-daily",
@@ -44,7 +45,7 @@ const deletedScheduleDefinition: ScheduleDefinition = {
   enabled: false,
   name: "Nightly settlement fallback",
   scheduleId: "payment.daily-close-nightly",
-  definitionPath: ".batch-governance/schedules/payment.daily-close-nightly.yml",
+  definitionPath: batchDefinitionPath,
 };
 
 describe("registration model", () => {
@@ -201,7 +202,7 @@ describe("registration model", () => {
         [deletedScheduleDefinition],
       ),
     ).toContain(
-      "Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+      "Batch definition: `.batch-governance/batches/payment.daily-close.yml`",
     );
     expect(
       buildRegistrationPullRequestBody(
@@ -219,7 +220,7 @@ describe("registration model", () => {
         [deletedScheduleDefinition],
       ),
     ).toContain(
-      "Schedule definition: `.batch-governance/schedules/payment.daily-close-nightly.yml`",
+      "Batch definition: `.batch-governance/batches/payment.daily-close.yml`",
     );
   });
 

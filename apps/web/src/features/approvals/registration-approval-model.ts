@@ -112,7 +112,11 @@ function parseScheduleSummary(
     batchId: readMarkdownField(pullRequest.body, "Batch ID"),
     cron: readMarkdownField(pullRequest.body, "Cron"),
     definitionPath:
-      readMarkdownField(pullRequest.body, "Schedule definition") ||
+      readFirstMarkdownField(pullRequest.body, [
+        "Batch definition",
+        "Schedule definition",
+      ]) ||
+      getBatchDefinitionPath(readMarkdownField(pullRequest.body, "Batch ID")) ||
       getScheduleDefinitionPath(scheduleId),
     enabled: readMarkdownBoolean(pullRequest.body, "Enabled"),
     kind: "schedule",
@@ -298,7 +302,11 @@ function parseScheduleBlock(
     batchId: readMarkdownField(block, "Batch ID"),
     cron: readMarkdownField(block, "Cron"),
     definitionPath:
-      readMarkdownField(block, "Schedule definition") ||
+      readFirstMarkdownField(block, [
+        "Batch definition",
+        "Schedule definition",
+      ]) ||
+      getBatchDefinitionPath(readMarkdownField(block, "Batch ID")) ||
       getScheduleDefinitionPath(scheduleId),
     enabled: readMarkdownBoolean(block, "Enabled"),
     kind: "schedule",

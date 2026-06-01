@@ -48,14 +48,14 @@ describe("BatchRegistrationPage", () => {
     expect(
       screen.getByText("BatchPlane Gate always runs before the batch command."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Schedule definitions")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Schedules" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Expected run times")).toBeInTheDocument();
     expect(screen.getByText(/Next 1:/)).toBeInTheDocument();
     expect(
-      screen.getAllByText(
-        ".batch-governance/schedules/payment.daily-close-daily.yml",
-      ).length,
-    ).toBeGreaterThan(0);
+      screen.getByDisplayValue("payment.daily-close-daily"),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Workflow YAML"));
 
@@ -149,14 +149,12 @@ describe("BatchRegistrationPage", () => {
     expect(screen.getByText("Pending delete")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "If this change request is merged, this schedule definition file will be removed from the repository.",
+        "If this change request is merged, this schedule will be removed from the batch definition.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Scheduled removals")).toBeInTheDocument();
     expect(
-      screen.getAllByText(
-        ".batch-governance/schedules/payment.daily-close-daily.yml",
-      ).length,
+      screen.getAllByText("payment.daily-close-daily").length,
     ).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: "Undo delete" }),

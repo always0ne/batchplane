@@ -86,7 +86,7 @@ describe("schedule model", () => {
       "## BatchPlane Schedule Registration",
     );
     expect(buildSchedulePullRequestBody(definition)).toContain(
-      "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+      `- Schedule definition: \`${definition.definitionPath}\``,
     );
   });
 

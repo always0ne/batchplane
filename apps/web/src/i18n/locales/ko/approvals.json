@@ -99,11 +99,11 @@
       "enabledRecorded": "활성화 상태 기록",
       "runnerRecorded": "실행 환경(runs-on) 기록",
       "commandRecorded": "배치 명령 기록",
-      "scheduleDefinitionsRecorded_one": "이 통제 변경에 스케줄 정의 1건이 포함되었는지 확인",
-      "scheduleDefinitionsRecorded_other": "이 통제 변경에 스케줄 정의 {{count}}건이 포함되었는지 확인",
-      "scheduleDeletionsRecorded_zero": "이 통제 변경에서 삭제되는 스케줄 정의가 없는지 확인",
-      "scheduleDeletionsRecorded_one": "이 통제 변경에 삭제 예정 스케줄 정의 1건이 포함되었는지 확인",
-      "scheduleDeletionsRecorded_other": "이 통제 변경에 삭제 예정 스케줄 정의 {{count}}건이 포함되었는지 확인"
+      "scheduleDefinitionsRecorded_one": "이 통제 변경에 스케줄 1건이 포함되었는지 확인",
+      "scheduleDefinitionsRecorded_other": "이 통제 변경에 스케줄 {{count}}건이 포함되었는지 확인",
+      "scheduleDeletionsRecorded_zero": "이 통제 변경에서 삭제되는 스케줄이 없는지 확인",
+      "scheduleDeletionsRecorded_one": "이 통제 변경에 삭제 예정 스케줄 1건이 포함되었는지 확인",
+      "scheduleDeletionsRecorded_other": "이 통제 변경에 삭제 예정 스케줄 {{count}}건이 포함되었는지 확인"
     },
     "review": {
       "title": "검토 상태",

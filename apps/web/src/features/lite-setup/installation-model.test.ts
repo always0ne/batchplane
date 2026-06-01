@@ -42,7 +42,6 @@ describe("Lite installation model", () => {
         liteWorkspacePolicyPath,
         liteRoleMappingPath,
         ".batch-governance/batches/.gitkeep",
-        ".batch-governance/schedules/.gitkeep",
       ],
       presentPaths: [".batch-governance/README.md"],
       requiredPaths: [
@@ -52,7 +51,6 @@ describe("Lite installation model", () => {
         liteWorkspacePolicyPath,
         liteRoleMappingPath,
         ".batch-governance/batches/.gitkeep",
-        ".batch-governance/schedules/.gitkeep",
       ],
     });
   });
@@ -146,7 +144,6 @@ describe("Lite installation model", () => {
           liteWorkspacePolicyPath,
           liteRoleMappingPath,
           ".batch-governance/batches/.gitkeep",
-          ".batch-governance/schedules/.gitkeep",
         ],
         presentPaths: [],
         requiredPaths: [
@@ -156,7 +153,6 @@ describe("Lite installation model", () => {
           liteWorkspacePolicyPath,
           liteRoleMappingPath,
           ".batch-governance/batches/.gitkeep",
-          ".batch-governance/schedules/.gitkeep",
         ],
       },
     });
@@ -169,7 +165,6 @@ describe("Lite installation model", () => {
       `put-file:${liteWorkspacePolicyPath}`,
       `put-file:${liteRoleMappingPath}`,
       "put-file:.batch-governance/batches/.gitkeep",
-      "put-file:.batch-governance/schedules/.gitkeep",
       "create-pr:Install BatchPlane Lite:batchplane/install/lite-20260513010203:main",
     ]);
   });

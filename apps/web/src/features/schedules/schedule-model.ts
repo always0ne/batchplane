@@ -3,7 +3,11 @@ import {
   parseYamlDocument,
   serializeYamlDocument,
 } from "@batchplane/domain";
-import type { ScheduleDefinition, YamlValue } from "@batchplane/domain";
+import type {
+  BatchSchedule,
+  ScheduleDefinition,
+  YamlValue,
+} from "@batchplane/domain";
 
 export type ScheduleFormValues = {
   scheduleId: string;
@@ -39,16 +43,36 @@ export function toScheduleDefinition(
   batchId: string,
   values: ScheduleFormValues,
 ): ScheduleDefinition {
-  const scheduleId = values.scheduleId.trim();
+  return toDerivedScheduleDefinition(
+    batchId,
+    getScheduleDefinitionPath(values.scheduleId),
+    toBatchSchedule(values),
+  );
+}
 
+export function toBatchSchedule(values: ScheduleFormValues): BatchSchedule {
   return {
-    batchId: batchId.trim(),
     cron: values.cron.trim(),
-    definitionPath: getScheduleDefinitionPath(scheduleId),
     enabled: values.enabled,
     name: values.name.trim(),
-    scheduleId,
+    scheduleId: values.scheduleId.trim(),
     timezone: values.timezone.trim(),
+  };
+}
+
+export function toDerivedScheduleDefinition(
+  batchId: string,
+  definitionPath: string,
+  schedule: BatchSchedule,
+): ScheduleDefinition {
+  return {
+    batchId: batchId.trim(),
+    cron: schedule.cron,
+    definitionPath: definitionPath.trim(),
+    enabled: schedule.enabled,
+    name: schedule.name,
+    scheduleId: schedule.scheduleId,
+    timezone: schedule.timezone,
   };
 }
 

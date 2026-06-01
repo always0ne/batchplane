@@ -106,10 +106,6 @@ export function buildLiteInstallationFiles(): LiteInstallationFile[] {
       path: ".batch-governance/batches/.gitkeep",
       content: "Batch definitions created by BatchPlane Lite live here.\n",
     },
-    {
-      path: ".batch-governance/schedules/.gitkeep",
-      content: "Schedule definitions created by BatchPlane Lite live here.\n",
-    },
   ];
 }
 
@@ -458,7 +454,6 @@ function buildGovernanceReadme(): string {
     "This directory stores BatchPlane Lite definitions and audit evidence that are reviewed through GitHub pull requests and issues.",
     "",
     "- `batches/`: approved batch definitions and optional execution artifacts",
-    "- `schedules/`: approved schedule definitions",
     "- `workspace.yml`: Workspace-level approval mode. Default is `SELF_APPROVAL_BLOCKED`; use `SELF_APPROVAL_ALLOWED` only when the repository intentionally permits requester approval.",
     "- `policies/role-mapping.yml`: repository-side approver role mapping used by Gate when self-approval is not explicitly allowed.",
     "- `.github/workflows/batchplane-sample-target.yml`: sample governed target workflow",

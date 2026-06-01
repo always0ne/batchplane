@@ -62,8 +62,8 @@ import {
 } from "./registration-model";
 import {
   defaultScheduleFormValues,
-  serializeScheduleDefinitionYaml,
-  toScheduleDefinition,
+  toBatchSchedule,
+  toDerivedScheduleDefinition,
   toScheduleFormValues,
   validateScheduleRegistration,
   type ScheduleFormValues,
@@ -138,9 +138,49 @@ export function BatchRegistrationPage() {
         getBatchArtifactPath(baseDefinition.batchId, uploadedFile.name)
       : null;
   const resolvedArtifactPath = uploadedFilePath ?? existingArtifactPath;
+  const activeScheduleDrafts = useMemo(
+    () => scheduleDrafts.filter((draft) => draft.status === "active"),
+    [scheduleDrafts],
+  );
+  const activeBatchSchedules = useMemo(
+    () => activeScheduleDrafts.map((draft) => toBatchSchedule(draft.values)),
+    [activeScheduleDrafts],
+  );
   const definition = useMemo(
-    () => toBatchDefinition(values, { artifactPath: resolvedArtifactPath }),
-    [resolvedArtifactPath, values],
+    () =>
+      toBatchDefinition(values, {
+        artifactPath: resolvedArtifactPath,
+        schedules: activeBatchSchedules,
+      }),
+    [activeBatchSchedules, resolvedArtifactPath, values],
+  );
+  const deletedScheduleDrafts = useMemo(
+    () =>
+      scheduleDrafts.filter(
+        (draft) => draft.source === "existing" && draft.status === "deleted",
+      ),
+    [scheduleDrafts],
+  );
+  const batchPath = getBatchDefinitionPath(
+    definition.batchId || changeBatchId || baseDefinition.batchId,
+  );
+  const scheduleDefinitions = useMemo(
+    () =>
+      activeBatchSchedules.map((schedule) =>
+        toDerivedScheduleDefinition(definition.batchId, batchPath, schedule),
+      ),
+    [activeBatchSchedules, batchPath, definition.batchId],
+  );
+  const deletedScheduleDefinitions = useMemo(
+    () =>
+      deletedScheduleDrafts.map((draft) =>
+        toDerivedScheduleDefinition(
+          definition.batchId,
+          batchPath,
+          toBatchSchedule(draft.values),
+        ),
+      ),
+    [batchPath, definition.batchId, deletedScheduleDrafts],
   );
   const yaml = useMemo(
     () => serializeBatchDefinitionYaml(definition),
@@ -150,31 +190,6 @@ export function BatchRegistrationPage() {
     () =>
       buildBatchWorkflowYaml(definition, values.runCommand, values.runnerLabel),
     [definition, values.runCommand, values.runnerLabel],
-  );
-  const activeScheduleDrafts = useMemo(
-    () => scheduleDrafts.filter((draft) => draft.status === "active"),
-    [scheduleDrafts],
-  );
-  const deletedScheduleDrafts = useMemo(
-    () =>
-      scheduleDrafts.filter(
-        (draft) => draft.source === "existing" && draft.status === "deleted",
-      ),
-    [scheduleDrafts],
-  );
-  const scheduleDefinitions = useMemo(
-    () =>
-      activeScheduleDrafts.map((draft) =>
-        toScheduleDefinition(definition.batchId, draft.values),
-      ),
-    [activeScheduleDrafts, definition.batchId],
-  );
-  const deletedScheduleDefinitions = useMemo(
-    () =>
-      deletedScheduleDrafts.map((draft) =>
-        toScheduleDefinition(definition.batchId, draft.values),
-      ),
-    [definition.batchId, deletedScheduleDrafts],
   );
   const missingFields = useMemo(() => {
     const fields = validateBatchRegistration(definition);
@@ -215,7 +230,6 @@ export function BatchRegistrationPage() {
 
     return fields;
   }, [definition, scheduleDefinitions, values.runCommand, values.runnerLabel]);
-  const batchPath = getBatchDefinitionPath(definition.batchId);
   const workflowPath = definition.workflow.path;
   const nextAutoFileCommand = resolvedArtifactPath
     ? buildExecutionFileCommand(resolvedArtifactPath)
@@ -519,13 +533,6 @@ export function BatchRegistrationPage() {
             deletedScheduleDefinitions,
           ),
           branch,
-          scheduleDeletions: deletedScheduleDefinitions.map((schedule) => ({
-            path: schedule.definitionPath,
-          })),
-          scheduleDefinitions: scheduleDefinitions.map((schedule) => ({
-            path: schedule.definitionPath,
-            yaml: serializeScheduleDefinitionYaml(schedule),
-          })),
           title,
           workflowPath,
           workflowYaml: generatedWorkflowYaml,
@@ -783,8 +790,6 @@ export function BatchRegistrationPage() {
           <YamlPreviewPanel
             batchPath={batchPath}
             batchYaml={yaml}
-            deletedScheduleDefinitions={deletedScheduleDefinitions}
-            scheduleDefinitions={scheduleDefinitions}
             workflowPath={workflowPath}
             workflowYaml={generatedWorkflowYaml}
           />
@@ -821,10 +826,7 @@ function PullRequestReviewPanel({
   const execution = definition.execution;
 
   return (
-    <article
-      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
-      id="schedules"
-    >
+    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div>
         <h2 className="text-lg font-semibold text-bp-graphite">
           {t("review.title")}
@@ -855,24 +857,6 @@ function PullRequestReviewPanel({
             label={t("review.files.scheduleDeletionCount")}
             value={String(deletedScheduleDefinitions.length)}
           />
-          {scheduleDefinitions.map((schedule, index) => (
-            <ReviewFileRow
-              key={`${schedule.scheduleId || "schedule"}-${index}`}
-              label={t("review.files.scheduleDefinition", {
-                scheduleId: schedule.scheduleId || index + 1,
-              })}
-              value={schedule.definitionPath}
-            />
-          ))}
-          {deletedScheduleDefinitions.map((schedule, index) => (
-            <ReviewFileRow
-              key={`${schedule.scheduleId || "deleted-schedule"}-${index}`}
-              label={t("review.files.scheduleDeletion", {
-                scheduleId: schedule.scheduleId || index + 1,
-              })}
-              value={schedule.definitionPath}
-            />
-          ))}
           <ReviewFileRow
             label={t("review.files.executionFile")}
             value={uploadedFilePath || t("review.files.noExecutionFile")}
@@ -992,15 +976,11 @@ function ReviewCheckItem({ ready, text }: { ready: boolean; text: string }) {
 function YamlPreviewPanel({
   batchPath,
   batchYaml,
-  deletedScheduleDefinitions,
-  scheduleDefinitions,
   workflowPath,
   workflowYaml,
 }: {
   batchPath: string;
   batchYaml: string;
-  deletedScheduleDefinitions: ScheduleDefinition[];
-  scheduleDefinitions: ScheduleDefinition[];
   workflowPath: string;
   workflowYaml: string;
 }) {
@@ -1025,28 +1005,6 @@ function YamlPreviewPanel({
           title={t("preview.workflowTitle")}
           yaml={workflowYaml}
         />
-        {scheduleDefinitions.map((schedule, index) => (
-          <PreviewDetails
-            icon={<FileText className="h-4 w-4 text-bp-git" aria-hidden />}
-            key={`${schedule.scheduleId || "schedule"}-${index}`}
-            path={schedule.definitionPath}
-            title={t("preview.scheduleTitle", {
-              scheduleId: schedule.scheduleId || index + 1,
-            })}
-            yaml={serializeScheduleDefinitionYaml(schedule)}
-          />
-        ))}
-        {deletedScheduleDefinitions.map((schedule, index) => (
-          <PreviewDetails
-            icon={<Trash2 className="h-4 w-4 text-amber-700" aria-hidden />}
-            key={`${schedule.scheduleId || "deleted-schedule"}-${index}`}
-            message={t("preview.scheduleDeletionMessage")}
-            path={schedule.definitionPath}
-            title={t("preview.scheduleDeletionTitle", {
-              scheduleId: schedule.scheduleId || index + 1,
-            })}
-          />
-        ))}
       </div>
     </article>
   );
@@ -1073,7 +1031,10 @@ function ScheduleDefinitionsPanel({
   const { t } = useTranslation("registration");
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <article
+      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+      id="schedules"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-bp-graphite">

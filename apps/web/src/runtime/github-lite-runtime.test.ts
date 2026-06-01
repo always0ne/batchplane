@@ -149,32 +149,6 @@ describe("createGitHubLiteRuntime", () => {
       }
 
       if (
-        parsedUrl.pathname ===
-          "/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-daily.yml" &&
-        parsedUrl.searchParams.get("ref") === branch
-      ) {
-        return Response.json({
-          content: btoa('metadata:\n  id: "payment.daily-close-daily"\n'),
-          encoding: "base64",
-          path: ".batch-governance/schedules/payment.daily-close-daily.yml",
-          sha: "existing-schedule-sha",
-        });
-      }
-
-      if (
-        parsedUrl.pathname ===
-          "/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-nightly.yml" &&
-        parsedUrl.searchParams.get("ref") === branch
-      ) {
-        return Response.json({
-          content: btoa('metadata:\n  id: "payment.daily-close-nightly"\n'),
-          encoding: "base64",
-          path: ".batch-governance/schedules/payment.daily-close-nightly.yml",
-          sha: "existing-schedule-delete-sha",
-        });
-      }
-
-      if (
         url.endsWith(
           "/contents/.batch-governance/batches/payment.daily-close.yml",
         ) &&
@@ -196,34 +170,6 @@ describe("createGitHubLiteRuntime", () => {
           content: {
             path: ".github/workflows/payment.daily-close.yml",
             sha: "updated-workflow-sha",
-          },
-        });
-      }
-
-      if (
-        url.endsWith(
-          "/contents/.batch-governance/schedules/payment.daily-close-daily.yml",
-        ) &&
-        method === "PUT"
-      ) {
-        return Response.json({
-          content: {
-            path: ".batch-governance/schedules/payment.daily-close-daily.yml",
-            sha: "updated-schedule-sha",
-          },
-        });
-      }
-
-      if (
-        url.endsWith(
-          "/contents/.batch-governance/schedules/payment.daily-close-nightly.yml",
-        ) &&
-        method === "DELETE"
-      ) {
-        return Response.json({
-          content: {
-            path: ".batch-governance/schedules/payment.daily-close-nightly.yml",
-            sha: "deleted-schedule-sha",
           },
         });
       }
@@ -253,17 +199,6 @@ describe("createGitHubLiteRuntime", () => {
         batchDefinitionYaml: 'metadata:\n  id: "payment.daily-close"\n',
         body: "body",
         branch,
-        scheduleDefinitions: [
-          {
-            path: ".batch-governance/schedules/payment.daily-close-daily.yml",
-            yaml: 'metadata:\n  id: "payment.daily-close-daily"\n',
-          },
-        ],
-        scheduleDeletions: [
-          {
-            path: ".batch-governance/schedules/payment.daily-close-nightly.yml",
-          },
-        ],
         title: "Change batch payment.daily-close",
         workflowPath: ".github/workflows/payment.daily-close.yml",
         workflowYaml: "name: Updated workflow\n",
@@ -296,18 +231,9 @@ describe("createGitHubLiteRuntime", () => {
         expect.objectContaining({
           body: expect.objectContaining({
             branch,
-            sha: "existing-schedule-sha",
           }),
           method: "PUT",
-          url: "https://api.github.com/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-daily.yml",
-        }),
-        expect.objectContaining({
-          body: expect.objectContaining({
-            branch,
-            sha: "existing-schedule-delete-sha",
-          }),
-          method: "DELETE",
-          url: "https://api.github.com/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-nightly.yml",
+          url: "https://api.github.com/repos/always0ne/batch/contents/.github/workflows/payment.daily-close.yml",
         }),
       ]),
     );

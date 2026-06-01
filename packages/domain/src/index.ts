@@ -28,6 +28,14 @@ export type WorkflowTarget = {
 
 export type RunnerLabel = string | string[];
 
+export type BatchSchedule = {
+  scheduleId: string;
+  name: string;
+  cron: string;
+  timezone: string;
+  enabled: boolean;
+};
+
 export type BatchDefinition = {
   batchId: string;
   name: string;
@@ -45,6 +53,7 @@ export type BatchDefinition = {
     artifactPath?: string;
   };
   labels?: string[];
+  schedules?: BatchSchedule[];
 };
 
 export type GitHubRepositoryRole = "admin" | "maintain" | "write" | "triage";
@@ -523,6 +532,13 @@ export type BatchDefinitionFile = {
       command: string;
       artifactPath?: string;
     };
+    schedules?: Array<{
+      id: string;
+      name: string;
+      cron: string;
+      timezone: string;
+      enabled: boolean;
+    }>;
   };
 };
 
@@ -663,6 +679,7 @@ export function validateBatchDefinition(
   validateGateRequired(record.gateRequired, diagnostics);
   validateOptionalExecution(record.execution, diagnostics);
   validateOptionalStringArray(record.labels, "labels", diagnostics);
+  validateOptionalBatchSchedules(record.schedules, "schedules", diagnostics);
 
   return diagnostics;
 }
@@ -694,6 +711,24 @@ export function validateBatchDefinitionFile(
       labels: metadata.labels,
       name: metadata.name,
       owner: spec.owner,
+      schedules: Array.isArray(spec.schedules)
+        ? spec.schedules.map((schedule) => {
+            const item =
+              schedule &&
+              typeof schedule === "object" &&
+              !Array.isArray(schedule)
+                ? (schedule as Record<string, unknown>)
+                : {};
+
+            return {
+              cron: item.cron,
+              enabled: item.enabled,
+              name: item.name,
+              scheduleId: item.id,
+              timezone: item.timezone,
+            };
+          })
+        : undefined,
       status: spec.status,
       workflow: spec.workflow,
     };
@@ -1545,6 +1580,45 @@ function validateOptionalExecution(
   }
 }
 
+function validateOptionalBatchSchedules(
+  value: unknown,
+  field: string,
+  diagnostics: FieldValidationDiagnostic[],
+) {
+  if (value === undefined) {
+    return;
+  }
+
+  if (!Array.isArray(value)) {
+    diagnostics.push({
+      code: "invalid_type",
+      field,
+      message: `${field} must be an array when provided.`,
+      severity: "error",
+    });
+    return;
+  }
+
+  value.forEach((schedule, index) => {
+    const item = requireRecord(schedule, `${field}.${index}`, diagnostics);
+
+    if (!item) {
+      return;
+    }
+
+    requireString(
+      item,
+      "scheduleId",
+      diagnostics,
+      `${field}.${index}.scheduleId`,
+    );
+    requireString(item, "name", diagnostics, `${field}.${index}.name`);
+    requireString(item, "cron", diagnostics, `${field}.${index}.cron`);
+    requireString(item, "timezone", diagnostics, `${field}.${index}.timezone`);
+    requireBoolean(item, "enabled", diagnostics, `${field}.${index}.enabled`);
+  });
+}
+
 function validateRunnerLabel(
   value: unknown,
   field: string,
@@ -1697,6 +1771,16 @@ function mapBatchDefinitionDiagnosticToFile(
     return {
       ...diagnostic,
       field: `metadata.${diagnostic.field}`,
+    };
+  }
+
+  if (diagnostic.field.startsWith("schedules.")) {
+    return {
+      ...diagnostic,
+      field: `spec.${diagnostic.field.replace(
+        /^(schedules\.\d+)\.scheduleId$/u,
+        "$1.id",
+      )}`,
     };
   }
 

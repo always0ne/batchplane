@@ -61,7 +61,6 @@ installation pull request adds:
 - `.github/workflows/batchplane-sample-target.yml`
 - `.batch-governance/README.md`
 - `.batch-governance/batches/.gitkeep`
-- `.batch-governance/schedules/.gitkeep`
 
 Merge the installation pull request before testing execution approval. The
 browser UI creates setup and request records, but approved execution dispatch is
@@ -71,8 +70,9 @@ To test batch registration, go to `Batches`, choose `Register batch`, fill in th
 form, review the YAML preview, and choose `Create registration PR`. Registration
 always generates a BatchPlane Gate-protected workflow. The workflow path is
 derived from the Batch ID, the execution environment is selected through the
-`runs-on` control, and the batch command is the only command executed after Gate
-approval. A successful test creates:
+`runs-on` control, the batch command is the only command executed after Gate
+approval, and schedules are embedded in the batch definition. A successful test
+creates:
 
 - A new `batchplane/register/...` branch
 - `.batch-governance/batches/{batchId}.yml`

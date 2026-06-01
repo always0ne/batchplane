@@ -476,8 +476,6 @@ export function createGitHubLiteRuntime(
         batchDefinitionYaml,
         body,
         branch,
-        scheduleDeletions = [],
-        scheduleDefinitions = [],
         title,
         workflowPath,
         workflowYaml,
@@ -504,25 +502,6 @@ export function createGitHubLiteRuntime(
           path: workflowPath,
           repositoryRef,
         });
-        for (const scheduleDefinition of scheduleDefinitions) {
-          await putRepositoryFile({
-            branch,
-            client,
-            content: scheduleDefinition.yaml,
-            message: title,
-            path: scheduleDefinition.path,
-            repositoryRef,
-          });
-        }
-        for (const scheduleDeletion of scheduleDeletions) {
-          await deleteRepositoryFile({
-            branch,
-            client,
-            message: title,
-            path: scheduleDeletion.path,
-            repositoryRef,
-          });
-        }
 
         if (artifact) {
           await putRepositoryFile({
@@ -698,38 +677,6 @@ async function putRepositoryFile({
     message,
     path,
     ...(existingFile?.sha ? { sha: existingFile.sha } : {}),
-  });
-}
-
-async function deleteRepositoryFile({
-  branch,
-  client,
-  message,
-  path,
-  repositoryRef,
-}: {
-  branch: string;
-  client: GitHubLiteClient;
-  message: string;
-  path: string;
-  repositoryRef: { owner: string; repo: string };
-}) {
-  const existingFile = await client.getFile({
-    ...repositoryRef,
-    path,
-    ref: branch,
-  });
-
-  if (!existingFile?.sha) {
-    return;
-  }
-
-  await client.deleteFile({
-    ...repositoryRef,
-    branch,
-    message,
-    path,
-    sha: existingFile.sha,
   });
 }
 
