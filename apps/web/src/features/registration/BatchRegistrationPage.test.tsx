@@ -20,9 +20,6 @@ describe("BatchRegistrationPage", () => {
     fireEvent.change(screen.getByLabelText("Schedule ID"), {
       target: { value: "payment.daily-close-daily" },
     });
-    fireEvent.change(screen.getByLabelText("Approval policy ID"), {
-      target: { value: "prod-self-approval-blocked" },
-    });
     fireEvent.change(screen.getAllByLabelText("Name")[1]!, {
       target: { value: "Daily settlement window" },
     });
@@ -52,6 +49,8 @@ describe("BatchRegistrationPage", () => {
       screen.getByText("BatchPlane Gate always runs before the batch command."),
     ).toBeInTheDocument();
     expect(screen.getByText("Schedule definitions")).toBeInTheDocument();
+    expect(screen.getByText("Expected run times")).toBeInTheDocument();
+    expect(screen.getByText(/Next 1:/)).toBeInTheDocument();
     expect(
       screen.getAllByText(
         ".batch-governance/schedules/payment.daily-close-daily.yml",
@@ -66,9 +65,6 @@ describe("BatchRegistrationPage", () => {
     expect(screen.getAllByText(/.\/scripts\/daily-close.sh/)).not.toHaveLength(
       0,
     );
-    expect(
-      screen.getByText(/approvalPolicyId: "prod-self-approval-blocked"/),
-    ).toBeInTheDocument();
   });
 
   it("routes a created mock PR to approvals with the resulting PR link", async () => {
@@ -128,6 +124,42 @@ describe("BatchRegistrationPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create change PR" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps an existing schedule visible when marked for deletion", async () => {
+    writeRuntimeFixtureSelection("approval-pending");
+
+    render(
+      <MemoryRouter
+        initialEntries={["/batches/new?change=payment.daily-close"]}
+      >
+        <Routes>
+          <Route path="/batches/new" element={<BatchRegistrationPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Change request" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(screen.getByText("Pending delete")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "If this change request is merged, this schedule definition file will be removed from the repository.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Scheduled removals")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        ".batch-governance/schedules/payment.daily-close-daily.yml",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: "Undo delete" }),
     ).toBeInTheDocument();
   });
 });

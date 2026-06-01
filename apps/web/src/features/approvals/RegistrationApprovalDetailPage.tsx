@@ -438,6 +438,10 @@ function RegistrationSummaryPanel({
             label={t("fields.scheduleCount")}
             value={String(summary.schedules.length)}
           />
+          <DetailMeta
+            label={t("fields.scheduleDeletionCount")}
+            value={String(summary.deletedSchedules.length)}
+          />
         </div>
       ) : (
         <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -462,10 +466,6 @@ function RegistrationSummaryPanel({
             value={summary.timezone || t("values.unknown")}
           />
           <DetailMeta
-            label={t("fields.approvalPolicy")}
-            value={summary.approvalPolicyId || t("values.unknown")}
-          />
-          <DetailMeta
             label={t("fields.enabled")}
             value={summary.enabled ? t("values.enabled") : t("values.disabled")}
           />
@@ -485,6 +485,26 @@ function RegistrationSummaryPanel({
               >
                 <div className="font-semibold">{schedule.name}</div>
                 <div className="mt-1 font-mono text-xs text-bp-muted">
+                  {schedule.scheduleId}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {summary.kind === "batch" && summary.deletedSchedules.length > 0 ? (
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <p className="text-xs font-semibold uppercase text-bp-muted">
+            {t("fields.deletedSchedules")}
+          </p>
+          <ul className="mt-2 space-y-2">
+            {summary.deletedSchedules.map((schedule) => (
+              <li
+                className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+                key={schedule.scheduleId}
+              >
+                <div className="font-semibold">{schedule.name}</div>
+                <div className="mt-1 font-mono text-xs text-amber-800/80">
                   {schedule.scheduleId}
                 </div>
               </li>
@@ -582,8 +602,8 @@ function RegistrationChecklistPanel({
           text: t("registrationDetail.checklist.timezoneRecorded"),
         },
         {
-          ready: Boolean(summary.approvalPolicyId),
-          text: t("registrationDetail.checklist.approvalPolicyRecorded"),
+          ready: Boolean(summary.enabled || !summary.enabled),
+          text: t("registrationDetail.checklist.enabledRecorded"),
         },
       ];
     }
@@ -611,11 +631,18 @@ function RegistrationChecklistPanel({
             !schedule.scheduleId ||
             !schedule.definitionPath ||
             !schedule.cron ||
-            !schedule.timezone ||
-            !schedule.approvalPolicyId,
+            !schedule.timezone,
         ),
         text: t("registrationDetail.checklist.scheduleDefinitionsRecorded", {
           count: summary.schedules.length,
+        }),
+      },
+      {
+        ready: !summary.deletedSchedules.some(
+          (schedule) => !schedule.scheduleId || !schedule.definitionPath,
+        ),
+        text: t("registrationDetail.checklist.scheduleDeletionsRecorded", {
+          count: summary.deletedSchedules.length,
         }),
       },
     ];

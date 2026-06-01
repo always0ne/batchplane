@@ -4,7 +4,7 @@ import type {
   RepositoryPullRequest,
   ScheduleDefinition,
 } from "@batchplane/domain";
-import { GitPullRequest, Loader2 } from "lucide-react";
+import { Clock3, GitPullRequest, Loader2 } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -50,6 +50,7 @@ import {
   type ScheduleFormValues,
   type ScheduleRequestMode,
 } from "./schedule-model";
+import { getCronPreview } from "./cron-preview";
 
 type ScheduleDefinitionPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
@@ -92,6 +93,10 @@ export function ScheduleDefinitionPage({
   const definition = useMemo(
     () => toScheduleDefinition(decodedBatchId, values),
     [decodedBatchId, values],
+  );
+  const cronPreview = useMemo(
+    () => getCronPreview(values.cron, values.timezone),
+    [values.cron, values.timezone],
   );
   const yaml = useMemo(
     () => serializeScheduleDefinitionYaml(definition),
@@ -370,12 +375,6 @@ export function ScheduleDefinitionPage({
                 placeholder="Daily settlement window"
                 value={values.name}
               />
-              <TextField
-                label={t("form.approvalPolicyId")}
-                onChange={updateTextField("approvalPolicyId", setValues)}
-                placeholder="default"
-                value={values.approvalPolicyId}
-              />
             </div>
           </article>
 
@@ -397,6 +396,12 @@ export function ScheduleDefinitionPage({
                 value={values.timezone}
               />
             </div>
+            <CronPreviewBlock
+              invalidLabel={t("form.cronPreviewInvalid")}
+              nextLabel={t("form.cronPreviewNext")}
+              preview={cronPreview}
+              title={t("form.cronPreviewTitle")}
+            />
             <label className="mt-5 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-graphite">
               <input
                 checked={values.enabled}
@@ -467,10 +472,6 @@ function ReviewPanel({
         <DetailMeta
           label={t("review.definitionPath")}
           value={definition.definitionPath}
-        />
-        <DetailMeta
-          label={t("review.approvalPolicy")}
-          value={definition.approvalPolicyId}
         />
       </dl>
 
@@ -573,11 +574,13 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 }
 
 function TextField({
+  description,
   label,
   onChange,
   placeholder,
   value,
 }: {
+  description?: string;
   label: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   placeholder: string;
@@ -587,13 +590,63 @@ function TextField({
     <label className="block">
       <span className="text-sm font-semibold text-bp-graphite">{label}</span>
       <input
+        aria-label={label}
         className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-bp-graphite shadow-sm focus:border-bp-control focus:outline-none focus:ring-2 focus:ring-bp-control/20"
         onChange={onChange}
         placeholder={placeholder}
         type="text"
         value={value}
       />
+      {description ? (
+        <p className="mt-2 text-xs font-normal leading-5 text-bp-muted">
+          {description}
+        </p>
+      ) : null}
     </label>
+  );
+}
+
+function CronPreviewBlock({
+  invalidLabel,
+  nextLabel,
+  preview,
+  title,
+}: {
+  invalidLabel: string;
+  nextLabel: string;
+  preview: ReturnType<typeof getCronPreview>;
+  title: string;
+}) {
+  const { i18n } = useTranslation();
+  const formatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language || undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    [i18n.language],
+  );
+
+  return (
+    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+      <div className="flex items-center gap-2 font-semibold text-bp-graphite">
+        <Clock3 className="h-4 w-4 text-bp-muted" aria-hidden="true" />
+        <span>{title}</span>
+      </div>
+      {preview.ok ? (
+        <ul className="mt-2 space-y-1 text-bp-graphite">
+          {preview.dates.map((date, index) => (
+            <li key={`${date.toISOString()}-${index}`}>
+              {nextLabel} {index + 1}: {formatter.format(date)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-amber-800">
+          {invalidLabel}: {preview.error}
+        </p>
+      )}
+    </div>
   );
 }
 

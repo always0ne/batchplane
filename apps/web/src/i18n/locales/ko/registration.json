@@ -16,12 +16,18 @@
       "existing": "기존 통제 스케줄",
       "new": "신규 스케줄",
       "remove": "제거",
+      "restore": "삭제 취소",
+      "markDeleted": "삭제",
+      "pendingDeletion": "삭제 예정",
+      "pendingDeletionHelp": "이 변경 요청이 승인되면 이 스케줄 정의 파일은 저장소에서 삭제됩니다.",
       "scheduleId": "Schedule ID",
       "name": "이름",
-      "approvalPolicyId": "승인정책 ID",
       "cron": "Cron",
       "timezone": "Timezone",
-      "enabled": "활성화"
+      "enabled": "활성화",
+      "cronPreviewTitle": "예상 수행 시각",
+      "cronPreviewNext": "다음",
+      "cronPreviewInvalid": "Cron 해석 실패"
     },
     "batchId": "Batch ID",
     "name": "이름",
@@ -42,7 +48,9 @@
     "title": "YAML 미리보기",
     "batchDefinitionTitle": "배치 정의 YAML",
     "workflowTitle": "Workflow YAML",
-    "scheduleTitle": "스케줄 YAML: {{scheduleId}}"
+    "scheduleTitle": "스케줄 YAML: {{scheduleId}}",
+    "scheduleDeletionTitle": "삭제 예정 스케줄: {{scheduleId}}",
+    "scheduleDeletionMessage": "이 변경 요청이 승인되면 이 스케줄 정의 파일은 삭제됩니다."
   },
   "review": {
     "title": "PR 검토",
@@ -53,7 +61,9 @@
       "batchDefinition": "배치 정의",
       "workflow": "Workflow",
       "scheduleCount": "스케줄 정의",
+      "scheduleDeletionCount": "삭제 예정 스케줄",
       "scheduleDefinition": "스케줄 {{scheduleId}}",
+      "scheduleDeletion": "삭제 예정 {{scheduleId}}",
       "executionFile": "실행 파일",
       "noExecutionFile": "업로드된 실행 파일 없음",
       "pending": "Batch ID를 입력하면 경로가 생성됩니다"
@@ -69,7 +79,10 @@
       "commandMissing": "PR 생성 전 배치 명령이 필요합니다.",
       "scheduleDefinitionsRecorded_zero": "이 PR에 포함된 통제 스케줄 정의가 없습니다.",
       "scheduleDefinitionsRecorded_one": "이 PR에서 통제 스케줄 정의 1건을 함께 검토합니다.",
-      "scheduleDefinitionsRecorded_other": "이 PR에서 통제 스케줄 정의 {{count}}건을 함께 검토합니다."
+      "scheduleDefinitionsRecorded_other": "이 PR에서 통제 스케줄 정의 {{count}}건을 함께 검토합니다.",
+      "scheduleDeletionsRecorded_zero": "이 PR에서 삭제되는 스케줄 정의는 없습니다.",
+      "scheduleDeletionsRecorded_one": "이 PR에서 삭제 예정 스케줄 정의 1건을 함께 검토합니다.",
+      "scheduleDeletionsRecorded_other": "이 PR에서 삭제 예정 스케줄 정의 {{count}}건을 함께 검토합니다."
     },
     "nextStep": "생성 후 BatchPlane은 PR을 승인함으로 라우팅합니다. GitHub 목록 반영에는 몇 초 지연이 있을 수 있습니다."
   },

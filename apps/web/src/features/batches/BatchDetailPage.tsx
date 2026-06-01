@@ -384,10 +384,6 @@ function BatchProfileCard({
                     value={schedule.timezone}
                   />
                   <DetailFact
-                    label={t("detail.schedules.fields.approvalPolicy")}
-                    value={schedule.approvalPolicyId}
-                  />
-                  <DetailFact
                     label={t("detail.schedules.fields.path")}
                     value={schedule.definitionPath}
                   />

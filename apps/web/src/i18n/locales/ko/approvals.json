@@ -17,7 +17,6 @@
     "viewRegistrationDetails": "변경 상세"
   },
   "fields": {
-    "approvalPolicy": "승인정책",
     "author": "작성자",
     "base": "대상",
     "batchId": "Batch ID",
@@ -34,9 +33,11 @@
     "repository": "저장소",
     "runsOn": "Runs on",
     "scheduleCount": "스케줄 수",
+    "scheduleDeletionCount": "삭제 예정 스케줄 수",
     "scheduleId": "Schedule ID",
     "schedulePath": "스케줄 정의",
     "schedules": "스케줄",
+    "deletedSchedules": "삭제 예정 스케줄",
     "timezone": "Timezone",
     "workflow": "Workflow"
   },
@@ -95,11 +96,14 @@
       "gateRequired": "배치 명령 실행 전 BatchPlane Gate 필수 적용",
       "cronRecorded": "Cron 표현식 기록",
       "timezoneRecorded": "Timezone 기록",
-      "approvalPolicyRecorded": "승인정책 참조 기록",
+      "enabledRecorded": "활성화 상태 기록",
       "runnerRecorded": "실행 환경(runs-on) 기록",
       "commandRecorded": "배치 명령 기록",
       "scheduleDefinitionsRecorded_one": "이 통제 변경에 스케줄 정의 1건이 포함되었는지 확인",
-      "scheduleDefinitionsRecorded_other": "이 통제 변경에 스케줄 정의 {{count}}건이 포함되었는지 확인"
+      "scheduleDefinitionsRecorded_other": "이 통제 변경에 스케줄 정의 {{count}}건이 포함되었는지 확인",
+      "scheduleDeletionsRecorded_zero": "이 통제 변경에서 삭제되는 스케줄 정의가 없는지 확인",
+      "scheduleDeletionsRecorded_one": "이 통제 변경에 삭제 예정 스케줄 정의 1건이 포함되었는지 확인",
+      "scheduleDeletionsRecorded_other": "이 통제 변경에 삭제 예정 스케줄 정의 {{count}}건이 포함되었는지 확인"
     },
     "review": {
       "title": "검토 상태",

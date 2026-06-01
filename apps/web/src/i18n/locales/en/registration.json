@@ -16,12 +16,18 @@
       "existing": "Existing governed schedule",
       "new": "New schedule",
       "remove": "Remove",
+      "restore": "Undo delete",
+      "markDeleted": "Delete",
+      "pendingDeletion": "Pending delete",
+      "pendingDeletionHelp": "If this change request is merged, this schedule definition file will be removed from the repository.",
       "scheduleId": "Schedule ID",
       "name": "Name",
-      "approvalPolicyId": "Approval policy ID",
       "cron": "Cron",
       "timezone": "Timezone",
-      "enabled": "Enabled"
+      "enabled": "Enabled",
+      "cronPreviewTitle": "Expected run times",
+      "cronPreviewNext": "Next",
+      "cronPreviewInvalid": "Cron parse failed"
     },
     "batchId": "Batch ID",
     "name": "Name",
@@ -42,7 +48,9 @@
     "title": "YAML preview",
     "batchDefinitionTitle": "Batch definition YAML",
     "workflowTitle": "Workflow YAML",
-    "scheduleTitle": "Schedule YAML: {{scheduleId}}"
+    "scheduleTitle": "Schedule YAML: {{scheduleId}}",
+    "scheduleDeletionTitle": "Scheduled removal: {{scheduleId}}",
+    "scheduleDeletionMessage": "This schedule definition file will be deleted if this change request is merged."
   },
   "review": {
     "title": "PR review",
@@ -53,7 +61,9 @@
       "batchDefinition": "Batch definition",
       "workflow": "Workflow",
       "scheduleCount": "Schedule definitions",
+      "scheduleDeletionCount": "Scheduled removals",
       "scheduleDefinition": "Schedule {{scheduleId}}",
+      "scheduleDeletion": "Delete {{scheduleId}}",
       "executionFile": "Execution file",
       "noExecutionFile": "No uploaded execution file",
       "pending": "Enter a Batch ID to generate the path"
@@ -69,7 +79,10 @@
       "commandMissing": "Batch command is required before PR creation.",
       "scheduleDefinitionsRecorded_zero": "No governed schedule definitions are included in this PR.",
       "scheduleDefinitionsRecorded_one": "1 governed schedule definition will be reviewed in this PR.",
-      "scheduleDefinitionsRecorded_other": "{{count}} governed schedule definitions will be reviewed in this PR."
+      "scheduleDefinitionsRecorded_other": "{{count}} governed schedule definitions will be reviewed in this PR.",
+      "scheduleDeletionsRecorded_zero": "No schedule definitions will be deleted in this PR.",
+      "scheduleDeletionsRecorded_one": "1 pending schedule deletion will be reviewed in this PR.",
+      "scheduleDeletionsRecorded_other": "{{count}} pending schedule deletions will be reviewed in this PR."
     },
     "nextStep": "After creation, BatchPlane routes the PR to approvals. GitHub list results can take a few seconds to catch up."
   },

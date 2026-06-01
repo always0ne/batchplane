@@ -17,7 +17,6 @@
     "viewRegistrationDetails": "Change detail"
   },
   "fields": {
-    "approvalPolicy": "Approval policy",
     "author": "Author",
     "base": "Base",
     "batchId": "Batch ID",
@@ -34,9 +33,11 @@
     "repository": "Repository",
     "runsOn": "Runs on",
     "scheduleCount": "Schedule count",
+    "scheduleDeletionCount": "Pending schedule deletions",
     "scheduleId": "Schedule ID",
     "schedulePath": "Schedule definition",
     "schedules": "Schedules",
+    "deletedSchedules": "Pending schedule deletions",
     "timezone": "Timezone",
     "workflow": "Workflow"
   },
@@ -95,11 +96,14 @@
       "gateRequired": "BatchPlane Gate is required before batch command execution.",
       "cronRecorded": "Cron expression is recorded.",
       "timezoneRecorded": "Timezone is recorded.",
-      "approvalPolicyRecorded": "Approval policy reference is recorded.",
+      "enabledRecorded": "Enabled state is recorded.",
       "runnerRecorded": "Execution environment (runs-on) is recorded.",
       "commandRecorded": "Batch command is recorded.",
       "scheduleDefinitionsRecorded_one": "1 schedule definition is included in this governed change.",
-      "scheduleDefinitionsRecorded_other": "{{count}} schedule definitions are included in this governed change."
+      "scheduleDefinitionsRecorded_other": "{{count}} schedule definitions are included in this governed change.",
+      "scheduleDeletionsRecorded_zero": "No schedule definitions are deleted in this governed change.",
+      "scheduleDeletionsRecorded_one": "1 pending schedule deletion is included in this governed change.",
+      "scheduleDeletionsRecorded_other": "{{count}} pending schedule deletions are included in this governed change."
     },
     "review": {
       "title": "Review state",

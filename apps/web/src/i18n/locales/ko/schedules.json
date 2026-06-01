@@ -22,17 +22,18 @@
     "scheduleId": "Schedule ID",
     "batchId": "Batch ID",
     "name": "이름",
-    "approvalPolicyId": "승인정책 ID",
     "cron": "Cron",
     "timezone": "Timezone",
-    "enabled": "활성화"
+    "enabled": "활성화",
+    "cronPreviewTitle": "예상 수행 시각",
+    "cronPreviewNext": "다음",
+    "cronPreviewInvalid": "Cron 해석 실패"
   },
   "review": {
     "title": "PR 검토",
     "batch": "배치",
     "requestType": "요청 유형",
     "definitionPath": "정의 경로",
-    "approvalPolicy": "승인정책",
     "missingFields": "통제 PR을 열기 전에 필수 항목을 입력하세요: {{fields}}",
     "ready": "통제 스케줄 정의가 PR 생성 준비 상태입니다."
   },

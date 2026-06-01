@@ -40,7 +40,11 @@ describe("RegistrationApprovalDetailPage", () => {
     expect(screen.getByText("Governance checklist")).toBeInTheDocument();
     expect(screen.getByText("YAML diff summary")).toBeInTheDocument();
     expect(screen.getByText("Daily settlement window")).toBeInTheDocument();
+    expect(screen.getByText("Nightly settlement fallback")).toBeInTheDocument();
     expect(screen.getByText("Schedule count")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Pending schedule deletions").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: "Approve and merge PR" }),
     ).toBeInTheDocument();
@@ -58,10 +62,10 @@ describe("RegistrationApprovalDetailPage", () => {
       await screen.findByText("payment.daily-close-daily"),
     ).toBeInTheDocument();
     expect(screen.getByText("0 5 * * *")).toBeInTheDocument();
-    expect(screen.getByText("prod-self-approval-blocked")).toBeInTheDocument();
     expect(
       screen.getByText("Cron expression is recorded."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Enabled state is recorded.")).toBeInTheDocument();
   });
 
   it("approves and merges registration pull request", async () => {
@@ -170,7 +174,6 @@ function createRuntimeWithScheduleFixture() {
           '  cron: "0 5 * * *"',
           '  timezone: "Asia/Seoul"',
           "  enabled: true",
-          '  approvalPolicyId: "prod-self-approval-blocked"',
           "",
         ].join("\n"),
         path: ".batch-governance/schedules/payment.daily-close-daily.yml",
@@ -192,7 +195,6 @@ function createRuntimeWithScheduleFixture() {
           "- Cron: `0 5 * * *`",
           "- Timezone: `Asia/Seoul`",
           "- Enabled: true",
-          "- Approval policy: `prod-self-approval-blocked`",
         ].join("\n"),
         head: headBranch,
         title: "Register schedule payment.daily-close-daily",
@@ -232,7 +234,6 @@ function withRegistrationEvidence(
           '  id: "payment.daily-close-daily"',
           '  name: "Daily settlement window"',
           "spec:",
-          '  approvalPolicyId: "prod-self-approval-blocked"',
           '  cron: "0 5 * * *"',
           "  enabled: true",
           '  timezone: "Asia/Seoul"',
@@ -240,6 +241,24 @@ function withRegistrationEvidence(
         ].join("\n"),
         path: ".batch-governance/schedules/payment.daily-close-daily.yml",
         sha: "mock-head-schedule-sha",
+      },
+      {
+        branch: "main",
+        content: [
+          'apiVersion: "batchplane.io/v1"',
+          'kind: "ScheduleDefinition"',
+          "metadata:",
+          '  batchId: "payment.daily-close"',
+          '  id: "payment.daily-close-nightly"',
+          '  name: "Nightly settlement fallback"',
+          "spec:",
+          '  cron: "0 30 1 * * *"',
+          "  enabled: false",
+          '  timezone: "Asia/Seoul"',
+          "",
+        ].join("\n"),
+        path: ".batch-governance/schedules/payment.daily-close-nightly.yml",
+        sha: "mock-base-schedule-deleted-sha",
       },
       {
         branch: headBranch,
@@ -286,6 +305,7 @@ function withRegistrationEvidence(
           "- Runs on: ubuntu-latest",
           "- BatchPlane Gate: required",
           "- Schedule count: 1",
+          "- Schedule deletion count: 1",
           "",
           "### Batch command",
           "",
@@ -303,7 +323,17 @@ function withRegistrationEvidence(
           "- Cron: `0 5 * * *`",
           "- Timezone: `Asia/Seoul`",
           "- Enabled: true",
-          "- Approval policy: `prod-self-approval-blocked`",
+          "",
+          "### Schedule deletions",
+          "",
+          "#### Deleted schedule 1",
+          "- Batch ID: `payment.daily-close`",
+          "- Schedule ID: `payment.daily-close-nightly`",
+          "- Name: Nightly settlement fallback",
+          "- Schedule definition: `.batch-governance/schedules/payment.daily-close-nightly.yml`",
+          "- Cron: `0 30 1 * * *`",
+          "- Timezone: `Asia/Seoul`",
+          "- Enabled: false",
         ].join("\n"),
       },
     ],

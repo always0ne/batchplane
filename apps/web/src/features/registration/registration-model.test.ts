@@ -31,7 +31,6 @@ const registrationValues = {
 } satisfies BatchRegistrationFormValues;
 const definition = toBatchDefinition(registrationValues);
 const scheduleDefinition: ScheduleDefinition = {
-  approvalPolicyId: "prod-self-approval-blocked",
   batchId: "payment.daily-close",
   cron: "0 5 * * *",
   definitionPath: ".batch-governance/schedules/payment.daily-close-daily.yml",
@@ -39,6 +38,13 @@ const scheduleDefinition: ScheduleDefinition = {
   name: "Daily settlement window",
   scheduleId: "payment.daily-close-daily",
   timezone: "Asia/Seoul",
+};
+const deletedScheduleDefinition: ScheduleDefinition = {
+  ...scheduleDefinition,
+  enabled: false,
+  name: "Nightly settlement fallback",
+  scheduleId: "payment.daily-close-nightly",
+  definitionPath: ".batch-governance/schedules/payment.daily-close-nightly.yml",
 };
 
 describe("registration model", () => {
@@ -188,11 +194,32 @@ describe("registration model", () => {
       ]),
     ).toContain("#### Schedule 1");
     expect(
-      buildRegistrationPullRequestBody(definition, "create", [
-        scheduleDefinition,
-      ]),
+      buildRegistrationPullRequestBody(
+        definition,
+        "create",
+        [scheduleDefinition],
+        [deletedScheduleDefinition],
+      ),
     ).toContain(
       "Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+    );
+    expect(
+      buildRegistrationPullRequestBody(
+        definition,
+        "create",
+        [scheduleDefinition],
+        [deletedScheduleDefinition],
+      ),
+    ).toContain("### Schedule deletions");
+    expect(
+      buildRegistrationPullRequestBody(
+        definition,
+        "create",
+        [scheduleDefinition],
+        [deletedScheduleDefinition],
+      ),
+    ).toContain(
+      "Schedule definition: `.batch-governance/schedules/payment.daily-close-nightly.yml`",
     );
   });
 

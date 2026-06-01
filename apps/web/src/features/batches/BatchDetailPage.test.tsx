@@ -47,7 +47,6 @@ describe("BatchDetailPage", () => {
     expect(
       screen.getAllByText("payment.daily-close-daily").length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("prod-self-approval-blocked")).toBeInTheDocument();
     expect(screen.getByText("Recent execution evidence")).toBeInTheDocument();
     expect(
       screen.getByText("btr-20260514010100-payment.daily-close-00000001"),

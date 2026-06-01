@@ -28,6 +28,7 @@ const pullRequest: RepositoryPullRequest = {
     "- BatchPlane Gate: required",
     "- Execution file: `.batch-governance/batches/payment.daily-close/artifacts/run.sh`",
     "- Schedule count: 1",
+    "- Schedule deletion count: 1",
     "",
     "### Batch command",
     "",
@@ -45,7 +46,17 @@ const pullRequest: RepositoryPullRequest = {
     "- Cron: `0 5 * * *`",
     "- Timezone: `Asia/Seoul`",
     "- Enabled: true",
-    "- Approval policy: `prod-self-approval-blocked`",
+    "",
+    "### Schedule deletions",
+    "",
+    "#### Deleted schedule 1",
+    "- Batch ID: `payment.daily-close`",
+    "- Schedule ID: `payment.daily-close-nightly`",
+    "- Name: Nightly settlement fallback",
+    "- Schedule definition: `.batch-governance/schedules/payment.daily-close-nightly.yml`",
+    "- Cron: `0 30 1 * * *`",
+    "- Timezone: `Asia/Seoul`",
+    "- Enabled: false",
   ].join("\n"),
   head: "batchplane/register/payment.daily-close-20260514010203",
   merged: false,
@@ -62,6 +73,19 @@ describe("registration approval model", () => {
         "./.batch-governance/batches/payment.daily-close/artifacts/run.sh",
       batchId: "payment.daily-close",
       criticality: "HIGH",
+      deletedSchedules: [
+        {
+          batchId: "payment.daily-close",
+          cron: "0 30 1 * * *",
+          definitionPath:
+            ".batch-governance/schedules/payment.daily-close-nightly.yml",
+          enabled: false,
+          kind: "schedule",
+          name: "Nightly settlement fallback",
+          scheduleId: "payment.daily-close-nightly",
+          timezone: "Asia/Seoul",
+        },
+      ],
       environment: "PROD",
       executionFilePath:
         ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
@@ -71,7 +95,6 @@ describe("registration approval model", () => {
       runsOn: "ubuntu-latest",
       schedules: [
         {
-          approvalPolicyId: "prod-self-approval-blocked",
           batchId: "payment.daily-close",
           cron: "0 5 * * *",
           definitionPath:
@@ -95,6 +118,7 @@ describe("registration approval model", () => {
       ".github/workflows/payment.daily-close.yml",
       ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
       ".batch-governance/schedules/payment.daily-close-daily.yml",
+      ".batch-governance/schedules/payment.daily-close-nightly.yml",
     ]);
   });
 
@@ -113,7 +137,6 @@ describe("registration approval model", () => {
         "- Cron: `0 5 * * *`",
         "- Timezone: `Asia/Seoul`",
         "- Enabled: true",
-        "- Approval policy: `prod-self-approval-blocked`",
       ].join("\n"),
       head: "batchplane/schedule/register/payment.daily-close-daily-20260514010203",
       title: "Register schedule payment.daily-close-daily",
@@ -121,7 +144,6 @@ describe("registration approval model", () => {
     const summary = parseRegistrationRequestSummary(schedulePullRequest);
 
     expect(summary).toEqual({
-      approvalPolicyId: "prod-self-approval-blocked",
       batchId: "payment.daily-close",
       cron: "0 5 * * *",
       definitionPath:

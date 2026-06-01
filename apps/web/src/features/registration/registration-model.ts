@@ -322,6 +322,7 @@ export function buildRegistrationPullRequestBody(
   definition: BatchDefinition,
   mode: RegistrationRequestMode = "create",
   schedules: ScheduleDefinition[] = [],
+  deletedSchedules: ScheduleDefinition[] = [],
 ) {
   const execution = definition.execution;
   const heading =
@@ -348,6 +349,7 @@ export function buildRegistrationPullRequestBody(
       ? [`- Execution file: \`${execution.artifactPath}\``]
       : []),
     `- Schedule count: ${schedules.length}`,
+    `- Schedule deletion count: ${deletedSchedules.length}`,
     "",
     "### Batch command",
     "",
@@ -368,7 +370,24 @@ export function buildRegistrationPullRequestBody(
             `- Cron: \`${schedule.cron}\``,
             `- Timezone: \`${schedule.timezone}\``,
             `- Enabled: ${schedule.enabled ? "true" : "false"}`,
-            `- Approval policy: \`${schedule.approvalPolicyId}\``,
+            "",
+          ]),
+        ]
+      : []),
+    ...(deletedSchedules.length > 0
+      ? [
+          "",
+          "### Schedule deletions",
+          "",
+          ...deletedSchedules.flatMap((schedule, index) => [
+            `#### Deleted schedule ${index + 1}`,
+            `- Batch ID: \`${schedule.batchId}\``,
+            `- Schedule ID: \`${schedule.scheduleId}\``,
+            `- Name: ${schedule.name}`,
+            `- Schedule definition: \`${schedule.definitionPath}\``,
+            `- Cron: \`${schedule.cron}\``,
+            `- Timezone: \`${schedule.timezone}\``,
+            `- Enabled: ${schedule.enabled ? "true" : "false"}`,
             "",
           ]),
         ]

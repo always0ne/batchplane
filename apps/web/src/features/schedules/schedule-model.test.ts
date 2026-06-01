@@ -15,7 +15,6 @@ import {
 } from "./schedule-model";
 
 const formValues = {
-  approvalPolicyId: "prod-self-approval-blocked",
   cron: "0 5 * * *",
   enabled: true,
   name: "Daily settlement window",
@@ -88,9 +87,6 @@ describe("schedule model", () => {
     );
     expect(buildSchedulePullRequestBody(definition)).toContain(
       "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
-    );
-    expect(buildSchedulePullRequestBody(definition)).toContain(
-      "- Approval policy: `prod-self-approval-blocked`",
     );
   });
 

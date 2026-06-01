@@ -105,7 +105,6 @@
       "fields": {
         "cron": "Cron",
         "timezone": "Timezone",
-        "approvalPolicy": "승인정책",
         "path": "정의 경로"
       }
     },

@@ -88,7 +88,6 @@ describe("createGitHubLiteRuntime", () => {
       }),
     ).resolves.toEqual([
       expect.objectContaining({
-        approvalPolicyId: "prod-self-approval-blocked",
         batchId: "payment.daily-close",
         cron: "0 5 * * *",
         enabled: true,
@@ -163,6 +162,19 @@ describe("createGitHubLiteRuntime", () => {
       }
 
       if (
+        parsedUrl.pathname ===
+          "/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-nightly.yml" &&
+        parsedUrl.searchParams.get("ref") === branch
+      ) {
+        return Response.json({
+          content: btoa('metadata:\n  id: "payment.daily-close-nightly"\n'),
+          encoding: "base64",
+          path: ".batch-governance/schedules/payment.daily-close-nightly.yml",
+          sha: "existing-schedule-delete-sha",
+        });
+      }
+
+      if (
         url.endsWith(
           "/contents/.batch-governance/batches/payment.daily-close.yml",
         ) &&
@@ -202,6 +214,20 @@ describe("createGitHubLiteRuntime", () => {
         });
       }
 
+      if (
+        url.endsWith(
+          "/contents/.batch-governance/schedules/payment.daily-close-nightly.yml",
+        ) &&
+        method === "DELETE"
+      ) {
+        return Response.json({
+          content: {
+            path: ".batch-governance/schedules/payment.daily-close-nightly.yml",
+            sha: "deleted-schedule-sha",
+          },
+        });
+      }
+
       if (url.endsWith("/pulls") && method === "POST") {
         return Response.json({
           base: { ref: "main" },
@@ -231,6 +257,11 @@ describe("createGitHubLiteRuntime", () => {
           {
             path: ".batch-governance/schedules/payment.daily-close-daily.yml",
             yaml: 'metadata:\n  id: "payment.daily-close-daily"\n',
+          },
+        ],
+        scheduleDeletions: [
+          {
+            path: ".batch-governance/schedules/payment.daily-close-nightly.yml",
           },
         ],
         title: "Change batch payment.daily-close",
@@ -269,6 +300,14 @@ describe("createGitHubLiteRuntime", () => {
           }),
           method: "PUT",
           url: "https://api.github.com/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-daily.yml",
+        }),
+        expect.objectContaining({
+          body: expect.objectContaining({
+            branch,
+            sha: "existing-schedule-delete-sha",
+          }),
+          method: "DELETE",
+          url: "https://api.github.com/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-nightly.yml",
         }),
       ]),
     );

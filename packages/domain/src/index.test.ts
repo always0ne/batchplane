@@ -91,7 +91,6 @@ const workspacePolicy: WorkspacePolicy = {
 };
 
 const scheduleDefinition: ScheduleDefinition = {
-  approvalPolicyId: "prod-self-approval-blocked",
   batchId: batchDefinition.batchId,
   cron: "0 5 * * *",
   definitionPath: ".batch-governance/schedules/payment.daily-close-daily.yml",
@@ -216,7 +215,6 @@ describe("domain model contracts", () => {
         name: scheduleDefinition.name,
       },
       spec: {
-        approvalPolicyId: scheduleDefinition.approvalPolicyId,
         cron: scheduleDefinition.cron,
         enabled: scheduleDefinition.enabled,
         timezone: scheduleDefinition.timezone,
@@ -493,7 +491,6 @@ describe("domain schema validation", () => {
     expect(
       validateScheduleDefinition({
         ...scheduleDefinition,
-        approvalPolicyId: "",
         cron: "",
         timezone: "",
       }),
@@ -506,10 +503,6 @@ describe("domain schema validation", () => {
         expect.objectContaining({
           code: "required",
           field: "timezone",
-        }),
-        expect.objectContaining({
-          code: "required",
-          field: "approvalPolicyId",
         }),
       ]),
     );
@@ -525,7 +518,6 @@ describe("domain schema validation", () => {
         name: scheduleDefinition.name,
       },
       spec: {
-        approvalPolicyId: scheduleDefinition.approvalPolicyId,
         cron: scheduleDefinition.cron,
         enabled: scheduleDefinition.enabled,
         timezone: scheduleDefinition.timezone,

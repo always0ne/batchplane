@@ -122,7 +122,6 @@ export type ScheduleDefinition = {
   cron: string;
   timezone: string;
   enabled: boolean;
-  approvalPolicyId: string;
   definitionPath: string;
 };
 
@@ -337,6 +336,10 @@ export type RegistrationScheduleDefinitionInput = {
   yaml: string;
 };
 
+export type RegistrationScheduleDeletionInput = {
+  path: string;
+};
+
 export type RegistrationTargetStatus = {
   batchDefinitionExists: boolean;
   workflowExists: boolean;
@@ -353,6 +356,7 @@ export type CreateRegistrationPullRequestInput = {
   batchDefinitionYaml: string;
   body: string;
   branch: string;
+  scheduleDeletions?: RegistrationScheduleDeletionInput[];
   scheduleDefinitions?: RegistrationScheduleDefinitionInput[];
   title: string;
   workflowPath: string;
@@ -562,7 +566,6 @@ export type ScheduleDefinitionFile = {
     cron: string;
     timezone: string;
     enabled: boolean;
-    approvalPolicyId: string;
   };
 };
 
@@ -804,7 +807,6 @@ export function validateScheduleDefinition(
   requireString(record, "cron", diagnostics);
   requireString(record, "timezone", diagnostics);
   requireBoolean(record, "enabled", diagnostics);
-  requireString(record, "approvalPolicyId", diagnostics);
 
   return diagnostics;
 }
@@ -834,7 +836,6 @@ export function validateScheduleDefinitionFile(
   if (metadata && spec) {
     diagnostics.push(
       ...validateScheduleDefinition({
-        approvalPolicyId: spec.approvalPolicyId,
         batchId: metadata.batchId,
         cron: spec.cron,
         enabled: spec.enabled,

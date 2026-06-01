@@ -18,6 +18,7 @@ export type BatchRegistrationRequestBodySummary = {
   batchCommand: string;
   batchId: string;
   criticality: string;
+  deletedSchedules: ScheduleRegistrationRequestBodySummary[];
   environment: string;
   executionFilePath: string;
   gateRequired: boolean;
@@ -29,7 +30,6 @@ export type BatchRegistrationRequestBodySummary = {
 
 export type ScheduleRegistrationRequestBodySummary = {
   kind: "schedule";
-  approvalPolicyId: string;
   batchId: string;
   cron: string;
   definitionPath: string;
@@ -84,6 +84,7 @@ function parseBatchSummary(
     batchCommand: readCommandBlock(pullRequest.body),
     batchId,
     criticality: readMarkdownField(pullRequest.body, "Criticality"),
+    deletedSchedules: parseEmbeddedDeletedSchedules(pullRequest.body),
     environment: readMarkdownField(pullRequest.body, "Environment"),
     executionFilePath: readMarkdownField(pullRequest.body, "Execution file"),
     gateRequired:
@@ -108,7 +109,6 @@ function parseScheduleSummary(
     "";
 
   return {
-    approvalPolicyId: readMarkdownField(pullRequest.body, "Approval policy"),
     batchId: readMarkdownField(pullRequest.body, "Batch ID"),
     cron: readMarkdownField(pullRequest.body, "Cron"),
     definitionPath:
@@ -134,6 +134,7 @@ export function deriveRegistrationFilePaths(
     summary.workflowPath,
     summary.executionFilePath,
     ...summary.schedules.map((schedule) => schedule.definitionPath),
+    ...summary.deletedSchedules.map((schedule) => schedule.definitionPath),
   ];
 
   return [...new Set(candidates.filter(Boolean))];
@@ -253,16 +254,35 @@ function readCommandBlock(body: string): string {
 function parseEmbeddedSchedules(
   body: string,
 ): ScheduleRegistrationRequestBodySummary[] {
-  const matches = body.matchAll(
-    /(?:^|\n)#### Schedule(?:\s+\d+)?\s*\n([\s\S]*?)(?=\n#### Schedule(?:\s+\d+)?\s*\n|\n##\s|$)/g,
-  );
-
-  return [...matches]
-    .map((match) => parseScheduleBlock(match[1] ?? ""))
+  return parseEmbeddedScheduleSection(body, "Schedule")
+    .map((block) => parseScheduleBlock(block))
     .filter(
       (schedule): schedule is ScheduleRegistrationRequestBodySummary =>
         schedule !== null,
     );
+}
+
+function parseEmbeddedDeletedSchedules(
+  body: string,
+): ScheduleRegistrationRequestBodySummary[] {
+  return parseEmbeddedScheduleSection(body, "Deleted schedule")
+    .map((block) => parseScheduleBlock(block))
+    .filter(
+      (schedule): schedule is ScheduleRegistrationRequestBodySummary =>
+        schedule !== null,
+    );
+}
+
+function parseEmbeddedScheduleSection(body: string, title: string): string[] {
+  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matches = body.matchAll(
+    new RegExp(
+      `(?:^|\\n)#### ${escapedTitle}(?:\\s+\\d+)?\\s*\\n([\\s\\S]*?)(?=\\n#### (?:Schedule|Deleted schedule)(?:\\s+\\d+)?\\s*\\n|\\n##\\s|$)`,
+      "g",
+    ),
+  );
+
+  return [...matches].map((match) => match[1] ?? "");
 }
 
 function parseScheduleBlock(
@@ -275,7 +295,6 @@ function parseScheduleBlock(
   }
 
   return {
-    approvalPolicyId: readMarkdownField(block, "Approval policy"),
     batchId: readMarkdownField(block, "Batch ID"),
     cron: readMarkdownField(block, "Cron"),
     definitionPath:

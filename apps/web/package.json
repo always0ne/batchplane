@@ -13,12 +13,12 @@
     "@batchplane/digest": "workspace:*",
     "@batchplane/domain": "workspace:*",
     "@batchplane/github-lite": "workspace:*",
+    "cron-parser": "^5.5.0",
     "i18next": "^23.0.0",
     "lucide-react": "^0.468.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-i18next": "^14.0.0",
     "react-router-dom": "^6.0.0"
-  },
-  "devDependencies": {}
+  }
 }

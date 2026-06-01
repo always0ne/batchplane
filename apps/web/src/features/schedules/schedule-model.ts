@@ -10,14 +10,12 @@ export type ScheduleFormValues = {
   name: string;
   cron: string;
   timezone: string;
-  approvalPolicyId: string;
   enabled: boolean;
 };
 
 export type ScheduleRequestMode = "create" | "change";
 
 export const defaultScheduleFormValues: ScheduleFormValues = {
-  approvalPolicyId: "default",
   cron: "0 5 * * *",
   enabled: true,
   name: "",
@@ -29,7 +27,6 @@ export function toScheduleFormValues(
   definition: ScheduleDefinition,
 ): ScheduleFormValues {
   return {
-    approvalPolicyId: definition.approvalPolicyId,
     cron: definition.cron,
     enabled: definition.enabled,
     name: definition.name,
@@ -45,7 +42,6 @@ export function toScheduleDefinition(
   const scheduleId = values.scheduleId.trim();
 
   return {
-    approvalPolicyId: values.approvalPolicyId.trim(),
     batchId: batchId.trim(),
     cron: values.cron.trim(),
     definitionPath: getScheduleDefinitionPath(scheduleId),
@@ -78,7 +74,6 @@ export function serializeScheduleDefinitionYaml(
       name: definition.name,
     },
     spec: {
-      approvalPolicyId: definition.approvalPolicyId,
       cron: definition.cron,
       enabled: definition.enabled,
       timezone: definition.timezone,
@@ -101,7 +96,6 @@ export function parseScheduleDefinitionYaml(yaml: string): ScheduleDefinition {
   const scheduleId = readYamlString(metadata, "id");
 
   return {
-    approvalPolicyId: readYamlString(spec, "approvalPolicyId"),
     batchId: readYamlString(metadata, "batchId"),
     cron: readYamlString(spec, "cron"),
     definitionPath: getScheduleDefinitionPath(scheduleId),
@@ -122,7 +116,6 @@ export function validateScheduleRegistration(
   if (!definition.name) missingFields.push("name");
   if (!definition.cron) missingFields.push("cron");
   if (!definition.timezone) missingFields.push("timezone");
-  if (!definition.approvalPolicyId) missingFields.push("approvalPolicyId");
 
   return missingFields;
 }
@@ -179,7 +172,6 @@ export function buildSchedulePullRequestBody(
     `- Cron: \`${definition.cron}\``,
     `- Timezone: \`${definition.timezone}\``,
     `- Enabled: ${definition.enabled ? "true" : "false"}`,
-    `- Approval policy: \`${definition.approvalPolicyId}\``,
     "",
     summary,
   ].join("\n");

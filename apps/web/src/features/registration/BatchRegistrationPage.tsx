@@ -9,11 +9,13 @@ import type {
 import {
   AlertCircle,
   CheckCircle2,
+  Clock3,
   FileCode2,
   FileText,
   GitPullRequest,
   Loader2,
   Plus,
+  RotateCcw,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
@@ -66,6 +68,7 @@ import {
   validateScheduleRegistration,
   type ScheduleFormValues,
 } from "../schedules/schedule-model";
+import { getCronPreview } from "../schedules/cron-preview";
 
 type SubmissionState =
   | { type: "idle" }
@@ -80,7 +83,8 @@ type UploadedExecutionFile = {
 
 type ScheduleDraft = {
   key: string;
-  locked: boolean;
+  source: "existing" | "new";
+  status: "active" | "deleted";
   values: ScheduleFormValues;
 };
 
@@ -147,12 +151,30 @@ export function BatchRegistrationPage() {
       buildBatchWorkflowYaml(definition, values.runCommand, values.runnerLabel),
     [definition, values.runCommand, values.runnerLabel],
   );
+  const activeScheduleDrafts = useMemo(
+    () => scheduleDrafts.filter((draft) => draft.status === "active"),
+    [scheduleDrafts],
+  );
+  const deletedScheduleDrafts = useMemo(
+    () =>
+      scheduleDrafts.filter(
+        (draft) => draft.source === "existing" && draft.status === "deleted",
+      ),
+    [scheduleDrafts],
+  );
   const scheduleDefinitions = useMemo(
     () =>
-      scheduleDrafts.map((draft) =>
+      activeScheduleDrafts.map((draft) =>
         toScheduleDefinition(definition.batchId, draft.values),
       ),
-    [definition.batchId, scheduleDrafts],
+    [activeScheduleDrafts, definition.batchId],
+  );
+  const deletedScheduleDefinitions = useMemo(
+    () =>
+      deletedScheduleDrafts.map((draft) =>
+        toScheduleDefinition(definition.batchId, draft.values),
+      ),
+    [definition.batchId, deletedScheduleDrafts],
   );
   const missingFields = useMemo(() => {
     const fields = validateBatchRegistration(definition);
@@ -309,7 +331,8 @@ export function BatchRegistrationPage() {
     setScheduleDrafts(
       schedules.map((schedule) => ({
         key: nextScheduleDraftKey(),
-        locked: true,
+        source: "existing",
+        status: "active",
         values: toScheduleFormValues(schedule),
       })),
     );
@@ -323,7 +346,8 @@ export function BatchRegistrationPage() {
       ...current,
       {
         key: nextScheduleDraftKey(),
-        locked: false,
+        source: "new",
+        status: "active",
         values: { ...defaultScheduleFormValues },
       },
     ]);
@@ -331,7 +355,25 @@ export function BatchRegistrationPage() {
 
   function removeScheduleDraft(key: string) {
     setScheduleDrafts((current) =>
-      current.filter((draft) => draft.key !== key),
+      current.flatMap((draft) => {
+        if (draft.key !== key) {
+          return [draft];
+        }
+
+        if (draft.source === "new") {
+          return [];
+        }
+
+        return [{ ...draft, status: "deleted" as const }];
+      }),
+    );
+  }
+
+  function restoreScheduleDraft(key: string) {
+    setScheduleDrafts((current) =>
+      current.map((draft) =>
+        draft.key === key ? { ...draft, status: "active" } : draft,
+      ),
     );
   }
 
@@ -474,8 +516,12 @@ export function BatchRegistrationPage() {
             definition,
             mode,
             scheduleDefinitions,
+            deletedScheduleDefinitions,
           ),
           branch,
+          scheduleDeletions: deletedScheduleDefinitions.map((schedule) => ({
+            path: schedule.definitionPath,
+          })),
           scheduleDefinitions: scheduleDefinitions.map((schedule) => ({
             path: schedule.definitionPath,
             yaml: serializeScheduleDefinitionYaml(schedule),
@@ -714,6 +760,7 @@ export function BatchRegistrationPage() {
             mode={mode}
             onAdd={addScheduleDraft}
             onRemove={removeScheduleDraft}
+            onRestore={restoreScheduleDraft}
             onUpdate={updateScheduleDraft}
           />
 
@@ -725,6 +772,7 @@ export function BatchRegistrationPage() {
             batchPath={batchPath}
             canSubmit={canSubmit}
             definition={definition}
+            deletedScheduleDefinitions={deletedScheduleDefinitions}
             missingFields={missingFields}
             mode={mode}
             scheduleDefinitions={scheduleDefinitions}
@@ -735,6 +783,7 @@ export function BatchRegistrationPage() {
           <YamlPreviewPanel
             batchPath={batchPath}
             batchYaml={yaml}
+            deletedScheduleDefinitions={deletedScheduleDefinitions}
             scheduleDefinitions={scheduleDefinitions}
             workflowPath={workflowPath}
             workflowYaml={generatedWorkflowYaml}
@@ -748,6 +797,7 @@ export function BatchRegistrationPage() {
 function PullRequestReviewPanel({
   batchPath,
   canSubmit,
+  deletedScheduleDefinitions,
   definition,
   missingFields,
   mode,
@@ -758,6 +808,7 @@ function PullRequestReviewPanel({
 }: {
   batchPath: string;
   canSubmit: boolean;
+  deletedScheduleDefinitions: ScheduleDefinition[];
   definition: ReturnType<typeof toBatchDefinition>;
   missingFields: string[];
   mode: RegistrationRequestMode;
@@ -797,10 +848,23 @@ function PullRequestReviewPanel({
             label={t("review.files.scheduleCount")}
             value={String(scheduleDefinitions.length)}
           />
+          <ReviewFileRow
+            label={t("review.files.scheduleDeletionCount")}
+            value={String(deletedScheduleDefinitions.length)}
+          />
           {scheduleDefinitions.map((schedule, index) => (
             <ReviewFileRow
               key={`${schedule.scheduleId || "schedule"}-${index}`}
               label={t("review.files.scheduleDefinition", {
+                scheduleId: schedule.scheduleId || index + 1,
+              })}
+              value={schedule.definitionPath}
+            />
+          ))}
+          {deletedScheduleDefinitions.map((schedule, index) => (
+            <ReviewFileRow
+              key={`${schedule.scheduleId || "deleted-schedule"}-${index}`}
+              label={t("review.files.scheduleDeletion", {
                 scheduleId: schedule.scheduleId || index + 1,
               })}
               value={schedule.definitionPath}
@@ -854,6 +918,14 @@ function PullRequestReviewPanel({
             }
             text={t("review.checklist.scheduleDefinitionsRecorded", {
               count: scheduleDefinitions.length,
+            })}
+          />
+          <ReviewCheckItem
+            ready={deletedScheduleDefinitions.every((schedule) =>
+              Boolean(schedule.scheduleId && schedule.definitionPath),
+            )}
+            text={t("review.checklist.scheduleDeletionsRecorded", {
+              count: deletedScheduleDefinitions.length,
             })}
           />
         </ul>
@@ -917,12 +989,14 @@ function ReviewCheckItem({ ready, text }: { ready: boolean; text: string }) {
 function YamlPreviewPanel({
   batchPath,
   batchYaml,
+  deletedScheduleDefinitions,
   scheduleDefinitions,
   workflowPath,
   workflowYaml,
 }: {
   batchPath: string;
   batchYaml: string;
+  deletedScheduleDefinitions: ScheduleDefinition[];
   scheduleDefinitions: ScheduleDefinition[];
   workflowPath: string;
   workflowYaml: string;
@@ -959,6 +1033,17 @@ function YamlPreviewPanel({
             yaml={serializeScheduleDefinitionYaml(schedule)}
           />
         ))}
+        {deletedScheduleDefinitions.map((schedule, index) => (
+          <PreviewDetails
+            icon={<Trash2 className="h-4 w-4 text-amber-700" aria-hidden />}
+            key={`${schedule.scheduleId || "deleted-schedule"}-${index}`}
+            message={t("preview.scheduleDeletionMessage")}
+            path={schedule.definitionPath}
+            title={t("preview.scheduleDeletionTitle", {
+              scheduleId: schedule.scheduleId || index + 1,
+            })}
+          />
+        ))}
       </div>
     </article>
   );
@@ -969,12 +1054,14 @@ function ScheduleDefinitionsPanel({
   mode,
   onAdd,
   onRemove,
+  onRestore,
   onUpdate,
 }: {
   drafts: ScheduleDraft[];
   mode: RegistrationRequestMode;
   onAdd: () => void;
   onRemove: (key: string) => void;
+  onRestore: (key: string) => void;
   onUpdate: (
     key: string,
     updater: (values: ScheduleFormValues) => ScheduleFormValues,
@@ -1014,108 +1101,14 @@ function ScheduleDefinitionsPanel({
       ) : (
         <div className="mt-4 space-y-3">
           {drafts.map((draft, index) => (
-            <section
-              className="rounded-md border border-slate-200 bg-slate-50 p-4"
+            <ScheduleDraftCard
+              draft={draft}
+              index={index}
               key={draft.key}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-bp-graphite">
-                    {t("form.schedules.itemTitle", { index: index + 1 })}
-                  </h3>
-                  <p className="mt-1 text-xs text-bp-muted">
-                    {draft.locked
-                      ? t("form.schedules.existing")
-                      : t("form.schedules.new")}
-                  </p>
-                </div>
-                {!draft.locked ? (
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-                    onClick={() => onRemove(draft.key)}
-                    type="button"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    {t("form.schedules.remove")}
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {draft.locked ? (
-                  <ReadOnlyField
-                    label={t("form.schedules.scheduleId")}
-                    value={draft.values.scheduleId}
-                  />
-                ) : (
-                  <TextField
-                    label={t("form.schedules.scheduleId")}
-                    onChange={(event) =>
-                      onUpdate(draft.key, (values) => ({
-                        ...values,
-                        scheduleId: event.target.value,
-                      }))
-                    }
-                    placeholder="payment.daily-close-daily"
-                    value={draft.values.scheduleId}
-                  />
-                )}
-                <TextField
-                  label={t("form.schedules.name")}
-                  onChange={(event) =>
-                    onUpdate(draft.key, (values) => ({
-                      ...values,
-                      name: event.target.value,
-                    }))
-                  }
-                  placeholder="Daily settlement window"
-                  value={draft.values.name}
-                />
-                <TextField
-                  label={t("form.schedules.approvalPolicyId")}
-                  onChange={(event) =>
-                    onUpdate(draft.key, (values) => ({
-                      ...values,
-                      approvalPolicyId: event.target.value,
-                    }))
-                  }
-                  placeholder="prod-self-approval-blocked"
-                  value={draft.values.approvalPolicyId}
-                />
-                <TextField
-                  label={t("form.schedules.cron")}
-                  onChange={(event) =>
-                    onUpdate(draft.key, (values) => ({
-                      ...values,
-                      cron: event.target.value,
-                    }))
-                  }
-                  placeholder="0 5 * * *"
-                  value={draft.values.cron}
-                />
-                <TextField
-                  label={t("form.schedules.timezone")}
-                  onChange={(event) =>
-                    onUpdate(draft.key, (values) => ({
-                      ...values,
-                      timezone: event.target.value,
-                    }))
-                  }
-                  placeholder="Asia/Seoul"
-                  value={draft.values.timezone}
-                />
-                <CheckboxField
-                  checked={draft.values.enabled}
-                  label={t("form.schedules.enabled")}
-                  onChange={(checked) =>
-                    onUpdate(draft.key, (values) => ({
-                      ...values,
-                      enabled: checked,
-                    }))
-                  }
-                />
-              </div>
-            </section>
+              onRemove={onRemove}
+              onRestore={onRestore}
+              onUpdate={onUpdate}
+            />
           ))}
         </div>
       )}
@@ -1123,18 +1116,186 @@ function ScheduleDefinitionsPanel({
   );
 }
 
+function ScheduleDraftCard({
+  draft,
+  index,
+  onRemove,
+  onRestore,
+  onUpdate,
+}: {
+  draft: ScheduleDraft;
+  index: number;
+  onRemove: (key: string) => void;
+  onRestore: (key: string) => void;
+  onUpdate: (
+    key: string,
+    updater: (values: ScheduleFormValues) => ScheduleFormValues,
+  ) => void;
+}) {
+  const { t } = useTranslation("registration");
+  const isDeleted = draft.status === "deleted";
+  const preview = useMemo(
+    () => getCronPreview(draft.values.cron, draft.values.timezone),
+    [draft.values.cron, draft.values.timezone],
+  );
+
+  return (
+    <section
+      className={`rounded-md border p-4 ${
+        isDeleted
+          ? "border-amber-200 bg-amber-50/70"
+          : "border-slate-200 bg-slate-50"
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-bold text-bp-graphite">
+              {t("form.schedules.itemTitle", { index: index + 1 })}
+            </h3>
+            {isDeleted ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                {t("form.schedules.pendingDeletion")}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-xs text-bp-muted">
+            {draft.source === "existing"
+              ? t("form.schedules.existing")
+              : t("form.schedules.new")}
+          </p>
+        </div>
+        {draft.source === "new" ? (
+          <button
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+            onClick={() => onRemove(draft.key)}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {t("form.schedules.remove")}
+          </button>
+        ) : isDeleted ? (
+          <button
+            className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900"
+            onClick={() => onRestore(draft.key)}
+            type="button"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            {t("form.schedules.restore")}
+          </button>
+        ) : (
+          <button
+            className="inline-flex items-center gap-2 rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-700"
+            onClick={() => onRemove(draft.key)}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {t("form.schedules.markDeleted")}
+          </button>
+        )}
+      </div>
+
+      {isDeleted ? (
+        <p className="mt-3 text-sm font-medium text-amber-900">
+          {t("form.schedules.pendingDeletionHelp")}
+        </p>
+      ) : null}
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {draft.source === "existing" ? (
+          <ReadOnlyField
+            label={t("form.schedules.scheduleId")}
+            value={draft.values.scheduleId}
+          />
+        ) : (
+          <TextField
+            disabled={isDeleted}
+            label={t("form.schedules.scheduleId")}
+            onChange={(event) =>
+              onUpdate(draft.key, (values) => ({
+                ...values,
+                scheduleId: event.target.value,
+              }))
+            }
+            placeholder="payment.daily-close-daily"
+            value={draft.values.scheduleId}
+          />
+        )}
+        <TextField
+          disabled={isDeleted}
+          label={t("form.schedules.name")}
+          onChange={(event) =>
+            onUpdate(draft.key, (values) => ({
+              ...values,
+              name: event.target.value,
+            }))
+          }
+          placeholder="Daily settlement window"
+          value={draft.values.name}
+        />
+        <TextField
+          disabled={isDeleted}
+          label={t("form.schedules.cron")}
+          onChange={(event) =>
+            onUpdate(draft.key, (values) => ({
+              ...values,
+              cron: event.target.value,
+            }))
+          }
+          placeholder="0 5 * * *"
+          value={draft.values.cron}
+        />
+        <TextField
+          disabled={isDeleted}
+          label={t("form.schedules.timezone")}
+          onChange={(event) =>
+            onUpdate(draft.key, (values) => ({
+              ...values,
+              timezone: event.target.value,
+            }))
+          }
+          placeholder="Asia/Seoul"
+          value={draft.values.timezone}
+        />
+        <CheckboxField
+          checked={draft.values.enabled}
+          disabled={isDeleted}
+          label={t("form.schedules.enabled")}
+          onChange={(checked) =>
+            onUpdate(draft.key, (values) => ({
+              ...values,
+              enabled: checked,
+            }))
+          }
+        />
+      </div>
+
+      {!isDeleted ? (
+        <CronPreviewBlock
+          invalidLabel={t("form.schedules.cronPreviewInvalid")}
+          nextLabel={t("form.schedules.cronPreviewNext")}
+          preview={preview}
+          title={t("form.schedules.cronPreviewTitle")}
+        />
+      ) : null}
+    </section>
+  );
+}
+
 function PreviewDetails({
   icon,
   isOpen = false,
+  message,
   path,
   title,
   yaml,
 }: {
   icon: ReactNode;
   isOpen?: boolean;
+  message?: string;
   path: string;
   title: string;
-  yaml: string;
+  yaml?: string;
 }) {
   return (
     <details className="py-3 first:pt-0 last:pb-0" open={isOpen}>
@@ -1149,19 +1310,29 @@ function PreviewDetails({
           </div>
         </div>
       </summary>
-      <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
-        <code>{yaml}</code>
-      </pre>
+      {message ? (
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-3 text-sm font-medium text-amber-900">
+          {message}
+        </p>
+      ) : (
+        <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
+          <code>{yaml}</code>
+        </pre>
+      )}
     </details>
   );
 }
 
 function TextField({
+  description,
+  disabled = false,
   label,
   onChange,
   placeholder,
   value,
 }: {
+  description?: string;
+  disabled?: boolean;
   label: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   placeholder: string;
@@ -1171,11 +1342,18 @@ function TextField({
     <label className="block text-sm font-semibold text-bp-graphite">
       {label}
       <input
+        aria-label={label}
         className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
+        disabled={disabled}
         onChange={onChange}
         placeholder={placeholder}
         value={value}
       />
+      {description ? (
+        <p className="mt-2 text-xs font-normal leading-5 text-bp-muted">
+          {description}
+        </p>
+      ) : null}
     </label>
   );
 }
@@ -1276,10 +1454,12 @@ function SelectField({
 
 function CheckboxField({
   checked,
+  disabled = false,
   label,
   onChange,
 }: {
   checked: boolean;
+  disabled?: boolean;
   label: string;
   onChange: (checked: boolean) => void;
 }) {
@@ -1288,6 +1468,7 @@ function CheckboxField({
       <input
         checked={checked}
         className="h-4 w-4 rounded border-slate-300 text-bp-control"
+        disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
         type="checkbox"
       />
@@ -1383,6 +1564,50 @@ function buildExecutionFileCommand(path: string): string {
 
 function formatRunnerLabelDisplay(runsOn: RunnerLabel): string {
   return Array.isArray(runsOn) ? runsOn.join(", ") : runsOn;
+}
+
+function CronPreviewBlock({
+  invalidLabel,
+  nextLabel,
+  preview,
+  title,
+}: {
+  invalidLabel: string;
+  nextLabel: string;
+  preview: ReturnType<typeof getCronPreview>;
+  title: string;
+}) {
+  const { i18n } = useTranslation();
+  const formatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language || undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    [i18n.language],
+  );
+
+  return (
+    <div className="mt-4 rounded-md border border-slate-200 bg-white px-3 py-3 text-sm">
+      <div className="flex items-center gap-2 font-semibold text-bp-graphite">
+        <Clock3 className="h-4 w-4 text-bp-muted" aria-hidden="true" />
+        <span>{title}</span>
+      </div>
+      {preview.ok ? (
+        <ul className="mt-2 space-y-1 text-bp-graphite">
+          {preview.dates.map((date, index) => (
+            <li key={`${date.toISOString()}-${index}`}>
+              {nextLabel} {index + 1}: {formatter.format(date)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-amber-800">
+          {invalidLabel}: {preview.error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function nextScheduleDraftKey(): string {

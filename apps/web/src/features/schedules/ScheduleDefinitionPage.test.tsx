@@ -68,6 +68,8 @@ describe("ScheduleDefinitionPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Create schedule PR" }));
 
+    expect(screen.getByText("Expected run times")).toBeInTheDocument();
+    expect(screen.getByText(/Next 1:/)).toBeInTheDocument();
     expect(await screen.findByText("Governed changes")).toBeInTheDocument();
     expect(
       screen.getByText(/Register schedule payment.daily-close-weekly/),
@@ -108,9 +110,6 @@ describe("ScheduleDefinitionPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("0 5 * * *")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Asia/Seoul")).toBeInTheDocument();
-    expect(
-      screen.getByDisplayValue("prod-self-approval-blocked"),
-    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create change PR" }),
     ).toBeInTheDocument();
