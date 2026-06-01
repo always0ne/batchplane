@@ -1,4 +1,5 @@
 import type {
+  BatchPlaneRuntimePorts,
   RepositoryPullRequest,
   WorkspacePolicy,
 } from "@batchplane/domain";
@@ -60,7 +61,15 @@ type ApprovalActionState =
   | { type: "success"; message: string }
   | { type: "error"; message: string };
 
-export function ApprovalsPage() {
+type ApprovalsPageProps = {
+  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
+  readSession?: () => GitHubSession | null;
+};
+
+export function ApprovalsPage({
+  createRuntime = createBatchPlaneRuntime,
+  readSession = readRuntimeSession,
+}: ApprovalsPageProps = {}) {
   const { t } = useTranslation("approvals");
   const location = useLocation();
   const approvalHandoffRef = useRef(normalizeApprovalHandoff(location.state));
@@ -74,7 +83,7 @@ export function ApprovalsPage() {
     let ignoreResult = false;
 
     async function loadApprovalRequests() {
-      const session = readRuntimeSession();
+      const session = readSession();
 
       if (!session) {
         setState({ type: "no-session" });
@@ -84,7 +93,7 @@ export function ApprovalsPage() {
       setState({ type: "loading" });
 
       try {
-        const runtime = createBatchPlaneRuntime(session);
+        const runtime = createRuntime(session);
         const [user, repository] = await Promise.all([
           runtime.settings.getCurrentUser(),
           runtime.settings.getRepository(),
@@ -183,7 +192,7 @@ export function ApprovalsPage() {
     return () => {
       ignoreResult = true;
     };
-  }, [reloadToken]);
+  }, [createRuntime, readSession, reloadToken]);
 
   async function approveExecution(request: ExecutionApprovalRequest) {
     if (state.type !== "loaded") {
@@ -197,7 +206,7 @@ export function ApprovalsPage() {
     });
 
     try {
-      const runtime = createBatchPlaneRuntime(state.session);
+      const runtime = createRuntime(state.session);
 
       await runtime.approvals.approveExecution({
         body: buildExecutionApprovalComment({
@@ -236,7 +245,7 @@ export function ApprovalsPage() {
     });
 
     try {
-      const runtime = createBatchPlaneRuntime(state.session);
+      const runtime = createRuntime(state.session);
 
       await runtime.approvals.rejectExecution({
         body: buildExecutionRejectionComment({

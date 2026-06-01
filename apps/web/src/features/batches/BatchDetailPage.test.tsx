@@ -43,6 +43,15 @@ describe("BatchDetailPage", () => {
       ),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Schedules")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Add, change, and delete schedules only within a batch change request.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Daily settlement window")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("payment.daily-close-daily").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Recent execution evidence")).toBeInTheDocument();
     expect(
       screen.getByText("btr-20260514010100-payment.daily-close-00000001"),
@@ -54,6 +63,12 @@ describe("BatchDetailPage", () => {
     expect(
       screen.getByRole("link", { name: "Request change" }),
     ).toHaveAttribute("href", "/batches/new?change=payment.daily-close");
+    expect(
+      screen.queryByRole("link", { name: "Register schedule" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Change schedule" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders an empty state when the batch is missing", async () => {

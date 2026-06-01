@@ -6,6 +6,29 @@
   "form": {
     "definition": "배치 정의",
     "workflow": "Workflow",
+    "schedules": {
+      "title": "스케줄",
+      "subtitle": "배치 등록 시 통제 스케줄도 함께 정의해 승인자가 운영 계획을 한 번에 검토할 수 있게 합니다.",
+      "subtitleChange": "동일한 변경 요청 안에서 이 배치의 통제 스케줄도 함께 검토하고 수정합니다.",
+      "add": "스케줄 추가",
+      "empty": "아직 포함된 스케줄이 없습니다.",
+      "itemTitle": "스케줄 {{index}}",
+      "existing": "기존 통제 스케줄",
+      "new": "신규 스케줄",
+      "remove": "제거",
+      "restore": "삭제 취소",
+      "markDeleted": "삭제",
+      "pendingDeletion": "삭제 예정",
+      "pendingDeletionHelp": "이 변경 요청이 승인되면 이 스케줄은 배치 정의에서 제거됩니다.",
+      "scheduleId": "Schedule ID",
+      "name": "이름",
+      "cron": "Cron",
+      "timezone": "Timezone",
+      "enabled": "활성화",
+      "cronPreviewTitle": "예상 수행 시각",
+      "cronPreviewNext": "다음",
+      "cronPreviewInvalid": "Cron 해석 실패"
+    },
     "batchId": "Batch ID",
     "name": "이름",
     "owner": "소유자",
@@ -24,7 +47,10 @@
   "preview": {
     "title": "YAML 미리보기",
     "batchDefinitionTitle": "배치 정의 YAML",
-    "workflowTitle": "Workflow YAML"
+    "workflowTitle": "Workflow YAML",
+    "scheduleTitle": "스케줄 YAML: {{scheduleId}}",
+    "scheduleDeletionTitle": "삭제 예정 스케줄: {{scheduleId}}",
+    "scheduleDeletionMessage": "이 변경 요청이 승인되면 이 스케줄은 배치 정의에서 제거됩니다."
   },
   "review": {
     "title": "PR 검토",
@@ -34,6 +60,10 @@
       "title": "생성 파일",
       "batchDefinition": "배치 정의",
       "workflow": "Workflow",
+      "scheduleCount": "스케줄",
+      "scheduleDeletionCount": "삭제 예정 스케줄",
+      "scheduleDefinition": "스케줄 {{scheduleId}}",
+      "scheduleDeletion": "삭제 예정 {{scheduleId}}",
       "executionFile": "실행 파일",
       "noExecutionFile": "업로드된 실행 파일 없음",
       "pending": "Batch ID를 입력하면 경로가 생성됩니다"
@@ -46,7 +76,13 @@
       "runnerSelected": "실행 환경: {{runner}}",
       "runnerMissing": "실행 환경은 필수입니다.",
       "commandRecorded": "배치 명령이 배치 정의에 기록됩니다.",
-      "commandMissing": "PR 생성 전 배치 명령이 필요합니다."
+      "commandMissing": "PR 생성 전 배치 명령이 필요합니다.",
+      "scheduleDefinitionsRecorded_zero": "이 PR에 포함된 통제 스케줄이 없습니다.",
+      "scheduleDefinitionsRecorded_one": "이 PR에서 통제 스케줄 1건을 함께 검토합니다.",
+      "scheduleDefinitionsRecorded_other": "이 PR에서 통제 스케줄 {{count}}건을 함께 검토합니다.",
+      "scheduleDeletionsRecorded_zero": "이 PR에서 삭제되는 스케줄은 없습니다.",
+      "scheduleDeletionsRecorded_one": "이 PR에서 삭제 예정 스케줄 1건을 함께 검토합니다.",
+      "scheduleDeletionsRecorded_other": "이 PR에서 삭제 예정 스케줄 {{count}}건을 함께 검토합니다."
     },
     "nextStep": "생성 후 BatchPlane은 PR을 승인함으로 라우팅합니다. GitHub 목록 반영에는 몇 초 지연이 있을 수 있습니다."
   },
@@ -71,6 +107,7 @@
     "noSession": "등록 PR을 생성하기 전에 설정에서 GitHub 저장소를 연결하세요.",
     "alreadyExists": "{{path}}에 이미 배치 정의가 있습니다.",
     "changeMissingDefinition": "{{path}}에서 통제 대상 배치 정의를 찾지 못했습니다.",
+    "scheduleAlreadyExists": "{{path}}에 같은 ID의 스케줄이 이미 있습니다.",
     "workflowAlreadyExists": "{{path}}에 이미 Workflow가 있습니다.",
     "fileRead": "업로드한 실행 파일을 읽지 못했습니다.",
     "unknown": "등록 Pull Request 생성에 실패했습니다."

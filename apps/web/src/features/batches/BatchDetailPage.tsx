@@ -3,6 +3,7 @@ import type {
   BatchPlaneRuntimePorts,
   RepositoryIssue,
   RepositoryIssueComment,
+  ScheduleDefinition,
 } from "@batchplane/domain";
 import { GitPullRequest, Play, ShieldCheck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -32,6 +33,7 @@ type BatchDetailState =
       batch: BatchDefinition;
       defaultBranch: string;
       recentIssues: RecentExecutionIssue[];
+      schedules: ScheduleDefinition[];
     }
   | { type: "error"; message: string };
 
@@ -70,11 +72,14 @@ export function BatchDetailPage({
       try {
         const runtime = createRuntime(session);
         const repository = await runtime.settings.getRepository();
-        const [batches, issues] = await Promise.all([
+        const [batches, issues, schedules] = await Promise.all([
           runtime.batches.listBatchDefinitions({
             ref: repository.defaultBranch,
           }),
           runtime.approvals.listExecutionRequestIssues({ state: "all" }),
+          runtime.schedules.listScheduleDefinitions({
+            ref: repository.defaultBranch,
+          }),
         ]);
         const batch = batches.find(
           (candidate) => candidate.batchId === decodedBatchId,
@@ -111,6 +116,9 @@ export function BatchDetailPage({
           batch,
           defaultBranch: repository.defaultBranch,
           recentIssues: recentIssuesWithComments,
+          schedules: schedules.filter(
+            (schedule) => schedule.batchId === batch.batchId,
+          ),
         });
       } catch (error) {
         if (!ignoreResult) {
@@ -191,6 +199,7 @@ function BatchDetailContent({ state }: { state: BatchDetailState }) {
         <BatchProfileCard
           batch={state.batch}
           defaultBranch={state.defaultBranch}
+          schedules={state.schedules}
         />
         <RequestActionsCard
           batch={state.batch}
@@ -205,9 +214,11 @@ function BatchDetailContent({ state }: { state: BatchDetailState }) {
 function BatchProfileCard({
   batch,
   defaultBranch,
+  schedules,
 }: {
   batch: BatchDefinition;
   defaultBranch: string;
+  schedules: ScheduleDefinition[];
 }) {
   const { t } = useTranslation("batches");
 
@@ -264,10 +275,6 @@ function BatchProfileCard({
               label={t("detail.workflow.ref")}
               value={batch.workflow.ref}
             />
-            <DetailFact
-              label={t("detail.schedules.title")}
-              value={t("detail.schedules.empty")}
-            />
           </dl>
         </section>
 
@@ -307,6 +314,76 @@ function BatchProfileCard({
           )}
         </section>
       </div>
+
+      <section className="mt-5 border-t border-slate-100 pt-5">
+        <div>
+          <div>
+            <h3 className="text-sm font-bold text-bp-graphite">
+              {t("detail.schedules.title")}
+            </h3>
+            <p className="mt-1 text-sm text-bp-muted">
+              {t("detail.schedules.subtitle")}
+            </p>
+            <p className="mt-2 text-sm font-medium text-bp-muted">
+              {t("detail.schedules.managementHint")}
+            </p>
+          </div>
+        </div>
+
+        {schedules.length === 0 ? (
+          <p className="mt-4 text-sm text-bp-muted">
+            {t("detail.schedules.empty")}
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {schedules.map((schedule) => (
+              <li
+                className="rounded-md border border-slate-200 bg-slate-50 p-4"
+                key={schedule.scheduleId}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-bold text-bp-graphite">
+                        {schedule.name}
+                      </p>
+                      <span
+                        className={[
+                          "rounded-md px-2 py-1 text-xs font-semibold",
+                          schedule.enabled
+                            ? "bg-emerald-50 text-emerald-800"
+                            : "bg-slate-200 text-slate-700",
+                        ].join(" ")}
+                      >
+                        {schedule.enabled
+                          ? t("detail.schedules.enabled")
+                          : t("detail.schedules.disabled")}
+                      </span>
+                    </div>
+                    <p className="mt-1 font-mono text-xs text-bp-muted">
+                      {schedule.scheduleId}
+                    </p>
+                  </div>
+                </div>
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                  <DetailFact
+                    label={t("detail.schedules.fields.cron")}
+                    value={schedule.cron}
+                  />
+                  <DetailFact
+                    label={t("detail.schedules.fields.timezone")}
+                    value={schedule.timezone}
+                  />
+                  <DetailFact
+                    label={t("detail.schedules.fields.path")}
+                    value={schedule.definitionPath}
+                  />
+                </dl>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </article>
   );
 }

@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import {
+  getGovernedChangeRequestKind,
   isRegistrationApprovalRequest,
   parseExecutionRequestDetail,
   type ExecutionApprovalRequest,
@@ -390,12 +391,22 @@ function toRegistrationWorkItems(
   pullRequest: RepositoryPullRequest,
   login: string,
 ): MyWorkItem[] {
-  if (!isRegistrationWorkPullRequest(pullRequest)) {
+  const requestKind = getGovernedChangeRequestKind(pullRequest);
+
+  if (!requestKind) {
     return [];
   }
 
   const mine = pullRequest.author === login;
   const openReview = isRegistrationApprovalRequest(pullRequest) && !mine;
+  const mineDescriptionKey =
+    requestKind === "schedule" ? "scheduleMine" : "registrationMine";
+  const reviewDescriptionKey =
+    requestKind === "schedule" ? "scheduleReview" : "registrationReview";
+  const requestLabelKey =
+    requestKind === "schedule" ? "schedule" : "registration";
+  const reviewLabelKey =
+    requestKind === "schedule" ? "scheduleApproval" : "registrationApproval";
 
   return [
     ...(mine
@@ -403,10 +414,10 @@ function toRegistrationWorkItems(
           {
             actionKey: "viewRegistration",
             actor: pullRequest.author,
-            descriptionKey: "registrationMine",
+            descriptionKey: mineDescriptionKey,
             itemId: `registration-mine-${pullRequest.number}`,
             kind: "registration" as const,
-            labelKey: "registration",
+            labelKey: requestLabelKey,
             occurredAt: pullRequest.updatedAt ?? pullRequest.createdAt ?? "",
             priority: "normal" as const,
             title: `#${pullRequest.number} ${pullRequest.title}`,
@@ -419,10 +430,10 @@ function toRegistrationWorkItems(
           {
             actionKey: "reviewApproval",
             actor: pullRequest.author,
-            descriptionKey: "registrationReview",
+            descriptionKey: reviewDescriptionKey,
             itemId: `registration-review-${pullRequest.number}`,
             kind: "approval" as const,
-            labelKey: "registrationApproval",
+            labelKey: reviewLabelKey,
             occurredAt: pullRequest.updatedAt ?? pullRequest.createdAt ?? "",
             priority: "high" as const,
             title: `#${pullRequest.number} ${pullRequest.title}`,
@@ -431,16 +442,6 @@ function toRegistrationWorkItems(
         ]
       : []),
   ];
-}
-
-function isRegistrationWorkPullRequest(
-  pullRequest: RepositoryPullRequest,
-): boolean {
-  return (
-    pullRequest.head.startsWith("batchplane/register/") ||
-    pullRequest.head.startsWith("batchtrail/register/") ||
-    pullRequest.title.startsWith("Register batch ")
-  );
 }
 
 function toExecutionRequestWorkItems(

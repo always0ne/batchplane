@@ -77,6 +77,26 @@ describe("createGitHubLiteRuntime", () => {
     ]);
   });
 
+  it("loads schedule definitions through the SchedulePort", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    await expect(
+      runtime.schedules.listScheduleDefinitions({
+        batchId: "payment.daily-close",
+        ref: "main",
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        batchId: "payment.daily-close",
+        cron: "0 5 * * *",
+        enabled: true,
+        scheduleId: "payment.daily-close-daily",
+        timezone: "Asia/Seoul",
+      }),
+    ]);
+  });
+
   it("updates existing governed files with file SHAs during change-mode PR creation", async () => {
     const requests: Array<{ body: unknown; method: string; url: string }> = [];
     const branch = "batchplane/change/payment.daily-close-20260514010203";
@@ -207,6 +227,115 @@ describe("createGitHubLiteRuntime", () => {
           }),
           method: "PUT",
           url: "https://api.github.com/repos/always0ne/batch/contents/.github/workflows/payment.daily-close.yml",
+        }),
+        expect.objectContaining({
+          body: expect.objectContaining({
+            branch,
+          }),
+          method: "PUT",
+          url: "https://api.github.com/repos/always0ne/batch/contents/.github/workflows/payment.daily-close.yml",
+        }),
+      ]),
+    );
+  });
+
+  it("updates existing schedule definitions with file SHAs during change-mode PR creation", async () => {
+    const requests: Array<{ body: unknown; method: string; url: string }> = [];
+    const branch =
+      "batchplane/schedule/change/payment.daily-close-daily-20260514010203";
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(init.body.toString()) : null;
+      const parsedUrl = new URL(url);
+
+      requests.push({ body, method, url });
+
+      if (url.endsWith("/git/ref/heads/main")) {
+        return Response.json({
+          object: { sha: "mock-main-sha", type: "commit", url: "" },
+          ref: "refs/heads/main",
+        });
+      }
+
+      if (url.endsWith("/git/refs") && method === "POST") {
+        return Response.json({
+          object: { sha: "mock-main-sha", type: "commit", url: "" },
+          ref: `refs/heads/${branch}`,
+        });
+      }
+
+      if (
+        parsedUrl.pathname ===
+          "/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-daily.yml" &&
+        parsedUrl.searchParams.get("ref") === branch
+      ) {
+        return Response.json({
+          content: btoa('metadata:\n  id: "payment.daily-close-daily"\n'),
+          encoding: "base64",
+          path: ".batch-governance/schedules/payment.daily-close-daily.yml",
+          sha: "existing-schedule-sha",
+        });
+      }
+
+      if (
+        url.endsWith(
+          "/contents/.batch-governance/schedules/payment.daily-close-daily.yml",
+        ) &&
+        method === "PUT"
+      ) {
+        return Response.json({
+          content: {
+            path: ".batch-governance/schedules/payment.daily-close-daily.yml",
+            sha: "updated-schedule-sha",
+          },
+        });
+      }
+
+      if (url.endsWith("/pulls") && method === "POST") {
+        return Response.json({
+          base: { ref: "main" },
+          body: "body",
+          head: { ref: branch },
+          html_url: "https://github.com/always0ne/batch/pull/14",
+          number: 14,
+          state: "open",
+          title: "Change schedule payment.daily-close-daily",
+          user: { login: "maintainer" },
+        });
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const runtime = createGitHubLiteRuntime(session, { fetcher });
+
+    await expect(
+      runtime.schedules.createScheduleDefinitionPullRequest({
+        baseBranch: "main",
+        body: "body",
+        branch,
+        scheduleDefinitionPath:
+          ".batch-governance/schedules/payment.daily-close-daily.yml",
+        scheduleDefinitionYaml:
+          'metadata:\n  id: "payment.daily-close-daily"\n',
+        title: "Change schedule payment.daily-close-daily",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        number: 14,
+        title: "Change schedule payment.daily-close-daily",
+      }),
+    );
+
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          body: expect.objectContaining({
+            branch,
+            sha: "existing-schedule-sha",
+          }),
+          method: "PUT",
+          url: "https://api.github.com/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-daily.yml",
         }),
       ]),
     );

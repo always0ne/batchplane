@@ -15,6 +15,7 @@ import {
   validateBatchRegistration,
   type BatchRegistrationFormValues,
 } from "./registration-model";
+import type { ScheduleDefinition } from "@batchplane/domain";
 
 const registrationValues = {
   batchId: "payment.daily-close",
@@ -29,6 +30,23 @@ const registrationValues = {
   workflowRef: "main",
 } satisfies BatchRegistrationFormValues;
 const definition = toBatchDefinition(registrationValues);
+const batchDefinitionPath = ".batch-governance/batches/payment.daily-close.yml";
+const scheduleDefinition: ScheduleDefinition = {
+  batchId: "payment.daily-close",
+  cron: "0 5 * * *",
+  definitionPath: batchDefinitionPath,
+  enabled: true,
+  name: "Daily settlement window",
+  scheduleId: "payment.daily-close-daily",
+  timezone: "Asia/Seoul",
+};
+const deletedScheduleDefinition: ScheduleDefinition = {
+  ...scheduleDefinition,
+  enabled: false,
+  name: "Nightly settlement fallback",
+  scheduleId: "payment.daily-close-nightly",
+  definitionPath: batchDefinitionPath,
+};
 
 describe("registration model", () => {
   it("serializes a batch definition as deterministic YAML", () => {
@@ -151,17 +169,58 @@ describe("registration model", () => {
   });
 
   it("creates a PR body with auditable registration context", () => {
-    expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "Batch ID: `payment.daily-close`",
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("Batch ID: `payment.daily-close`");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("BatchPlane Gate: required");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("Runtime: GitHub Actions / BatchPlane Lite");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("./scripts/daily-close.sh");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("#### Schedule 1");
+    expect(
+      buildRegistrationPullRequestBody(
+        definition,
+        "create",
+        [scheduleDefinition],
+        [deletedScheduleDefinition],
+      ),
+    ).toContain(
+      "Batch definition: `.batch-governance/batches/payment.daily-close.yml`",
     );
-    expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "BatchPlane Gate: required",
-    );
-    expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "Runtime: GitHub Actions / BatchPlane Lite",
-    );
-    expect(buildRegistrationPullRequestBody(definition)).toContain(
-      "./scripts/daily-close.sh",
+    expect(
+      buildRegistrationPullRequestBody(
+        definition,
+        "create",
+        [scheduleDefinition],
+        [deletedScheduleDefinition],
+      ),
+    ).toContain("### Schedule deletions");
+    expect(
+      buildRegistrationPullRequestBody(
+        definition,
+        "create",
+        [scheduleDefinition],
+        [deletedScheduleDefinition],
+      ),
+    ).toContain(
+      "Batch definition: `.batch-governance/batches/payment.daily-close.yml`",
     );
   });
 

@@ -27,12 +27,36 @@ const pullRequest: RepositoryPullRequest = {
     "- Runs on: ubuntu-latest",
     "- BatchPlane Gate: required",
     "- Execution file: `.batch-governance/batches/payment.daily-close/artifacts/run.sh`",
+    "- Schedule count: 1",
+    "- Schedule deletion count: 1",
     "",
     "### Batch command",
     "",
     "```sh",
     "./.batch-governance/batches/payment.daily-close/artifacts/run.sh",
     "```",
+    "",
+    "### Schedule definitions",
+    "",
+    "#### Schedule 1",
+    "- Batch ID: `payment.daily-close`",
+    "- Schedule ID: `payment.daily-close-daily`",
+    "- Name: Daily settlement window",
+    "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+    "- Cron: `0 5 * * *`",
+    "- Timezone: `Asia/Seoul`",
+    "- Enabled: true",
+    "",
+    "### Schedule deletions",
+    "",
+    "#### Deleted schedule 1",
+    "- Batch ID: `payment.daily-close`",
+    "- Schedule ID: `payment.daily-close-nightly`",
+    "- Name: Nightly settlement fallback",
+    "- Schedule definition: `.batch-governance/schedules/payment.daily-close-nightly.yml`",
+    "- Cron: `0 30 1 * * *`",
+    "- Timezone: `Asia/Seoul`",
+    "- Enabled: false",
   ].join("\n"),
   head: "batchplane/register/payment.daily-close-20260514010203",
   merged: false,
@@ -49,11 +73,39 @@ describe("registration approval model", () => {
         "./.batch-governance/batches/payment.daily-close/artifacts/run.sh",
       batchId: "payment.daily-close",
       criticality: "HIGH",
+      deletedSchedules: [
+        {
+          batchId: "payment.daily-close",
+          cron: "0 30 1 * * *",
+          definitionPath:
+            ".batch-governance/schedules/payment.daily-close-nightly.yml",
+          enabled: false,
+          kind: "schedule",
+          name: "Nightly settlement fallback",
+          scheduleId: "payment.daily-close-nightly",
+          timezone: "Asia/Seoul",
+        },
+      ],
       environment: "PROD",
       executionFilePath:
         ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
       gateRequired: true,
+      kind: "batch",
+      name: "Daily Close",
       runsOn: "ubuntu-latest",
+      schedules: [
+        {
+          batchId: "payment.daily-close",
+          cron: "0 5 * * *",
+          definitionPath:
+            ".batch-governance/schedules/payment.daily-close-daily.yml",
+          enabled: true,
+          kind: "schedule",
+          name: "Daily settlement window",
+          scheduleId: "payment.daily-close-daily",
+          timezone: "Asia/Seoul",
+        },
+      ],
       workflowPath: ".github/workflows/payment.daily-close.yml",
     });
   });
@@ -65,6 +117,45 @@ describe("registration approval model", () => {
       ".batch-governance/batches/payment.daily-close.yml",
       ".github/workflows/payment.daily-close.yml",
       ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
+      ".batch-governance/schedules/payment.daily-close-daily.yml",
+      ".batch-governance/schedules/payment.daily-close-nightly.yml",
+    ]);
+  });
+
+  it("parses schedule request evidence and derived file paths", () => {
+    const schedulePullRequest: RepositoryPullRequest = {
+      ...pullRequest,
+      body: [
+        "## BatchPlane Schedule Registration",
+        "",
+        "- Request type: REGISTER",
+        "- Target kind: SCHEDULE",
+        "- Batch ID: `payment.daily-close`",
+        "- Schedule ID: `payment.daily-close-daily`",
+        "- Name: Daily settlement window",
+        "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+        "- Cron: `0 5 * * *`",
+        "- Timezone: `Asia/Seoul`",
+        "- Enabled: true",
+      ].join("\n"),
+      head: "batchplane/schedule/register/payment.daily-close-daily-20260514010203",
+      title: "Register schedule payment.daily-close-daily",
+    };
+    const summary = parseRegistrationRequestSummary(schedulePullRequest);
+
+    expect(summary).toEqual({
+      batchId: "payment.daily-close",
+      cron: "0 5 * * *",
+      definitionPath:
+        ".batch-governance/schedules/payment.daily-close-daily.yml",
+      enabled: true,
+      kind: "schedule",
+      name: "Daily settlement window",
+      scheduleId: "payment.daily-close-daily",
+      timezone: "Asia/Seoul",
+    });
+    expect(deriveRegistrationFilePaths(summary)).toEqual([
+      ".batch-governance/schedules/payment.daily-close-daily.yml",
     ]);
   });
 
@@ -73,7 +164,7 @@ describe("registration approval model", () => {
       {
         author: "maintainer",
         body: [
-          "## BatchPlane Registration Approval",
+          "## BatchPlane Governed Change Approval",
           "",
           "- Decision: APPROVED",
           "- Approver: @maintainer",

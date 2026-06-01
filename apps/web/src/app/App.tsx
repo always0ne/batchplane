@@ -10,7 +10,14 @@ import {
   Settings,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import {
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { BatchesPage } from "../features/batches/BatchesPage";
@@ -168,6 +175,10 @@ export function App() {
             <Route path="/batches/new" element={<BatchRegistrationPage />} />
             <Route path="/batches/:batchId" element={<BatchDetailPage />} />
             <Route
+              path="/batches/:batchId/schedules/new"
+              element={<ScheduleManagementRedirect />}
+            />
+            <Route
               path="/batches/:batchId/execution-requests/new"
               element={<ExecutionRequestPage />}
             />
@@ -196,6 +207,22 @@ export function App() {
         </div>
       </main>
     </div>
+  );
+}
+
+function ScheduleManagementRedirect() {
+  const { batchId = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const changeTarget = searchParams.get("change")?.trim();
+  const decodedBatchId = decodeURIComponent(batchId);
+  const target = new URLSearchParams({ change: decodedBatchId });
+
+  if (changeTarget) {
+    target.set("schedule", changeTarget);
+  }
+
+  return (
+    <Navigate replace to={`/batches/new?${target.toString()}#schedules`} />
   );
 }
 

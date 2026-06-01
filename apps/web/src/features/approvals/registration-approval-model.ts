@@ -4,20 +4,44 @@ import type {
 } from "@batchplane/domain";
 
 import {
+  getGovernedChangeRequestKind,
+  type GovernedChangeRequestKind,
+} from "./approval-model";
+import {
   getBatchDefinitionPath,
   getBatchWorkflowPath,
 } from "../registration/registration-model";
+import { getScheduleDefinitionPath } from "../schedules/schedule-model";
 
-export type RegistrationRequestBodySummary = {
+export type BatchRegistrationRequestBodySummary = {
+  kind: "batch";
   batchCommand: string;
   batchId: string;
   criticality: string;
+  deletedSchedules: ScheduleRegistrationRequestBodySummary[];
   environment: string;
   executionFilePath: string;
   gateRequired: boolean;
+  name: string;
   runsOn: string;
+  schedules: ScheduleRegistrationRequestBodySummary[];
   workflowPath: string;
 };
+
+export type ScheduleRegistrationRequestBodySummary = {
+  kind: "schedule";
+  batchId: string;
+  cron: string;
+  definitionPath: string;
+  enabled: boolean;
+  name: string;
+  scheduleId: string;
+  timezone: string;
+};
+
+export type RegistrationRequestBodySummary =
+  | BatchRegistrationRequestBodySummary
+  | ScheduleRegistrationRequestBodySummary;
 
 export type RegistrationApprovalDecision = {
   actor: string;
@@ -36,9 +60,21 @@ export type RegistrationReviewState =
 export function parseRegistrationRequestSummary(
   pullRequest: RepositoryPullRequest,
 ): RegistrationRequestBodySummary {
+  const kind = getGovernedChangeRequestKind(pullRequest);
+
+  if (kind === "schedule") {
+    return parseScheduleSummary(pullRequest);
+  }
+
+  return parseBatchSummary(pullRequest);
+}
+
+function parseBatchSummary(
+  pullRequest: RepositoryPullRequest,
+): BatchRegistrationRequestBodySummary {
   const batchId =
     readMarkdownField(pullRequest.body, "Batch ID") ||
-    parseBatchIdFromTitle(pullRequest.title) ||
+    parseBatchIdFromTitle(pullRequest.title, "batch") ||
     "";
   const workflowPath =
     readMarkdownField(pullRequest.body, "Workflow") ||
@@ -48,6 +84,7 @@ export function parseRegistrationRequestSummary(
     batchCommand: readCommandBlock(pullRequest.body),
     batchId,
     criticality: readMarkdownField(pullRequest.body, "Criticality"),
+    deletedSchedules: parseEmbeddedDeletedSchedules(pullRequest.body),
     environment: readMarkdownField(pullRequest.body, "Environment"),
     executionFilePath: readMarkdownField(pullRequest.body, "Execution file"),
     gateRequired:
@@ -55,18 +92,53 @@ export function parseRegistrationRequestSummary(
         "BatchPlane Gate",
         "BatchPlane Gate",
       ]).toLowerCase() !== "optional",
+    kind: "batch",
+    name: readMarkdownField(pullRequest.body, "Name"),
     runsOn: readMarkdownField(pullRequest.body, "Runs on"),
+    schedules: parseEmbeddedSchedules(pullRequest.body),
     workflowPath,
+  };
+}
+
+function parseScheduleSummary(
+  pullRequest: RepositoryPullRequest,
+): ScheduleRegistrationRequestBodySummary {
+  const scheduleId =
+    readMarkdownField(pullRequest.body, "Schedule ID") ||
+    parseBatchIdFromTitle(pullRequest.title, "schedule") ||
+    "";
+
+  return {
+    batchId: readMarkdownField(pullRequest.body, "Batch ID"),
+    cron: readMarkdownField(pullRequest.body, "Cron"),
+    definitionPath:
+      readFirstMarkdownField(pullRequest.body, [
+        "Batch definition",
+        "Schedule definition",
+      ]) ||
+      getBatchDefinitionPath(readMarkdownField(pullRequest.body, "Batch ID")) ||
+      getScheduleDefinitionPath(scheduleId),
+    enabled: readMarkdownBoolean(pullRequest.body, "Enabled"),
+    kind: "schedule",
+    name: readMarkdownField(pullRequest.body, "Name"),
+    scheduleId,
+    timezone: readMarkdownField(pullRequest.body, "Timezone"),
   };
 }
 
 export function deriveRegistrationFilePaths(
   summary: RegistrationRequestBodySummary,
 ): string[] {
+  if (summary.kind === "schedule") {
+    return summary.definitionPath ? [summary.definitionPath] : [];
+  }
+
   const candidates = [
     summary.batchId ? getBatchDefinitionPath(summary.batchId) : "",
     summary.workflowPath,
     summary.executionFilePath,
+    ...summary.schedules.map((schedule) => schedule.definitionPath),
+    ...summary.deletedSchedules.map((schedule) => schedule.definitionPath),
   ];
 
   return [...new Set(candidates.filter(Boolean))];
@@ -87,7 +159,7 @@ export function parseRegistrationApprovalDecision(
     }
 
     if (
-      !comment.body.includes("## BatchPlane Registration Approval") &&
+      !comment.body.includes("## BatchPlane Governed Change Approval") &&
       !comment.body.includes("## BatchPlane Registration Approval")
     ) {
       continue;
@@ -131,10 +203,15 @@ export function deriveRegistrationReviewState(
   return "CLOSED";
 }
 
-function parseBatchIdFromTitle(title: string): string {
-  const match = /^Register batch\s+(.+)$/i.exec(title.trim());
+function parseBatchIdFromTitle(
+  title: string,
+  target: GovernedChangeRequestKind,
+): string {
+  const match = new RegExp(`^(Register|Change) ${target}\\s+(.+)$`, "i").exec(
+    title.trim(),
+  );
 
-  return match?.[1]?.trim() || "";
+  return match?.[2]?.trim() || "";
 }
 
 function readFirstMarkdownField(body: string, labels: string[]): string {
@@ -161,6 +238,10 @@ function readMarkdownField(body: string, label: string): string {
   return stripInlineCode(match[1].trim());
 }
 
+function readMarkdownBoolean(body: string, label: string): boolean {
+  return readMarkdownField(body, label).toLowerCase() === "true";
+}
+
 function stripInlineCode(value: string): string {
   return /^`.*`$/.test(value) ? value.slice(1, -1) : value;
 }
@@ -172,6 +253,67 @@ function readCommandBlock(body: string): string {
     );
 
   return match?.[1]?.trim() || "";
+}
+
+function parseEmbeddedSchedules(
+  body: string,
+): ScheduleRegistrationRequestBodySummary[] {
+  return parseEmbeddedScheduleSection(body, "Schedule")
+    .map((block) => parseScheduleBlock(block))
+    .filter(
+      (schedule): schedule is ScheduleRegistrationRequestBodySummary =>
+        schedule !== null,
+    );
+}
+
+function parseEmbeddedDeletedSchedules(
+  body: string,
+): ScheduleRegistrationRequestBodySummary[] {
+  return parseEmbeddedScheduleSection(body, "Deleted schedule")
+    .map((block) => parseScheduleBlock(block))
+    .filter(
+      (schedule): schedule is ScheduleRegistrationRequestBodySummary =>
+        schedule !== null,
+    );
+}
+
+function parseEmbeddedScheduleSection(body: string, title: string): string[] {
+  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matches = body.matchAll(
+    new RegExp(
+      `(?:^|\\n)#### ${escapedTitle}(?:\\s+\\d+)?\\s*\\n([\\s\\S]*?)(?=\\n#### (?:Schedule|Deleted schedule)(?:\\s+\\d+)?\\s*\\n|\\n##\\s|$)`,
+      "g",
+    ),
+  );
+
+  return [...matches].map((match) => match[1] ?? "");
+}
+
+function parseScheduleBlock(
+  block: string,
+): ScheduleRegistrationRequestBodySummary | null {
+  const scheduleId = readMarkdownField(block, "Schedule ID");
+
+  if (!scheduleId) {
+    return null;
+  }
+
+  return {
+    batchId: readMarkdownField(block, "Batch ID"),
+    cron: readMarkdownField(block, "Cron"),
+    definitionPath:
+      readFirstMarkdownField(block, [
+        "Batch definition",
+        "Schedule definition",
+      ]) ||
+      getBatchDefinitionPath(readMarkdownField(block, "Batch ID")) ||
+      getScheduleDefinitionPath(scheduleId),
+    enabled: readMarkdownBoolean(block, "Enabled"),
+    kind: "schedule",
+    name: readMarkdownField(block, "Name"),
+    scheduleId,
+    timezone: readMarkdownField(block, "Timezone"),
+  };
 }
 
 function readDecisionActor(

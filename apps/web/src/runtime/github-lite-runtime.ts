@@ -54,6 +54,7 @@ import {
   buildFailureFollowUpComment,
   parseFailureFollowUps,
 } from "../features/execution-requests/failure-follow-up-model";
+import { loadScheduleDefinitions } from "../features/schedules/schedule-repository";
 
 export type GitHubLiteRuntimeOptions = {
   client?: GitHubLiteClient;
@@ -485,7 +486,7 @@ export function createGitHubLiteRuntime(
         });
 
         await client.createBranch({ ...repositoryRef, branch, sha: baseSha });
-        await putRegistrationFile({
+        await putRepositoryFile({
           branch,
           client,
           content: batchDefinitionYaml,
@@ -493,7 +494,7 @@ export function createGitHubLiteRuntime(
           path: batchDefinitionPath,
           repositoryRef,
         });
-        await putRegistrationFile({
+        await putRepositoryFile({
           branch,
           client,
           content: workflowYaml,
@@ -503,7 +504,7 @@ export function createGitHubLiteRuntime(
         });
 
         if (artifact) {
-          await putRegistrationFile({
+          await putRepositoryFile({
             branch,
             client,
             content: artifact.content,
@@ -513,6 +514,66 @@ export function createGitHubLiteRuntime(
             repositoryRef,
           });
         }
+
+        const pullRequest = await client.createPullRequest({
+          ...repositoryRef,
+          base: baseBranch,
+          body,
+          head: branch,
+          title,
+        });
+
+        return toRepositoryPullRequest(pullRequest);
+      },
+    },
+
+    schedules: {
+      async listScheduleDefinitions({ batchId, ref }) {
+        return loadScheduleDefinitions({
+          batchId,
+          client,
+          ref,
+          repository: repositoryRef,
+        });
+      },
+
+      async checkScheduleDefinitionTarget({
+        baseBranch,
+        scheduleDefinitionPath,
+      }) {
+        const file = await client.getFile({
+          ...repositoryRef,
+          path: scheduleDefinitionPath,
+          ref: baseBranch,
+        });
+
+        return {
+          scheduleDefinitionExists: Boolean(file),
+        };
+      },
+
+      async createScheduleDefinitionPullRequest({
+        baseBranch,
+        body,
+        branch,
+        scheduleDefinitionPath,
+        scheduleDefinitionYaml,
+        title,
+      }) {
+        const baseSha = await client.getBranchHeadSha({
+          ...repositoryRef,
+          branch: baseBranch,
+        });
+
+        await client.createBranch({ ...repositoryRef, branch, sha: baseSha });
+        await putRepositoryFile({
+          branch,
+          client,
+          content: scheduleDefinitionYaml,
+          message: title,
+          path: scheduleDefinitionPath,
+          repositoryRef,
+        });
 
         const pullRequest = await client.createPullRequest({
           ...repositoryRef,
@@ -585,7 +646,7 @@ export function createGitHubLiteRuntime(
   };
 }
 
-async function putRegistrationFile({
+async function putRepositoryFile({
   branch,
   client,
   content,

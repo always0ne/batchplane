@@ -4,15 +4,20 @@ import type {
   Criticality,
   RepositoryPullRequest,
   RunnerLabel,
+  ScheduleDefinition,
 } from "@batchplane/domain";
 import {
   AlertCircle,
   CheckCircle2,
+  Clock3,
   FileCode2,
   FileText,
   GitPullRequest,
   Loader2,
+  Plus,
+  RotateCcw,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import {
   type ChangeEvent,
@@ -55,6 +60,15 @@ import {
   type BatchRegistrationFormValues,
   type RegistrationRequestMode,
 } from "./registration-model";
+import {
+  defaultScheduleFormValues,
+  toBatchSchedule,
+  toDerivedScheduleDefinition,
+  toScheduleFormValues,
+  validateScheduleRegistration,
+  type ScheduleFormValues,
+} from "../schedules/schedule-model";
+import { getCronPreview } from "../schedules/cron-preview";
 
 type SubmissionState =
   | { type: "idle" }
@@ -65,6 +79,13 @@ type SubmissionState =
 type UploadedExecutionFile = {
   contentBase64: string;
   name: string;
+};
+
+type ScheduleDraft = {
+  key: string;
+  source: "existing" | "new";
+  status: "active" | "deleted";
+  values: ScheduleFormValues;
 };
 
 type PrefillState =
@@ -83,6 +104,7 @@ const runnerOptions = [
   "macos-latest",
   "self-hosted",
 ] as const;
+let scheduleDraftSequence = 0;
 
 export function BatchRegistrationPage() {
   const { t } = useTranslation("registration");
@@ -99,6 +121,7 @@ export function BatchRegistrationPage() {
   });
   const [uploadedFile, setUploadedFile] =
     useState<UploadedExecutionFile | null>(null);
+  const [scheduleDrafts, setScheduleDrafts] = useState<ScheduleDraft[]>([]);
   const [autoFileCommand, setAutoFileCommand] = useState<string | null>(null);
   const [existingArtifactPath, setExistingArtifactPath] = useState<
     string | null
@@ -115,9 +138,49 @@ export function BatchRegistrationPage() {
         getBatchArtifactPath(baseDefinition.batchId, uploadedFile.name)
       : null;
   const resolvedArtifactPath = uploadedFilePath ?? existingArtifactPath;
+  const activeScheduleDrafts = useMemo(
+    () => scheduleDrafts.filter((draft) => draft.status === "active"),
+    [scheduleDrafts],
+  );
+  const activeBatchSchedules = useMemo(
+    () => activeScheduleDrafts.map((draft) => toBatchSchedule(draft.values)),
+    [activeScheduleDrafts],
+  );
   const definition = useMemo(
-    () => toBatchDefinition(values, { artifactPath: resolvedArtifactPath }),
-    [resolvedArtifactPath, values],
+    () =>
+      toBatchDefinition(values, {
+        artifactPath: resolvedArtifactPath,
+        schedules: activeBatchSchedules,
+      }),
+    [activeBatchSchedules, resolvedArtifactPath, values],
+  );
+  const deletedScheduleDrafts = useMemo(
+    () =>
+      scheduleDrafts.filter(
+        (draft) => draft.source === "existing" && draft.status === "deleted",
+      ),
+    [scheduleDrafts],
+  );
+  const batchPath = getBatchDefinitionPath(
+    definition.batchId || changeBatchId || baseDefinition.batchId,
+  );
+  const scheduleDefinitions = useMemo(
+    () =>
+      activeBatchSchedules.map((schedule) =>
+        toDerivedScheduleDefinition(definition.batchId, batchPath, schedule),
+      ),
+    [activeBatchSchedules, batchPath, definition.batchId],
+  );
+  const deletedScheduleDefinitions = useMemo(
+    () =>
+      deletedScheduleDrafts.map((draft) =>
+        toDerivedScheduleDefinition(
+          definition.batchId,
+          batchPath,
+          toBatchSchedule(draft.values),
+        ),
+      ),
+    [batchPath, definition.batchId, deletedScheduleDrafts],
   );
   const yaml = useMemo(
     () => serializeBatchDefinitionYaml(definition),
@@ -139,9 +202,34 @@ export function BatchRegistrationPage() {
       fields.push("runnerLabel");
     }
 
+    const scheduleIdToIndexes = new Map<string, number[]>();
+    scheduleDefinitions.forEach((schedule, index) => {
+      validateScheduleRegistration(schedule)
+        .filter((field) => field !== "batchId")
+        .forEach((field) => fields.push(`schedule[${index + 1}].${field}`));
+
+      if (!schedule.scheduleId) {
+        return;
+      }
+
+      const existingIndexes =
+        scheduleIdToIndexes.get(schedule.scheduleId) ?? [];
+      existingIndexes.push(index + 1);
+      scheduleIdToIndexes.set(schedule.scheduleId, existingIndexes);
+    });
+
+    for (const [scheduleId, indexes] of scheduleIdToIndexes.entries()) {
+      if (indexes.length > 1) {
+        indexes.forEach((index) =>
+          fields.push(
+            `schedule[${index}].scheduleId duplicate (${scheduleId})`,
+          ),
+        );
+      }
+    }
+
     return fields;
-  }, [definition, values.runCommand, values.runnerLabel]);
-  const batchPath = getBatchDefinitionPath(definition.batchId);
+  }, [definition, scheduleDefinitions, values.runCommand, values.runnerLabel]);
   const workflowPath = definition.workflow.path;
   const nextAutoFileCommand = resolvedArtifactPath
     ? buildExecutionFileCommand(resolvedArtifactPath)
@@ -177,6 +265,7 @@ export function BatchRegistrationPage() {
     setPrefillState({ type: "ready" });
     setExistingArtifactPath(null);
     setUploadedFile(null);
+    setScheduleDrafts([]);
     setAutoFileCommand(null);
     setValues(defaultBatchRegistrationValues);
   }, [mode]);
@@ -203,9 +292,15 @@ export function BatchRegistrationPage() {
       try {
         const runtime = createBatchPlaneRuntime(session);
         const repository = await runtime.settings.getRepository();
-        const batches = await runtime.batches.listBatchDefinitions({
-          ref: repository.defaultBranch,
-        });
+        const [batches, schedules] = await Promise.all([
+          runtime.batches.listBatchDefinitions({
+            ref: repository.defaultBranch,
+          }),
+          runtime.schedules.listScheduleDefinitions({
+            batchId: changeBatchId,
+            ref: repository.defaultBranch,
+          }),
+        ]);
         const batch = batches.find(
           (candidate) => candidate.batchId === changeBatchId,
         );
@@ -218,7 +313,7 @@ export function BatchRegistrationPage() {
         }
 
         if (!ignoreResult) {
-          applyPrefill(batch);
+          applyPrefill(batch, schedules);
         }
       } catch (error) {
         if (!ignoreResult) {
@@ -240,13 +335,71 @@ export function BatchRegistrationPage() {
     };
   }, [changeBatchId, mode, t]);
 
-  function applyPrefill(batch: BatchDefinition) {
+  function applyPrefill(
+    batch: BatchDefinition,
+    schedules: ScheduleDefinition[] = [],
+  ) {
     setValues(toBatchRegistrationFormValues(batch));
     setExistingArtifactPath(batch.execution?.artifactPath ?? null);
     setUploadedFile(null);
+    setScheduleDrafts(
+      schedules.map((schedule) => ({
+        key: nextScheduleDraftKey(),
+        source: "existing",
+        status: "active",
+        values: toScheduleFormValues(schedule),
+      })),
+    );
     setAutoFileCommand(null);
     setSubmissionState({ type: "idle" });
     setPrefillState({ type: "ready" });
+  }
+
+  function addScheduleDraft() {
+    setScheduleDrafts((current) => [
+      ...current,
+      {
+        key: nextScheduleDraftKey(),
+        source: "new",
+        status: "active",
+        values: { ...defaultScheduleFormValues },
+      },
+    ]);
+  }
+
+  function removeScheduleDraft(key: string) {
+    setScheduleDrafts((current) =>
+      current.flatMap((draft) => {
+        if (draft.key !== key) {
+          return [draft];
+        }
+
+        if (draft.source === "new") {
+          return [];
+        }
+
+        return [{ ...draft, status: "deleted" as const }];
+      }),
+    );
+  }
+
+  function restoreScheduleDraft(key: string) {
+    setScheduleDrafts((current) =>
+      current.map((draft) =>
+        draft.key === key ? { ...draft, status: "active" } : draft,
+      ),
+    );
+  }
+
+  function updateScheduleDraft(
+    key: string,
+    updater: (values: ScheduleFormValues) => ScheduleFormValues,
+  ) {
+    setScheduleDrafts((current) =>
+      current.map((draft) =>
+        draft.key === key ? { ...draft, values: updater(draft.values) } : draft,
+      ),
+    );
   }
 
   function updateTextField(
@@ -293,12 +446,16 @@ export function BatchRegistrationPage() {
     try {
       const runtime = createBatchPlaneRuntime(session);
       const repository = await runtime.settings.getRepository();
-      const registrationTargets =
-        await runtime.registration.checkRegistrationTargets({
+      const [registrationTargets, existingSchedules] = await Promise.all([
+        runtime.registration.checkRegistrationTargets({
           baseBranch: repository.defaultBranch,
           batchDefinitionPath: batchPath,
           workflowPath,
-        });
+        }),
+        runtime.schedules.listScheduleDefinitions({
+          ref: repository.defaultBranch,
+        }),
+      ]);
 
       if (mode === "create" && registrationTargets.batchDefinitionExists) {
         setSubmissionState({
@@ -324,6 +481,36 @@ export function BatchRegistrationPage() {
         return;
       }
 
+      const conflictingSchedule = scheduleDefinitions.find((schedule) => {
+        if (!schedule.scheduleId) {
+          return false;
+        }
+
+        const existing = existingSchedules.find(
+          (candidate) => candidate.scheduleId === schedule.scheduleId,
+        );
+
+        if (!existing) {
+          return false;
+        }
+
+        if (mode === "change" && existing.batchId === definition.batchId) {
+          return false;
+        }
+
+        return true;
+      });
+
+      if (conflictingSchedule) {
+        setSubmissionState({
+          type: "error",
+          message: t("errors.scheduleAlreadyExists", {
+            path: conflictingSchedule.definitionPath,
+          }),
+        });
+        return;
+      }
+
       const branch = createRegistrationBranchName(definition.batchId, mode);
       const title = buildRegistrationPullRequestTitle(definition, mode);
       const pullRequest =
@@ -339,7 +526,12 @@ export function BatchRegistrationPage() {
           baseBranch: repository.defaultBranch,
           batchDefinitionPath: batchPath,
           batchDefinitionYaml: yaml,
-          body: buildRegistrationPullRequestBody(definition, mode),
+          body: buildRegistrationPullRequestBody(
+            definition,
+            mode,
+            scheduleDefinitions,
+            deletedScheduleDefinitions,
+          ),
           branch,
           title,
           workflowPath,
@@ -570,6 +762,15 @@ export function BatchRegistrationPage() {
             />
           </article>
 
+          <ScheduleDefinitionsPanel
+            drafts={scheduleDrafts}
+            mode={mode}
+            onAdd={addScheduleDraft}
+            onRemove={removeScheduleDraft}
+            onRestore={restoreScheduleDraft}
+            onUpdate={updateScheduleDraft}
+          />
+
           <SubmissionBanner mode={mode} state={submissionState} />
         </div>
 
@@ -578,8 +779,10 @@ export function BatchRegistrationPage() {
             batchPath={batchPath}
             canSubmit={canSubmit}
             definition={definition}
+            deletedScheduleDefinitions={deletedScheduleDefinitions}
             missingFields={missingFields}
             mode={mode}
+            scheduleDefinitions={scheduleDefinitions}
             submissionState={submissionState}
             uploadedFilePath={resolvedArtifactPath}
             workflowPath={workflowPath}
@@ -599,18 +802,22 @@ export function BatchRegistrationPage() {
 function PullRequestReviewPanel({
   batchPath,
   canSubmit,
+  deletedScheduleDefinitions,
   definition,
   missingFields,
   mode,
+  scheduleDefinitions,
   submissionState,
   uploadedFilePath,
   workflowPath,
 }: {
   batchPath: string;
   canSubmit: boolean;
+  deletedScheduleDefinitions: ScheduleDefinition[];
   definition: ReturnType<typeof toBatchDefinition>;
   missingFields: string[];
   mode: RegistrationRequestMode;
+  scheduleDefinitions: ScheduleDefinition[];
   submissionState: SubmissionState;
   uploadedFilePath: string | null;
   workflowPath: string;
@@ -641,6 +848,14 @@ function PullRequestReviewPanel({
           <ReviewFileRow
             label={t("review.files.workflow")}
             value={workflowPath || t("review.files.pending")}
+          />
+          <ReviewFileRow
+            label={t("review.files.scheduleCount")}
+            value={String(scheduleDefinitions.length)}
+          />
+          <ReviewFileRow
+            label={t("review.files.scheduleDeletionCount")}
+            value={String(deletedScheduleDefinitions.length)}
           />
           <ReviewFileRow
             label={t("review.files.executionFile")}
@@ -683,6 +898,22 @@ function PullRequestReviewPanel({
                 ? t("review.checklist.commandMissing")
                 : t("review.checklist.commandRecorded")
             }
+          />
+          <ReviewCheckItem
+            ready={
+              !missingFields.some((field) => field.startsWith("schedule["))
+            }
+            text={t("review.checklist.scheduleDefinitionsRecorded", {
+              count: scheduleDefinitions.length,
+            })}
+          />
+          <ReviewCheckItem
+            ready={deletedScheduleDefinitions.every((schedule) =>
+              Boolean(schedule.scheduleId && schedule.definitionPath),
+            )}
+            text={t("review.checklist.scheduleDeletionsRecorded", {
+              count: deletedScheduleDefinitions.length,
+            })}
           />
         </ul>
       </section>
@@ -779,18 +1010,256 @@ function YamlPreviewPanel({
   );
 }
 
+function ScheduleDefinitionsPanel({
+  drafts,
+  mode,
+  onAdd,
+  onRemove,
+  onRestore,
+  onUpdate,
+}: {
+  drafts: ScheduleDraft[];
+  mode: RegistrationRequestMode;
+  onAdd: () => void;
+  onRemove: (key: string) => void;
+  onRestore: (key: string) => void;
+  onUpdate: (
+    key: string,
+    updater: (values: ScheduleFormValues) => ScheduleFormValues,
+  ) => void;
+}) {
+  const { t } = useTranslation("registration");
+
+  return (
+    <article
+      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+      id="schedules"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-bp-graphite">
+            {t("form.schedules.title")}
+          </h2>
+          <p className="mt-1 text-sm text-bp-muted">
+            {t(
+              mode === "change"
+                ? "form.schedules.subtitleChange"
+                : "form.schedules.subtitle",
+            )}
+          </p>
+        </div>
+        <button
+          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+          onClick={onAdd}
+          type="button"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          {t("form.schedules.add")}
+        </button>
+      </div>
+
+      {drafts.length === 0 ? (
+        <p className="mt-4 text-sm text-bp-muted">
+          {t("form.schedules.empty")}
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {drafts.map((draft, index) => (
+            <ScheduleDraftCard
+              draft={draft}
+              index={index}
+              key={draft.key}
+              onRemove={onRemove}
+              onRestore={onRestore}
+              onUpdate={onUpdate}
+            />
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function ScheduleDraftCard({
+  draft,
+  index,
+  onRemove,
+  onRestore,
+  onUpdate,
+}: {
+  draft: ScheduleDraft;
+  index: number;
+  onRemove: (key: string) => void;
+  onRestore: (key: string) => void;
+  onUpdate: (
+    key: string,
+    updater: (values: ScheduleFormValues) => ScheduleFormValues,
+  ) => void;
+}) {
+  const { t } = useTranslation("registration");
+  const isDeleted = draft.status === "deleted";
+  const preview = useMemo(
+    () => getCronPreview(draft.values.cron, draft.values.timezone),
+    [draft.values.cron, draft.values.timezone],
+  );
+
+  return (
+    <section
+      className={`rounded-md border p-4 ${
+        isDeleted
+          ? "border-amber-200 bg-amber-50/70"
+          : "border-slate-200 bg-slate-50"
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-bold text-bp-graphite">
+              {t("form.schedules.itemTitle", { index: index + 1 })}
+            </h3>
+            {isDeleted ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                {t("form.schedules.pendingDeletion")}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-xs text-bp-muted">
+            {draft.source === "existing"
+              ? t("form.schedules.existing")
+              : t("form.schedules.new")}
+          </p>
+        </div>
+        {draft.source === "new" ? (
+          <button
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+            onClick={() => onRemove(draft.key)}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {t("form.schedules.remove")}
+          </button>
+        ) : isDeleted ? (
+          <button
+            className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900"
+            onClick={() => onRestore(draft.key)}
+            type="button"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            {t("form.schedules.restore")}
+          </button>
+        ) : (
+          <button
+            className="inline-flex items-center gap-2 rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-700"
+            onClick={() => onRemove(draft.key)}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {t("form.schedules.markDeleted")}
+          </button>
+        )}
+      </div>
+
+      {isDeleted ? (
+        <p className="mt-3 text-sm font-medium text-amber-900">
+          {t("form.schedules.pendingDeletionHelp")}
+        </p>
+      ) : null}
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {draft.source === "existing" ? (
+          <ReadOnlyField
+            label={t("form.schedules.scheduleId")}
+            value={draft.values.scheduleId}
+          />
+        ) : (
+          <TextField
+            disabled={isDeleted}
+            label={t("form.schedules.scheduleId")}
+            onChange={(event) =>
+              onUpdate(draft.key, (values) => ({
+                ...values,
+                scheduleId: event.target.value,
+              }))
+            }
+            placeholder="payment.daily-close-daily"
+            value={draft.values.scheduleId}
+          />
+        )}
+        <TextField
+          disabled={isDeleted}
+          label={t("form.schedules.name")}
+          onChange={(event) =>
+            onUpdate(draft.key, (values) => ({
+              ...values,
+              name: event.target.value,
+            }))
+          }
+          placeholder="Daily settlement window"
+          value={draft.values.name}
+        />
+        <TextField
+          disabled={isDeleted}
+          label={t("form.schedules.cron")}
+          onChange={(event) =>
+            onUpdate(draft.key, (values) => ({
+              ...values,
+              cron: event.target.value,
+            }))
+          }
+          placeholder="0 5 * * *"
+          value={draft.values.cron}
+        />
+        <TextField
+          disabled={isDeleted}
+          label={t("form.schedules.timezone")}
+          onChange={(event) =>
+            onUpdate(draft.key, (values) => ({
+              ...values,
+              timezone: event.target.value,
+            }))
+          }
+          placeholder="Asia/Seoul"
+          value={draft.values.timezone}
+        />
+        <CheckboxField
+          checked={draft.values.enabled}
+          disabled={isDeleted}
+          label={t("form.schedules.enabled")}
+          onChange={(checked) =>
+            onUpdate(draft.key, (values) => ({
+              ...values,
+              enabled: checked,
+            }))
+          }
+        />
+      </div>
+
+      {!isDeleted ? (
+        <CronPreviewBlock
+          invalidLabel={t("form.schedules.cronPreviewInvalid")}
+          nextLabel={t("form.schedules.cronPreviewNext")}
+          preview={preview}
+          title={t("form.schedules.cronPreviewTitle")}
+        />
+      ) : null}
+    </section>
+  );
+}
+
 function PreviewDetails({
   icon,
   isOpen = false,
+  message,
   path,
   title,
   yaml,
 }: {
   icon: ReactNode;
   isOpen?: boolean;
+  message?: string;
   path: string;
   title: string;
-  yaml: string;
+  yaml?: string;
 }) {
   return (
     <details className="py-3 first:pt-0 last:pb-0" open={isOpen}>
@@ -805,19 +1274,29 @@ function PreviewDetails({
           </div>
         </div>
       </summary>
-      <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
-        <code>{yaml}</code>
-      </pre>
+      {message ? (
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-3 text-sm font-medium text-amber-900">
+          {message}
+        </p>
+      ) : (
+        <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
+          <code>{yaml}</code>
+        </pre>
+      )}
     </details>
   );
 }
 
 function TextField({
+  description,
+  disabled = false,
   label,
   onChange,
   placeholder,
   value,
 }: {
+  description?: string;
+  disabled?: boolean;
   label: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   placeholder: string;
@@ -827,11 +1306,18 @@ function TextField({
     <label className="block text-sm font-semibold text-bp-graphite">
       {label}
       <input
+        aria-label={label}
         className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
+        disabled={disabled}
         onChange={onChange}
         placeholder={placeholder}
         value={value}
       />
+      {description ? (
+        <p className="mt-2 text-xs font-normal leading-5 text-bp-muted">
+          {description}
+        </p>
+      ) : null}
     </label>
   );
 }
@@ -930,6 +1416,31 @@ function SelectField({
   );
 }
 
+function CheckboxField({
+  checked,
+  disabled = false,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-10 items-center gap-3 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite">
+      <input
+        checked={checked}
+        className="h-4 w-4 rounded border-slate-300 text-bp-control"
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
 function SubmissionBanner({
   mode,
   state,
@@ -1017,4 +1528,54 @@ function buildExecutionFileCommand(path: string): string {
 
 function formatRunnerLabelDisplay(runsOn: RunnerLabel): string {
   return Array.isArray(runsOn) ? runsOn.join(", ") : runsOn;
+}
+
+function CronPreviewBlock({
+  invalidLabel,
+  nextLabel,
+  preview,
+  title,
+}: {
+  invalidLabel: string;
+  nextLabel: string;
+  preview: ReturnType<typeof getCronPreview>;
+  title: string;
+}) {
+  const { i18n } = useTranslation();
+  const formatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language || undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    [i18n.language],
+  );
+
+  return (
+    <div className="mt-4 rounded-md border border-slate-200 bg-white px-3 py-3 text-sm">
+      <div className="flex items-center gap-2 font-semibold text-bp-graphite">
+        <Clock3 className="h-4 w-4 text-bp-muted" aria-hidden="true" />
+        <span>{title}</span>
+      </div>
+      {preview.ok ? (
+        <ul className="mt-2 space-y-1 text-bp-graphite">
+          {preview.dates.map((date, index) => (
+            <li key={`${date.toISOString()}-${index}`}>
+              {nextLabel} {index + 1}: {formatter.format(date)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-amber-800">
+          {invalidLabel}: {preview.error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function nextScheduleDraftKey(): string {
+  scheduleDraftSequence += 1;
+
+  return `schedule-draft-${scheduleDraftSequence}`;
 }

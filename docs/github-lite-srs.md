@@ -38,7 +38,6 @@ Installation status is based on the default branch containing:
 - `.batch-governance/README.md`
 - `.batch-governance/workspace.yml`
 - `.batch-governance/batches/.gitkeep`
-- `.batch-governance/schedules/.gitkeep`
 
 If required files are missing, the UI must offer an installation pull request.
 The UI must create a setup branch and PR, not write directly to the default

@@ -225,6 +225,13 @@ export type PutFileParams = RepoRef & {
   sha?: string;
 };
 
+export type DeleteFileParams = RepoRef & {
+  path: string;
+  branch: string;
+  message: string;
+  sha: string;
+};
+
 export type CreatePullRequestParams = RepoRef & {
   title: string;
   body: string;
@@ -293,6 +300,7 @@ export type GitHubLiteClient = {
     params: RepoRef & { branch: string; sha: string },
   ): Promise<void>;
   putFile(params: PutFileParams): Promise<{ path: string; sha: string }>;
+  deleteFile(params: DeleteFileParams): Promise<{ path: string }>;
   createPullRequest(
     params: CreatePullRequestParams,
   ): Promise<GitHubPullRequest>;
@@ -457,6 +465,13 @@ type GitHubPutFileResponse = {
     path: string;
     sha: string;
   };
+};
+
+type GitHubDeleteFileResponse = {
+  content?: {
+    path: string;
+    sha: string;
+  } | null;
 };
 
 type GitHubPullRequestResponse = {
@@ -805,6 +820,26 @@ export function createGitHubLiteClient({
       return {
         path: response.content.path,
         sha: response.content.sha,
+      };
+    },
+
+    async deleteFile({ owner, repo, path, branch, message, sha }) {
+      const response = await request<GitHubDeleteFileResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/contents/${encodePath(path)}`,
+        {
+          method: "DELETE",
+          body: JSON.stringify({
+            branch,
+            message,
+            sha,
+          }),
+        },
+      );
+
+      return {
+        path: response?.content?.path ?? path,
       };
     },
 
@@ -1313,12 +1348,6 @@ export function createGitHubLiteMockState(
         content: "Batch definitions created by BatchPlane Lite live here.\n",
         path: ".batch-governance/batches/.gitkeep",
         sha: "mock-batches-gitkeep-sha",
-      },
-      {
-        branch: "main",
-        content: "Schedule definitions created by BatchPlane Lite live here.\n",
-        path: ".batch-governance/schedules/.gitkeep",
-        sha: "mock-schedules-gitkeep-sha",
       },
     ],
     issueComments,
@@ -1960,6 +1989,34 @@ export function createMockGitHubLiteClient(
       }
 
       return { path: params.path, sha };
+    },
+
+    async deleteFile(params) {
+      assertMockRepository(state, params);
+
+      if (!state.branches[params.branch]) {
+        throw new GitHubLiteApiError(
+          `GitHub branch not found: ${params.branch}`,
+          "not-found",
+          404,
+        );
+      }
+
+      const existingIndex = state.files.findIndex(
+        (file) => file.branch === params.branch && file.path === params.path,
+      );
+
+      if (existingIndex < 0) {
+        throw new GitHubLiteApiError(
+          `GitHub file not found: ${params.path}`,
+          "not-found",
+          404,
+        );
+      }
+
+      state.files.splice(existingIndex, 1);
+
+      return { path: params.path };
     },
   };
 
@@ -3316,6 +3373,7 @@ function buildMockBatchDefinitionYaml(batchId: string): string {
     "  execution:",
     '    runsOn: "ubuntu-latest"',
     '    command: "echo mock batch"',
+    `  schedules: [{"id":"${batchId}-daily","name":"Daily settlement window","cron":"0 5 * * *","timezone":"Asia/Seoul","enabled":true}]`,
     "",
   ].join("\n");
 }

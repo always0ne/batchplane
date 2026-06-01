@@ -39,7 +39,6 @@ The setup flow checks these required files on the default branch:
 .batch-governance/README.md
 .batch-governance/workspace.yml
 .batch-governance/batches/.gitkeep
-.batch-governance/schedules/.gitkeep
 ```
 
 For repositories installed before the rebrand, the setup status check also
@@ -441,10 +440,10 @@ an execution request records approval evidence but does not execute the batch.
 
 ## Schedule Occurrence Contract
 
-Schedule definitions are approved by PR and stored under:
+Schedules are approved by PR and stored inside the owning batch definition:
 
 ```text
-.batch-governance/schedules/{scheduleId}.yml
+.batch-governance/batches/{batchId}.yml
 ```
 
 Every due occurrence creates or reuses one execution request issue keyed by:
@@ -462,7 +461,7 @@ Scheduled request payloads extend manual requests:
     "schedule": {
       "scheduleId": "payment.daily-close.weekday-0900",
       "scheduledAt": "2026-05-13T00:00:00.000Z",
-      "definitionPath": ".batch-governance/schedules/payment.daily-close.weekday-0900.yml",
+      "definitionPath": ".batch-governance/batches/payment.daily-close.yml",
       "definitionCommitSha": "..."
     }
   }

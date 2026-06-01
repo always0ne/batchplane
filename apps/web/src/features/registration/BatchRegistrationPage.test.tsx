@@ -16,6 +16,13 @@ describe("BatchRegistrationPage", () => {
     renderRegistrationPage();
 
     fillRequiredFields();
+    fireEvent.click(screen.getByRole("button", { name: "Add schedule" }));
+    fireEvent.change(screen.getByLabelText("Schedule ID"), {
+      target: { value: "payment.daily-close-daily" },
+    });
+    fireEvent.change(screen.getAllByLabelText("Name")[1]!, {
+      target: { value: "Daily settlement window" },
+    });
     expect(screen.queryByText(/new-batch/)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Batch command"), {
@@ -40,6 +47,14 @@ describe("BatchRegistrationPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText("BatchPlane Gate always runs before the batch command."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Schedules" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Expected run times")).toBeInTheDocument();
+    expect(screen.getByText(/Next 1:/)).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("payment.daily-close-daily"),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Workflow YAML"));
@@ -71,7 +86,7 @@ describe("BatchRegistrationPage", () => {
       screen.getByRole("button", { name: "Create registration PR" }),
     );
 
-    expect(await screen.findByText("Registration changes")).toBeInTheDocument();
+    expect(await screen.findByText("Governed changes")).toBeInTheDocument();
     expect(
       screen.getByText(/Register batch settlement.daily-rollup/),
     ).toBeInTheDocument();
@@ -103,8 +118,46 @@ describe("BatchRegistrationPage", () => {
     expect(screen.getByDisplayValue("ops-team")).toBeInTheDocument();
     expect(screen.getByDisplayValue("payments")).toBeInTheDocument();
     expect(screen.getByDisplayValue("echo mock batch")).toBeInTheDocument();
+    expect(screen.getByText("payment.daily-close-daily")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Daily settlement window"),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create change PR" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps an existing schedule visible when marked for deletion", async () => {
+    writeRuntimeFixtureSelection("approval-pending");
+
+    render(
+      <MemoryRouter
+        initialEntries={["/batches/new?change=payment.daily-close"]}
+      >
+        <Routes>
+          <Route path="/batches/new" element={<BatchRegistrationPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Change request" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(screen.getByText("Pending delete")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "If this change request is merged, this schedule will be removed from the batch definition.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Scheduled removals")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("payment.daily-close-daily").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: "Undo delete" }),
     ).toBeInTheDocument();
   });
 });

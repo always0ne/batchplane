@@ -34,14 +34,38 @@ describe("RegistrationApprovalDetailPage", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Registration approval detail",
+        name: "Governed change detail",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Governance checklist")).toBeInTheDocument();
     expect(screen.getByText("YAML diff summary")).toBeInTheDocument();
+    expect(screen.getByText("Daily settlement window")).toBeInTheDocument();
+    expect(screen.getByText("Nightly settlement fallback")).toBeInTheDocument();
+    expect(screen.getByText("Schedule count")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Pending schedule deletions").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: "Approve and merge PR" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows schedule metadata when the PR is a schedule definition change", async () => {
+    const runtime = createRuntimeWithScheduleFixture();
+
+    renderDetail({
+      createRuntime: () => runtime,
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByText("payment.daily-close-daily"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("0 5 * * *")).toBeInTheDocument();
+    expect(
+      screen.getByText("Cron expression is recorded."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Enabled state is recorded.")).toBeInTheDocument();
   });
 
   it("approves and merges registration pull request", async () => {
@@ -119,6 +143,68 @@ function createRuntimeWithRegistrationFixture() {
   return createGitHubLiteRuntime(session, { client });
 }
 
+function createRuntimeWithScheduleFixture() {
+  const state = createGitHubLiteMockState();
+  const pullRequest = state.pullRequests[0];
+
+  if (!pullRequest) {
+    throw new Error("Expected a registration pull request fixture.");
+  }
+
+  const headBranch =
+    "batchplane/schedule/register/payment.daily-close-daily-20260514010203";
+  const client = createMockGitHubLiteClient({
+    ...state,
+    branches: {
+      ...state.branches,
+      [headBranch]: state.branches.main || "mock-schedule-head-sha",
+    },
+    files: [
+      ...state.files,
+      {
+        branch: headBranch,
+        content: [
+          'apiVersion: "batchplane.io/v1"',
+          'kind: "ScheduleDefinition"',
+          "metadata:",
+          '  id: "payment.daily-close-daily"',
+          '  batchId: "payment.daily-close"',
+          '  name: "Daily settlement window"',
+          "spec:",
+          '  cron: "0 5 * * *"',
+          '  timezone: "Asia/Seoul"',
+          "  enabled: true",
+          "",
+        ].join("\n"),
+        path: ".batch-governance/schedules/payment.daily-close-daily.yml",
+        sha: "mock-head-schedule-sha",
+      },
+    ],
+    pullRequests: [
+      {
+        ...pullRequest,
+        body: [
+          "## BatchPlane Schedule Registration",
+          "",
+          "- Request type: REGISTER",
+          "- Target kind: SCHEDULE",
+          "- Batch ID: `payment.daily-close`",
+          "- Schedule ID: `payment.daily-close-daily`",
+          "- Name: Daily settlement window",
+          "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+          "- Cron: `0 5 * * *`",
+          "- Timezone: `Asia/Seoul`",
+          "- Enabled: true",
+        ].join("\n"),
+        head: headBranch,
+        title: "Register schedule payment.daily-close-daily",
+      },
+    ],
+  });
+
+  return createGitHubLiteRuntime(session, { client });
+}
+
 function withRegistrationEvidence(
   state: ReturnType<typeof createGitHubLiteMockState>,
   headBranch: string,
@@ -138,6 +224,42 @@ function withRegistrationEvidence(
     },
     files: [
       ...state.files,
+      {
+        branch: headBranch,
+        content: [
+          'apiVersion: "batchplane.io/v1"',
+          'kind: "ScheduleDefinition"',
+          "metadata:",
+          '  batchId: "payment.daily-close"',
+          '  id: "payment.daily-close-daily"',
+          '  name: "Daily settlement window"',
+          "spec:",
+          '  cron: "0 5 * * *"',
+          "  enabled: true",
+          '  timezone: "Asia/Seoul"',
+          "",
+        ].join("\n"),
+        path: ".batch-governance/schedules/payment.daily-close-daily.yml",
+        sha: "mock-head-schedule-sha",
+      },
+      {
+        branch: "main",
+        content: [
+          'apiVersion: "batchplane.io/v1"',
+          'kind: "ScheduleDefinition"',
+          "metadata:",
+          '  batchId: "payment.daily-close"',
+          '  id: "payment.daily-close-nightly"',
+          '  name: "Nightly settlement fallback"',
+          "spec:",
+          '  cron: "0 30 1 * * *"',
+          "  enabled: false",
+          '  timezone: "Asia/Seoul"',
+          "",
+        ].join("\n"),
+        path: ".batch-governance/schedules/payment.daily-close-nightly.yml",
+        sha: "mock-base-schedule-deleted-sha",
+      },
       {
         branch: headBranch,
         content: [
@@ -182,12 +304,36 @@ function withRegistrationEvidence(
           "- Runtime: GitHub Actions / BatchPlane Lite",
           "- Runs on: ubuntu-latest",
           "- BatchPlane Gate: required",
+          "- Schedule count: 1",
+          "- Schedule deletion count: 1",
           "",
           "### Batch command",
           "",
           "```sh",
           "echo close payments",
           "```",
+          "",
+          "### Schedule definitions",
+          "",
+          "#### Schedule 1",
+          "- Batch ID: `payment.daily-close`",
+          "- Schedule ID: `payment.daily-close-daily`",
+          "- Name: Daily settlement window",
+          "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
+          "- Cron: `0 5 * * *`",
+          "- Timezone: `Asia/Seoul`",
+          "- Enabled: true",
+          "",
+          "### Schedule deletions",
+          "",
+          "#### Deleted schedule 1",
+          "- Batch ID: `payment.daily-close`",
+          "- Schedule ID: `payment.daily-close-nightly`",
+          "- Name: Nightly settlement fallback",
+          "- Schedule definition: `.batch-governance/schedules/payment.daily-close-nightly.yml`",
+          "- Cron: `0 30 1 * * *`",
+          "- Timezone: `Asia/Seoul`",
+          "- Enabled: false",
         ].join("\n"),
       },
     ],

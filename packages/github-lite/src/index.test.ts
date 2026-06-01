@@ -188,6 +188,43 @@ describe("createGitHubLiteClient", () => {
     expect(body.content).toBe("AQID");
   });
 
+  it("deletes a file with the expected branch and sha", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        content: {
+          path: ".batch-governance/schedules/demo-nightly.yml",
+          sha: "deleted-file-sha",
+        },
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.deleteFile({
+        owner: "always0ne",
+        repo: "batchplane",
+        path: ".batch-governance/schedules/demo-nightly.yml",
+        branch: "batchplane/change/demo",
+        message: "Change batch demo",
+        sha: "existing-file-sha",
+      }),
+    ).resolves.toEqual({
+      path: ".batch-governance/schedules/demo-nightly.yml",
+    });
+
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchplane/contents/.batch-governance/schedules/demo-nightly.yml",
+    );
+    expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
+      branch: "batchplane/change/demo",
+      message: "Change batch demo",
+      sha: "existing-file-sha",
+    });
+  });
+
   it("creates a pull request", async () => {
     const fetcher: typeof fetch = async () =>
       Response.json({

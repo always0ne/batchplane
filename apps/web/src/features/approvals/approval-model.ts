@@ -63,15 +63,43 @@ export type ExecutionGateDecision = {
   reasonCode: string;
 };
 
+export type GovernedChangeRequestKind = "batch" | "schedule";
+
 export function isRegistrationApprovalRequest(
   pullRequest: RepositoryPullRequest,
 ): boolean {
   return (
     pullRequest.state === "open" &&
-    (pullRequest.head.startsWith("batchplane/register/") ||
-      pullRequest.head.startsWith("batchplane/register/") ||
-      pullRequest.title.startsWith("Register batch "))
+    getGovernedChangeRequestKind(pullRequest) !== null
   );
+}
+
+export function getGovernedChangeRequestKind(
+  pullRequest: RepositoryPullRequest,
+): GovernedChangeRequestKind | null {
+  if (
+    pullRequest.head.startsWith("batchplane/register/") ||
+    pullRequest.head.startsWith("batchplane/change/") ||
+    pullRequest.head.startsWith("batchtrail/register/") ||
+    pullRequest.head.startsWith("batchtrail/change/") ||
+    pullRequest.title.startsWith("Register batch ") ||
+    pullRequest.title.startsWith("Change batch ")
+  ) {
+    return "batch";
+  }
+
+  if (
+    pullRequest.head.startsWith("batchplane/schedule/register/") ||
+    pullRequest.head.startsWith("batchplane/schedule/change/") ||
+    pullRequest.head.startsWith("batchtrail/schedule/register/") ||
+    pullRequest.head.startsWith("batchtrail/schedule/change/") ||
+    pullRequest.title.startsWith("Register schedule ") ||
+    pullRequest.title.startsWith("Change schedule ")
+  ) {
+    return "schedule";
+  }
+
+  return null;
 }
 
 export function buildRegistrationApprovalComment({
@@ -84,7 +112,7 @@ export function buildRegistrationApprovalComment({
   pullRequest: RepositoryPullRequest;
 }): string {
   return [
-    "## BatchPlane Registration Approval",
+    "## BatchPlane Governed Change Approval",
     "",
     `- Decision: APPROVED`,
     `- Approver: @${approver}`,
@@ -105,7 +133,7 @@ export function buildRegistrationRejectionComment({
   pullRequest: RepositoryPullRequest;
 }): string {
   return [
-    "## BatchPlane Registration Approval",
+    "## BatchPlane Governed Change Approval",
     "",
     `- Decision: REJECTED`,
     `- Rejector: @${rejector}`,
