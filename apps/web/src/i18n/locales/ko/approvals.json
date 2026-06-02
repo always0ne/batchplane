@@ -121,8 +121,8 @@
     },
     "fileSummary": {
       "title": "YAML 변경 요약",
-      "subtitle": "기준 브랜치와 변경 브랜치의 거버넌스 파일 변경을 비교합니다.",
-      "preview": "변경 내용 보기",
+      "subtitle": "PR에 기록된 실제 YAML diff를 표시합니다.",
+      "preview": "Diff 보기",
       "patch": "PR 변경 내용",
       "baseRevision": "기준 브랜치",
       "headRevision": "변경 브랜치",
@@ -133,12 +133,6 @@
         "UPDATED": "수정",
         "UNCHANGED": "변경 없음",
         "MISSING_HEAD": "누락"
-      },
-      "statusHelp": {
-        "ADDED": "등록 브랜치에만 존재하는 파일입니다.",
-        "UPDATED": "두 브랜치 모두 존재하지만 내용이 변경되었습니다.",
-        "UNCHANGED": "두 브랜치에 동일한 내용으로 존재합니다.",
-        "MISSING_HEAD": "등록 브랜치에서 파일을 찾지 못했습니다."
       }
     }
   }

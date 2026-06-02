@@ -544,9 +544,6 @@ function RegistrationFileSummaryPanel({
               </div>
               <FileStatusBadge status={file.status} />
             </div>
-            <p className="mt-2 text-xs text-bp-muted">
-              {t(`registrationDetail.fileSummary.statusHelp.${file.status}`)}
-            </p>
             {file.patch || file.baseContent || file.headContent ? (
               <details className="mt-2" open={file.status !== "UNCHANGED"}>
                 <summary className="cursor-pointer text-xs font-semibold text-bp-control">
@@ -560,19 +557,20 @@ function RegistrationFileSummaryPanel({
                       title={t("registrationDetail.fileSummary.patch")}
                     />
                   </div>
-                ) : null}
-                <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <RevisionPreview
-                    content={file.baseContent}
-                    emptyText={t("registrationDetail.fileSummary.emptyBase")}
-                    title={t("registrationDetail.fileSummary.baseRevision")}
-                  />
-                  <RevisionPreview
-                    content={file.headContent}
-                    emptyText={t("registrationDetail.fileSummary.emptyHead")}
-                    title={t("registrationDetail.fileSummary.headRevision")}
-                  />
-                </div>
+                ) : (
+                  <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                    <RevisionPreview
+                      content={file.baseContent}
+                      emptyText={t("registrationDetail.fileSummary.emptyBase")}
+                      title={t("registrationDetail.fileSummary.baseRevision")}
+                    />
+                    <RevisionPreview
+                      content={file.headContent}
+                      emptyText={t("registrationDetail.fileSummary.emptyHead")}
+                      title={t("registrationDetail.fileSummary.headRevision")}
+                    />
+                  </div>
+                )}
               </details>
             ) : null}
           </section>

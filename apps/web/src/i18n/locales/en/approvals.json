@@ -121,8 +121,8 @@
     },
     "fileSummary": {
       "title": "YAML diff summary",
-      "subtitle": "Compare base and head revisions for governed change files.",
-      "preview": "View changes",
+      "subtitle": "Shows the actual YAML diff recorded by the pull request.",
+      "preview": "View diff",
       "patch": "PR patch",
       "baseRevision": "Base revision",
       "headRevision": "Change branch revision",
@@ -133,12 +133,6 @@
         "UPDATED": "Updated",
         "UNCHANGED": "Unchanged",
         "MISSING_HEAD": "Missing"
-      },
-      "statusHelp": {
-        "ADDED": "File exists on the registration branch and does not exist on base.",
-        "UPDATED": "File exists on both refs and content changed.",
-        "UNCHANGED": "File exists on both refs with no content change.",
-        "MISSING_HEAD": "File is not present on the registration branch."
       }
     }
   }

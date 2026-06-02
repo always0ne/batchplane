@@ -42,6 +42,9 @@ describe("RegistrationApprovalDetailPage", () => {
     expect(screen.getAllByText("Updated").length).toBeGreaterThan(0);
     expect(screen.getAllByText("PR patch").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/gateRequired: true/).length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("File exists on both refs and content changed."),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Daily settlement window")).toBeInTheDocument();
     expect(screen.getByText("Nightly settlement fallback")).toBeInTheDocument();
     expect(screen.getByText("Schedule count")).toBeInTheDocument();
