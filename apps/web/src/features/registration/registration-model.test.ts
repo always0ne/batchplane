@@ -165,6 +165,9 @@ describe("registration model", () => {
     expect(workflowYaml).toContain('timezone: "Asia/Seoul"');
     expect(workflowYaml).toContain("id: schedule_request");
     expect(workflowYaml).toContain("schedule_payment_daily_close_daily:");
+    expect(workflowYaml).toContain(
+      "if: github.event_name == 'schedule' && github.event.schedule == '0 5 * * *' && github.run_attempt == 1",
+    );
     expect(workflowYaml).toContain("concurrency:");
     expect(workflowYaml).toContain(
       'group: "batchplane-schedule-payment_daily_close-payment_daily_close_daily"',
