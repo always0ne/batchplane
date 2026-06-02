@@ -328,6 +328,19 @@ export type RepositoryFile = {
   ref: string;
 };
 
+export type RepositoryPullRequestFileStatus =
+  | "added"
+  | "modified"
+  | "removed"
+  | "renamed"
+  | "unchanged";
+
+export type RepositoryPullRequestFile = {
+  patch?: string;
+  path: string;
+  status: RepositoryPullRequestFileStatus;
+};
+
 export type RuntimeInstallationStatus = {
   installed: boolean;
   missingPaths: string[];
@@ -447,6 +460,9 @@ export type ApprovalPort = {
     baseBranch: string;
     state?: RepositoryPullRequestState;
   }): Promise<RepositoryPullRequest[]>;
+  listRegistrationRequestFiles(params: {
+    pullNumber: number;
+  }): Promise<RepositoryPullRequestFile[]>;
   readRegistrationRequestFile(params: {
     path: string;
     ref: string;

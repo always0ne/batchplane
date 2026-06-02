@@ -39,6 +39,9 @@ describe("RegistrationApprovalDetailPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Governance checklist")).toBeInTheDocument();
     expect(screen.getByText("YAML diff summary")).toBeInTheDocument();
+    expect(screen.getAllByText("Updated").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("PR patch").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/gateRequired: true/).length).toBeGreaterThan(0);
     expect(screen.getByText("Daily settlement window")).toBeInTheDocument();
     expect(screen.getByText("Nightly settlement fallback")).toBeInTheDocument();
     expect(screen.getByText("Schedule count")).toBeInTheDocument();
@@ -361,5 +364,30 @@ function withRegistrationEvidence(
         ].join("\n"),
       },
     ],
+    pullRequestFiles: {
+      [pullRequest.number]: [
+        {
+          patch: [
+            "@@ -4,3 +4,5 @@ metadata:",
+            '   id: "payment.daily-close"',
+            '   name: "Daily Close"',
+            " spec:",
+            "+  gateRequired: true",
+          ].join("\n"),
+          path: ".batch-governance/batches/payment.daily-close.yml",
+          status: "modified",
+        },
+        {
+          patch: [
+            "@@ -1,3 +1,6 @@",
+            '+name: "BatchPlane - Daily Close"',
+            "+on:",
+            "+  workflow_dispatch:",
+          ].join("\n"),
+          path: ".github/workflows/payment.daily-close.yml",
+          status: "modified",
+        },
+      ],
+    },
   };
 }

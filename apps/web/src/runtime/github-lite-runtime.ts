@@ -12,6 +12,7 @@ import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
+  RepositoryPullRequestFile,
   WorkspacePolicy,
 } from "@batchplane/domain";
 import {
@@ -27,6 +28,7 @@ import {
   type GitHubLiteClient,
   type GitHubLiteClientOptions,
   type GitHubPullRequest,
+  type GitHubPullRequestFile,
   type GitHubWorkflowJob,
   type GitHubWorkflowJobLog,
   type GitHubWorkflowRun,
@@ -147,6 +149,15 @@ export function createGitHubLiteRuntime(
         });
 
         return pullRequests.map(toRepositoryPullRequest);
+      },
+
+      async listRegistrationRequestFiles({ pullNumber }) {
+        const files = await client.listPullRequestFiles({
+          ...repositoryRef,
+          pullNumber,
+        });
+
+        return files.map(toRepositoryPullRequestFile);
       },
 
       async readRegistrationRequestFile({ path, ref }) {
@@ -1250,6 +1261,26 @@ function toRepositoryPullRequest(
   pullRequest: GitHubPullRequest,
 ): RepositoryPullRequest {
   return pullRequest;
+}
+
+function toRepositoryPullRequestFile(
+  file: GitHubPullRequestFile,
+): RepositoryPullRequestFile {
+  const statusMap = {
+    added: "added",
+    changed: "modified",
+    copied: "added",
+    modified: "modified",
+    removed: "removed",
+    renamed: "renamed",
+    unchanged: "unchanged",
+  } as const;
+
+  return {
+    ...(file.patch ? { patch: file.patch } : {}),
+    path: file.path,
+    status: statusMap[file.status] ?? "modified",
+  };
 }
 
 function toRepositoryFile(

@@ -122,7 +122,8 @@
     "fileSummary": {
       "title": "YAML 변경 요약",
       "subtitle": "기준 브랜치와 변경 브랜치의 거버넌스 파일 변경을 비교합니다.",
-      "preview": "리비전 비교",
+      "preview": "변경 내용 보기",
+      "patch": "PR 변경 내용",
       "baseRevision": "기준 브랜치",
       "headRevision": "변경 브랜치",
       "emptyBase": "기준 브랜치에 파일이 없습니다.",

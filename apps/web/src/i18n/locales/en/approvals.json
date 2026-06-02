@@ -122,7 +122,8 @@
     "fileSummary": {
       "title": "YAML diff summary",
       "subtitle": "Compare base and head revisions for governed change files.",
-      "preview": "Compare revisions",
+      "preview": "View changes",
+      "patch": "PR patch",
       "baseRevision": "Base revision",
       "headRevision": "Change branch revision",
       "emptyBase": "No file on the base branch.",

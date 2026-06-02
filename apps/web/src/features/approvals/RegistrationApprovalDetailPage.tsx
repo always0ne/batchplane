@@ -2,6 +2,7 @@ import type {
   BatchPlaneRuntimePorts,
   RepositoryFile,
   RepositoryPullRequest,
+  RepositoryPullRequestFile,
 } from "@batchplane/domain";
 import {
   CheckCircle2,
@@ -73,6 +74,7 @@ type ActionState =
 type RegistrationFileSummary = {
   baseContent: string;
   headContent: string;
+  patch: string;
   path: string;
   status: "ADDED" | "UPDATED" | "UNCHANGED" | "MISSING_HEAD";
 };
@@ -545,11 +547,20 @@ function RegistrationFileSummaryPanel({
             <p className="mt-2 text-xs text-bp-muted">
               {t(`registrationDetail.fileSummary.statusHelp.${file.status}`)}
             </p>
-            {file.baseContent || file.headContent ? (
-              <details className="mt-2">
+            {file.patch || file.baseContent || file.headContent ? (
+              <details className="mt-2" open={file.status !== "UNCHANGED"}>
                 <summary className="cursor-pointer text-xs font-semibold text-bp-control">
                   {t("registrationDetail.fileSummary.preview")}
                 </summary>
+                {file.patch ? (
+                  <div className="mt-2">
+                    <RevisionPreview
+                      content={file.patch}
+                      emptyText=""
+                      title={t("registrationDetail.fileSummary.patch")}
+                    />
+                  </div>
+                ) : null}
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
                   <RevisionPreview
                     content={file.baseContent}
@@ -881,8 +892,19 @@ async function loadRegistrationFiles(
   summary: RegistrationRequestBodySummary,
 ): Promise<RegistrationFileSummary[]> {
   const paths = deriveRegistrationFilePaths(summary);
+  const pullRequestFiles = await runtime.approvals.listRegistrationRequestFiles(
+    {
+      pullNumber: pullRequest.number,
+    },
+  );
+  const pullRequestFileByPath = new Map(
+    pullRequestFiles.map((file) => [file.path, file]),
+  );
+  const pathsToLoad = [
+    ...new Set([...paths, ...pullRequestFiles.map((file) => file.path)]),
+  ];
   const files = await Promise.all(
-    paths.map(async (path) => {
+    pathsToLoad.map(async (path) => {
       const [baseFile, headFile] = await Promise.all([
         runtime.approvals.readRegistrationRequestFile({
           path,
@@ -894,7 +916,12 @@ async function loadRegistrationFiles(
         }),
       ]);
 
-      return toRegistrationFileSummary(path, baseFile, headFile);
+      return toRegistrationFileSummary(
+        path,
+        baseFile,
+        headFile,
+        pullRequestFileByPath.get(path),
+      );
     }),
   );
 
@@ -905,13 +932,19 @@ function toRegistrationFileSummary(
   path: string,
   baseFile: RepositoryFile | null,
   headFile: RepositoryFile | null,
+  pullRequestFile?: RepositoryPullRequestFile,
 ): RegistrationFileSummary {
+  const status = pullRequestFile
+    ? toRegistrationFileStatus(pullRequestFile.status)
+    : null;
+
   if (!headFile) {
     return {
       baseContent: baseFile?.content || "",
       headContent: "",
+      patch: pullRequestFile?.patch || "",
       path,
-      status: "MISSING_HEAD",
+      status: status ?? "MISSING_HEAD",
     };
   }
 
@@ -919,18 +952,39 @@ function toRegistrationFileSummary(
     return {
       baseContent: "",
       headContent: headFile.content,
+      patch: pullRequestFile?.patch || "",
       path,
-      status: "ADDED",
+      status: status ?? "ADDED",
     };
   }
 
   return {
     baseContent: baseFile.content,
     headContent: headFile.content,
+    patch: pullRequestFile?.patch || "",
     path,
     status:
-      baseFile.content === headFile.content
+      status ??
+      (baseFile.content === headFile.content
         ? "UNCHANGED"
-        : ("UPDATED" as const),
+        : ("UPDATED" as const)),
   };
+}
+
+function toRegistrationFileStatus(
+  status: RepositoryPullRequestFile["status"],
+): RegistrationFileSummary["status"] {
+  if (status === "added") {
+    return "ADDED";
+  }
+
+  if (status === "removed") {
+    return "MISSING_HEAD";
+  }
+
+  if (status === "unchanged") {
+    return "UNCHANGED";
+  }
+
+  return "UPDATED";
 }
