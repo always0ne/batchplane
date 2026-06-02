@@ -207,7 +207,7 @@ export function buildBatchWorkflowYaml(
 
   return [
     `name: ${yamlString(`BatchPlane - ${workflowName}`)}`,
-    "run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}",
+    "run-name: BatchPlane ${{ github.event.inputs.batch_id || 'scheduled' }} ${{ github.event.inputs.request_id || github.event.schedule || '' }}",
     "",
     "on:",
     "  workflow_dispatch:",
@@ -465,6 +465,10 @@ function yamlString(value: string): string {
   return JSON.stringify(value);
 }
 
+function githubExpressionString(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
 function asYamlRecord(
   value: YamlValue | undefined,
 ): Record<string, YamlValue | undefined> {
@@ -655,7 +659,7 @@ function buildScheduledRequestJobLines({
   return [
     `  ${jobId}:`,
     `    name: ${yamlString(`Schedule ${schedule.name || schedule.scheduleId}`)}`,
-    `    if: github.event_name == 'schedule' && github.event.schedule == ${yamlString(schedule.cron)} && github.run_attempt == 1`,
+    `    if: github.event_name == 'schedule' && github.event.schedule == ${githubExpressionString(schedule.cron)} && github.run_attempt == 1`,
     "    concurrency:",
     `      group: ${yamlString(`batchplane-schedule-${toWorkflowJobId(batchId)}-${toWorkflowJobId(schedule.scheduleId)}`)}`,
     "      cancel-in-progress: false",
