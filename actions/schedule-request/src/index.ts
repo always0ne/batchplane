@@ -252,10 +252,14 @@ export async function run(env = process.env): Promise<ScheduleRequestResult> {
   setActionOutput("status", result.status);
   setActionOutput("request-id", result.requestId);
   setActionOutput("request-digest", result.requestDigest);
+  setActionOutput("scheduled-at", result.scheduledAt);
   setActionOutput("issue-number", String(result.issueNumber ?? ""));
   setActionOutput(
     "approval-comment-id",
     String(result.approvalCommentId ?? ""),
+  );
+  console.log(
+    `BatchPlane scheduled occurrence resolved: ${result.scheduledAt} (${input.timezone}, ${input.cron})`,
   );
 
   return result;

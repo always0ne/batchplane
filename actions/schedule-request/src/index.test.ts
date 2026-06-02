@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -65,6 +67,16 @@ const batchYaml = serializeYamlDocument({
 });
 
 describe("schedule request action", () => {
+  it("ships a self-contained dist bundle for runtime dependencies", () => {
+    const dist = readFileSync(
+      new URL("../dist/index.js", import.meta.url),
+      "utf-8",
+    );
+
+    expect(dist).toContain("cron-parser");
+    expect(dist).not.toMatch(/from\s+["']cron-parser["']/u);
+  });
+
   it("creates a new delegated scheduled request and approval comment", async () => {
     const calls: Array<{ method: string; url: string }> = [];
     const fetcher: typeof fetch = async (input, init) => {
@@ -125,6 +137,7 @@ describe("schedule request action", () => {
     expect(result.status).toBe("created");
     expect(result.issueNumber).toBe(77);
     expect(result.approvalCommentId).toBe(88);
+    expect(result.scheduledAt).toBe("2026-06-01T20:00:00.000Z");
     expect(result.requestId).toBe(
       "btr-20260601200000-payment.daily-close-payment.daily-close-dail",
     );
