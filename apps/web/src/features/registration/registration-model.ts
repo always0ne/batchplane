@@ -207,7 +207,7 @@ export function buildBatchWorkflowYaml(
 
   return [
     `name: ${yamlString(`BatchPlane - ${workflowName}`)}`,
-    "run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}",
+    "run-name: BatchPlane ${{ github.event.inputs.batch_id || 'scheduled' }} ${{ github.event.inputs.request_id || github.event.schedule || '' }}",
     "",
     "on:",
     "  workflow_dispatch:",
