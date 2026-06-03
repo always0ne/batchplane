@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   ExternalLink,
   FileCode2,
-  GitPullRequest,
+  FileText,
   Loader2,
   RefreshCw,
   XCircle,
@@ -327,7 +327,7 @@ export function RegistrationApprovalDetailPage({
               target="_blank"
             >
               <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              {t("actions.openPullRequest")}
+              {t("actions.openSourceRequest")}
             </a>
             <button
               className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
@@ -393,7 +393,7 @@ function RegistrationSummaryPanel({
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <GitPullRequest className="h-4 w-4 text-bp-git" aria-hidden="true" />
+          <FileText className="h-4 w-4 text-bp-git" aria-hidden="true" />
           <h2 className="text-base font-bold text-bp-graphite">
             #{pullRequest.number} {pullRequest.title}
           </h2>

@@ -7,7 +7,7 @@
     "cancelReject": "취소",
     "confirmReject": "반려 확정",
     "openIssue": "Issue 열기",
-    "openPullRequest": "PR 열기",
+    "openSourceRequest": "원본 요청 열기",
     "openSetup": "설정 열기",
     "refresh": "새로고침",
     "reject": "반려",
@@ -18,20 +18,20 @@
   },
   "fields": {
     "author": "작성자",
-    "base": "대상",
+    "base": "반영 대상",
     "batchId": "Batch ID",
     "command": "배치 명령",
     "cron": "Cron",
     "enabled": "활성 여부",
     "expiresAt": "만료시각",
     "gate": "Gate",
-    "head": "요청 브랜치",
+    "head": "요청 버전",
     "reason": "사유",
     "requestDigest": "Request digest",
     "requestedBy": "요청자",
     "requestId": "Request ID",
-    "repository": "저장소",
-    "runsOn": "Runs on",
+    "repository": "Workspace",
+    "runsOn": "실행 환경",
     "scheduleCount": "스케줄 수",
     "scheduleDeletionCount": "삭제 예정 스케줄 수",
     "scheduleId": "Schedule ID",
@@ -47,8 +47,8 @@
   "result": {
     "executionApproved": "실행 요청 {{requestId}}가 승인되었습니다.",
     "executionRejected": "실행 요청 {{requestId}}가 반려되었습니다.",
-    "registrationApproved": "PR #{{number}}가 승인되고 반영되었습니다.",
-    "registrationRejected": "PR #{{number}}가 반려되고 닫혔습니다."
+    "registrationApproved": "변경 요청 #{{number}}가 승인되고 반영되었습니다.",
+    "registrationRejected": "변경 요청 #{{number}}가 반려되었습니다."
   },
   "sections": {
     "execution": "실행 요청",
@@ -73,13 +73,13 @@
   },
   "registrationDetail": {
     "title": "통제 변경 상세",
-    "subtitle": "PR #{{pullNumber}}",
+    "subtitle": "변경 요청 #{{pullNumber}}",
     "actions": {
       "actionFailed": "등록 승인 처리 중 오류가 발생했습니다.",
-      "approve": "승인 후 PR 반영",
+      "approve": "승인 후 변경 반영",
       "backToApprovals": "승인함으로",
       "closedTitle": "변경 검토 완료",
-      "note": "승인 시 BatchPlane Lite 거버넌스 반영을 위해 통제 변경 PR을 병합합니다.",
+      "note": "승인 시 이 통제 변경을 Workspace 증적에 반영합니다.",
       "title": "승인 처리"
     },
     "states": {
@@ -87,7 +87,7 @@
       "githubLagHint": "생성된 통제 변경은 이 화면에서 바로 검토할 수 있습니다.",
       "loading": "통제 변경 상세를 불러오는 중입니다...",
       "noSession": "통제 변경을 검토하려면 GitHub 저장소를 먼저 연결하세요.",
-      "notFound": "저장소에서 통제 변경 PR #{{pullNumber}}를 찾지 못했습니다."
+      "notFound": "Workspace에서 통제 변경 요청 #{{pullNumber}}를 찾지 못했습니다."
     },
     "checklist": {
       "title": "거버넌스 체크리스트",
@@ -97,7 +97,7 @@
       "cronRecorded": "Cron 표현식 기록",
       "timezoneRecorded": "Timezone 기록",
       "enabledRecorded": "활성화 상태 기록",
-      "runnerRecorded": "실행 환경(runs-on) 기록",
+      "runnerRecorded": "실행 환경 기록",
       "commandRecorded": "배치 명령 기록",
       "scheduleDefinitionsRecorded_one": "이 통제 변경에 스케줄 1건이 포함되었는지 확인",
       "scheduleDefinitionsRecorded_other": "이 통제 변경에 스케줄 {{count}}건이 포함되었는지 확인",
@@ -113,21 +113,21 @@
       "noEvidence": "아직 BatchPlane 검토 증적 코멘트가 없습니다.",
       "states": {
         "OPEN": "검토 대기",
-        "APPROVED_PENDING_MERGE": "승인됨, 병합 대기",
-        "MERGED": "병합 완료",
+        "APPROVED_PENDING_MERGE": "승인됨, 반영 대기",
+        "MERGED": "반영 완료",
         "REJECTED": "반려됨",
         "CLOSED": "닫힘"
       }
     },
     "fileSummary": {
-      "title": "YAML 변경 요약",
-      "subtitle": "PR에 기록된 실제 YAML diff를 표시합니다.",
-      "preview": "Diff 보기",
-      "patch": "PR 변경 내용",
-      "baseRevision": "기준 브랜치",
-      "headRevision": "변경 브랜치",
-      "emptyBase": "기준 브랜치에 파일이 없습니다.",
-      "emptyHead": "변경 브랜치에 파일이 없습니다.",
+      "title": "거버넌스 변경 증적",
+      "subtitle": "이 요청에 기록된 실제 설정 변경 내용을 표시합니다.",
+      "preview": "변경 보기",
+      "patch": "기록된 변경 내용",
+      "baseRevision": "현재 버전",
+      "headRevision": "요청 버전",
+      "emptyBase": "현재 버전에 파일이 없습니다.",
+      "emptyHead": "요청 버전에 파일이 없습니다.",
       "status": {
         "ADDED": "신규",
         "UPDATED": "수정",

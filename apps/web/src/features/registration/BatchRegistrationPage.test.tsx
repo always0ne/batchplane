@@ -98,7 +98,9 @@ describe("BatchRegistrationPage", () => {
       screen.getByText(/Register batch settlement.daily-rollup/),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open PR" }).getAttribute("href"),
+      screen
+        .getByRole("link", { name: "Open source request" })
+        .getAttribute("href"),
     ).toContain("https://github.com/always0ne/batch/pull/");
   });
 

@@ -24,7 +24,7 @@ describe("RegistrationApprovalDetailPage", () => {
     sessionStorage.clear();
   });
 
-  it("shows registration metadata, checklist, and yaml diff summary", async () => {
+  it("shows registration metadata, checklist, and governed change evidence", async () => {
     const runtime = createRuntimeWithRegistrationFixture();
 
     renderDetail({
@@ -38,9 +38,9 @@ describe("RegistrationApprovalDetailPage", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Governance checklist")).toBeInTheDocument();
-    expect(screen.getByText("YAML diff summary")).toBeInTheDocument();
+    expect(screen.getByText("Governance change evidence")).toBeInTheDocument();
     expect(screen.getAllByText("Updated").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("PR patch").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Recorded change").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/gateRequired: true/).length).toBeGreaterThan(0);
     expect(
       screen.queryByText("File exists on both refs and content changed."),
@@ -52,11 +52,11 @@ describe("RegistrationApprovalDetailPage", () => {
       screen.getAllByText("Pending schedule deletions").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: "Approve and merge PR" }),
+      screen.getByRole("button", { name: "Approve and apply change" }),
     ).toBeInTheDocument();
   });
 
-  it("loads the governed change by PR number without waiting for the approval list", async () => {
+  it("loads the governed change by request number without waiting for the approval list", async () => {
     const runtime = createRuntimeWithRegistrationFixture();
 
     renderDetail({
@@ -98,7 +98,7 @@ describe("RegistrationApprovalDetailPage", () => {
     expect(screen.getByText("Enabled state is recorded.")).toBeInTheDocument();
   });
 
-  it("approves and merges registration pull request", async () => {
+  it("approves and applies registration change requests", async () => {
     const state = createGitHubLiteMockState();
     const pullRequest = state.pullRequests[0];
 
@@ -116,7 +116,7 @@ describe("RegistrationApprovalDetailPage", () => {
     });
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Approve and merge PR" }),
+      await screen.findByRole("button", { name: "Approve and apply change" }),
     );
 
     await waitFor(() => {
