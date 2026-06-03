@@ -57,6 +57,21 @@ export type GitHubPullRequest = {
   merged: boolean;
 };
 
+export type GitHubPullRequestFileStatus =
+  | "added"
+  | "changed"
+  | "copied"
+  | "modified"
+  | "removed"
+  | "renamed"
+  | "unchanged";
+
+export type GitHubPullRequestFile = {
+  patch?: string;
+  path: string;
+  status: GitHubPullRequestFileStatus;
+};
+
 export type GitHubMergeResult = {
   merged: boolean;
   message: string;
@@ -199,6 +214,7 @@ export type GitHubLiteMockState = {
   issues: GitHubIssue[];
   issueComments: GitHubIssueComment[];
   labels: GitHubLabel[];
+  pullRequestFiles: Record<number, GitHubPullRequestFile[]>;
   pullRequests: GitHubPullRequest[];
   workflows: GitHubWorkflow[];
   workflowRuns: GitHubWorkflowRun[];
@@ -318,6 +334,9 @@ export type GitHubLiteClient = {
   listPullRequests(
     params: ListPullRequestsParams,
   ): Promise<GitHubPullRequest[]>;
+  listPullRequestFiles(
+    params: RepoRef & { pullNumber: number },
+  ): Promise<GitHubPullRequestFile[]>;
   mergePullRequest(params: MergePullRequestParams): Promise<GitHubMergeResult>;
   createIssue(params: CreateIssueParams): Promise<GitHubIssue>;
   getIssue(params: GetIssueParams): Promise<GitHubIssue | null>;
@@ -505,6 +524,12 @@ type GitHubPullRequestResponse = {
   base: {
     ref: string;
   };
+};
+
+type GitHubPullRequestFileResponse = {
+  filename: string;
+  patch?: string;
+  status: GitHubPullRequestFileStatus;
 };
 
 type GitHubMergeResponse = {
@@ -896,6 +921,16 @@ export function createGitHubLiteClient({
       );
 
       return (pullRequests ?? []).map(mapPullRequestResponse);
+    },
+
+    async listPullRequestFiles({ owner, repo, pullNumber }) {
+      const files = await request<GitHubPullRequestFileResponse[]>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/pulls/${pullNumber}/files?per_page=100`,
+      );
+
+      return (files ?? []).map(mapPullRequestFileResponse);
     },
 
     async mergePullRequest({
@@ -1421,6 +1456,7 @@ export function createGitHubLiteMockState(
         name: "batchplane:rejected",
       },
     ],
+    pullRequestFiles: {},
     pullRequests: [
       {
         author: "developer",
@@ -1485,6 +1521,8 @@ export function createGitHubLiteMockState(
     issueComments: overrides.issueComments ?? defaultState.issueComments,
     issues: overrides.issues ?? defaultState.issues,
     labels: overrides.labels ?? defaultState.labels,
+    pullRequestFiles:
+      overrides.pullRequestFiles ?? defaultState.pullRequestFiles,
     pullRequests: overrides.pullRequests ?? defaultState.pullRequests,
     repository: overrides.repository ?? defaultState.repository,
     repositoryPermissions:
@@ -1873,6 +1911,13 @@ export function createMockGitHubLiteClient(
             (!params.head || pullRequest.head === params.head),
         )
         .map(cloneJson);
+    },
+
+    async listPullRequestFiles(params) {
+      assertMockRepository(state, params);
+      assertMockIssueOrPullRequest(state, params.pullNumber);
+
+      return cloneJson(state.pullRequestFiles[params.pullNumber] ?? []);
     },
 
     async listWorkflows(params) {
@@ -2509,6 +2554,16 @@ function mapPullRequestResponse(
     ...(pullRequest.created_at ? { createdAt: pullRequest.created_at } : {}),
     ...(pullRequest.updated_at ? { updatedAt: pullRequest.updated_at } : {}),
     merged: pullRequest.merged ?? Boolean(pullRequest.merged_at),
+  };
+}
+
+function mapPullRequestFileResponse(
+  file: GitHubPullRequestFileResponse,
+): GitHubPullRequestFile {
+  return {
+    ...(file.patch ? { patch: file.patch } : {}),
+    path: file.filename,
+    status: file.status,
   };
 }
 

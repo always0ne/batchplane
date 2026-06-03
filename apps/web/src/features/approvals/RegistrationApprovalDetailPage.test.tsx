@@ -24,7 +24,7 @@ describe("RegistrationApprovalDetailPage", () => {
     sessionStorage.clear();
   });
 
-  it("shows registration metadata, checklist, and yaml diff summary", async () => {
+  it("shows registration metadata, checklist, and governed change evidence", async () => {
     const runtime = createRuntimeWithRegistrationFixture();
 
     renderDetail({
@@ -38,7 +38,13 @@ describe("RegistrationApprovalDetailPage", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Governance checklist")).toBeInTheDocument();
-    expect(screen.getByText("YAML diff summary")).toBeInTheDocument();
+    expect(screen.getByText("Governance change evidence")).toBeInTheDocument();
+    expect(screen.getAllByText("Updated").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Recorded change").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/gateRequired: true/).length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("File exists on both refs and content changed."),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Daily settlement window")).toBeInTheDocument();
     expect(screen.getByText("Nightly settlement fallback")).toBeInTheDocument();
     expect(screen.getByText("Schedule count")).toBeInTheDocument();
@@ -46,11 +52,11 @@ describe("RegistrationApprovalDetailPage", () => {
       screen.getAllByText("Pending schedule deletions").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: "Approve and merge PR" }),
+      screen.getByRole("button", { name: "Approve and apply change" }),
     ).toBeInTheDocument();
   });
 
-  it("loads the governed change by PR number without waiting for the approval list", async () => {
+  it("loads the governed change by request number without waiting for the approval list", async () => {
     const runtime = createRuntimeWithRegistrationFixture();
 
     renderDetail({
@@ -92,7 +98,7 @@ describe("RegistrationApprovalDetailPage", () => {
     expect(screen.getByText("Enabled state is recorded.")).toBeInTheDocument();
   });
 
-  it("approves and merges registration pull request", async () => {
+  it("approves and applies registration change requests", async () => {
     const state = createGitHubLiteMockState();
     const pullRequest = state.pullRequests[0];
 
@@ -110,7 +116,7 @@ describe("RegistrationApprovalDetailPage", () => {
     });
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Approve and merge PR" }),
+      await screen.findByRole("button", { name: "Approve and apply change" }),
     );
 
     await waitFor(() => {
@@ -361,5 +367,30 @@ function withRegistrationEvidence(
         ].join("\n"),
       },
     ],
+    pullRequestFiles: {
+      [pullRequest.number]: [
+        {
+          patch: [
+            "@@ -4,3 +4,5 @@ metadata:",
+            '   id: "payment.daily-close"',
+            '   name: "Daily Close"',
+            " spec:",
+            "+  gateRequired: true",
+          ].join("\n"),
+          path: ".batch-governance/batches/payment.daily-close.yml",
+          status: "modified",
+        },
+        {
+          patch: [
+            "@@ -1,3 +1,6 @@",
+            '+name: "BatchPlane - Daily Close"',
+            "+on:",
+            "+  workflow_dispatch:",
+          ].join("\n"),
+          path: ".github/workflows/payment.daily-close.yml",
+          status: "modified",
+        },
+      ],
+    },
   };
 }

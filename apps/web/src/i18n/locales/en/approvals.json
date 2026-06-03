@@ -7,7 +7,7 @@
     "cancelReject": "Cancel",
     "confirmReject": "Confirm rejection",
     "openIssue": "Open Issue",
-    "openPullRequest": "Open PR",
+    "openSourceRequest": "Open source request",
     "openSetup": "Open setup",
     "refresh": "Refresh",
     "reject": "Reject",
@@ -18,20 +18,20 @@
   },
   "fields": {
     "author": "Author",
-    "base": "Base",
+    "base": "Target version",
     "batchId": "Batch ID",
     "command": "Batch command",
     "cron": "Cron",
     "enabled": "Enabled",
     "expiresAt": "Expires at",
     "gate": "Gate",
-    "head": "Head",
+    "head": "Requested version",
     "reason": "Reason",
     "requestDigest": "Request digest",
     "requestedBy": "Requested by",
     "requestId": "Request ID",
-    "repository": "Repository",
-    "runsOn": "Runs on",
+    "repository": "Workspace",
+    "runsOn": "Execution environment",
     "scheduleCount": "Schedule count",
     "scheduleDeletionCount": "Pending schedule deletions",
     "scheduleId": "Schedule ID",
@@ -47,8 +47,8 @@
   "result": {
     "executionApproved": "Execution request {{requestId}} was approved.",
     "executionRejected": "Execution request {{requestId}} was rejected.",
-    "registrationApproved": "PR #{{number}} was approved and merged.",
-    "registrationRejected": "PR #{{number}} was rejected and closed."
+    "registrationApproved": "Change request #{{number}} was approved and applied.",
+    "registrationRejected": "Change request #{{number}} was rejected."
   },
   "sections": {
     "execution": "Execution requests",
@@ -73,13 +73,13 @@
   },
   "registrationDetail": {
     "title": "Governed change detail",
-    "subtitle": "PR #{{pullNumber}}",
+    "subtitle": "Change request #{{pullNumber}}",
     "actions": {
       "actionFailed": "Failed to update registration approval.",
-      "approve": "Approve and merge PR",
+      "approve": "Approve and apply change",
       "backToApprovals": "Back to approvals",
       "closedTitle": "Change review completed",
-      "note": "Approving merges this governed change PR into the repository for BatchPlane Lite governance.",
+      "note": "Approving applies this governed change to the Workspace evidence.",
       "title": "Approval action"
     },
     "states": {
@@ -87,7 +87,7 @@
       "githubLagHint": "Created governed changes can be reviewed here immediately.",
       "loading": "Loading change approval detail...",
       "noSession": "Connect a GitHub repository before reviewing governed changes.",
-      "notFound": "Governed change PR #{{pullNumber}} was not found in this repository."
+      "notFound": "Governed change request #{{pullNumber}} was not found in this Workspace."
     },
     "checklist": {
       "title": "Governance checklist",
@@ -97,7 +97,7 @@
       "cronRecorded": "Cron expression is recorded.",
       "timezoneRecorded": "Timezone is recorded.",
       "enabledRecorded": "Enabled state is recorded.",
-      "runnerRecorded": "Execution environment (runs-on) is recorded.",
+      "runnerRecorded": "Execution environment is recorded.",
       "commandRecorded": "Batch command is recorded.",
       "scheduleDefinitionsRecorded_one": "1 schedule is included in this governed change.",
       "scheduleDefinitionsRecorded_other": "{{count}} schedules are included in this governed change.",
@@ -113,31 +113,26 @@
       "noEvidence": "No BatchPlane review evidence comment is recorded yet.",
       "states": {
         "OPEN": "Waiting for review",
-        "APPROVED_PENDING_MERGE": "Approved, merge pending",
-        "MERGED": "Merged",
+        "APPROVED_PENDING_MERGE": "Approved, apply pending",
+        "MERGED": "Applied",
         "REJECTED": "Rejected",
         "CLOSED": "Closed"
       }
     },
     "fileSummary": {
-      "title": "YAML diff summary",
-      "subtitle": "Compare base and head revisions for governed change files.",
-      "preview": "Compare revisions",
-      "baseRevision": "Base revision",
-      "headRevision": "Change branch revision",
-      "emptyBase": "No file on the base branch.",
-      "emptyHead": "No file on the change branch.",
+      "title": "Governance change evidence",
+      "subtitle": "Shows the actual configuration changes recorded by this request.",
+      "preview": "View change",
+      "patch": "Recorded change",
+      "baseRevision": "Current version",
+      "headRevision": "Requested version",
+      "emptyBase": "No file exists in the current version.",
+      "emptyHead": "No file exists in the requested version.",
       "status": {
         "ADDED": "Added",
         "UPDATED": "Updated",
         "UNCHANGED": "Unchanged",
         "MISSING_HEAD": "Missing"
-      },
-      "statusHelp": {
-        "ADDED": "File exists on the registration branch and does not exist on base.",
-        "UPDATED": "File exists on both refs and content changed.",
-        "UNCHANGED": "File exists on both refs with no content change.",
-        "MISSING_HEAD": "File is not present on the registration branch."
       }
     }
   }
