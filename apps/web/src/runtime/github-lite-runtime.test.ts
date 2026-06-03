@@ -396,7 +396,7 @@ describe("createGitHubLiteRuntime", () => {
 
   it("loads execution request comments through the ApprovalPort", async () => {
     const fetcher: typeof fetch = async (input) => {
-      if (input.toString().endsWith("/issues/101/comments")) {
+      if (new URL(input.toString()).pathname.endsWith("/issues/101/comments")) {
         return Response.json([
           {
             body: "## BatchPlane Execution Approval",
@@ -642,7 +642,12 @@ describe("createGitHubLiteRuntime", () => {
         });
       }
 
-      if (url.endsWith("/issues?state=all")) {
+      const parsedUrl = new URL(url);
+
+      if (
+        parsedUrl.pathname.endsWith("/issues") &&
+        parsedUrl.searchParams.get("state") === "all"
+      ) {
         return Response.json([
           {
             number: 104,
@@ -668,7 +673,7 @@ describe("createGitHubLiteRuntime", () => {
         ]);
       }
 
-      if (url.endsWith("/issues/104/comments")) {
+      if (parsedUrl.pathname.endsWith("/issues/104/comments")) {
         return Response.json([
           {
             id: 1044,
@@ -927,7 +932,12 @@ describe("createGitHubLiteRuntime", () => {
         });
       }
 
-      if (url.endsWith("/issues?state=all")) {
+      const parsedUrl = new URL(url);
+
+      if (
+        parsedUrl.pathname.endsWith("/issues") &&
+        parsedUrl.searchParams.get("state") === "all"
+      ) {
         return Response.json([
           {
             body: [
@@ -953,7 +963,7 @@ describe("createGitHubLiteRuntime", () => {
         ]);
       }
 
-      if (url.endsWith("/issues/105/comments")) {
+      if (parsedUrl.pathname.endsWith("/issues/105/comments")) {
         return Response.json([
           {
             body: [

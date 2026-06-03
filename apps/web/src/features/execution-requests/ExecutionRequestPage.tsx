@@ -23,10 +23,6 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import {
-  buildExecutionApprovalHandoff,
-  saveExecutionApprovalHandoff,
-} from "../approvals/approval-handoff";
 import type { GitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
@@ -268,11 +264,8 @@ export function ExecutionRequestPage({
         title: previewState.issue.title,
       });
 
-      saveExecutionApprovalHandoff(issue);
       setSubmitState({ type: "success", issue });
-      navigate("/approvals", {
-        state: buildExecutionApprovalHandoff(issue),
-      });
+      navigate(`/execution-requests/${issue.number}`);
     } catch (error) {
       setSubmitState({
         type: "error",

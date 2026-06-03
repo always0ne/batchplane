@@ -5,8 +5,8 @@ import type {
 } from "@batchplane/domain";
 import { FileText, GitPullRequest, Loader2, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../shared/components/PageHeader";
@@ -29,15 +29,6 @@ import {
   isRegistrationApprovalRequest,
   parseExecutionApprovalRequest,
 } from "./approval-model";
-import {
-  mergeExecutionApprovalRequests,
-  mergeRegistrationApprovalRequests,
-  normalizeApprovalHandoff,
-  pruneApprovalHandoff,
-  removeExecutionApprovalHandoff,
-  removeStoredExecutionApprovalHandoff,
-  writeStoredApprovalHandoff,
-} from "./approval-handoff";
 import { ExecutionApprovalActions } from "./ExecutionApprovalActions";
 
 type ApprovalPageState =
@@ -71,8 +62,6 @@ export function ApprovalsPage({
   readSession = readRuntimeSession,
 }: ApprovalsPageProps = {}) {
   const { t } = useTranslation("approvals");
-  const location = useLocation();
-  const approvalHandoffRef = useRef(normalizeApprovalHandoff(location.state));
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<ApprovalPageState>({ type: "loading" });
   const [actionState, setActionState] = useState<ApprovalActionState>({
@@ -101,32 +90,6 @@ export function ApprovalsPage({
         const workspacePolicy = await runtime.settings.getWorkspacePolicy({
           ref: repository.defaultBranch,
         });
-        const handoff = approvalHandoffRef.current;
-        const immediateExecutionRequests = mergeExecutionApprovalRequests(
-          [],
-          handoff.executionIssues,
-        );
-        const immediateRegistrationRequests = mergeRegistrationApprovalRequests(
-          [],
-          handoff.registrationRequests,
-        );
-
-        if (
-          !ignoreResult &&
-          (immediateRegistrationRequests.length > 0 ||
-            immediateExecutionRequests.length > 0)
-        ) {
-          setState({
-            type: "loaded",
-            defaultBranch: repository.defaultBranch,
-            executionRequests: immediateExecutionRequests,
-            login: user.login,
-            registrationRequests: immediateRegistrationRequests,
-            repository: `${repository.owner}/${repository.repo}`,
-            session,
-            workspacePolicy,
-          });
-        }
 
         const [pullRequests, issues] = await Promise.all([
           runtime.approvals.listRegistrationRequests({
@@ -143,7 +106,6 @@ export function ApprovalsPage({
         );
 
         if (!ignoreResult) {
-          const currentHandoff = approvalHandoffRef.current;
           const listedExecutionRequests = issues
             .map((issue, index) =>
               parseExecutionApprovalRequest(issue, issueComments[index] ?? []),
@@ -155,26 +117,13 @@ export function ApprovalsPage({
           const listedRegistrationRequests = pullRequests.filter(
             isRegistrationApprovalRequest,
           );
-          const pendingHandoff = pruneApprovalHandoff(currentHandoff, {
-            listedExecutionRequests,
-            listedRegistrationRequests,
-          });
-
-          approvalHandoffRef.current = pendingHandoff;
-          writeStoredApprovalHandoff(pendingHandoff);
 
           setState({
             type: "loaded",
             defaultBranch: repository.defaultBranch,
-            executionRequests: mergeExecutionApprovalRequests(
-              listedExecutionRequests,
-              currentHandoff.executionIssues,
-            ),
+            executionRequests: listedExecutionRequests,
             login: user.login,
-            registrationRequests: mergeRegistrationApprovalRequests(
-              listedRegistrationRequests,
-              currentHandoff.registrationRequests,
-            ),
+            registrationRequests: listedRegistrationRequests,
             repository: `${repository.owner}/${repository.repo}`,
             session,
             workspacePolicy,
@@ -270,11 +219,6 @@ export function ApprovalsPage({
   }
 
   function removeExecutionRequest(issueNumber: number) {
-    approvalHandoffRef.current = removeExecutionApprovalHandoff(
-      approvalHandoffRef.current,
-      issueNumber,
-    );
-    removeStoredExecutionApprovalHandoff(issueNumber);
     setState((current) => {
       if (current.type !== "loaded") {
         return current;

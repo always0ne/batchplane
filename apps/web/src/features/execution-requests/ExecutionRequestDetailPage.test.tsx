@@ -48,6 +48,30 @@ describe("ExecutionRequestDetailPage", () => {
     expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
   });
 
+  it("loads the request by Issue number without waiting for the approvals list", async () => {
+    const state = createRuntimeFixtureMockState("approval-pending");
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    renderDetail({
+      createRuntime: () => ({
+        ...runtime,
+        approvals: {
+          ...runtime.approvals,
+          listExecutionRequestIssues: async () => {
+            throw new Error("List lookup should not be required.");
+          },
+        },
+      }),
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Execution request detail" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("echo mock batch")).toBeInTheDocument();
+  });
+
   it("blocks self approval while allowing rejection with a reason", async () => {
     const state = createRuntimeFixtureMockState("approval-pending");
     state.currentUser = { login: "developer" };

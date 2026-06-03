@@ -30,10 +30,6 @@ import {
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import {
-  buildRegistrationApprovalHandoff,
-  saveRegistrationApprovalHandoff,
-} from "../approvals/approval-handoff";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
   EmptyState,
@@ -538,11 +534,8 @@ export function BatchRegistrationPage() {
           workflowYaml: generatedWorkflowYaml,
         });
 
-      saveRegistrationApprovalHandoff(pullRequest);
       setSubmissionState({ type: "success", pullRequest });
-      navigate("/approvals", {
-        state: buildRegistrationApprovalHandoff(pullRequest),
-      });
+      navigate(`/approvals/registration/${pullRequest.number}`);
     } catch (error) {
       setSubmissionState({
         type: "error",

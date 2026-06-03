@@ -23,7 +23,6 @@ import {
   type ExecutionRequestDisplayStatus,
 } from "../approvals/approval-model";
 import { ExecutionApprovalActions } from "../approvals/ExecutionApprovalActions";
-import { removeStoredExecutionApprovalHandoff } from "../approvals/approval-handoff";
 import type { GitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
@@ -97,17 +96,16 @@ export function ExecutionRequestDetailPage({
 
       try {
         const runtime = createRuntime(session);
-        const [user, repository, issues] = await Promise.all([
+        const [user, repository, issue] = await Promise.all([
           runtime.settings.getCurrentUser(),
           runtime.settings.getRepository(),
-          runtime.approvals.listExecutionRequestIssues({ state: "all" }),
+          runtime.approvals.getExecutionRequestIssue({
+            issueNumber: parsedIssueNumber,
+          }),
         ]);
         const workspacePolicy = await runtime.settings.getWorkspacePolicy({
           ref: repository.defaultBranch,
         });
-        const issue = issues.find(
-          (candidate) => candidate.number === parsedIssueNumber,
-        );
 
         if (!issue) {
           setState({
@@ -193,7 +191,6 @@ export function ExecutionRequestDetailPage({
           requestId: request.requestId,
         }),
       });
-      removeStoredExecutionApprovalHandoff(request.issue.number);
       setReloadToken((current) => current + 1);
     } catch (error) {
       setActionState({
@@ -232,7 +229,6 @@ export function ExecutionRequestDetailPage({
           requestId: request.requestId,
         }),
       });
-      removeStoredExecutionApprovalHandoff(request.issue.number);
       setReloadToken((current) => current + 1);
     } catch (error) {
       setActionState({

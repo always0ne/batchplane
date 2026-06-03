@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import "../../i18n/i18n";
-import { ApprovalsPage } from "../approvals/ApprovalsPage";
+import { RegistrationApprovalDetailPage } from "../approvals/RegistrationApprovalDetailPage";
 import { writeRuntimeFixtureSelection } from "../../runtime/runtime-fixtures";
 import { BatchRegistrationPage } from "./BatchRegistrationPage";
 
@@ -69,13 +69,16 @@ describe("BatchRegistrationPage", () => {
     );
   });
 
-  it("routes a created mock PR to approvals with the resulting PR link", async () => {
+  it("routes a created mock PR to the resulting approval detail", async () => {
     writeRuntimeFixtureSelection("happy-path");
     render(
       <MemoryRouter initialEntries={["/batches/new"]}>
         <Routes>
           <Route path="/batches/new" element={<BatchRegistrationPage />} />
-          <Route path="/approvals" element={<ApprovalsPage />} />
+          <Route
+            path="/approvals/registration/:pullNumber"
+            element={<RegistrationApprovalDetailPage />}
+          />
         </Routes>
       </MemoryRouter>,
     );
@@ -88,7 +91,9 @@ describe("BatchRegistrationPage", () => {
       screen.getByRole("button", { name: "Create registration PR" }),
     );
 
-    expect(await screen.findByText("Governed changes")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Governed change detail" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/Register batch settlement.daily-rollup/),
     ).toBeInTheDocument();

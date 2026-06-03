@@ -250,7 +250,7 @@
     "digestReady": "Request digest will be written to the Issue marker.",
     "expiresAt": "Expires at",
     "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
-    "nextStep": "After creation, BatchPlane routes this request to approvals. GitHub list results can take a few seconds to catch up.",
+    "nextStep": "After creation, BatchPlane opens the execution request detail.",
     "noDispatch": "Creating the Issue does not dispatch the workflow.",
     "pending": "Pending",
     "requestId": "Request ID",
