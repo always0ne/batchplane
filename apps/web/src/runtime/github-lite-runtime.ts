@@ -101,13 +101,24 @@ export function createGitHubLiteRuntime(
         });
       },
 
+      async getExecutionRequestIssue({ issueNumber }) {
+        const issue = await client.getIssue({
+          ...repositoryRef,
+          issueNumber,
+        });
+
+        return issue && !issue.isPullRequest ? toRepositoryIssue(issue) : null;
+      },
+
       async listExecutionRequestIssues({ state = "open" } = {}) {
         const issues = await client.listIssues({
           ...repositoryRef,
           state,
         });
 
-        return issues.map(toRepositoryIssue);
+        return issues
+          .filter((issue) => !issue.isPullRequest)
+          .map(toRepositoryIssue);
       },
 
       async listExecutionRequestComments({ issueNumber }) {
@@ -117,6 +128,15 @@ export function createGitHubLiteRuntime(
         });
 
         return comments.map(toRepositoryIssueComment);
+      },
+
+      async getRegistrationRequest({ pullNumber }) {
+        const pullRequest = await client.getPullRequest({
+          ...repositoryRef,
+          pullNumber,
+        });
+
+        return pullRequest ? toRepositoryPullRequest(pullRequest) : null;
       },
 
       async listRegistrationRequests({ baseBranch, state = "open" }) {

@@ -296,6 +296,8 @@ describe("domain model contracts", () => {
           message: "merged",
           sha: "merge-sha",
         }),
+        getExecutionRequestIssue: async () => null,
+        getRegistrationRequest: async () => null,
         listExecutionRequestComments: async () => [],
         listExecutionRequestIssues: async () => [],
         listRegistrationRequests: async () => [],

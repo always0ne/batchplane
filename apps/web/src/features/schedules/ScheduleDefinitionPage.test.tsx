@@ -9,7 +9,7 @@ import {
 
 import "../../i18n/i18n";
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
-import { ApprovalsPage } from "../approvals/ApprovalsPage";
+import { RegistrationApprovalDetailPage } from "../approvals/RegistrationApprovalDetailPage";
 import { ScheduleDefinitionPage } from "./ScheduleDefinitionPage";
 
 const session = {
@@ -23,7 +23,7 @@ describe("ScheduleDefinitionPage", () => {
     sessionStorage.clear();
   });
 
-  it("creates a governed schedule PR and routes to approvals", async () => {
+  it("creates a governed schedule PR and routes to the approval detail", async () => {
     const runtime = createRuntime();
 
     render(
@@ -41,9 +41,9 @@ describe("ScheduleDefinitionPage", () => {
             }
           />
           <Route
-            path="/approvals"
+            path="/approvals/registration/:pullNumber"
             element={
-              <ApprovalsPage
+              <RegistrationApprovalDetailPage
                 createRuntime={() => runtime}
                 readSession={() => session}
               />
@@ -70,7 +70,9 @@ describe("ScheduleDefinitionPage", () => {
 
     expect(screen.getByText("Expected run times")).toBeInTheDocument();
     expect(screen.getByText(/Next 1:/)).toBeInTheDocument();
-    expect(await screen.findByText("Governed changes")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Governed change detail" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/Register schedule payment.daily-close-weekly/),
     ).toBeInTheDocument();

@@ -41,7 +41,6 @@ import {
   type RegistrationRequestBodySummary,
   type RegistrationReviewState,
 } from "./registration-approval-model";
-import { removeStoredRegistrationApprovalHandoff } from "./approval-handoff";
 
 type RegistrationApprovalDetailPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
@@ -109,17 +108,13 @@ export function RegistrationApprovalDetailPage({
 
       try {
         const runtime = createRuntime(session);
-        const repository = await runtime.settings.getRepository();
-        const [pullRequests, user] = await Promise.all([
-          runtime.approvals.listRegistrationRequests({
-            baseBranch: repository.defaultBranch,
-            state: "all",
+        const [repository, pullRequest, user] = await Promise.all([
+          runtime.settings.getRepository(),
+          runtime.approvals.getRegistrationRequest({
+            pullNumber: parsedPullNumber,
           }),
           runtime.settings.getCurrentUser(),
         ]);
-        const pullRequest = pullRequests.find(
-          (candidate) => candidate.number === parsedPullNumber,
-        );
 
         if (!pullRequest) {
           if (!ignoreResult) {
@@ -210,7 +205,6 @@ export function RegistrationApprovalDetailPage({
           number: state.pullRequest.number,
         }),
       });
-      removeStoredRegistrationApprovalHandoff(state.pullRequest.number);
       setReloadToken((current) => current + 1);
     } catch (error) {
       setActionState({
@@ -248,7 +242,6 @@ export function RegistrationApprovalDetailPage({
           number: state.pullRequest.number,
         }),
       });
-      removeStoredRegistrationApprovalHandoff(state.pullRequest.number);
       setReloadToken((current) => current + 1);
     } catch (error) {
       setActionState({

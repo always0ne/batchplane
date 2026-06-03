@@ -22,10 +22,6 @@ import {
 } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import {
-  buildRegistrationApprovalHandoff,
-  saveRegistrationApprovalHandoff,
-} from "../approvals/approval-handoff";
 import type { GitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
@@ -259,11 +255,8 @@ export function ScheduleDefinitionPage({
           title,
         });
 
-      saveRegistrationApprovalHandoff(pullRequest);
       setSubmissionState({ type: "success", pullRequest });
-      navigate("/approvals", {
-        state: buildRegistrationApprovalHandoff(pullRequest),
-      });
+      navigate(`/approvals/registration/${pullRequest.number}`);
     } catch (error) {
       setSubmissionState({
         type: "error",

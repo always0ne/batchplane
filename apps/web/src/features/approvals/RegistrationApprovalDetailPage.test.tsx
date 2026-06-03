@@ -50,6 +50,30 @@ describe("RegistrationApprovalDetailPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("loads the governed change by PR number without waiting for the approval list", async () => {
+    const runtime = createRuntimeWithRegistrationFixture();
+
+    renderDetail({
+      createRuntime: () => ({
+        ...runtime,
+        approvals: {
+          ...runtime.approvals,
+          listRegistrationRequests: async () => {
+            throw new Error("List lookup should not be required.");
+          },
+        },
+      }),
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Governed change detail",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Daily settlement window")).toBeInTheDocument();
+  });
+
   it("shows schedule metadata when the PR is a schedule definition change", async () => {
     const runtime = createRuntimeWithScheduleFixture();
 

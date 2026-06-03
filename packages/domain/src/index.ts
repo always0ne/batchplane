@@ -440,6 +440,9 @@ export type ExecutionPort = {
 };
 
 export type ApprovalPort = {
+  getRegistrationRequest(params: {
+    pullNumber: number;
+  }): Promise<RepositoryPullRequest | null>;
   listRegistrationRequests(params: {
     baseBranch: string;
     state?: RepositoryPullRequestState;
@@ -451,6 +454,9 @@ export type ApprovalPort = {
   listExecutionRequestIssues(params?: {
     state?: RepositoryIssueState;
   }): Promise<RepositoryIssue[]>;
+  getExecutionRequestIssue(params: {
+    issueNumber: number;
+  }): Promise<RepositoryIssue | null>;
   listExecutionRequestComments(params: {
     issueNumber: number;
   }): Promise<RepositoryIssueComment[]>;

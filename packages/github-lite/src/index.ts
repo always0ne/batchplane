@@ -216,6 +216,10 @@ export type CreateIssueParams = RepoRef & {
   labels: string[];
 };
 
+export type GetIssueParams = RepoRef & {
+  issueNumber: number;
+};
+
 export type PutFileParams = RepoRef & {
   path: string;
   branch: string;
@@ -237,6 +241,10 @@ export type CreatePullRequestParams = RepoRef & {
   body: string;
   head: string;
   base: string;
+};
+
+export type GetPullRequestParams = RepoRef & {
+  pullNumber: number;
 };
 
 export type ListPullRequestsParams = RepoRef & {
@@ -304,11 +312,15 @@ export type GitHubLiteClient = {
   createPullRequest(
     params: CreatePullRequestParams,
   ): Promise<GitHubPullRequest>;
+  getPullRequest(
+    params: GetPullRequestParams,
+  ): Promise<GitHubPullRequest | null>;
   listPullRequests(
     params: ListPullRequestsParams,
   ): Promise<GitHubPullRequest[]>;
   mergePullRequest(params: MergePullRequestParams): Promise<GitHubMergeResult>;
   createIssue(params: CreateIssueParams): Promise<GitHubIssue>;
+  getIssue(params: GetIssueParams): Promise<GitHubIssue | null>;
   updateIssue(params: UpdateIssueParams): Promise<GitHubIssue>;
   listIssues(params: ListIssuesParams): Promise<GitHubIssue[]>;
   searchIssues(params: SearchIssuesParams): Promise<GitHubIssue[]>;
@@ -863,8 +875,20 @@ export function createGitHubLiteClient({
       return mapPullRequestResponse(pullRequest);
     },
 
+    async getPullRequest({ owner, repo, pullNumber }) {
+      const pullRequest = await request<GitHubPullRequestResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/pulls/${pullNumber}`,
+        {},
+        { allowNotFound: true },
+      );
+
+      return pullRequest ? mapPullRequestResponse(pullRequest) : null;
+    },
+
     async listPullRequests({ owner, repo, state = "open", base, head }) {
-      const query = buildQuery({ base, head, state });
+      const query = buildQuery({ base, head, per_page: "100", state });
       const pullRequests = await request<GitHubPullRequestResponse[]>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
           repo,
@@ -925,6 +949,18 @@ export function createGitHubLiteClient({
       return mapIssueResponse(issue);
     },
 
+    async getIssue({ owner, repo, issueNumber }) {
+      const issue = await request<GitHubIssueResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/issues/${issueNumber}`,
+        {},
+        { allowNotFound: true },
+      );
+
+      return issue ? mapIssueResponse(issue) : null;
+    },
+
     async updateIssue({
       owner,
       repo,
@@ -953,7 +989,7 @@ export function createGitHubLiteClient({
     },
 
     async listIssues({ owner, repo, state = "open" }) {
-      const query = buildQuery({ state });
+      const query = buildQuery({ per_page: "100", state });
       const issues = await request<GitHubIssueResponse[]>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
           repo,
@@ -1003,10 +1039,11 @@ export function createGitHubLiteClient({
     },
 
     async listIssueComments({ owner, repo, issueNumber }) {
+      const query = buildQuery({ per_page: "100" });
       const comments = await request<GitHubCommentResponse[]>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
           repo,
-        )}/issues/${issueNumber}/comments`,
+        )}/issues/${issueNumber}/comments${query}`,
       );
 
       return (comments ?? []).map((comment) =>
@@ -1562,6 +1599,16 @@ export function createMockGitHubLiteClient(
       return cloneJson(issue);
     },
 
+    async getIssue(params) {
+      assertMockRepository(state, params);
+
+      const issue = state.issues.find(
+        (candidate) => candidate.number === params.issueNumber,
+      );
+
+      return issue ? cloneJson(issue) : null;
+    },
+
     async updateIssue(params) {
       assertMockRepository(state, params);
 
@@ -1629,6 +1676,16 @@ export function createMockGitHubLiteClient(
       state.pullRequests.push(pullRequest);
 
       return cloneJson(pullRequest);
+    },
+
+    async getPullRequest(params) {
+      assertMockRepository(state, params);
+
+      const pullRequest = state.pullRequests.find(
+        (candidate) => candidate.number === params.pullNumber,
+      );
+
+      return pullRequest ? cloneJson(pullRequest) : null;
     },
 
     async getBranchHeadSha(params) {

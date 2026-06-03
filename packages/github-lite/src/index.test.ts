@@ -262,6 +262,47 @@ describe("createGitHubLiteClient", () => {
     });
   });
 
+  it("gets a pull request by number", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        number: 12,
+        title: "Register batch demo",
+        html_url: "https://github.com/always0ne/batchplane/pull/12",
+        body: "body",
+        state: "open",
+        merged: false,
+        user: { login: "always0ne" },
+        head: { ref: "batchplane/register/demo" },
+        base: { ref: "main" },
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.getPullRequest({
+        owner: "always0ne",
+        repo: "batchplane",
+        pullNumber: 12,
+      }),
+    ).resolves.toEqual({
+      number: 12,
+      title: "Register batch demo",
+      url: "https://github.com/always0ne/batchplane/pull/12",
+      head: "batchplane/register/demo",
+      base: "main",
+      state: "open",
+      author: "always0ne",
+      body: "body",
+      merged: false,
+    });
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchplane/pulls/12",
+    );
+  });
+
   it("lists pull requests with filters", async () => {
     const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
       [];
@@ -305,7 +346,7 @@ describe("createGitHubLiteClient", () => {
     ]);
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchplane/pulls?base=main&state=open",
+      "https://api.github.com/repos/always0ne/batchplane/pulls?base=main&per_page=100&state=open",
     );
   });
 
@@ -423,6 +464,44 @@ describe("createGitHubLiteClient", () => {
     });
   });
 
+  it("gets an issue by number", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        number: 34,
+        title: "Run batch payment.daily-close",
+        body: "body",
+        labels: [],
+        html_url: "https://github.com/always0ne/batchplane/issues/34",
+        state: "open",
+        user: { login: "always0ne" },
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.getIssue({
+        owner: "always0ne",
+        repo: "batchplane",
+        issueNumber: 34,
+      }),
+    ).resolves.toEqual({
+      number: 34,
+      title: "Run batch payment.daily-close",
+      body: "body",
+      labels: [],
+      url: "https://github.com/always0ne/batchplane/issues/34",
+      state: "open",
+      author: "always0ne",
+      isPullRequest: false,
+    });
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchplane/issues/34",
+    );
+  });
+
   it("lists issues", async () => {
     const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
       [];
@@ -462,7 +541,7 @@ describe("createGitHubLiteClient", () => {
     ]);
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchplane/issues?state=open",
+      "https://api.github.com/repos/always0ne/batchplane/issues?per_page=100&state=open",
     );
   });
 

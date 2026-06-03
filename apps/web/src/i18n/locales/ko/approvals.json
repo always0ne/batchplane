@@ -66,7 +66,7 @@
   },
   "states": {
     "empty": "{{branch}} 브랜치에 대기 중인 승인이 없습니다.",
-    "githubLagHint": "GitHub Issue/PR 반영에는 몇 초 정도 지연이 있을 수 있습니다.",
+    "githubLagHint": "새로 생성한 요청은 상세 화면에서 바로 확인합니다. 승인함에는 처리 대기 중인 요청이 표시됩니다.",
     "loading": "승인 요청을 불러오는 중입니다...",
     "noSession": "승인 요청을 보려면 GitHub 저장소를 먼저 연결하세요.",
     "registrationReviewHint": "변경 상세에서 체크리스트 확인 후 반영/반려를 처리하세요."
@@ -84,7 +84,7 @@
     },
     "states": {
       "error": "통제 변경 상세를 불러오지 못했습니다.",
-      "githubLagHint": "최근 GitHub 반영 내용은 몇 초 뒤에 보일 수 있습니다.",
+      "githubLagHint": "생성된 통제 변경은 이 화면에서 바로 검토할 수 있습니다.",
       "loading": "통제 변경 상세를 불러오는 중입니다...",
       "noSession": "통제 변경을 검토하려면 GitHub 저장소를 먼저 연결하세요.",
       "notFound": "저장소에서 통제 변경 PR #{{pullNumber}}를 찾지 못했습니다."

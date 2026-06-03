@@ -84,7 +84,7 @@
       "scheduleDeletionsRecorded_one": "1 pending schedule deletion will be reviewed in this PR.",
       "scheduleDeletionsRecorded_other": "{{count}} pending schedule deletions will be reviewed in this PR."
     },
-    "nextStep": "After creation, BatchPlane routes the PR to approvals. GitHub list results can take a few seconds to catch up."
+    "nextStep": "After creation, BatchPlane opens the governed change detail."
   },
   "actions": {
     "createPullRequest": "Create registration PR",

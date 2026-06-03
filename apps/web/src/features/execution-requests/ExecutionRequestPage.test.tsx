@@ -3,8 +3,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import "../../i18n/i18n";
-import { ApprovalsPage } from "../approvals/ApprovalsPage";
 import { writeRuntimeFixtureSelection } from "../../runtime/runtime-fixtures";
+import { ExecutionRequestDetailPage } from "./ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "./ExecutionRequestPage";
 
 describe("ExecutionRequestPage", () => {
@@ -45,7 +45,7 @@ describe("ExecutionRequestPage", () => {
     expect(screen.getAllByText(/sha256:/).length).toBeGreaterThan(0);
   });
 
-  it("creates a mock Issue and routes the request to approvals", async () => {
+  it("creates a mock Issue and routes the request to its detail page", async () => {
     writeRuntimeFixtureSelection("happy-path");
 
     renderExecutionRequestPage();
@@ -64,7 +64,9 @@ describe("ExecutionRequestPage", () => {
     });
     fireEvent.click(createButton);
 
-    expect(await screen.findByText("Execution requests")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Execution request detail" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/Run batch payment.daily-close/),
     ).toBeInTheDocument();
@@ -85,7 +87,10 @@ function renderExecutionRequestPage() {
           path="/batches/:batchId/execution-requests/new"
           element={<ExecutionRequestPage />}
         />
-        <Route path="/approvals" element={<ApprovalsPage />} />
+        <Route
+          path="/execution-requests/:issueNumber"
+          element={<ExecutionRequestDetailPage />}
+        />
       </Routes>
     </MemoryRouter>,
   );
