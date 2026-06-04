@@ -93,6 +93,9 @@ If schedules are enabled for the batch, the generated workflow must also
 include:
 
 - `on.schedule` entries derived from `BatchDefinition.schedules[]`
+- generated GitHub Actions schedule cron values converted to UTC from the
+  user-entered cron/timezone pair; BatchPlane metadata keeps the original
+  timezone-aware schedule for audit and occurrence validation
 - one scheduler job per enabled schedule
 - job-level `concurrency` per schedule so duplicate cron deliveries do not
   create parallel occurrence requests

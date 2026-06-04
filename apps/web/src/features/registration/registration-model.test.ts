@@ -5,9 +5,11 @@ import {
   buildRegistrationPullRequestBody,
   buildRegistrationPullRequestTitle,
   createRegistrationBranchName,
+  formatGeneratedScheduleCrons,
   getBatchArtifactPath,
   getBatchDefinitionPath,
   getBatchWorkflowPath,
+  getGeneratedScheduleCrons,
   parseBatchDefinitionYaml,
   serializeBatchDefinitionYaml,
   toBatchRegistrationFormValues,
@@ -160,13 +162,18 @@ describe("registration model", () => {
       "ubuntu-latest",
     );
 
-    expect(workflowYaml).toContain("schedule:");
-    expect(workflowYaml).toContain('- cron: "0 5 * * *"');
-    expect(workflowYaml).toContain('timezone: "Asia/Seoul"');
+    const scheduleBlock = workflowYaml.slice(
+      workflowYaml.indexOf("  schedule:"),
+      workflowYaml.indexOf("\njobs:"),
+    );
+
+    expect(scheduleBlock).toContain("schedule:");
+    expect(workflowYaml).toContain('- cron: "0 20 * * *"');
+    expect(scheduleBlock).not.toContain("timezone:");
     expect(workflowYaml).toContain("id: schedule_request");
     expect(workflowYaml).toContain("schedule_payment_daily_close_daily:");
     expect(workflowYaml).toContain(
-      "if: github.event_name == 'schedule' && github.event.schedule == '0 5 * * *' && github.run_attempt == 1",
+      "if: github.event_name == 'schedule' && (github.event.schedule == '0 20 * * *') && github.run_attempt == 1",
     );
     expect(workflowYaml).toContain("concurrency:");
     expect(workflowYaml).toContain(
@@ -179,9 +186,32 @@ describe("registration model", () => {
       "uses: always0ne/batchplane/actions/dispatcher@main",
     );
     expect(workflowYaml).toContain("schedule-id: ${{ inputs.schedule_id }}");
+    expect(workflowYaml).toContain('cron: "0 5 * * *"');
+    expect(workflowYaml).toContain('timezone: "Asia/Seoul"');
     expect(workflowYaml).not.toContain(
       "if: github.event_name == 'schedule'\n    needs: batchplane-gate",
     );
+  });
+
+  it("converts timezone-aware schedule crons to generated UTC scheduler crons", () => {
+    expect(getGeneratedScheduleCrons(scheduleDefinition)).toEqual([
+      {
+        cron: "0 20 * * *",
+        source: "utc",
+      },
+    ]);
+    expect(
+      getGeneratedScheduleCrons({
+        ...scheduleDefinition,
+        cron: "35 08 * * *",
+      }),
+    ).toEqual([
+      {
+        cron: "35 23 * * *",
+        source: "utc",
+      },
+    ]);
+    expect(formatGeneratedScheduleCrons(scheduleDefinition)).toBe("0 20 * * *");
   });
 
   it("validates required fields", () => {
@@ -256,6 +286,11 @@ describe("registration model", () => {
         scheduleDefinition,
       ]),
     ).toContain("#### Schedule 1");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("Generated scheduler cron: `0 20 * * *`");
     expect(
       buildRegistrationPullRequestBody(
         definition,

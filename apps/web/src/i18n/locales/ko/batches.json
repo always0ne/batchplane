@@ -127,6 +127,7 @@
       "fields": {
         "cron": "Cron",
         "timezone": "Timezone",
+        "generatedCron": "Scheduler cron",
         "path": "정의 경로"
       }
     },

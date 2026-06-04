@@ -33,6 +33,7 @@ import {
   buildRegistrationPullRequestBody,
   buildRegistrationPullRequestTitle,
   createRegistrationBranchName,
+  formatGeneratedScheduleCrons,
   getBatchDefinitionPath,
   getBatchWorkflowPath,
 } from "../registration/registration-model";
@@ -445,6 +446,10 @@ function BatchProfileCard({
                   <DetailFact
                     label={t("detail.schedules.fields.timezone")}
                     value={schedule.timezone}
+                  />
+                  <DetailFact
+                    label={t("detail.schedules.fields.generatedCron")}
+                    value={formatGeneratedScheduleCrons(schedule)}
                   />
                   <DetailFact
                     label={t("detail.schedules.fields.path")}

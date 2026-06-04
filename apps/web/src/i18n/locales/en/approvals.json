@@ -25,6 +25,7 @@
     "enabled": "Enabled",
     "expiresAt": "Expires at",
     "gate": "Gate",
+    "generatedSchedulerCron": "Scheduler cron",
     "head": "Requested version",
     "reason": "Reason",
     "requestType": "Request type",

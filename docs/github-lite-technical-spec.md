@@ -156,11 +156,15 @@ declares `on.schedule` and creates one scheduler job per enabled schedule. The
 scheduler job must:
 
 - run only on `github.event_name == 'schedule'`
-- match its own cron expression
+- match its generated GitHub Actions UTC cron expression
 - reject reruns with `github.run_attempt == 1`
 - serialize by schedule-specific `concurrency` so duplicate GitHub cron
   deliveries cannot create parallel requests for the same schedule
-- emit both `cron` and `timezone` in each `on.schedule` entry
+- emit only generated UTC `cron` values in `on.schedule`; GitHub Actions
+  schedule entries must not rely on non-standard timezone semantics
+- pass the user-entered schedule `cron` and `timezone` to
+  `actions/schedule-request` so occurrence validation, request evidence, and
+  audit text remain timezone-aware
 - call `always0ne/batchplane/actions/schedule-request@main`
 - call `always0ne/batchplane/actions/dispatcher@main` directly when delegated
   approval evidence was created or reused

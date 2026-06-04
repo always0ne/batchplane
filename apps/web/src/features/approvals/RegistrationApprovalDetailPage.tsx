@@ -465,6 +465,10 @@ function RegistrationSummaryPanel({
             value={summary.timezone || t("values.unknown")}
           />
           <DetailMeta
+            label={t("fields.generatedSchedulerCron")}
+            value={summary.generatedSchedulerCron || t("values.unknown")}
+          />
+          <DetailMeta
             label={t("fields.enabled")}
             value={summary.enabled ? t("values.enabled") : t("values.disabled")}
           />

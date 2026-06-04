@@ -57,6 +57,8 @@ describe("BatchDetailPage", () => {
     expect(
       screen.getAllByText("payment.daily-close-daily").length,
     ).toBeGreaterThan(0);
+    expect(screen.getByText("Scheduler cron")).toBeInTheDocument();
+    expect(screen.getByText("0 20 * * *")).toBeInTheDocument();
     expect(screen.getByText("Recent execution evidence")).toBeInTheDocument();
     expect(
       screen.getByText("btr-20260514010100-payment.daily-close-00000001"),
