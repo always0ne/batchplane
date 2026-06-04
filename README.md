@@ -126,6 +126,7 @@ See also:
 - `BRAND_GUIDELINES.md`
 - `docs/repo-mode-getting-started.md`
 - `docs/github-pages.md`
+- `docs/i18n.md`
 - `docs/github-lite-srs.md`
 - `docs/github-lite-technical-spec.md`
 - `docs/repository-rename-runbook.md`

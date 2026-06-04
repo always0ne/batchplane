@@ -54,4 +54,15 @@ describe("formatRuntimeError", () => {
   it("falls back to the original error message for non-GitHub errors", () => {
     expect(formatRuntimeError(new Error("boom"), "fallback")).toBe("boom");
   });
+
+  it("maps GitHubLiteApiError messages through the active locale", async () => {
+    await i18next.changeLanguage("ko");
+    const error = new Error("raw GitHub message");
+    error.name = "GitHubLiteApiError";
+    Object.assign(error, { code: "forbidden", status: 403 });
+
+    expect(formatRuntimeError(error, "fallback")).toBe(
+      "GitHub가 요청을 거부했습니다. 토큰 권한, 저장소 접근 권한, 조직 제한을 확인하세요.",
+    );
+  });
 });

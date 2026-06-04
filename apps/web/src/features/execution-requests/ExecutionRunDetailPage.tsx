@@ -36,6 +36,7 @@ import {
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
+import { getGateReasonDisplayKey } from "../../i18n/display-keys";
 import { failureFollowUpStatuses } from "./failure-follow-up-model";
 
 type ExecutionRunDetailPageProps = {
@@ -575,6 +576,14 @@ function GateOutcomePanel({ run }: { run: ExecutionRun }) {
         <DetailFact
           label={t("runDetail.fields.reasonCode")}
           value={run.gateDecision?.reasonCode || t("runDetail.values.none")}
+        />
+        <DetailFact
+          label={t("runDetail.fields.reason")}
+          value={
+            run.gateDecision?.reasonCode
+              ? t(getGateReasonDisplayKey(run.gateDecision.reasonCode))
+              : t("runDetail.values.none")
+          }
         />
         <DetailFact
           label={t("runDetail.fields.decidedAt")}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   gateReasonCodes,
+  formatGateReasonDisplay,
   getGateReasonDisplayKey,
   getStatusDisplayKey,
   statusDisplayGroups,
@@ -44,6 +45,22 @@ describe("display key resources", () => {
     expect(getGateReasonDisplayKey("SOMETHING_NEW")).toBe(
       "errors:gate.reasonCodes.UNKNOWN",
     );
+    expect(
+      formatGateReasonDisplay("SOMETHING_NEW", (key) => key, "fallback"),
+    ).toBe("SOMETHING_NEW - errors:gate.reasonCodes.UNKNOWN");
+  });
+
+  it("preserves Gate reason code identifiers while displaying localized text", () => {
+    expect(
+      formatGateReasonDisplay(
+        "RERUN_NOT_AUTHORIZED",
+        (key) =>
+          String(
+            getResourceValue(resources.en.errors, key.replace("errors:", "")),
+          ),
+        "fallback",
+      ),
+    ).toBe("RERUN_NOT_AUTHORIZED - GitHub Actions rerun is not authorized.");
   });
 });
 

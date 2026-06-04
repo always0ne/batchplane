@@ -3,13 +3,15 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import "../../i18n/i18n";
+import { i18next } from "../../i18n/i18n";
 import { writeRuntimeFixtureSelection } from "../../runtime/runtime-fixtures";
 import { ExecutionRequestDetailPage } from "./ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "./ExecutionRequestPage";
 
 describe("ExecutionRequestPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     sessionStorage.clear();
+    await i18next.changeLanguage("en");
   });
 
   it("previews an execution request without persisting sensitive values", async () => {
@@ -75,6 +77,26 @@ describe("ExecutionRequestPage", () => {
       expect.stringContaining("https://github.com/always0ne/batch/issues/"),
     );
   });
+
+  it.each([
+    { label: "Reason", locale: "en", message: "Reason is required." },
+    { label: "사유", locale: "ko", message: "사유는 필수입니다." },
+  ])(
+    "renders validation errors in $locale",
+    async ({ label, locale, message }) => {
+      await i18next.changeLanguage(locale);
+      writeRuntimeFixtureSelection("happy-path");
+
+      renderExecutionRequestPage();
+
+      await screen.findByLabelText(label);
+      fireEvent.change(screen.getByLabelText(label), {
+        target: { value: "" },
+      });
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+    },
+  );
 });
 
 function renderExecutionRequestPage() {

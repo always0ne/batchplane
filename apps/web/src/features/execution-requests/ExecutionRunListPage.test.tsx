@@ -11,6 +11,7 @@ import {
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
 import type { GitHubSession } from "../lite-setup/github-session";
 import "../../i18n/i18n";
+import { i18next } from "../../i18n/i18n";
 import { ExecutionRunListPage } from "./ExecutionRunListPage";
 
 const session = {
@@ -20,8 +21,9 @@ const session = {
 };
 
 describe("ExecutionRunListPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     sessionStorage.clear();
+    await i18next.changeLanguage("en");
   });
 
   it("lists execution runs with status filters and run detail links", async () => {
@@ -43,7 +45,11 @@ describe("ExecutionRunListPage", () => {
     expect(
       screen.getByText("Batch command failed after Gate allowed the run."),
     ).toBeInTheDocument();
-    expect(screen.getByText("RERUN_NOT_AUTHORIZED")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "RERUN_NOT_AUTHORIZED - GitHub Actions rerun is not authorized.",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen
         .getAllByRole("link", { name: "Open run" })
@@ -87,6 +93,23 @@ describe("ExecutionRunListPage", () => {
       "href",
       "/execution-runs/208",
     );
+  });
+
+  it("renders Gate reason messages in Korean while preserving reasonCode", async () => {
+    await i18next.changeLanguage("ko");
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage({
+      createRuntime: () => createGitHubLiteRuntime(session, { client }),
+      readSession: () => session,
+    });
+
+    expect(await screen.findByText("실행 Run")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "RERUN_NOT_AUTHORIZED - GitHub Actions rerun은 허용되지 않습니다.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows a failure-focused follow-up view", async () => {

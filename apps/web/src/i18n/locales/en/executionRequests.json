@@ -32,6 +32,8 @@
     "dispatcher": {
       "approvalEvidence": "Approval evidence",
       "dispatcherEvidence": "Dispatcher evidence",
+      "gateAllowed": "Allowed",
+      "gateBlocked": "Blocked",
       "gateEvidence": "Gate evidence",
       "noBrowserDispatch": "BatchPlane UI records evidence only. The repository dispatcher workflow observes the approval comment and performs workflow_dispatch.",
       "none": "No evidence yet",
@@ -147,6 +149,7 @@
       "completedAt": "Completed at",
       "decidedAt": "Decided at",
       "event": "Event",
+      "reason": "Reason",
       "reasonCode": "Reason code",
       "requestId": "Request ID",
       "runAttempt": "Attempt",

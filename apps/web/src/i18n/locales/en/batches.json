@@ -36,6 +36,7 @@
     "detailError": "Failed to load batch detail.",
     "detailLoading": "Loading batch detail...",
     "detailNotFound": "Batch {{batchId}} was not found.",
+    "error": "Failed to load batch definitions.",
     "loading": "Loading batch definitions...",
     "noSession": "Connect a GitHub repository before viewing governed batches."
   },

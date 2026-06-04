@@ -27,7 +27,13 @@
       "enabled": "활성화",
       "cronPreviewTitle": "예상 수행 시각",
       "cronPreviewNext": "다음",
-      "cronPreviewInvalid": "Cron 해석 실패"
+      "cronPreviewInvalid": "Cron 해석 실패",
+      "cronPreviewErrors": {
+        "cronRequired": "Cron 표현식이 필요합니다.",
+        "invalidCron": "Cron 표현식이 유효하지 않습니다.",
+        "invalidTimezone": "Timezone이 유효하지 않습니다.",
+        "timezoneRequired": "Timezone이 필요합니다."
+      }
     },
     "batchId": "Batch ID",
     "name": "이름",

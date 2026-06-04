@@ -35,6 +35,7 @@ import {
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
+import { formatGateReasonDisplay } from "../../i18n/display-keys";
 
 type ExecutionRequestDetailPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
@@ -594,7 +595,11 @@ function DispatcherPanel({
         {request.gateDecision ? (
           <DetailFact
             label={t("detail.dispatcher.gateEvidence")}
-            value={`${request.gateDecision.allowed ? "ALLOWED" : "BLOCKED"} ${request.gateDecision.reasonCode}`}
+            value={`${request.gateDecision.allowed ? t("detail.dispatcher.gateAllowed") : t("detail.dispatcher.gateBlocked")} ${formatGateReasonDisplay(
+              request.gateDecision.reasonCode,
+              t,
+              t("detail.dispatcher.none"),
+            )}`}
           />
         ) : null}
         <div className="rounded-md bg-slate-50 px-3 py-2">

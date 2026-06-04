@@ -40,6 +40,10 @@ describe("ExecutionRunDetailPage", () => {
       await screen.findByRole("heading", { name: "Execution run detail" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Gate blocked").length).toBeGreaterThan(0);
+    expect(screen.getByText("RERUN_NOT_AUTHORIZED")).toBeInTheDocument();
+    expect(
+      screen.getByText("GitHub Actions rerun is not authorized."),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh" })).toBeEnabled();
     expect(screen.getByText("Business execution")).toBeInTheDocument();
     expect(

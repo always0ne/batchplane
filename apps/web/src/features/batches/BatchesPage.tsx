@@ -61,7 +61,10 @@ export function BatchesPage() {
         }
       } catch (error) {
         if (!ignoreResult) {
-          setState({ type: "error", message: formatBatchListError(error) });
+          setState({
+            type: "error",
+            message: formatBatchListError(error, t("states.error")),
+          });
         }
       }
     }
@@ -71,7 +74,7 @@ export function BatchesPage() {
     return () => {
       ignoreResult = true;
     };
-  }, [reloadToken]);
+  }, [reloadToken, t]);
 
   return (
     <section>
@@ -247,6 +250,6 @@ function BatchListContent({ state }: { state: BatchListState }) {
   );
 }
 
-function formatBatchListError(error: unknown): string {
-  return formatRuntimeError(error, "Failed to load batch definitions.");
+function formatBatchListError(error: unknown, fallback: string): string {
+  return formatRuntimeError(error, fallback);
 }
