@@ -556,6 +556,94 @@ export function createGitHubLiteRuntime(
 
         return toRepositoryPullRequest(pullRequest);
       },
+
+      async createBatchDeletionPullRequest({
+        artifactPath,
+        baseBranch,
+        batchDefinitionPath,
+        body,
+        branch,
+        title,
+        workflowPath,
+      }) {
+        const [baseSha, batchDefinitionFile, workflowFile, artifactFile] =
+          await Promise.all([
+            client.getBranchHeadSha({
+              ...repositoryRef,
+              branch: baseBranch,
+            }),
+            client.getFile({
+              ...repositoryRef,
+              path: batchDefinitionPath,
+              ref: baseBranch,
+            }),
+            client.getFile({
+              ...repositoryRef,
+              path: workflowPath,
+              ref: baseBranch,
+            }),
+            artifactPath
+              ? client.getFile({
+                  ...repositoryRef,
+                  path: artifactPath,
+                  ref: baseBranch,
+                })
+              : Promise.resolve(null),
+          ]);
+        const missingRequiredPaths = [
+          batchDefinitionFile ? "" : batchDefinitionPath,
+          workflowFile ? "" : workflowPath,
+        ].filter(Boolean);
+
+        if (
+          missingRequiredPaths.length > 0 ||
+          !batchDefinitionFile ||
+          !workflowFile
+        ) {
+          throw new Error(
+            `Cannot create delete request because required governed files are missing: ${missingRequiredPaths.join(", ")}.`,
+          );
+        }
+
+        await client.createBranch({ ...repositoryRef, branch, sha: baseSha });
+        await deleteRepositoryFile({
+          branch,
+          client,
+          message: title,
+          path: batchDefinitionPath,
+          repositoryRef,
+          sha: batchDefinitionFile.sha,
+        });
+        await deleteRepositoryFile({
+          branch,
+          client,
+          message: title,
+          path: workflowPath,
+          repositoryRef,
+          sha: workflowFile.sha,
+        });
+
+        if (artifactFile) {
+          await deleteRepositoryFile({
+            branch,
+            client,
+            message: title,
+            path: artifactFile.path,
+            repositoryRef,
+            sha: artifactFile.sha,
+          });
+        }
+
+        const pullRequest = await client.createPullRequest({
+          ...repositoryRef,
+          base: baseBranch,
+          body,
+          head: branch,
+          title,
+        });
+
+        return toRepositoryPullRequest(pullRequest);
+      },
     },
 
     schedules: {
@@ -708,6 +796,30 @@ async function putRepositoryFile({
     message,
     path,
     ...(existingFile?.sha ? { sha: existingFile.sha } : {}),
+  });
+}
+
+async function deleteRepositoryFile({
+  branch,
+  client,
+  message,
+  path,
+  repositoryRef,
+  sha,
+}: {
+  branch: string;
+  client: GitHubLiteClient;
+  message: string;
+  path: string;
+  repositoryRef: { owner: string; repo: string };
+  sha: string;
+}) {
+  await client.deleteFile({
+    ...repositoryRef,
+    branch,
+    message,
+    path,
+    sha,
   });
 }
 

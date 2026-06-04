@@ -1609,7 +1609,21 @@ export function createMockGitHubLiteClient(
         );
       }
 
+      const sourceBranch = Object.entries(state.branches).find(
+        ([, sha]) => sha === params.sha,
+      )?.[0];
       state.branches[params.branch] = params.sha;
+
+      if (sourceBranch) {
+        const inheritedFiles = state.files
+          .filter((file) => file.branch === sourceBranch)
+          .map((file) => ({
+            ...cloneJson(file),
+            branch: params.branch,
+          }));
+
+        state.files.push(...inheritedFiles);
+      }
     },
 
     async createIssue(params) {

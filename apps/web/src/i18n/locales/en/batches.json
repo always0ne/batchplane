@@ -6,9 +6,18 @@
     "refresh": "Refresh",
     "register": "Register batch",
     "requestChange": "Request change",
+    "requestDelete": "Request delete",
+    "createDeleteRequest": "Create delete request",
     "requestRun": "Request run",
+    "cancel": "Cancel",
     "backToBatches": "Back to batches",
     "viewDetails": "Details"
+  },
+  "delete": {
+    "errors": {
+      "noSession": "Connect a GitHub repository before creating a delete request.",
+      "unknown": "Failed to create delete request."
+    }
   },
   "execution": {
     "blocked": "Unavailable",
@@ -93,6 +102,18 @@
     "change": {
       "title": "Change request",
       "description": "Create a governed change request for this batch definition and generated workflow."
+    },
+    "delete": {
+      "title": "Delete request",
+      "description": "Create a governed change request that removes this batch definition, generated workflow, and uploaded execution file if one is registered.",
+      "confirmationLabel": "Type Batch ID to confirm",
+      "blocked": "The delete request is created only after the exact Batch ID is entered."
+    },
+    "deleted": {
+      "badge": "Deleted",
+      "description": "This batch is no longer active in the Workspace. The archived definition and execution evidence remain available for audit review.",
+      "openRequest": "Source request #{{number}}",
+      "removedBy": "Removed by"
     },
     "schedules": {
       "title": "Schedules",

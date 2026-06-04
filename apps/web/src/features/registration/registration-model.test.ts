@@ -210,6 +210,16 @@ describe("registration model", () => {
     ).toBe("batchplane/change/payment-daily-close-20260509010203");
   });
 
+  it("creates a stable delete branch name", () => {
+    expect(
+      createRegistrationBranchName(
+        "Payment Daily Close",
+        "delete",
+        new Date("2026-05-09T01:02:03.000Z"),
+      ),
+    ).toBe("batchplane/delete/payment-daily-close-20260509010203");
+  });
+
   it("creates a PR body with auditable registration context", () => {
     expect(
       buildRegistrationPullRequestBody(definition, "create", [
@@ -221,6 +231,16 @@ describe("registration model", () => {
         scheduleDefinition,
       ]),
     ).toContain("BatchPlane Gate: required");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("Owner: ops-team");
+    expect(
+      buildRegistrationPullRequestBody(definition, "create", [
+        scheduleDefinition,
+      ]),
+    ).toContain("Domain: payments");
     expect(
       buildRegistrationPullRequestBody(definition, "create", [
         scheduleDefinition,
@@ -276,6 +296,27 @@ describe("registration model", () => {
     expect(buildRegistrationPullRequestBody(definition, "change")).toContain(
       "- Request type: CHANGE",
     );
+  });
+
+  it("creates delete-oriented PR metadata and archive evidence", () => {
+    const body = buildRegistrationPullRequestBody(definition, "delete", [
+      scheduleDefinition,
+    ]);
+
+    expect(buildRegistrationPullRequestTitle(definition, "delete")).toBe(
+      "Delete batch payment.daily-close",
+    );
+    expect(body).toContain("## BatchPlane Deletion");
+    expect(body).toContain("- Request type: DELETE");
+    expect(body).toContain("### Delete scope");
+    expect(body).toContain(
+      "Batch definition: `.batch-governance/batches/payment.daily-close.yml`",
+    );
+    expect(body).toContain(
+      "Workflow: `.github/workflows/payment.daily-close.yml`",
+    );
+    expect(body).toContain("### Schedule deletions");
+    expect(body).toContain("- Schedule deletion count: 1");
   });
 
   it("maps an existing batch definition back to form values", () => {

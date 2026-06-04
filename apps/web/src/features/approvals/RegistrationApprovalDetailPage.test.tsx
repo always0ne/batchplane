@@ -98,6 +98,23 @@ describe("RegistrationApprovalDetailPage", () => {
     expect(screen.getByText("Enabled state is recorded.")).toBeInTheDocument();
   });
 
+  it("shows delete request type and removed governed files", async () => {
+    const runtime = createRuntimeWithDeletionFixture();
+
+    renderDetail({
+      createRuntime: () => runtime,
+      readSession: () => session,
+    });
+
+    expect(await screen.findByText("Delete")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Batch definition and workflow are removed by this governed change.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Removed").length).toBeGreaterThan(0);
+  });
+
   it("approves and applies registration change requests", async () => {
     const state = createGitHubLiteMockState();
     const pullRequest = state.pullRequests[0];
@@ -156,6 +173,73 @@ function renderDetail({
       </Routes>
     </MemoryRouter>,
   );
+}
+
+function createRuntimeWithDeletionFixture() {
+  const state = createGitHubLiteMockState();
+  const pullRequest = state.pullRequests[0];
+
+  if (!pullRequest) {
+    throw new Error("Expected a registration pull request fixture.");
+  }
+
+  const headBranch = "batchplane/delete/payment.daily-close-20260514010203";
+  const client = createMockGitHubLiteClient({
+    ...state,
+    branches: {
+      ...state.branches,
+      [headBranch]: state.branches.main || "mock-delete-head-sha",
+    },
+    pullRequestFiles: {
+      [pullRequest.number]: [
+        {
+          path: ".batch-governance/batches/payment.daily-close.yml",
+          status: "removed",
+        },
+        {
+          path: ".github/workflows/payment.daily-close.yml",
+          status: "removed",
+        },
+      ],
+    },
+    pullRequests: [
+      {
+        ...pullRequest,
+        body: [
+          "## BatchPlane Deletion",
+          "",
+          "- Request type: DELETE",
+          "- Batch ID: `payment.daily-close`",
+          "- Name: Daily Close",
+          "- Owner: ops-team",
+          "- Domain: payments",
+          "- Environment: PROD",
+          "- Criticality: HIGH",
+          "- Workflow: `.github/workflows/payment.daily-close.yml`",
+          "- Runtime: GitHub Actions / BatchPlane Lite",
+          "- Runs on: ubuntu-latest",
+          "- BatchPlane Gate: required",
+          "- Schedule count: 0",
+          "- Schedule deletion count: 0",
+          "",
+          "### Delete scope",
+          "",
+          "- Batch definition: `.batch-governance/batches/payment.daily-close.yml`",
+          "- Workflow: `.github/workflows/payment.daily-close.yml`",
+          "",
+          "### Batch command",
+          "",
+          "```sh",
+          "echo close payments",
+          "```",
+        ].join("\n"),
+        head: headBranch,
+        title: "Delete batch payment.daily-close",
+      },
+    ],
+  });
+
+  return createGitHubLiteRuntime(session, { client });
 }
 
 function createRuntimeWithRegistrationFixture() {

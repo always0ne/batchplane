@@ -84,10 +84,13 @@ export function getGovernedChangeRequestKind(
   if (
     pullRequest.head.startsWith("batchplane/register/") ||
     pullRequest.head.startsWith("batchplane/change/") ||
+    pullRequest.head.startsWith("batchplane/delete/") ||
     pullRequest.head.startsWith("batchtrail/register/") ||
     pullRequest.head.startsWith("batchtrail/change/") ||
+    pullRequest.head.startsWith("batchtrail/delete/") ||
     pullRequest.title.startsWith("Register batch ") ||
-    pullRequest.title.startsWith("Change batch ")
+    pullRequest.title.startsWith("Change batch ") ||
+    pullRequest.title.startsWith("Delete batch ")
   ) {
     return "batch";
   }

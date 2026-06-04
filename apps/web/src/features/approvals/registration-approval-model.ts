@@ -13,16 +13,21 @@ import {
 } from "../registration/registration-model";
 import { getScheduleDefinitionPath } from "../schedules/schedule-model";
 
+export type BatchRegistrationRequestType = "REGISTER" | "CHANGE" | "DELETE";
+
 export type BatchRegistrationRequestBodySummary = {
   kind: "batch";
   batchCommand: string;
   batchId: string;
   criticality: string;
   deletedSchedules: ScheduleRegistrationRequestBodySummary[];
+  domain: string;
   environment: string;
   executionFilePath: string;
   gateRequired: boolean;
   name: string;
+  owner: string;
+  requestType: BatchRegistrationRequestType;
   runsOn: string;
   schedules: ScheduleRegistrationRequestBodySummary[];
   workflowPath: string;
@@ -85,6 +90,7 @@ function parseBatchSummary(
     batchId,
     criticality: readMarkdownField(pullRequest.body, "Criticality"),
     deletedSchedules: parseEmbeddedDeletedSchedules(pullRequest.body),
+    domain: readMarkdownField(pullRequest.body, "Domain"),
     environment: readMarkdownField(pullRequest.body, "Environment"),
     executionFilePath: readMarkdownField(pullRequest.body, "Execution file"),
     gateRequired:
@@ -94,6 +100,11 @@ function parseBatchSummary(
       ]).toLowerCase() !== "optional",
     kind: "batch",
     name: readMarkdownField(pullRequest.body, "Name"),
+    owner: readMarkdownField(pullRequest.body, "Owner"),
+    requestType: parseBatchRegistrationRequestType(
+      readMarkdownField(pullRequest.body, "Request type"),
+      pullRequest.title,
+    ),
     runsOn: readMarkdownField(pullRequest.body, "Runs on"),
     schedules: parseEmbeddedSchedules(pullRequest.body),
     workflowPath,
@@ -207,11 +218,37 @@ function parseBatchIdFromTitle(
   title: string,
   target: GovernedChangeRequestKind,
 ): string {
-  const match = new RegExp(`^(Register|Change) ${target}\\s+(.+)$`, "i").exec(
-    title.trim(),
-  );
+  const match = new RegExp(
+    `^(Register|Change|Delete) ${target}\\s+(.+)$`,
+    "i",
+  ).exec(title.trim());
 
   return match?.[2]?.trim() || "";
+}
+
+function parseBatchRegistrationRequestType(
+  value: string,
+  title: string,
+): BatchRegistrationRequestType {
+  const normalized = value.trim().toUpperCase();
+
+  if (
+    normalized === "REGISTER" ||
+    normalized === "CHANGE" ||
+    normalized === "DELETE"
+  ) {
+    return normalized;
+  }
+
+  if (/^Delete batch\s+/i.test(title)) {
+    return "DELETE";
+  }
+
+  if (/^Change batch\s+/i.test(title)) {
+    return "CHANGE";
+  }
+
+  return "REGISTER";
 }
 
 function readFirstMarkdownField(body: string, labels: string[]): string {

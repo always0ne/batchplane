@@ -162,13 +162,38 @@ panel with:
 - a short handoff note that creation routes the PR to approvals and GitHub list
   results can lag briefly
 
-Registration PR creation stores the returned PR in browser session handoff
-state until the approvals inbox observes the PR from GitHub list APIs or the
-approval action removes it. This keeps the UI deterministic while GitHub list
-results catch up.
+Registration PR creation routes directly to the returned PR detail page. The
+approvals inbox may still lag behind GitHub list APIs, so newly created
+registration, change, and deletion requests must remain reviewable through the
+direct detail route immediately after creation.
 
 The review panel is the primary operator surface. YAML preview is supporting
 evidence, not the first thing the user should have to interpret.
+
+### Batch Deletion Request Requirements
+
+Batch deletion is a governed change request, not a direct repository mutation.
+The batch detail screen must offer a delete request action in the same request
+area as execution and change requests. Creating a delete request must open a
+pull request titled `Delete batch {batchId}` and remove:
+
+- `.batch-governance/batches/{batchId}.yml`
+- the generated workflow path recorded in the batch definition
+- the optional execution artifact path, when one is registered and present
+
+The delete request body must preserve a deleted batch archive snapshot:
+
+- request type `DELETE`
+- Batch ID, name, owner, domain, environment, criticality
+- workflow path, runner, command, optional execution file
+- embedded schedules at deletion time
+- source request number and URL through the PR itself
+
+After the delete PR is merged, the batch no longer appears as an active
+definition, but direct access to `/batches/{batchId}` must still show the
+deleted batch archive and recent execution evidence when a merged delete request
+exists. Execution request Issues and workflow run history must remain accessible
+for deleted batches.
 
 ## Execution Request Requirements
 

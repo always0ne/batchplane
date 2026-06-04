@@ -418,6 +418,10 @@ function RegistrationSummaryPanel({
             value={summary.batchId || t("values.unknown")}
           />
           <DetailMeta
+            label={t("fields.requestType")}
+            value={t(`values.registrationRequestTypes.${summary.requestType}`)}
+          />
+          <DetailMeta
             label={t("fields.workflow")}
             value={summary.workflowPath || t("values.unknown")}
           />
@@ -606,6 +610,27 @@ function RegistrationChecklistPanel({
         {
           ready: Boolean(summary.enabled || !summary.enabled),
           text: t("registrationDetail.checklist.enabledRecorded"),
+        },
+      ];
+    }
+
+    if (summary.requestType === "DELETE") {
+      return [
+        {
+          ready: Boolean(summary.batchId && summary.workflowPath),
+          text: t("registrationDetail.checklist.deletePaths"),
+        },
+        {
+          ready: Boolean(summary.name && summary.environment),
+          text: t("registrationDetail.checklist.deleteArchiveRecorded"),
+        },
+        {
+          ready: !summary.deletedSchedules.some(
+            (schedule) => !schedule.scheduleId || !schedule.definitionPath,
+          ),
+          text: t("registrationDetail.checklist.scheduleDeletionsRecorded", {
+            count: summary.deletedSchedules.length,
+          }),
         },
       ];
     }

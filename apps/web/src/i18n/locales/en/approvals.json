@@ -27,6 +27,7 @@
     "gate": "Gate",
     "head": "Requested version",
     "reason": "Reason",
+    "requestType": "Request type",
     "requestDigest": "Request digest",
     "requestedBy": "Requested by",
     "requestId": "Request ID",
@@ -62,7 +63,12 @@
     "gateRequired": "Required before batch command",
     "selfApprovalAllowed": "Self-approval is enabled by Workspace policy ({{mode}}). This approval will still be recorded as self-approval evidence.",
     "selfApprovalBlocked": "Requester and approver must be different users.",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "registrationRequestTypes": {
+      "REGISTER": "Register",
+      "CHANGE": "Change",
+      "DELETE": "Delete"
+    }
   },
   "states": {
     "empty": "No approvals are pending on {{branch}}.",
@@ -92,6 +98,8 @@
     "checklist": {
       "title": "Governance checklist",
       "batchPaths": "Batch definition and workflow paths are derived from Batch ID.",
+      "deletePaths": "Batch definition and workflow are removed by this governed change.",
+      "deleteArchiveRecorded": "Deleted batch snapshot is recorded for audit lookup.",
       "schedulePath": "Schedule definition path is derived from Schedule ID.",
       "gateRequired": "BatchPlane Gate is required before batch command execution.",
       "cronRecorded": "Cron expression is recorded.",
@@ -132,7 +140,7 @@
         "ADDED": "Added",
         "UPDATED": "Updated",
         "UNCHANGED": "Unchanged",
-        "MISSING_HEAD": "Missing"
+        "MISSING_HEAD": "Removed"
       }
     }
   }

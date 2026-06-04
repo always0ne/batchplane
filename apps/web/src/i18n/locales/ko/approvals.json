@@ -27,6 +27,7 @@
     "gate": "Gate",
     "head": "요청 버전",
     "reason": "사유",
+    "requestType": "요청 유형",
     "requestDigest": "Request digest",
     "requestedBy": "요청자",
     "requestId": "Request ID",
@@ -62,7 +63,12 @@
     "gateRequired": "배치 명령 전 필수",
     "selfApprovalAllowed": "Workspace 정책({{mode}})에 따라 자가승인이 허용됩니다. 이 승인도 자가승인 증적으로 기록됩니다.",
     "selfApprovalBlocked": "요청자와 승인자는 서로 다른 사용자여야 합니다.",
-    "unknown": "알 수 없음"
+    "unknown": "알 수 없음",
+    "registrationRequestTypes": {
+      "REGISTER": "등록",
+      "CHANGE": "변경",
+      "DELETE": "삭제"
+    }
   },
   "states": {
     "empty": "{{branch}} 브랜치에 대기 중인 승인이 없습니다.",
@@ -92,6 +98,8 @@
     "checklist": {
       "title": "거버넌스 체크리스트",
       "batchPaths": "Batch ID 기준으로 배치정의/워크플로우 경로가 생성되었는지 확인",
+      "deletePaths": "이 통제 변경으로 배치 정의와 Workflow가 제거되는지 확인",
+      "deleteArchiveRecorded": "삭제 후 감사 조회를 위한 배치 스냅샷 기록",
       "schedulePath": "Schedule ID 기준으로 스케줄 정의 경로가 생성되었는지 확인",
       "gateRequired": "배치 명령 실행 전 BatchPlane Gate 필수 적용",
       "cronRecorded": "Cron 표현식 기록",
@@ -132,7 +140,7 @@
         "ADDED": "신규",
         "UPDATED": "수정",
         "UNCHANGED": "변경 없음",
-        "MISSING_HEAD": "누락"
+        "MISSING_HEAD": "삭제"
       }
     }
   }

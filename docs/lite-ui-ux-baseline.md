@@ -33,7 +33,10 @@ Lite must read as one connected operational flow:
 - Batch list is the operator's inventory and should eventually include recent
   execution state, pending request count, and failure signals.
 - Batch detail is the operator console for one batch. It must show control
-  state, execution target, request actions, and recent evidence.
+  state, execution target, request actions, and recent evidence. When the active
+  definition has been deleted through a governed delete request, the same route
+  must render a deleted batch archive instead of a dead not-found screen, and it
+  must keep recent execution evidence reachable for audit review.
 - Failure, run detail, my work, and audit screens are post-approval follow-up
   surfaces. They must not be collapsed into the approvals inbox.
 - My Work is the current user's work queue. It should compactly group approval
