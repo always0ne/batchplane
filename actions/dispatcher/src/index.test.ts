@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   dispatchApprovedExecutionRequest,
+  isActionableApprovalComment,
   parseDispatcherCommand,
   parseDispatcherStatusEvidence,
   parseExecutionApprovalEvidence,
@@ -28,6 +29,19 @@ describe("dispatcher verification", () => {
       "retry-dispatch",
     );
     expect(parseDispatcherCommand("looks good")).toBe("ignore");
+  });
+
+  it("treats only marker-backed approved comments as actionable approvals", () => {
+    expect(isActionableApprovalComment(approvalCommentBody)).toBe(true);
+    expect(
+      isActionableApprovalComment("/bgcp approve requestDigest=sha256:abc"),
+    ).toBe(false);
+    expect(
+      isActionableApprovalComment(
+        approvalCommentBody.replace("decision=APPROVED", "decision=REJECTED"),
+      ),
+    ).toBe(false);
+    expect(isActionableApprovalComment("looks good")).toBe(false);
   });
 
   it("parses execution request evidence", () => {
@@ -245,6 +259,64 @@ describe("dispatcher verification", () => {
         }),
       ]),
     );
+  });
+
+  it("ignores markerless approval-looking comments without recording dispatch failure", async () => {
+    const requests: Array<{
+      body?: unknown;
+      input: string;
+      method: string;
+    }> = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(init.body.toString()) : undefined;
+
+      requests.push({ body, input: url, method });
+
+      if (url.endsWith("/issues/34")) {
+        return Response.json({ body: issueBody });
+      }
+
+      if (url.endsWith("/issues/comments/99")) {
+        return Response.json({
+          body: "/bgcp approve requestDigest=sha256:abc",
+        });
+      }
+
+      if (method === "GET" && url.includes("/issues/34/comments?")) {
+        return Response.json([]);
+      }
+
+      return Response.json({ message: "not found" }, { status: 404 });
+    };
+
+    await expect(
+      dispatchApprovedExecutionRequest({
+        apiBaseUrl: "https://api.github.test",
+        commentId: 99,
+        fetcher,
+        githubToken: "ghs_test",
+        issueNumber: 34,
+        now: new Date("2026-05-09T01:30:03.000Z"),
+        owner: "always0ne",
+        repo: "batch",
+      }),
+    ).resolves.toMatchObject({
+      reasonCode: "IGNORED_COMMENT",
+      status: "ignored",
+    });
+
+    expect(
+      requests.some((request) => request.input.endsWith("/dispatches")),
+    ).toBe(false);
+    expect(
+      requests.some(
+        (request) =>
+          request.method === "POST" &&
+          request.input.endsWith("/issues/34/comments"),
+      ),
+    ).toBe(false);
   });
 
   it("ignores duplicate approval comments after dispatch evidence exists", async () => {

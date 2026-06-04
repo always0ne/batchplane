@@ -265,6 +265,8 @@ effective policy mode is `SELF_APPROVAL_ALLOWED`.
 The dispatcher must verify:
 
 - command is `approve` or approved retry command
+- approval commands are actionable only when the triggering comment contains
+  the `batchplane:execution-approval` marker and an approved decision
 - request evidence exists
 - approval evidence exists
 - request status is `REQUESTED`
@@ -301,7 +303,13 @@ concurrency:
 
 jobs:
   dispatch-approved-request:
-    if: startsWith(github.event.comment.body, '/bgcp approve ')
+    if: >-
+      github.event.issue.pull_request == null &&
+      startsWith(github.event.comment.body, '/bgcp approve requestDigest=') &&
+      contains(github.event.comment.body, '<!-- batchplane:execution-approval') &&
+      contains(github.event.comment.body, 'decision=APPROVED') &&
+      (contains(github.event.issue.labels.*.name, 'batchplane:execution-request') ||
+       contains(github.event.issue.labels.*.name, 'batchtrail:execution-request'))
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch approved BatchPlane execution
@@ -315,6 +323,13 @@ jobs:
 `always0ne/batchplane` is the current action repository reference. Legacy
 target repositories that still reference `always0ne/batchtrail` depend on
 GitHub repository redirects until their setup artifacts are regenerated.
+
+GitHub Actions still creates a workflow run for every `issue_comment.created`
+event. The dispatcher job must be skipped for ordinary discussion comments,
+Pull Request review comments, clarification comments, change-request comments,
+and markerless command-looking comments. The dispatcher action also repeats the
+actionable approval check and returns `IGNORED_COMMENT` without writing failure
+evidence when the comment is not marker-backed approval evidence.
 
 The browser UI must not directly dispatch governed batch workflows in Lite mode.
 Scheduled occurrences also must not rely on `issue_comment.created` from

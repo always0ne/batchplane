@@ -25,6 +25,14 @@ export const liteWorkspacePolicyPath = ".batch-governance/workspace.yml";
 export const liteRoleMappingPath =
   ".batch-governance/policies/role-mapping.yml";
 
+const dispatcherWorkflowJobCondition = [
+  "github.event.issue.pull_request == null",
+  "startsWith(github.event.comment.body, '/bgcp approve requestDigest=')",
+  "contains(github.event.comment.body, '<!-- batchplane:execution-approval')",
+  "contains(github.event.comment.body, 'decision=APPROVED')",
+  "(contains(github.event.issue.labels.*.name, 'batchplane:execution-request') || contains(github.event.issue.labels.*.name, 'batchtrail:execution-request'))",
+].join(" && ");
+
 export type LiteInstallationFile = {
   content: string;
   legacyPaths?: string[];
@@ -379,7 +387,8 @@ export function buildDispatcherWorkflowYaml(): string {
     "",
     "jobs:",
     "  dispatch-approved-request:",
-    "    if: startsWith(github.event.comment.body, '/bgcp approve ')",
+    "    if: >-",
+    `      ${dispatcherWorkflowJobCondition}`,
     "    runs-on: ubuntu-latest",
     "    steps:",
     "      - name: Dispatch approved BatchPlane execution",

@@ -83,6 +83,15 @@ describe("Lite installation model", () => {
           expect(content).toContain("issue_comment:");
           expect(content).toContain("actions: write");
           expect(content).toContain("concurrency:");
+          expect(content).toContain("github.event.issue.pull_request == null");
+          expect(content).toContain(
+            "startsWith(github.event.comment.body, '/bgcp approve requestDigest=')",
+          );
+          expect(content).toContain(
+            "contains(github.event.comment.body, '<!-- batchplane:execution-approval')",
+          );
+          expect(content).toContain("decision=APPROVED");
+          expect(content).toContain("batchplane:execution-request");
           expect(content).toContain(
             "group: batchplane-dispatch-${{ github.event.issue.number }}",
           );
@@ -171,7 +180,16 @@ describe("Lite installation model", () => {
 
   it("keeps dispatcher workflow dispatch responsibility inside the target repo", () => {
     expect(buildDispatcherWorkflowYaml()).toContain(
-      "if: startsWith(github.event.comment.body, '/bgcp approve ')",
+      "startsWith(github.event.comment.body, '/bgcp approve requestDigest=')",
+    );
+    expect(buildDispatcherWorkflowYaml()).toContain(
+      "contains(github.event.comment.body, '<!-- batchplane:execution-approval')",
+    );
+    expect(buildDispatcherWorkflowYaml()).toContain(
+      "github.event.issue.pull_request == null",
+    );
+    expect(buildDispatcherWorkflowYaml()).toContain(
+      "batchplane:execution-request",
     );
     expect(buildDispatcherWorkflowYaml()).toContain(
       "github-token: ${{ secrets.GITHUB_TOKEN }}",
