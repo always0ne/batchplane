@@ -25,6 +25,7 @@ import {
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
+import { formatGateReasonDisplay } from "../../i18n/display-keys";
 
 type ExecutionRunListPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
@@ -536,7 +537,11 @@ function getRunOutcomeText(
   t: (key: string) => string,
 ): string {
   if (run.status === "BLOCKED") {
-    return run.gateDecision?.reasonCode || t("values.gateBlocked");
+    return formatGateReasonDisplay(
+      run.gateDecision?.reasonCode,
+      t,
+      t("values.gateBlocked"),
+    );
   }
 
   if (run.status === "FAILED") {

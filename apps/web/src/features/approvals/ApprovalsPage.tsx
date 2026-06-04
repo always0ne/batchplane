@@ -131,7 +131,10 @@ export function ApprovalsPage({
         }
       } catch (error) {
         if (!ignoreResult) {
-          setState({ type: "error", message: formatApprovalError(error) });
+          setState({
+            type: "error",
+            message: formatApprovalError(error, t("states.error")),
+          });
         }
       }
     }
@@ -141,7 +144,7 @@ export function ApprovalsPage({
     return () => {
       ignoreResult = true;
     };
-  }, [createRuntime, readSession, reloadToken]);
+  }, [createRuntime, readSession, reloadToken, t]);
 
   async function approveExecution(request: ExecutionApprovalRequest) {
     if (state.type !== "loaded") {
@@ -175,7 +178,10 @@ export function ApprovalsPage({
         }),
       });
     } catch (error) {
-      setActionState({ type: "error", message: formatApprovalError(error) });
+      setActionState({
+        type: "error",
+        message: formatApprovalError(error, t("states.error")),
+      });
     }
   }
 
@@ -214,7 +220,10 @@ export function ApprovalsPage({
         }),
       });
     } catch (error) {
-      setActionState({ type: "error", message: formatApprovalError(error) });
+      setActionState({
+        type: "error",
+        message: formatApprovalError(error, t("states.error")),
+      });
     }
   }
 
@@ -637,6 +646,6 @@ function executionRequestKey(request: ExecutionApprovalRequest): string {
   return `execution:${request.issue.number}`;
 }
 
-function formatApprovalError(error: unknown): string {
-  return formatRuntimeError(error, "Approval request failed.");
+function formatApprovalError(error: unknown, fallback: string): string {
+  return formatRuntimeError(error, fallback);
 }

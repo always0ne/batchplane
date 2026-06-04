@@ -89,10 +89,23 @@ export function getStatusDisplayKey(
   return `common:status.${group}.${value}`;
 }
 
-export function getGateReasonDisplayKey(reasonCode: string): string {
-  const resolvedReasonCode = gateReasonCodeSet.has(reasonCode)
-    ? reasonCode
-    : "UNKNOWN";
+export function getGateReasonDisplayKey(
+  reasonCode: string | undefined,
+): string {
+  const resolvedReasonCode =
+    reasonCode && gateReasonCodeSet.has(reasonCode) ? reasonCode : "UNKNOWN";
 
   return `errors:gate.reasonCodes.${resolvedReasonCode}`;
+}
+
+export function formatGateReasonDisplay(
+  reasonCode: string | undefined,
+  t: (key: string) => string,
+  fallback: string,
+): string {
+  if (!reasonCode) {
+    return fallback;
+  }
+
+  return `${reasonCode} - ${t(getGateReasonDisplayKey(reasonCode))}`;
 }

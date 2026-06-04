@@ -2,7 +2,13 @@ import { CronExpressionParser } from "cron-parser";
 
 export type CronPreviewResult =
   | { ok: true; dates: Date[] }
-  | { ok: false; error: string };
+  | { ok: false; errorCode: CronPreviewErrorCode };
+
+export type CronPreviewErrorCode =
+  | "cronRequired"
+  | "invalidCron"
+  | "invalidTimezone"
+  | "timezoneRequired";
 
 export function getCronPreview(
   cron: string,
@@ -14,16 +20,20 @@ export function getCronPreview(
   const trimmedTimezone = timezone.trim();
 
   if (!trimmedCron) {
-    return { error: "Cron expression is required.", ok: false };
+    return { errorCode: "cronRequired", ok: false };
   }
 
   if (!trimmedTimezone) {
-    return { error: "Timezone is required.", ok: false };
+    return { errorCode: "timezoneRequired", ok: false };
   }
 
   try {
     validateTimeZone(trimmedTimezone);
+  } catch {
+    return { errorCode: "invalidTimezone", ok: false };
+  }
 
+  try {
     const interval = CronExpressionParser.parse(trimmedCron, {
       currentDate,
       tz: trimmedTimezone,
@@ -38,12 +48,8 @@ export function getCronPreview(
       dates,
       ok: true,
     };
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error ? error.message : "Invalid cron expression.",
-      ok: false,
-    };
+  } catch {
+    return { errorCode: "invalidCron", ok: false };
   }
 }
 

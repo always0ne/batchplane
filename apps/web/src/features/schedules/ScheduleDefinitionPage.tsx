@@ -610,7 +610,7 @@ function CronPreviewBlock({
   preview: ReturnType<typeof getCronPreview>;
   title: string;
 }) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation("schedules");
   const formatter = useMemo(
     () =>
       new Intl.DateTimeFormat(i18n.language || undefined, {
@@ -636,7 +636,7 @@ function CronPreviewBlock({
         </ul>
       ) : (
         <p className="mt-2 text-amber-800">
-          {invalidLabel}: {preview.error}
+          {invalidLabel}: {t(`form.cronPreviewErrors.${preview.errorCode}`)}
         </p>
       )}
     </div>

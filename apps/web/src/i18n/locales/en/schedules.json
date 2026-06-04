@@ -27,7 +27,13 @@
     "enabled": "Enabled",
     "cronPreviewTitle": "Expected run times",
     "cronPreviewNext": "Next",
-    "cronPreviewInvalid": "Cron parse failed"
+    "cronPreviewInvalid": "Cron parse failed",
+    "cronPreviewErrors": {
+      "cronRequired": "Cron expression is required.",
+      "invalidCron": "Cron expression is invalid.",
+      "invalidTimezone": "Timezone is invalid.",
+      "timezoneRequired": "Timezone is required."
+    }
   },
   "review": {
     "title": "Pull request review",

@@ -127,5 +127,11 @@ For every UI screen PR:
 - Confirm that the next action is visually clear.
 - Confirm that approval work is separated from failure or audit evidence.
 - Confirm that mandatory Gate language is not shown as optional.
+- Confirm user-facing strings use i18n resources instead of hardcoded component
+  text.
+- Confirm validation, GitHub API error, and Gate reason display messages render
+  in English and Korean.
+- Confirm technical identifiers such as `batchId`, `requestId`, `reasonCode`,
+  GitHub labels, workflow paths, and YAML field names remain untranslated.
 - Confirm English and Korean copy carry the same product meaning.
 - Confirm detail screens include refresh controls and explicit action wording.

@@ -32,6 +32,8 @@
     "dispatcher": {
       "approvalEvidence": "승인 증적",
       "dispatcherEvidence": "Dispatcher 증적",
+      "gateAllowed": "허용",
+      "gateBlocked": "차단",
       "gateEvidence": "Gate 증적",
       "noBrowserDispatch": "BatchPlane UI는 증적만 기록합니다. 저장소 dispatcher workflow가 승인 comment를 감지해 workflow_dispatch를 수행합니다.",
       "none": "증적 없음",
@@ -147,6 +149,7 @@
       "completedAt": "완료 시각",
       "decidedAt": "판단 시각",
       "event": "이벤트",
+      "reason": "사유",
       "reasonCode": "Reason code",
       "requestId": "Request ID",
       "runAttempt": "시도",

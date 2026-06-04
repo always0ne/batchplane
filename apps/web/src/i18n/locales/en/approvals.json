@@ -73,6 +73,7 @@
   },
   "states": {
     "empty": "No approvals are pending on {{branch}}.",
+    "error": "Approval request failed.",
     "githubLagHint": "Newly created requests open in their detail page immediately. This inbox shows requests waiting for action.",
     "loading": "Loading approval requests...",
     "noSession": "Connect a GitHub repository before reviewing approvals.",
