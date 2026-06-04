@@ -1531,6 +1531,140 @@ describe("createMockGitHubLiteClient", () => {
     });
   });
 
+  it("tracks dispatch failure transitions in memory", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({
+        executionScenarios: [],
+        issueComments: [],
+        issues: [],
+        workflowRuns: [],
+      }),
+    );
+    const repo = { owner: "always0ne", repo: "batch" };
+    const request = createExecutionRequestFixture();
+    const issue = await client.createIssue({
+      ...repo,
+      body: buildExecutionRequestBody(request),
+      labels: ["batchplane:execution-request"],
+      title: `Run batch ${request.batchId}`,
+    });
+
+    await client.createIssueComment({
+      ...repo,
+      body: buildExecutionApprovalComment(request),
+      issueNumber: issue.number,
+    });
+    await client.createIssueComment({
+      ...repo,
+      body: buildDispatcherStatusComment(request, "DISPATCHING"),
+      issueNumber: issue.number,
+    });
+    await client.createIssueComment({
+      ...repo,
+      body: buildDispatcherStatusComment(request, "DISPATCH_FAILED"),
+      issueNumber: issue.number,
+    });
+
+    const scenario = findExecutionScenario(client, issue.number);
+
+    expect(scenario).toMatchObject({
+      state: "failed",
+      requestId: request.requestId,
+    });
+    expect(findIssue(client, issue.number)).toMatchObject({
+      labels: expect.arrayContaining(["batchplane:dispatch-failed"]),
+      state: "open",
+    });
+    expect(findIssue(client, issue.number)?.labels).not.toContain(
+      "batchplane:dispatching",
+    );
+
+    const runs = await client.listWorkflowRuns({
+      ...repo,
+      event: "workflow_dispatch",
+      status: "in_progress",
+    });
+
+    expect(runs).toEqual([
+      expect.objectContaining({
+        batchId: request.batchId,
+        conclusion: null,
+        requestId: request.requestId,
+      }),
+    ]);
+
+    const runId = scenario?.workflowRunId;
+
+    if (!runId) {
+      throw new Error("Expected dispatch failure to create a workflow run.");
+    }
+
+    await expect(client.getWorkflowRun({ ...repo, runId })).resolves.toEqual(
+      expect.objectContaining({
+        conclusion: null,
+        id: runId,
+        requestId: request.requestId,
+        status: "in_progress",
+      }),
+    );
+  });
+
+  it("exposes workflow run, job, and log evidence from mock fixtures", async () => {
+    const client = createMockGitHubLiteClient();
+    const repo = { owner: "always0ne", repo: "batch" };
+    const run = client.state.workflowRuns.find(
+      (candidate) =>
+        candidate.conclusion === "failure" &&
+        candidate.event === "workflow_dispatch" &&
+        candidate.requestId,
+    );
+
+    if (!run) {
+      throw new Error("Expected a failed workflow run fixture.");
+    }
+
+    await expect(
+      client.listWorkflowRuns({
+        ...repo,
+        event: "workflow_dispatch",
+        status: "completed",
+        workflowId: run.workflowId,
+      }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          conclusion: "failure",
+          id: run.id,
+          requestId: run.requestId,
+        }),
+      ]),
+    );
+
+    const jobs = await client.listWorkflowRunJobs({ ...repo, runId: run.id });
+
+    expect(jobs).toEqual([
+      expect.objectContaining({
+        conclusion: "success",
+        name: "BatchPlane Gate",
+      }),
+      expect.objectContaining({
+        conclusion: "failure",
+        name: "Run governed batch",
+      }),
+    ]);
+
+    await expect(
+      client.getWorkflowJobLog({
+        ...repo,
+        jobId: jobs[1]?.id ?? 0,
+        maxBytes: 48,
+      }),
+    ).resolves.toMatchObject({
+      jobId: jobs[1]?.id,
+      truncated: true,
+    });
+  });
+
   it("tracks execution request rejection comments in memory", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({
