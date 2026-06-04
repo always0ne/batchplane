@@ -32,9 +32,13 @@
     "checking": "Checking BatchPlane installation...",
     "installed": "BatchPlane Lite is installed.",
     "missing": "Installation files are missing.",
+    "outdated": "Workspace workflow files do not match the current BatchPlane template.",
     "creating": "Creating installation pull request...",
     "createPullRequest": "Create installation PR",
-    "success": "Installation pull request created."
+    "createUpdatePullRequest": "Create workflow update PR",
+    "success": "Pull request created.",
+    "installSuccess": "Installation pull request is ready for maintainer review.",
+    "updateSuccess": "Workflow update pull request is ready for maintainer review."
   },
   "workspacePolicy": {
     "title": "Workspace policy",

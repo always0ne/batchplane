@@ -415,6 +415,26 @@ describe("domain model contracts", () => {
             requiredPaths: [".github/workflows/batchplane-dispatcher.yml"],
           },
         }),
+        createInstallationUpdatePullRequest: async () => ({
+          pullRequest: {
+            author: "requester",
+            base: "main",
+            body: "body",
+            head: "batchplane/workspace/update-20260514000000",
+            merged: false,
+            number: 4,
+            state: "open",
+            title: "Update BatchPlane Workspace workflows",
+            url: "https://github.com/always0ne/batch/pull/4",
+          },
+          status: {
+            installed: true,
+            missingPaths: [],
+            outdatedPaths: [".github/workflows/batchplane-dispatcher.yml"],
+            presentPaths: [".github/workflows/batchplane-dispatcher.yml"],
+            requiredPaths: [".github/workflows/batchplane-dispatcher.yml"],
+          },
+        }),
         createWorkspacePolicyPullRequest: async () => ({
           author: "requester",
           base: "main",

@@ -7,12 +7,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDispatcherWorkflowYaml,
+  buildLiteInstallationUpdatePullRequestTitle,
   buildRoleMappingYaml,
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
   checkLiteInstallationStatus,
   createLiteInstallationPullRequest,
+  createLiteInstallationUpdatePullRequest,
   createWorkspacePolicyPullRequest,
+  legacyLiteDispatcherWorkflowPath,
   liteDispatcherWorkflowPath,
   liteRoleMappingPath,
   liteSampleTargetWorkflowPath,
@@ -43,6 +46,7 @@ describe("Lite installation model", () => {
         liteRoleMappingPath,
         ".batch-governance/batches/.gitkeep",
       ],
+      outdatedPaths: [],
       presentPaths: [".batch-governance/README.md"],
       requiredPaths: [
         liteDispatcherWorkflowPath,
@@ -154,6 +158,7 @@ describe("Lite installation model", () => {
           liteRoleMappingPath,
           ".batch-governance/batches/.gitkeep",
         ],
+        outdatedPaths: [],
         presentPaths: [],
         requiredPaths: [
           liteDispatcherWorkflowPath,
@@ -176,6 +181,220 @@ describe("Lite installation model", () => {
       "put-file:.batch-governance/batches/.gitkeep",
       "create-pr:Install BatchPlane Lite:batchplane/install/lite-20260513010203:main",
     ]);
+  });
+
+  it("detects installed workflow files that do not match the current template", async () => {
+    const files = new Map([
+      [liteDispatcherWorkflowPath, "name: Old Dispatcher\n"],
+      [liteSampleTargetWorkflowPath, buildSampleTargetWorkflowYaml()],
+      [".batch-governance/README.md", "# BatchPlane Governance\n"],
+      [liteWorkspacePolicyPath, buildWorkspacePolicyYaml()],
+      [liteRoleMappingPath, buildRoleMappingYaml()],
+      [
+        ".batch-governance/batches/.gitkeep",
+        "Batch definitions created by BatchPlane Lite live here.\n",
+      ],
+    ]);
+    const client = {
+      getFile: async ({ path }: { path: string }) => {
+        const content = files.get(path);
+
+        return content ? { path, content, sha: `sha-${path}` } : null;
+      },
+    } satisfies Pick<GitHubLiteClient, "getFile">;
+
+    await expect(
+      checkLiteInstallationStatus({
+        client,
+        ref: "main",
+        repo: { owner: "always0ne", repo: "batch" },
+      }),
+    ).resolves.toMatchObject({
+      installed: true,
+      missingPaths: [],
+      outdatedPaths: [liteDispatcherWorkflowPath],
+    });
+  });
+
+  it("creates a Workspace workflow update pull request for outdated workflows", async () => {
+    const calls: string[] = [];
+    const pullRequest: GitHubPullRequest = {
+      author: "always0ne",
+      base: "main",
+      body: "body",
+      head: "batchplane/workspace/update-20260513010203",
+      merged: false,
+      number: 43,
+      state: "open",
+      title: "Update BatchPlane Workspace workflows",
+      url: "https://github.com/always0ne/batch/pull/43",
+    };
+    const files = new Map([
+      [liteDispatcherWorkflowPath, "name: Old Dispatcher\n"],
+      [liteSampleTargetWorkflowPath, buildSampleTargetWorkflowYaml()],
+      [".batch-governance/README.md", "# BatchPlane Governance\n"],
+      [liteWorkspacePolicyPath, buildWorkspacePolicyYaml()],
+      [liteRoleMappingPath, buildRoleMappingYaml()],
+      [
+        ".batch-governance/batches/.gitkeep",
+        "Batch definitions created by BatchPlane Lite live here.\n",
+      ],
+    ]);
+    const client = {
+      getFile: async ({ path }) => {
+        calls.push(`get-file:${path}`);
+        const content = files.get(path);
+
+        return content ? { path, content, sha: `sha-${path}` } : null;
+      },
+      getBranchHeadSha: async ({ branch }) => {
+        calls.push(`get-head:${branch}`);
+        return "base-sha";
+      },
+      createBranch: async ({ branch, sha }) => {
+        calls.push(`create-branch:${branch}:${sha}`);
+      },
+      putFile: async ({ path, content, sha }) => {
+        calls.push(`put-file:${path}:${sha ?? ""}`);
+        expect(path).toBe(liteDispatcherWorkflowPath);
+        expect(content).toBe(buildDispatcherWorkflowYaml());
+        return { path, sha: `sha-${path}` };
+      },
+      deleteFile: async ({ path }) => {
+        calls.push(`delete-file:${path}`);
+        return { path };
+      },
+      createPullRequest: async ({ title, head, base, body }) => {
+        calls.push(`create-pr:${title}:${head}:${base}`);
+        expect(title).toBe(buildLiteInstallationUpdatePullRequestTitle());
+        expect(body).toContain(liteDispatcherWorkflowPath);
+        return pullRequest;
+      },
+    } satisfies Pick<
+      GitHubLiteClient,
+      | "createBranch"
+      | "createPullRequest"
+      | "deleteFile"
+      | "getBranchHeadSha"
+      | "getFile"
+      | "putFile"
+    >;
+
+    await expect(
+      createLiteInstallationUpdatePullRequest({
+        client,
+        date: new Date("2026-05-13T01:02:03.000Z"),
+        defaultBranch: "main",
+        repo: { owner: "always0ne", repo: "batch" },
+      }),
+    ).resolves.toMatchObject({
+      pullRequest,
+      status: {
+        installed: true,
+        missingPaths: [],
+        outdatedPaths: [liteDispatcherWorkflowPath],
+      },
+    });
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        "get-head:main",
+        "create-branch:batchplane/workspace/update-20260513010203:base-sha",
+        `put-file:${liteDispatcherWorkflowPath}:sha-${liteDispatcherWorkflowPath}`,
+        "create-pr:Update BatchPlane Workspace workflows:batchplane/workspace/update-20260513010203:main",
+      ]),
+    );
+  });
+
+  it("replaces legacy workflow paths in a Workspace workflow update pull request", async () => {
+    const calls: string[] = [];
+    const pullRequest: GitHubPullRequest = {
+      author: "always0ne",
+      base: "main",
+      body: "body",
+      head: "batchplane/workspace/update-20260513010203",
+      merged: false,
+      number: 44,
+      state: "open",
+      title: "Update BatchPlane Workspace workflows",
+      url: "https://github.com/always0ne/batch/pull/44",
+    };
+    const files = new Map([
+      [legacyLiteDispatcherWorkflowPath, "name: BatchTrail Dispatcher\n"],
+      [liteSampleTargetWorkflowPath, buildSampleTargetWorkflowYaml()],
+      [".batch-governance/README.md", "# BatchPlane Governance\n"],
+      [liteWorkspacePolicyPath, buildWorkspacePolicyYaml()],
+      [liteRoleMappingPath, buildRoleMappingYaml()],
+      [
+        ".batch-governance/batches/.gitkeep",
+        "Batch definitions created by BatchPlane Lite live here.\n",
+      ],
+    ]);
+    const client = {
+      getFile: async ({ path }) => {
+        calls.push(`get-file:${path}`);
+        const content = files.get(path);
+
+        return content ? { path, content, sha: `sha-${path}` } : null;
+      },
+      getBranchHeadSha: async ({ branch }) => {
+        calls.push(`get-head:${branch}`);
+        return "base-sha";
+      },
+      createBranch: async ({ branch, sha }) => {
+        calls.push(`create-branch:${branch}:${sha}`);
+      },
+      putFile: async ({ path, content, sha }) => {
+        calls.push(`put-file:${path}:${sha ?? ""}`);
+        expect(path).toBe(liteDispatcherWorkflowPath);
+        expect(content).toBe(buildDispatcherWorkflowYaml());
+        expect(sha).toBeUndefined();
+        return { path, sha: `sha-${path}` };
+      },
+      deleteFile: async ({ path, sha }) => {
+        calls.push(`delete-file:${path}:${sha}`);
+        expect(path).toBe(legacyLiteDispatcherWorkflowPath);
+        expect(sha).toBe(`sha-${legacyLiteDispatcherWorkflowPath}`);
+        return { path };
+      },
+      createPullRequest: async ({ title, head, base, body }) => {
+        calls.push(`create-pr:${title}:${head}:${base}`);
+        expect(body).toContain(liteDispatcherWorkflowPath);
+        expect(body).toContain("Legacy BatchTrail workflow files are removed");
+        return pullRequest;
+      },
+    } satisfies Pick<
+      GitHubLiteClient,
+      | "createBranch"
+      | "createPullRequest"
+      | "deleteFile"
+      | "getBranchHeadSha"
+      | "getFile"
+      | "putFile"
+    >;
+
+    await expect(
+      createLiteInstallationUpdatePullRequest({
+        client,
+        date: new Date("2026-05-13T01:02:03.000Z"),
+        defaultBranch: "main",
+        repo: { owner: "always0ne", repo: "batch" },
+      }),
+    ).resolves.toMatchObject({
+      pullRequest,
+      status: {
+        installed: true,
+        missingPaths: [],
+        outdatedPaths: [liteDispatcherWorkflowPath],
+      },
+    });
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        "get-head:main",
+        `put-file:${liteDispatcherWorkflowPath}:`,
+        `delete-file:${legacyLiteDispatcherWorkflowPath}:sha-${legacyLiteDispatcherWorkflowPath}`,
+        "create-pr:Update BatchPlane Workspace workflows:batchplane/workspace/update-20260513010203:main",
+      ]),
+    );
   });
 
   it("keeps dispatcher workflow dispatch responsibility inside the target repo", () => {

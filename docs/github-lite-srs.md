@@ -35,14 +35,29 @@ execution approval.
 Installation status is based on the default branch containing:
 
 - `.github/workflows/batchplane-dispatcher.yml`
+- `.github/workflows/batchplane-sample-target.yml`
 - `.batch-governance/README.md`
 - `.batch-governance/workspace.yml`
+- `.batch-governance/policies/role-mapping.yml`
 - `.batch-governance/batches/.gitkeep`
 
 If required files are missing, the UI must offer an installation pull request.
 The UI must create a setup branch and PR, not write directly to the default
 branch. A repository maintainer reviews and merges the setup PR using GitHub's
 native permission model.
+
+If all required files exist but managed workflow files do not match the current
+BatchPlane Lite templates, the Workspace screen must show the outdated workflow
+paths and offer a workflow update pull request. Managed workflow files are:
+
+- `.github/workflows/batchplane-dispatcher.yml`
+- `.github/workflows/batchplane-sample-target.yml`
+
+The update PR must write current canonical workflow files and remove legacy
+BatchTrail workflow files when they are replaced. It must not overwrite
+repository-owned policy/configuration files such as
+`.batch-governance/workspace.yml` or
+`.batch-governance/policies/role-mapping.yml`.
 
 The dispatcher workflow installed by the setup PR must listen to
 `issue_comment.created`, but its dispatcher job must run only for actionable

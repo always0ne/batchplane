@@ -344,6 +344,7 @@ export type RepositoryPullRequestFile = {
 export type RuntimeInstallationStatus = {
   installed: boolean;
   missingPaths: string[];
+  outdatedPaths?: string[];
   presentPaths: string[];
   requiredPaths: string[];
 };
@@ -517,6 +518,9 @@ export type SettingsPort = {
     ref: string;
   }): Promise<RuntimeInstallationStatus>;
   createInstallationPullRequest(params: {
+    defaultBranch: string;
+  }): Promise<RuntimeInstallationPullRequestResult>;
+  createInstallationUpdatePullRequest(params: {
     defaultBranch: string;
   }): Promise<RuntimeInstallationPullRequestResult>;
   createWorkspacePolicyPullRequest(params: {

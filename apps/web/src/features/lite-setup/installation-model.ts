@@ -42,6 +42,7 @@ export type LiteInstallationFile = {
 export type LiteInstallationStatus = {
   installed: boolean;
   missingPaths: string[];
+  outdatedPaths: string[];
   presentPaths: string[];
   requiredPaths: string[];
 };
@@ -64,6 +65,14 @@ export type CreateLiteInstallationPullRequestParams = {
   date?: Date;
   defaultBranch: string;
   repo: RepoRef;
+};
+
+export type CreateLiteInstallationUpdatePullRequestParams = Omit<
+  CreateLiteInstallationPullRequestParams,
+  "client"
+> & {
+  client: CreateLiteInstallationPullRequestParams["client"] &
+    Pick<GitHubLiteClient, "deleteFile">;
 };
 
 export type CreateWorkspacePolicyPullRequestParams = {
@@ -126,8 +135,15 @@ export async function checkLiteInstallationStatus({
   const files = await Promise.all(
     requiredFiles.map(async (file) => {
       const candidates = [file.path, ...(file.legacyPaths ?? [])];
-      const presentPath = await findPresentInstallationPath({
+      const presentFile = await findPresentInstallationFile({
         candidates,
+        client,
+        ref,
+        repo,
+      });
+
+      const legacyFiles = await findPresentInstallationFiles({
+        candidates: file.legacyPaths ?? [],
         client,
         ref,
         repo,
@@ -135,26 +151,41 @@ export async function checkLiteInstallationStatus({
 
       return {
         file,
-        presentPath,
+        legacyFiles,
+        presentFile,
       };
     }),
   );
   const presentPaths = files
-    .map((result) => result.presentPath)
+    .map((result) => result.presentFile?.path)
     .filter((path): path is string => Boolean(path));
   const missingPaths = files
-    .filter((result) => !result.presentPath)
+    .filter((result) => !result.presentFile)
+    .map((result) => result.file.path);
+  const outdatedPaths = files
+    .filter(
+      (result) =>
+        result.presentFile &&
+        isWorkflowInstallationFile(result.file.path) &&
+        (result.presentFile.path !== result.file.path ||
+          result.legacyFiles.length > 0 ||
+          !isSameInstallationContent(
+            result.presentFile.content,
+            result.file.content,
+          )),
+    )
     .map((result) => result.file.path);
 
   return {
     installed: missingPaths.length === 0,
     missingPaths,
+    outdatedPaths,
     presentPaths,
     requiredPaths: requiredFiles.map((file) => file.path),
   };
 }
 
-async function findPresentInstallationPath({
+async function findPresentInstallationFile({
   candidates,
   client,
   ref,
@@ -164,16 +195,43 @@ async function findPresentInstallationPath({
   client: Pick<GitHubLiteClient, "getFile">;
   ref: string;
   repo: RepoRef;
-}): Promise<string | null> {
+}): Promise<{ content: string; path: string; sha: string } | null> {
+  const files = await findPresentInstallationFiles({
+    candidates,
+    client,
+    ref,
+    repo,
+  });
+
+  return files[0] ?? null;
+}
+
+async function findPresentInstallationFiles({
+  candidates,
+  client,
+  ref,
+  repo,
+}: {
+  candidates: string[];
+  client: Pick<GitHubLiteClient, "getFile">;
+  ref: string;
+  repo: RepoRef;
+}): Promise<{ content: string; path: string; sha: string }[]> {
+  const files: { content: string; path: string; sha: string }[] = [];
+
   for (const path of candidates) {
     const file = await client.getFile({ ...repo, path, ref });
 
     if (file) {
-      return path;
+      files.push({
+        content: file.content,
+        path,
+        sha: file.sha,
+      });
     }
   }
 
-  return null;
+  return files;
 }
 
 export async function createLiteInstallationPullRequest({
@@ -231,6 +289,94 @@ export async function createLiteInstallationPullRequest({
   return { pullRequest, status };
 }
 
+export async function createLiteInstallationUpdatePullRequest({
+  client,
+  date = new Date(),
+  defaultBranch,
+  repo,
+}: CreateLiteInstallationUpdatePullRequestParams): Promise<LiteInstallationPullRequestResult> {
+  const status = await checkLiteInstallationStatus({
+    client,
+    ref: defaultBranch,
+    repo,
+  });
+
+  if (!status.installed) {
+    throw new Error(
+      "BatchPlane Lite must be installed before it can be updated.",
+    );
+  }
+
+  if (status.outdatedPaths.length === 0) {
+    throw new Error("BatchPlane Lite installation workflows are up to date.");
+  }
+
+  const branch = createLiteInstallationUpdateBranchName(date);
+  const title = buildLiteInstallationUpdatePullRequestTitle();
+  const baseSha = await client.getBranchHeadSha({
+    ...repo,
+    branch: defaultBranch,
+  });
+  const filesByPath = new Map(
+    buildLiteInstallationFiles().map((file) => [file.path, file]),
+  );
+
+  await client.createBranch({ ...repo, branch, sha: baseSha });
+
+  for (const path of status.outdatedPaths) {
+    const file = filesByPath.get(path);
+
+    if (!file) {
+      continue;
+    }
+
+    const currentFile = await client.getFile({
+      ...repo,
+      path: file.path,
+      ref: defaultBranch,
+    });
+
+    await client.putFile({
+      ...repo,
+      branch,
+      path: file.path,
+      message: title,
+      content: file.content,
+      ...(currentFile ? { sha: currentFile.sha } : {}),
+    });
+
+    for (const legacyPath of file.legacyPaths ?? []) {
+      const legacyFile = await client.getFile({
+        ...repo,
+        path: legacyPath,
+        ref: branch,
+      });
+
+      if (!legacyFile) {
+        continue;
+      }
+
+      await client.deleteFile({
+        ...repo,
+        branch,
+        path: legacyPath,
+        message: title,
+        sha: legacyFile.sha,
+      });
+    }
+  }
+
+  const pullRequest = await client.createPullRequest({
+    ...repo,
+    title,
+    body: buildLiteInstallationUpdatePullRequestBody(status.outdatedPaths),
+    head: branch,
+    base: defaultBranch,
+  });
+
+  return { pullRequest, status };
+}
+
 export function createLiteInstallationBranchName(date = new Date()): string {
   const timestamp = date
     .toISOString()
@@ -244,8 +390,27 @@ export function createLiteInstallationBranchName(date = new Date()): string {
   return `batchplane/install/lite-${timestamp}`;
 }
 
+export function createLiteInstallationUpdateBranchName(
+  date = new Date(),
+): string {
+  const timestamp = date
+    .toISOString()
+    .replaceAll("-", "")
+    .replaceAll(":", "")
+    .replaceAll(".", "")
+    .replaceAll("T", "")
+    .replaceAll("Z", "")
+    .slice(0, 14);
+
+  return `batchplane/workspace/update-${timestamp}`;
+}
+
 export function buildLiteInstallationPullRequestTitle(): string {
   return "Install BatchPlane Lite";
+}
+
+export function buildLiteInstallationUpdatePullRequestTitle(): string {
+  return "Update BatchPlane Workspace workflows";
 }
 
 export function buildLiteInstallationPullRequestBody(missingPaths: string[]) {
@@ -259,6 +424,24 @@ export function buildLiteInstallationPullRequestBody(missingPaths: string[]) {
     ...missingPaths.map((path) => `- \`${path}\``),
     "",
     "After this pull request is merged, BatchPlane approval comments can trigger the repository dispatcher workflow. The browser UI still creates requests and approval evidence; runtime dispatch remains owned by this repository workflow.",
+  ].join("\n");
+}
+
+export function buildLiteInstallationUpdatePullRequestBody(
+  outdatedPaths: string[],
+): string {
+  return [
+    "## BatchPlane Workspace Workflow Update",
+    "",
+    "This pull request updates repository-side workflow files generated by BatchPlane Lite.",
+    "",
+    "### Updated workflows",
+    "",
+    ...outdatedPaths.map((path) => `- \`${path}\``),
+    "",
+    "The browser UI does not dispatch governed batch workflows directly. Keeping these workflows current keeps dispatcher filtering and Gate handoff behavior aligned with the installed BatchPlane action version.",
+    "",
+    "Legacy BatchTrail workflow files are removed when a current BatchPlane workflow replaces them, preventing duplicate repository-side triggers.",
   ].join("\n");
 }
 
@@ -473,4 +656,20 @@ function buildGovernanceReadme(): string {
     "- `.github/workflows/batchplane-sample-target.yml`: sample governed target workflow",
     "",
   ].join("\n");
+}
+
+function isWorkflowInstallationFile(path: string): boolean {
+  return (
+    path === liteDispatcherWorkflowPath || path === liteSampleTargetWorkflowPath
+  );
+}
+
+function isSameInstallationContent(left: string, right: string): boolean {
+  return (
+    normalizeInstallationContent(left) === normalizeInstallationContent(right)
+  );
+}
+
+function normalizeInstallationContent(content: string): string {
+  return content.trim().replace(/\r\n/g, "\n");
 }

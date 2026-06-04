@@ -34,8 +34,10 @@ The setup flow checks these required files on the default branch:
 
 ```text
 .github/workflows/batchplane-dispatcher.yml
+.github/workflows/batchplane-sample-target.yml
 .batch-governance/README.md
 .batch-governance/workspace.yml
+.batch-governance/policies/role-mapping.yml
 .batch-governance/batches/.gitkeep
 ```
 
@@ -60,6 +62,36 @@ Install BatchPlane Lite
 The browser UI must not directly write installation files to the default branch.
 It must create a pull request so the repository's native review and merge rules
 remain the source of trust for bootstrap.
+
+If the repository is installed but managed workflow files are stale, the
+Workspace screen may create a workflow update branch named:
+
+```text
+batchplane/workspace/update-{yyyyMMddHHmmss}
+```
+
+and open a pull request titled:
+
+```text
+Update BatchPlane Workspace workflows
+```
+
+Managed workflow drift is detected only for generated workflow files:
+
+```text
+.github/workflows/batchplane-dispatcher.yml
+.github/workflows/batchplane-sample-target.yml
+```
+
+Drift is detected when the canonical file content differs from the current
+BatchPlane template or when a legacy BatchTrail workflow path is still present.
+The update PR must write the current canonical workflow content and delete the
+legacy workflow file from the update branch when it replaces that workflow.
+
+The update flow must not compare or overwrite repository-owned governance
+configuration such as `.batch-governance/workspace.yml` or
+`.batch-governance/policies/role-mapping.yml`; those files are changed only
+through their dedicated policy/configuration workflows.
 
 ## Workspace Policy
 

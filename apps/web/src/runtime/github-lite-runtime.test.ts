@@ -4,6 +4,10 @@ import {
   createMockGitHubLiteClient,
 } from "@batchplane/github-lite";
 
+import {
+  buildSampleTargetWorkflowYaml,
+  buildWorkspacePolicyYaml,
+} from "../features/lite-setup/installation-model";
 import { createGitHubLiteRuntime } from "./github-lite-runtime";
 
 const session = {
@@ -690,6 +694,49 @@ describe("createGitHubLiteRuntime", () => {
           file.path === ".batch-governance/workspace.yml",
       )?.content,
     ).toContain('mode: "SELF_APPROVAL_ALLOWED"');
+  });
+
+  it("creates Workspace workflow update pull requests through the SettingsPort", async () => {
+    const state = createGitHubLiteMockState();
+
+    state.files.push(
+      {
+        branch: "main",
+        content: buildSampleTargetWorkflowYaml(),
+        path: ".github/workflows/batchplane-sample-target.yml",
+        sha: "mock-sample-target-sha",
+      },
+      {
+        branch: "main",
+        content: buildWorkspacePolicyYaml(),
+        path: ".batch-governance/workspace.yml",
+        sha: "mock-workspace-policy-sha",
+      },
+    );
+
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    const result = await runtime.settings.createInstallationUpdatePullRequest({
+      defaultBranch: "main",
+    });
+
+    expect(result.pullRequest).toEqual(
+      expect.objectContaining({
+        head: expect.stringContaining("batchplane/workspace/update-"),
+        title: "Update BatchPlane Workspace workflows",
+      }),
+    );
+    expect(result.status.outdatedPaths).toContain(
+      ".github/workflows/batchplane-dispatcher.yml",
+    );
+    expect(
+      client.state.files.find(
+        (file) =>
+          file.branch === result.pullRequest.head &&
+          file.path === ".github/workflows/batchplane-dispatcher.yml",
+      )?.content,
+    ).toContain("github.event.issue.pull_request == null");
   });
 
   it("builds an audit timeline from GitHub Issues, PRs, and workflow runs", async () => {

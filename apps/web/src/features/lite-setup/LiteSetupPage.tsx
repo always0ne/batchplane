@@ -49,7 +49,11 @@ type InstallationCheckState =
   | { type: "installed"; status: RuntimeInstallationStatus }
   | { type: "missing"; status: RuntimeInstallationStatus }
   | { type: "creating" }
-  | { type: "success"; pullRequest: RepositoryPullRequest }
+  | {
+      pullRequest: RepositoryPullRequest;
+      type: "success";
+      variant: "install" | "update";
+    }
   | { type: "error"; message: string };
 
 type WorkspacePolicyState =
@@ -166,11 +170,7 @@ export function LiteSetupPage() {
           ref: repository.defaultBranch,
         },
       );
-      setInstallationState(
-        installationStatus.installed
-          ? { type: "installed", status: installationStatus }
-          : { type: "missing", status: installationStatus },
-      );
+      setInstallationState(toInstallationCheckState(installationStatus));
       setWorkspacePolicyState({ type: "loaded", policy: workspacePolicy });
     } catch (error) {
       setCheckState({
@@ -223,7 +223,46 @@ export function LiteSetupPage() {
           defaultBranch: repository.defaultBranch,
         });
 
-      setInstallationState({ type: "success", pullRequest });
+      setInstallationState({
+        type: "success",
+        pullRequest,
+        variant: "install",
+      });
+    } catch (error) {
+      setInstallationState({
+        type: "error",
+        message: formatConnectionError(error, t("settings:errors.unknown")),
+      });
+    }
+  }
+
+  async function createInstallationUpdatePullRequest() {
+    let session: GitHubSession;
+
+    try {
+      session = writeGitHubSession({ owner, repo, token });
+    } catch (error) {
+      setInstallationState({
+        type: "error",
+        message:
+          error instanceof Error
+            ? t("settings:errors.requiredFields")
+            : t("settings:errors.unknown"),
+      });
+      return;
+    }
+
+    setInstallationState({ type: "creating" });
+
+    try {
+      const runtime = createBatchPlaneRuntime(session);
+      const repository = await runtime.settings.getRepository();
+      const { pullRequest } =
+        await runtime.settings.createInstallationUpdatePullRequest({
+          defaultBranch: repository.defaultBranch,
+        });
+
+      setInstallationState({ type: "success", pullRequest, variant: "update" });
     } catch (error) {
       setInstallationState({
         type: "error",
@@ -425,6 +464,7 @@ export function LiteSetupPage() {
             </div>
             <InstallationStatus
               onInstall={() => void createInstallationPullRequest()}
+              onUpdate={() => void createInstallationUpdatePullRequest()}
               state={installationState}
             />
           </article>
@@ -586,14 +626,43 @@ function WorkspacePolicyStatus({
 
 function InstallationStatus({
   onInstall,
+  onUpdate,
   state,
 }: {
   onInstall: () => void;
+  onUpdate: () => void;
   state: InstallationCheckState;
 }) {
   const { t } = useTranslation("settings");
 
   if (state.type === "installed") {
+    const outdatedPaths = state.status.outdatedPaths ?? [];
+
+    if (outdatedPaths.length > 0) {
+      return (
+        <div className="mt-5 space-y-4">
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <p className="font-semibold">{t("installation.outdated")}</p>
+            <ul className="mt-2 space-y-1 text-xs font-mono">
+              {outdatedPaths.map((path) => (
+                <li className="break-all" key={path}>
+                  {path}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <button
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-bp-control px-4 py-2 text-sm font-semibold text-white"
+            onClick={onUpdate}
+            type="button"
+          >
+            <GitPullRequest className="h-4 w-4" aria-hidden="true" />
+            {t("installation.createUpdatePullRequest")}
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
         {t("installation.installed")}
@@ -641,6 +710,11 @@ function InstallationStatus({
     return (
       <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
         <p className="font-semibold">{t("installation.success")}</p>
+        <p className="mt-1 font-semibold">
+          {state.variant === "update"
+            ? t("installation.updateSuccess")
+            : t("installation.installSuccess")}
+        </p>
         <a
           className="mt-2 inline-flex font-semibold underline"
           href={state.pullRequest.url}
@@ -667,6 +741,14 @@ function InstallationStatus({
       {t("installation.idle")}
     </div>
   );
+}
+
+function toInstallationCheckState(
+  status: RuntimeInstallationStatus,
+): InstallationCheckState {
+  return status.installed
+    ? { type: "installed", status }
+    : { type: "missing", status };
 }
 
 function SessionStatus({

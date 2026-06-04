@@ -32,9 +32,13 @@
     "checking": "BatchPlane 설치 상태를 확인하는 중...",
     "installed": "BatchPlane Lite가 설치되어 있습니다.",
     "missing": "설치 파일이 누락되어 있습니다.",
+    "outdated": "Workspace workflow 파일이 현재 BatchPlane 템플릿과 일치하지 않습니다.",
     "creating": "설치 Pull Request를 생성하는 중...",
     "createPullRequest": "설치 PR 생성",
-    "success": "설치 Pull Request가 생성되었습니다."
+    "createUpdatePullRequest": "workflow 업데이트 PR 생성",
+    "success": "Pull Request가 생성되었습니다.",
+    "installSuccess": "설치 Pull Request가 maintainer 검토를 기다립니다.",
+    "updateSuccess": "workflow 업데이트 Pull Request가 maintainer 검토를 기다립니다."
   },
   "workspacePolicy": {
     "title": "Workspace 정책",

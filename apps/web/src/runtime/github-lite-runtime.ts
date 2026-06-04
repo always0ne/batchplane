@@ -45,6 +45,7 @@ import type { GitHubSession } from "../features/lite-setup/github-session";
 import {
   checkLiteInstallationStatus,
   createLiteInstallationPullRequest,
+  createLiteInstallationUpdatePullRequest,
   createWorkspacePolicyPullRequest as createWorkspacePolicyChangePullRequest,
   liteWorkspacePolicyPath,
 } from "../features/lite-setup/installation-model";
@@ -717,6 +718,19 @@ export function createGitHubLiteRuntime(
 
       async createInstallationPullRequest({ defaultBranch }) {
         const result = await createLiteInstallationPullRequest({
+          client,
+          defaultBranch,
+          repo: repositoryRef,
+        });
+
+        return {
+          pullRequest: toRepositoryPullRequest(result.pullRequest),
+          status: result.status,
+        };
+      },
+
+      async createInstallationUpdatePullRequest({ defaultBranch }) {
+        const result = await createLiteInstallationUpdatePullRequest({
           client,
           defaultBranch,
           repo: repositoryRef,

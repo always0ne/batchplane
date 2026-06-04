@@ -86,4 +86,41 @@ describe("LiteSetupPage", () => {
       ),
     );
   });
+
+  it("creates a Workspace workflow update PR when installed workflows are outdated", async () => {
+    sessionStorage.setItem("batchplane.dev.runtimeFixture", "happy-path");
+
+    render(<LiteSetupPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Check connection" }));
+
+    expect(
+      await screen.findByText(
+        "Workspace workflow files do not match the current BatchPlane template.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create workflow update PR" }),
+    );
+
+    expect(
+      await screen.findByText("Pull request created."),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Workflow update pull request is ready for maintainer review.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: /^#\d+ Update BatchPlane Workspace workflows$/,
+      }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringMatching(
+        /^https:\/\/github\.com\/always0ne\/batch\/pull\/\d+$/,
+      ),
+    );
+  });
 });
