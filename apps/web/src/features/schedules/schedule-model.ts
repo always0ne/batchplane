@@ -9,6 +9,8 @@ import type {
   YamlValue,
 } from "@batchplane/domain";
 
+import { formatGeneratedScheduleCrons } from "../registration/registration-model";
+
 export type ScheduleFormValues = {
   scheduleId: string;
   name: string;
@@ -195,6 +197,7 @@ export function buildSchedulePullRequestBody(
     `- Schedule definition: \`${definition.definitionPath}\``,
     `- Cron: \`${definition.cron}\``,
     `- Timezone: \`${definition.timezone}\``,
+    `- Generated scheduler cron: \`${formatGeneratedScheduleCrons(definition)}\``,
     `- Enabled: ${definition.enabled ? "true" : "false"}`,
     "",
     summary,

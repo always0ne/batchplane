@@ -88,6 +88,9 @@ describe("schedule model", () => {
     expect(buildSchedulePullRequestBody(definition)).toContain(
       `- Schedule definition: \`${definition.definitionPath}\``,
     );
+    expect(buildSchedulePullRequestBody(definition)).toContain(
+      "- Generated scheduler cron: `0 20 * * *`",
+    );
   });
 
   it("maps schedule definitions back to form values", () => {

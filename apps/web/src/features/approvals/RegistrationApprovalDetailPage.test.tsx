@@ -92,6 +92,7 @@ describe("RegistrationApprovalDetailPage", () => {
       await screen.findByText("payment.daily-close-daily"),
     ).toBeInTheDocument();
     expect(screen.getByText("0 5 * * *")).toBeInTheDocument();
+    expect(screen.getByText("0 20 * * *")).toBeInTheDocument();
     expect(
       screen.getByText("Cron expression is recorded."),
     ).toBeInTheDocument();
@@ -308,6 +309,7 @@ function createRuntimeWithScheduleFixture() {
           "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
           "- Cron: `0 5 * * *`",
           "- Timezone: `Asia/Seoul`",
+          "- Generated scheduler cron: `0 20 * * *`",
           "- Enabled: true",
         ].join("\n"),
         head: headBranch,
@@ -436,6 +438,7 @@ function withRegistrationEvidence(
           "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
           "- Cron: `0 5 * * *`",
           "- Timezone: `Asia/Seoul`",
+          "- Generated scheduler cron: `0 20 * * *`",
           "- Enabled: true",
           "",
           "### Schedule deletions",
@@ -447,6 +450,7 @@ function withRegistrationEvidence(
           "- Schedule definition: `.batch-governance/schedules/payment.daily-close-nightly.yml`",
           "- Cron: `0 30 1 * * *`",
           "- Timezone: `Asia/Seoul`",
+          "- Generated scheduler cron: `0 21 * * *`",
           "- Enabled: false",
         ].join("\n"),
       },

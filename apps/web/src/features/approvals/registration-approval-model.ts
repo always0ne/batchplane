@@ -39,6 +39,7 @@ export type ScheduleRegistrationRequestBodySummary = {
   cron: string;
   definitionPath: string;
   enabled: boolean;
+  generatedSchedulerCron: string;
   name: string;
   scheduleId: string;
   timezone: string;
@@ -130,6 +131,10 @@ function parseScheduleSummary(
       getBatchDefinitionPath(readMarkdownField(pullRequest.body, "Batch ID")) ||
       getScheduleDefinitionPath(scheduleId),
     enabled: readMarkdownBoolean(pullRequest.body, "Enabled"),
+    generatedSchedulerCron: readMarkdownField(
+      pullRequest.body,
+      "Generated scheduler cron",
+    ),
     kind: "schedule",
     name: readMarkdownField(pullRequest.body, "Name"),
     scheduleId,
@@ -346,6 +351,10 @@ function parseScheduleBlock(
       getBatchDefinitionPath(readMarkdownField(block, "Batch ID")) ||
       getScheduleDefinitionPath(scheduleId),
     enabled: readMarkdownBoolean(block, "Enabled"),
+    generatedSchedulerCron: readMarkdownField(
+      block,
+      "Generated scheduler cron",
+    ),
     kind: "schedule",
     name: readMarkdownField(block, "Name"),
     scheduleId,

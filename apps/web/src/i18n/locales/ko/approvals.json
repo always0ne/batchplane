@@ -25,6 +25,7 @@
     "enabled": "활성 여부",
     "expiresAt": "만료시각",
     "gate": "Gate",
+    "generatedSchedulerCron": "Scheduler cron",
     "head": "요청 버전",
     "reason": "사유",
     "requestType": "요청 유형",
