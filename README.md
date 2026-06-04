@@ -2,7 +2,7 @@
 
 Git-backed batch control and audit.
 
-BatchPlane starts with **Lite**, a GitHub repository-backed way to model batch
+BatchPlane starts with **Lite**, a GitHub-backed Workspace model for batch
 definitions, execution requests, approval evidence, dispatcher workflows, and Gate
 decisions. It is designed to grow into an installable BatchPlane server for
 enterprise use.
@@ -45,7 +45,7 @@ Then open the local app and connect the repository:
 http://127.0.0.1:5173/
 ```
 
-In `Setup`, enter:
+In `Workspace`, enter:
 
 - Owner: your GitHub username or organization
 - Repository: `batch`
@@ -55,7 +55,7 @@ Use `Save session`, then `Check connection`. Tokens are stored in
 `sessionStorage` only. Connection check also inspects whether the repository has
 BatchPlane Lite installed.
 
-If Lite is not installed, choose `Create installation PR` in `Setup`. The
+If Lite is not installed, choose `Create installation PR` in `Workspace`. The
 installation pull request adds:
 
 - `.github/workflows/batchplane-dispatcher.yml`
@@ -99,7 +99,7 @@ from the latest commit on the repository's default branch, support a minimum
 interval of 5 minutes, and may be delayed during high-load periods.
 
 Lite currently covers repository installation PR creation, registration
-request, approval, merge, repo-backed batch listing, execution request creation,
+request, approval, merge, Workspace-backed batch listing, execution request creation,
 execution approval evidence, and dispatcher-side `workflow_dispatch`. Target
 repositories must merge the BatchPlane dispatcher workflow installation before
 approval comments can trigger the dispatcher action.

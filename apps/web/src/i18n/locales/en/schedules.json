@@ -5,14 +5,14 @@
   "subtitleChange": "Update the governed schedule definition for {{batchName}} ({{batchId}}).",
   "subtitleFallback": "Batch: {{batchId}}",
   "actions": {
-    "openSetup": "Open setup",
+    "openSetup": "Open Workspace",
     "requestRegister": "Create schedule PR",
     "requestChange": "Create change PR"
   },
   "states": {
     "loading": "Loading schedule definition context...",
     "loadError": "Failed to load schedule definition context.",
-    "noSession": "Connect a GitHub repository before managing schedules.",
+    "noSession": "Connect a Workspace before managing schedules.",
     "batchNotFound": "Batch {{batchId}} was not found.",
     "scheduleNotFound": "Schedule {{scheduleId}} was not found."
   },
@@ -48,7 +48,7 @@
   },
   "errors": {
     "required": "Required fields are missing: {{fields}}",
-    "noSession": "Connect a GitHub repository before creating schedule changes.",
+    "noSession": "Connect a Workspace before creating schedule changes.",
     "alreadyExists": "A governed schedule definition already exists at {{path}}.",
     "changeMissingDefinition": "The governed schedule definition does not exist at {{path}}.",
     "unknown": "Failed to create schedule pull request."

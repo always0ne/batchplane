@@ -4,7 +4,7 @@
   "actions": {
     "githubRun": "GitHub run",
     "openRun": "Open run",
-    "openSetup": "Open setup",
+    "openSetup": "Open Workspace",
     "recordFollowUp": "Record follow-up",
     "refresh": "Refresh",
     "viewFollowUp": "View follow-up"
@@ -29,7 +29,7 @@
   "states": {
     "error": "Failed to load failure evidence.",
     "loading": "Loading failure evidence...",
-    "noSession": "Connect a GitHub repository before reviewing failures."
+    "noSession": "Connect a Workspace before reviewing failures."
   },
   "status": {
     "BLOCKED": "Gate blocked",

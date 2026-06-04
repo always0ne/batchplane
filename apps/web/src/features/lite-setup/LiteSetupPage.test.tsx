@@ -14,10 +14,10 @@ describe("LiteSetupPage", () => {
   it("saves the GitHub token for the current browser session only", () => {
     render(<LiteSetupPage />);
 
-    fireEvent.change(screen.getByLabelText("Repository owner"), {
+    fireEvent.change(screen.getByLabelText("GitHub repository owner"), {
       target: { value: "always0ne" },
     });
-    fireEvent.change(screen.getByLabelText("Repository name"), {
+    fireEvent.change(screen.getByLabelText("GitHub repository name"), {
       target: { value: "batch" },
     });
     fireEvent.change(screen.getByLabelText("GitHub token"), {

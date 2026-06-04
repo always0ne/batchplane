@@ -38,7 +38,7 @@ describe("BatchDetailPage", () => {
     );
     expect(screen.getByText("Approval required")).toHaveAttribute(
       "title",
-      "Execution requests require repository maintainer approval evidence.",
+      "Execution requests require Workspace approval evidence.",
     );
     expect(screen.getByText("Execution request")).toBeInTheDocument();
     expect(screen.getByText("Change request")).toBeInTheDocument();

@@ -280,19 +280,26 @@ local state. The policy file path is:
 .batch-governance/workspace.yml
 ```
 
-If the file is missing, the effective approval mode is `SELF_APPROVAL_BLOCKED`. In
-`SELF_APPROVAL_BLOCKED`, requester and approver must be different users. In
-`SELF_APPROVAL_ALLOWED`, a requester may approve their own execution request,
-but the approval comment must make the self-approval explicit and Gate must
-still verify the approval evidence, batch definition, dispatcher actor, and
-approver authorization. `AUTO_APPROVE` is reserved for a separate implementation
-and must not be treated as implemented self-approval by the UI.
+If the file is missing, the effective approval mode is `SELF_APPROVAL_BLOCKED`.
+`SELF_APPROVAL_BLOCKED` is the default four-eyes mode: requester and approver
+must be different users. `SELF_APPROVAL_ALLOWED` is an explicit Workspace
+policy choice for personal testing, demos, or low-risk automation where the
+same operator may request and approve. In that mode, the approval comment must
+make self-approval explicit and Gate must still verify approval evidence, batch
+definition, dispatcher actor, request digest, and approver authorization.
+`AUTO_APPROVE` is reserved for a separate implementation and must not be
+treated as implemented self-approval by the UI. When implemented, auto-approval
+must still create auditable request/approval evidence and the dispatcher
+workflow must remain responsible for `workflow_dispatch`.
 
 The Workspace screen must allow an operator to prepare a Workspace policy
 change without editing YAML by hand. Saving an approval mode change creates a
 pull request that updates `.batch-governance/workspace.yml`; the effective mode
 changes only after that pull request is merged. The screen must not use
 browser-local settings to weaken approval policy.
+The UI must explain the audit tradeoff plainly: relaxed modes reduce separation
+of duties but do not remove request, approval, dispatcher, Gate, and run-history
+evidence.
 
 The approvals inbox must contain only approval-actionable requests. Failed,
 Gate-blocked, dispatching, dispatched, and rejected execution requests are

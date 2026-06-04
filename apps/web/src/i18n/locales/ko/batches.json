@@ -2,7 +2,7 @@
   "title": "배치",
   "subtitle": ".batch-governance에서 관리되는 배치 정의입니다.",
   "actions": {
-    "openSetup": "설정 열기",
+    "openSetup": "Workspace 열기",
     "refresh": "새로고침",
     "register": "배치 등록",
     "requestChange": "변경 요청",
@@ -15,7 +15,7 @@
   },
   "delete": {
     "errors": {
-      "noSession": "삭제 요청을 생성하려면 GitHub 저장소를 먼저 연결하세요.",
+      "noSession": "삭제 요청을 생성하려면 Workspace를 먼저 연결하세요.",
       "unknown": "삭제 요청을 생성하지 못했습니다."
     }
   },
@@ -38,7 +38,7 @@
     "detailNotFound": "{{batchId}} 배치를 찾을 수 없습니다.",
     "error": "배치 정의를 불러오지 못했습니다.",
     "loading": "배치 정의를 불러오는 중입니다...",
-    "noSession": "관리 대상 배치를 보려면 GitHub 저장소를 먼저 연결하세요."
+    "noSession": "관리 대상 배치를 보려면 Workspace를 먼저 연결하세요."
   },
   "table": {
     "actions": "작업",
@@ -98,7 +98,7 @@
     },
     "approvalPolicy": {
       "short": "승인 필요",
-      "default": "실행 요청에는 repository maintainer 승인 증적이 필요합니다."
+      "default": "실행 요청에는 Workspace 승인 증적이 필요합니다."
     },
     "change": {
       "title": "변경 요청",

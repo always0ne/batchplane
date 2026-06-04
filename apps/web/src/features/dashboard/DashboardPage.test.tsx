@@ -22,10 +22,10 @@ describe("DashboardPage", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Connected repository" }),
+      await screen.findByRole("heading", { name: "Connected Workspace" }),
     ).toBeInTheDocument();
     expect(screen.getByText("always0ne/batch")).toBeInTheDocument();
-    expect(screen.getByText("Repository readiness")).toBeInTheDocument();
+    expect(screen.getByText("Workspace readiness")).toBeInTheDocument();
     expect(screen.getByText("Gate blocked runs")).toBeInTheDocument();
     expect(screen.getByText("Gate blocked runs").closest("a")).toHaveAttribute(
       "href",
@@ -54,13 +54,12 @@ describe("DashboardPage", () => {
 
     expect(
       await screen.findByText(
-        "Connect a GitHub repository to view Lite control status.",
+        "Connect a Workspace to view Lite control status.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open setup" })).toHaveAttribute(
-      "href",
-      "/lite/setup",
-    );
+    expect(
+      screen.getByRole("link", { name: "Open Workspace" }),
+    ).toHaveAttribute("href", "/lite/setup");
   });
 
   it("renders an error state when dashboard loading fails", async () => {

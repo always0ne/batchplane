@@ -1,13 +1,13 @@
 {
   "title": "Workspace",
-  "subtitle": "GitHub 기반 Workspace를 연결하고 repository-backed 정책 변경을 관리합니다.",
+  "subtitle": "GitHub로 뒷받침되는 Workspace를 연결하고 Workspace 정책 변경을 관리합니다.",
   "language": "언어",
   "tokenPolicy": "GitHub token은 sessionStorage에만 보관합니다.",
   "github": {
-    "title": "GitHub 저장소",
-    "subtitle": "BatchPlane Lite 파일을 보관할 저장소를 연결합니다.",
-    "owner": "저장소 소유자",
-    "repo": "저장소 이름",
+    "title": "GitHub 저장소 연결",
+    "subtitle": "이 Workspace를 뒷받침하는 GitHub 저장소를 연결합니다.",
+    "owner": "GitHub 저장소 소유자",
+    "repo": "GitHub 저장소 이름",
     "token": "GitHub token",
     "save": "세션 저장",
     "check": "연결 확인",
@@ -21,13 +21,13 @@
     "checking": "GitHub 연결을 확인하는 중...",
     "connected": "연결됨",
     "user": "사용자",
-    "repository": "저장소",
+    "repository": "GitHub 저장소",
     "defaultBranch": "기본 브랜치",
     "token": "Token"
   },
   "installation": {
-    "title": "Lite 설치",
-    "subtitle": "연결한 저장소에 dispatcher workflow와 governance 폴더를 설치합니다.",
+    "title": "Workspace 설치",
+    "subtitle": "연결한 GitHub 저장소에 이 Workspace의 dispatcher workflow와 governance 폴더를 설치합니다.",
     "idle": "GitHub 연결을 확인하면 설치 상태를 점검합니다.",
     "checking": "BatchPlane 설치 상태를 확인하는 중...",
     "installed": "BatchPlane Lite가 설치되어 있습니다.",
@@ -61,7 +61,7 @@
   },
   "errors": {
     "unknown": "알 수 없는 오류",
-    "requiredFields": "저장소 소유자, 저장소 이름, token은 필수입니다.",
+    "requiredFields": "GitHub 저장소 소유자, 저장소 이름, token은 필수입니다.",
     "connectionFailed": "GitHub 연결에 실패했습니다."
   }
 }

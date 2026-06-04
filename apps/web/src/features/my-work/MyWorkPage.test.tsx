@@ -86,7 +86,7 @@ describe("MyWorkPage", () => {
     );
 
     expect(
-      await screen.findByText("Connect a GitHub repository to view your work."),
+      await screen.findByText("Connect a Workspace to view your work."),
     ).toBeInTheDocument();
   });
 });

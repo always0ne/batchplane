@@ -2,7 +2,7 @@
   "title": "Batches",
   "subtitle": "Governed batch definitions from .batch-governance.",
   "actions": {
-    "openSetup": "Open setup",
+    "openSetup": "Open Workspace",
     "refresh": "Refresh",
     "register": "Register batch",
     "requestChange": "Request change",
@@ -15,7 +15,7 @@
   },
   "delete": {
     "errors": {
-      "noSession": "Connect a GitHub repository before creating a delete request.",
+      "noSession": "Connect a Workspace before creating a delete request.",
       "unknown": "Failed to create delete request."
     }
   },
@@ -38,7 +38,7 @@
     "detailNotFound": "Batch {{batchId}} was not found.",
     "error": "Failed to load batch definitions.",
     "loading": "Loading batch definitions...",
-    "noSession": "Connect a GitHub repository before viewing governed batches."
+    "noSession": "Connect a Workspace before viewing governed batches."
   },
   "table": {
     "actions": "Actions",
@@ -98,7 +98,7 @@
     },
     "approvalPolicy": {
       "short": "Approval required",
-      "default": "Execution requests require repository maintainer approval evidence."
+      "default": "Execution requests require Workspace approval evidence."
     },
     "change": {
       "title": "Change request",

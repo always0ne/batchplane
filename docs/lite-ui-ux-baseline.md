@@ -7,7 +7,7 @@ Every screen PR should check its scope against this baseline before review.
 
 Lite must read as one connected operational flow:
 
-1. Connect a GitHub repository.
+1. Connect a Workspace backed by a GitHub repository.
 2. Install Lite through a setup pull request.
 3. Register a batch through a pull request that includes the batch definition,
    generated workflow, and optional execution artifact.
@@ -20,7 +20,7 @@ Lite must read as one connected operational flow:
 ## Screen Responsibilities
 
 - Workspace shows GitHub connection, installation readiness, and
-  repository-backed Workspace policy changes. If generated Workspace workflows
+  Workspace policy changes. If generated Workspace workflows
   are older than the current BatchPlane template, the screen must show the
   affected workflow paths and provide a pull-request action to update them.
 - Registration shows what will be controlled, what will run, where it will run,

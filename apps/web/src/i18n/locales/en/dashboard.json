@@ -2,16 +2,16 @@
   "title": "Dashboard",
   "subtitle": "Lite control summary from GitHub artifacts.",
   "actions": {
-    "openSetup": "Open setup",
+    "openSetup": "Open Workspace",
     "viewApprovals": "View approvals"
   },
   "states": {
     "loading": "Loading dashboard summary...",
-    "noSession": "Connect a GitHub repository to view Lite control status.",
+    "noSession": "Connect a Workspace to view Lite control status.",
     "error": "Failed to load dashboard summary."
   },
   "connection": {
-    "title": "Connected repository",
+    "title": "Connected Workspace",
     "connected": "Connected",
     "user": "User",
     "defaultBranch": "Default branch",
@@ -29,14 +29,14 @@
     "actionRequired": "Action"
   },
   "cards": {
-    "repoReadiness": "Repository readiness",
+    "repoReadiness": "Workspace readiness",
     "pendingApprovals": "Pending approvals",
     "failedRuns": "Failed runs",
     "gateBlocked": "Gate blocked runs",
     "auditTrail": "Audit trail"
   },
   "cardHints": {
-    "repoReadiness": "Open setup status",
+    "repoReadiness": "Open Workspace status",
     "pendingApprovals": "Open approval inbox",
     "failedRuns": "Investigation, not approval work",
     "gateBlocked": "Gate evidence, not approval work",

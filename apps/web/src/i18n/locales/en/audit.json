@@ -22,7 +22,7 @@
   },
   "states": {
     "loading": "Loading audit timeline.",
-    "noSession": "Connect a GitHub repository to inspect the audit trail.",
+    "noSession": "Connect a Workspace to inspect the audit trail.",
     "empty": "No audit records match this filter.",
     "error": "Audit timeline could not be loaded."
   },

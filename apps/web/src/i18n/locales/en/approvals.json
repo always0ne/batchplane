@@ -8,7 +8,7 @@
     "confirmReject": "Confirm rejection",
     "openIssue": "Open Issue",
     "openSourceRequest": "Open source request",
-    "openSetup": "Open setup",
+    "openSetup": "Open Workspace",
     "refresh": "Refresh",
     "reject": "Reject",
     "rejectReason": "Rejection reason",
@@ -76,7 +76,7 @@
     "error": "Approval request failed.",
     "githubLagHint": "Newly created requests open in their detail page immediately. This inbox shows requests waiting for action.",
     "loading": "Loading approval requests...",
-    "noSession": "Connect a GitHub repository before reviewing approvals.",
+    "noSession": "Connect a Workspace before reviewing approvals.",
     "registrationReviewHint": "Open change detail to review checklist and decide merge or rejection."
   },
   "registrationDetail": {
@@ -94,7 +94,7 @@
       "error": "Failed to load change approval detail.",
       "githubLagHint": "Created governed changes can be reviewed here immediately.",
       "loading": "Loading change approval detail...",
-      "noSession": "Connect a GitHub repository before reviewing governed changes.",
+      "noSession": "Connect a Workspace before reviewing governed changes.",
       "notFound": "Governed change request #{{pullNumber}} was not found in this Workspace."
     },
     "checklist": {

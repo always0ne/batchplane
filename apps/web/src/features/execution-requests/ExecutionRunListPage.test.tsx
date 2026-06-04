@@ -162,7 +162,7 @@ describe("ExecutionRunListPage", () => {
 
     expect(
       await screen.findByText(
-        "Connect a GitHub repository before reviewing executions.",
+        "Connect a Workspace before reviewing executions.",
       ),
     ).toBeInTheDocument();
   });

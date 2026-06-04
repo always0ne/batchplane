@@ -4,7 +4,7 @@
   "actions": {
     "backToBatches": "배치 목록으로",
     "createRequest": "실행 요청 생성",
-    "openSetup": "설정 열기"
+    "openSetup": "Workspace 열기"
   },
   "context": {
     "command": "배치 명령",
@@ -51,7 +51,7 @@
       "expiresAt": "만료 시각",
       "issueState": "Issue 상태",
       "reason": "사유",
-      "repository": "저장소",
+      "repository": "Workspace",
       "requestDigest": "Request digest",
       "requestedAt": "요청 시각",
       "requestedBy": "요청자",
@@ -79,7 +79,7 @@
     "states": {
       "error": "실행 요청 상세를 불러오지 못했습니다.",
       "loading": "실행 요청 상세를 불러오는 중...",
-      "noSession": "실행 요청을 검토하려면 GitHub 저장소를 먼저 연결하세요.",
+      "noSession": "실행 요청을 검토하려면 Workspace를 먼저 연결하세요.",
       "notFound": "실행 요청 Issue #{{issueNumber}}를 찾을 수 없습니다."
     },
     "status": {
@@ -206,7 +206,7 @@
       "actionsPermission": "Run 증적과 job 로그 링크를 불러오려면 GitHub Actions 읽기 권한이 필요합니다. 비공개 저장소 토큰 권한을 확인하세요.",
       "error": "실행 run 상세를 불러오지 못했습니다.",
       "loading": "실행 run 상세를 불러오는 중...",
-      "noSession": "실행 run을 보려면 GitHub 저장소를 먼저 연결하세요.",
+      "noSession": "실행 run을 보려면 Workspace를 먼저 연결하세요.",
       "notFound": "실행 run {{runId}}를 찾을 수 없습니다."
     },
     "status": {
@@ -266,7 +266,7 @@
     "created": "실행 요청이 생성되었습니다.",
     "error": "실행 요청 화면을 불러오지 못했습니다.",
     "loading": "실행 요청 화면을 불러오는 중...",
-    "noSession": "실행 요청 전에 GitHub 저장소를 연결해주세요.",
+    "noSession": "실행 요청 전에 Workspace를 연결해주세요.",
     "notFound": "배치 {{batchId}}를 찾을 수 없습니다.",
     "previewError": "요청 미리보기를 갱신하지 못했습니다.",
     "submitError": "실행 요청을 생성하지 못했습니다."

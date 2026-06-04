@@ -1,13 +1,13 @@
 {
   "title": "Workspace",
-  "subtitle": "Connect a GitHub-backed Workspace and manage repository-backed policy changes.",
+  "subtitle": "Connect a Workspace backed by GitHub and manage Workspace policy changes.",
   "language": "Language",
   "tokenPolicy": "GitHub tokens are kept in sessionStorage only.",
   "github": {
-    "title": "GitHub repository",
-    "subtitle": "Connect the repository that stores BatchPlane Lite files.",
-    "owner": "Repository owner",
-    "repo": "Repository name",
+    "title": "GitHub repository connection",
+    "subtitle": "Connect the GitHub repository that backs this Workspace.",
+    "owner": "GitHub repository owner",
+    "repo": "GitHub repository name",
     "token": "GitHub token",
     "save": "Save session",
     "check": "Check connection",
@@ -21,13 +21,13 @@
     "checking": "Checking GitHub connection...",
     "connected": "Connected",
     "user": "User",
-    "repository": "Repository",
+    "repository": "GitHub repository",
     "defaultBranch": "Default branch",
     "token": "Token"
   },
   "installation": {
-    "title": "Lite installation",
-    "subtitle": "Install the dispatcher workflow and governance folders into the connected repository.",
+    "title": "Workspace installation",
+    "subtitle": "Install dispatcher workflow and governance folders for this Workspace in the connected GitHub repository.",
     "idle": "Check the GitHub connection to inspect installation status.",
     "checking": "Checking BatchPlane installation...",
     "installed": "BatchPlane Lite is installed.",
@@ -61,7 +61,7 @@
   },
   "errors": {
     "unknown": "Unknown error",
-    "requiredFields": "Repository owner, repository name, and token are required.",
+    "requiredFields": "GitHub repository owner, repository name, and token are required.",
     "connectionFailed": "GitHub connection failed."
   }
 }

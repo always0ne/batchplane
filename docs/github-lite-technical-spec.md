@@ -115,11 +115,14 @@ spec:
 
 Supported `spec.approval.mode` values are:
 
-- `SELF_APPROVAL_BLOCKED`: default. Requester and approver must be different users.
+- `SELF_APPROVAL_BLOCKED`: default four-eyes control. Requester and approver
+  must be different users.
 - `SELF_APPROVAL_ALLOWED`: requester may approve their own execution request.
   The approval remains explicit audit evidence and Gate still verifies
-  authorization.
-- `AUTO_APPROVE`: reserved for a separate auto-approval implementation.
+  authorization, request digest, dispatcher actor, and batch definition.
+- `AUTO_APPROVE`: reserved for a separate auto-approval implementation. When
+  implemented, dispatcher remains responsible for `workflow_dispatch`; the
+  browser UI must not dispatch governed workflows directly.
 
 If `.batch-governance/workspace.yml` is missing, UI and Gate must treat the
 mode as `SELF_APPROVAL_BLOCKED`. UI-only local settings must not weaken approval policy,
@@ -131,6 +134,11 @@ must create a pull request that updates `.batch-governance/workspace.yml`.
 Merging that pull request is the policy activation step. `AUTO_APPROVE` must be
 rendered as reserved or disabled until the separate auto-approval flow is
 implemented.
+
+Relaxed approval modes are product policy choices, not local convenience
+switches. They reduce separation of duties, but request evidence, approval
+source, dispatcher state, Gate decision, and workflow run correlation must stay
+auditable.
 
 ## Batch Definition
 
