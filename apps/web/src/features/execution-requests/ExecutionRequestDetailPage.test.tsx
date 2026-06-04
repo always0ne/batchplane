@@ -111,6 +111,9 @@ describe("ExecutionRequestDetailPage", () => {
   it("allows self approval when Workspace policy explicitly allows it", async () => {
     const state = createRuntimeFixtureMockState("approval-pending");
     state.currentUser = { login: "developer" };
+    state.files = state.files.filter(
+      (file) => file.path !== ".batch-governance/workspace.yml",
+    );
     state.files.push({
       branch: "main",
       content: buildWorkspacePolicyYaml("SELF_APPROVAL_ALLOWED"),

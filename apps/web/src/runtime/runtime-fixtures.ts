@@ -11,6 +11,10 @@ import {
   readGitHubSession,
   type GitHubSession,
 } from "../features/lite-setup/github-session";
+import {
+  buildSampleTargetWorkflowYaml,
+  buildWorkspacePolicyYaml,
+} from "../features/lite-setup/installation-model";
 import { createGitHubLiteRuntime } from "./github-lite-runtime";
 
 export const runtimeFixtureStorageKey = "batchplane.dev.runtimeFixture";
@@ -121,6 +125,21 @@ export function createRuntimeFixtureMockState(
   return {
     ...state,
     executionScenarios,
+    files: [
+      ...state.files,
+      {
+        branch: "main",
+        content: buildSampleTargetWorkflowYaml(),
+        path: ".github/workflows/batchplane-sample-target.yml",
+        sha: "mock-sample-target-sha",
+      },
+      {
+        branch: "main",
+        content: buildWorkspacePolicyYaml(),
+        path: ".batch-governance/workspace.yml",
+        sha: "mock-workspace-policy-sha",
+      },
+    ],
     issueComments: state.issueComments.filter((comment) =>
       issueNumbers.has(comment.issueNumber),
     ),

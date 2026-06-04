@@ -35,8 +35,10 @@ execution approval.
 Installation status is based on the default branch containing:
 
 - `.github/workflows/batchplane-dispatcher.yml`
+- `.github/workflows/batchplane-sample-target.yml`
 - `.batch-governance/README.md`
 - `.batch-governance/workspace.yml`
+- `.batch-governance/policies/role-mapping.yml`
 - `.batch-governance/batches/.gitkeep`
 
 If required files are missing, the UI must offer an installation pull request.
@@ -44,12 +46,37 @@ The UI must create a setup branch and PR, not write directly to the default
 branch. A repository maintainer reviews and merges the setup PR using GitHub's
 native permission model.
 
+If all required files exist but managed workflow files do not match the current
+BatchPlane Lite templates, the Workspace screen must show the outdated workflow
+paths and offer a workflow update pull request. Managed workflow files are:
+
+- `.github/workflows/batchplane-dispatcher.yml`
+- `.github/workflows/batchplane-sample-target.yml`
+
+The update PR must write current canonical workflow files and remove legacy
+BatchTrail workflow files when they are replaced. It must not overwrite
+repository-owned policy/configuration files such as
+`.batch-governance/workspace.yml` or
+`.batch-governance/policies/role-mapping.yml`.
+
 The dispatcher workflow installed by the setup PR must listen to
-`issue_comment.created`, filter comments that start with `/bgcp approve `, and
-invoke `always0ne/batchplane/actions/dispatcher@main` with the triggering issue
-number, comment ID, and repository `GITHUB_TOKEN`. It must serialize runs per
-execution request Issue using workflow `concurrency` so duplicate approval
-comments cannot dispatch the same request in parallel.
+`issue_comment.created`, but its dispatcher job must run only for actionable
+approval evidence comments. An actionable manual approval comment must:
+
+- be on an Issue, not a Pull Request conversation
+- be on an execution request Issue labeled `batchplane:execution-request`
+  or the legacy `batchtrail:execution-request`
+- start with `/bgcp approve requestDigest=`
+- contain the `batchplane:execution-approval` marker
+- contain an approved decision marker
+
+Only then may the workflow invoke
+`always0ne/batchplane/actions/dispatcher@main` with the triggering issue number,
+comment ID, and repository `GITHUB_TOKEN`. Discussion comments, clarification
+comments, change-request comments, and markerless command-looking comments must
+be ignored. The dispatcher workflow must serialize runs per execution request
+Issue using workflow `concurrency` so duplicate approval comments cannot
+dispatch the same request in parallel.
 
 This dispatcher workflow is for manual approvals. Scheduled occurrences do not
 wait in the approval inbox. Their generated workflow job creates or reuses the

@@ -20,7 +20,9 @@ Lite must read as one connected operational flow:
 ## Screen Responsibilities
 
 - Workspace shows GitHub connection, installation readiness, and
-  repository-backed Workspace policy changes.
+  repository-backed Workspace policy changes. If generated Workspace workflows
+  are older than the current BatchPlane template, the screen must show the
+  affected workflow paths and provide a pull-request action to update them.
 - Registration shows what will be controlled, what will run, where it will run,
   and which files the pull request will create.
 - Approvals shows only work that can still be approved or rejected.
@@ -91,6 +93,9 @@ Lite must read as one connected operational flow:
 - Approval mode changes must create a pull request to
   `.batch-governance/workspace.yml`; the browser must not store approval policy
   as local UI state.
+- Generated workflow updates must create a pull request from the Workspace
+  screen. The UI must not write workflow files directly to the default branch,
+  and it must not present repository-owned policy files as template drift.
 - `AUTO_APPROVE` may be visible as reserved future scope, but it must not be
   actionable until the auto-approval implementation exists.
 

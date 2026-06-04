@@ -118,6 +118,13 @@ export function parseDispatcherCommand(commentBody: string): DispatcherCommand {
   return "ignore";
 }
 
+export function isActionableApprovalComment(commentBody: string): boolean {
+  return (
+    parseDispatcherCommand(commentBody) === "approve" &&
+    parseExecutionApprovalEvidence(commentBody)?.decision === "APPROVED"
+  );
+}
+
 export async function dispatchApprovedExecutionRequest({
   apiBaseUrl = "https://api.github.com",
   commentId,
@@ -145,6 +152,17 @@ export async function dispatchApprovedExecutionRequest({
   if (command === "ignore") {
     return {
       message: "Comment is not a BatchPlane dispatcher command.",
+      reasonCode: "IGNORED_COMMENT",
+      status: "ignored",
+    };
+  }
+
+  if (
+    command === "approve" &&
+    !isActionableApprovalComment(commandComment.body)
+  ) {
+    return {
+      message: "Comment is not actionable BatchPlane approval evidence.",
       reasonCode: "IGNORED_COMMENT",
       status: "ignored",
     };
