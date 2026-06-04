@@ -1,0 +1,19 @@
+apiVersion: "batchplane.io/v1"
+kind: "BatchDefinition"
+metadata:
+  id: "demo.echo"
+  name: "Demo Echo"
+spec:
+  owner: "ops-team"
+  domain: "demo"
+  environment: "DEV"
+  criticality: "LOW"
+  status: "ACTIVE"
+  workflow:
+    path: ".github/workflows/demo.echo.yml"
+    ref: "main"
+  gateRequired: true
+  execution:
+    runsOn: "ubuntu-latest"
+    command: "echo BatchPlane demo batch"
+  schedules: []

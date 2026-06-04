@@ -1,0 +1,7 @@
+apiVersion: "batchplane.io/v1"
+kind: "WorkspacePolicy"
+metadata:
+  id: "default"
+spec:
+  approval:
+    mode: "SELF_APPROVAL_BLOCKED"

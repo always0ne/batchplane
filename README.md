@@ -33,6 +33,7 @@ repository's default branch.
 Create a fine-grained GitHub personal access token for the `batch` repository:
 
 - Repository access: only the `batch` repository
+- `Actions`: read-only
 - `Contents`: read and write
 - `Issues`: read and write
 - `Pull requests`: read and write
@@ -123,10 +124,12 @@ that self-approval explicit.
 See also:
 
 - `BRAND_GUIDELINES.md`
+- `docs/repo-mode-getting-started.md`
 - `docs/github-pages.md`
 - `docs/github-lite-srs.md`
 - `docs/github-lite-technical-spec.md`
 - `docs/repository-rename-runbook.md`
+- `examples/github-lite-demo/README.md`
 
 ## Workspace
 

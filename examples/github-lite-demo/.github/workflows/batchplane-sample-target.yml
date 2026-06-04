@@ -1,0 +1,54 @@
+name: BatchPlane Sample Target
+run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: BatchPlane execution request ID
+        required: true
+        type: string
+      batch_id:
+        description: BatchPlane batch ID
+        required: true
+        type: string
+      request_digest:
+        description: BatchPlane approved request digest
+        required: true
+        type: string
+      schedule_id:
+        description: BatchPlane schedule identifier for scheduled dispatches
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  batchplane-gate:
+    name: BatchPlane Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify approved execution evidence
+        uses: always0ne/batchplane/actions/gate@main
+        with:
+          mode: lite
+          batch-id: ${{ inputs.batch_id }}
+          config-path: .batch-governance
+          request-id: ${{ inputs.request_id }}
+          approval-source: issue
+          approval-ref: ${{ inputs.request_id }}
+          request-digest: ${{ inputs.request_digest }}
+          schedule-id: ${{ inputs.schedule_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  run-sample-batch:
+    name: Run sample batch command
+    runs-on: ubuntu-latest
+    needs: batchplane-gate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Sample command
+        run: echo "BatchPlane approved sample execution"
