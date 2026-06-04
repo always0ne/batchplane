@@ -1,0 +1,62 @@
+name: "BatchPlane - Demo Echo"
+run-name: BatchPlane ${{ github.event.inputs.batch_id || 'scheduled' }} ${{ github.event.inputs.request_id || github.event.schedule || '' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: BatchPlane execution request ID
+        required: true
+        type: string
+      batch_id:
+        description: BatchPlane batch ID
+        required: true
+        type: string
+      request_digest:
+        description: BatchPlane approved request digest
+        required: true
+        type: string
+      schedule_id:
+        description: BatchPlane schedule identifier for scheduled dispatches
+        required: false
+        type: string
+
+jobs:
+  batchplane-gate:
+    name: BatchPlane Gate
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Verify approved execution evidence
+        uses: always0ne/batchplane/actions/gate@main
+        with:
+          mode: lite
+          batch-id: ${{ inputs.batch_id }}
+          config-path: .batch-governance
+          request-id: ${{ inputs.request_id }}
+          approval-source: issue
+          approval-ref: ${{ inputs.request_id }}
+          request-digest: ${{ inputs.request_digest }}
+          schedule-id: ${{ inputs.schedule_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  run-batch:
+    name: Run governed batch
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: "ubuntu-latest"
+    needs: batchplane-gate
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout registered assets
+        uses: actions/checkout@v4
+
+      - name: Run batch
+        run: |
+          echo "::group::BatchPlane batch command"
+          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT
+          echo "BatchPlane approved execution for demo.echo"
+          echo BatchPlane demo batch

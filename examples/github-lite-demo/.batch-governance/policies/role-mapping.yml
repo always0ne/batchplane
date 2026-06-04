@@ -1,0 +1,14 @@
+apiVersion: "batchplane.io/v1"
+kind: "RoleMapping"
+metadata:
+  id: "default"
+spec:
+  roles:
+    requester:
+      repositoryRoles: ["write", "maintain", "admin"]
+    approver:
+      repositoryRoles: ["maintain", "admin"]
+    maintainer:
+      repositoryRoles: ["maintain", "admin"]
+    auditor:
+      repositoryRoles: ["triage"]

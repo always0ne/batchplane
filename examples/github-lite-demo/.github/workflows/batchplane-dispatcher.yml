@@ -1,0 +1,27 @@
+name: BatchPlane Dispatcher
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: batchplane-dispatch-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch-approved-request:
+    if: >-
+      github.event.issue.pull_request == null && startsWith(github.event.comment.body, '/bgcp approve requestDigest=') && contains(github.event.comment.body, '<!-- batchplane:execution-approval') && contains(github.event.comment.body, 'decision=APPROVED') && (contains(github.event.issue.labels.*.name, 'batchplane:execution-request') || contains(github.event.issue.labels.*.name, 'batchtrail:execution-request'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch approved BatchPlane execution
+        uses: always0ne/batchplane/actions/dispatcher@main
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          comment-id: ${{ github.event.comment.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
