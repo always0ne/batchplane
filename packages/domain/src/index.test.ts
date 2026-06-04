@@ -349,6 +349,17 @@ describe("domain model contracts", () => {
           batchDefinitionExists: false,
           workflowExists: false,
         }),
+        createBatchDeletionPullRequest: async () => ({
+          author: "requester",
+          base: "main",
+          body: "body",
+          head: "batchplane/delete/payment.daily-close",
+          merged: false,
+          number: 6,
+          state: "open",
+          title: "Delete batch payment.daily-close",
+          url: "https://github.com/always0ne/batch/pull/6",
+        }),
         createRegistrationPullRequest: async () => ({
           author: "requester",
           base: "main",

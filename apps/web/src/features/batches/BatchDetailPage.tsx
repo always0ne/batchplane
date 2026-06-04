@@ -3,14 +3,25 @@ import type {
   BatchPlaneRuntimePorts,
   RepositoryIssue,
   RepositoryIssueComment,
+  RepositoryPullRequest,
   ScheduleDefinition,
 } from "@batchplane/domain";
-import { GitPullRequest, Play, ShieldCheck } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import {
+  GitPullRequest,
+  Loader2,
+  Play,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { parseExecutionRequestDetail } from "../approvals/approval-model";
+import {
+  parseRegistrationRequestSummary,
+  type BatchRegistrationRequestBodySummary,
+} from "../approvals/registration-approval-model";
 import type { GitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../shared/components/PageHeader";
 import {
@@ -18,6 +29,13 @@ import {
   ErrorState,
   LoadingState,
 } from "../../shared/components/PageState";
+import {
+  buildRegistrationPullRequestBody,
+  buildRegistrationPullRequestTitle,
+  createRegistrationBranchName,
+  getBatchDefinitionPath,
+  getBatchWorkflowPath,
+} from "../registration/registration-model";
 import {
   createBatchPlaneRuntime,
   readRuntimeSession,
@@ -35,11 +53,22 @@ type BatchDetailState =
       recentIssues: RecentExecutionIssue[];
       schedules: ScheduleDefinition[];
     }
+  | {
+      type: "deleted";
+      archive: DeletedBatchArchive;
+      defaultBranch: string;
+      recentIssues: RecentExecutionIssue[];
+    }
   | { type: "error"; message: string };
 
 type RecentExecutionIssue = {
   comments: RepositoryIssueComment[];
   issue: RepositoryIssue;
+};
+
+type DeletedBatchArchive = {
+  pullRequest: RepositoryPullRequest;
+  summary: BatchRegistrationRequestBodySummary;
 };
 
 type BatchDetailPageProps = {
@@ -84,18 +113,8 @@ export function BatchDetailPage({
         const batch = batches.find(
           (candidate) => candidate.batchId === decodedBatchId,
         );
-
-        if (!batch) {
-          if (ignoreResult) {
-            return;
-          }
-
-          setState({ type: "not-found", batchId: decodedBatchId });
-          return;
-        }
-
         const recentIssues = issues
-          .filter((issue) => issueContainsBatch(issue, batch.batchId))
+          .filter((issue) => issueContainsBatch(issue, decodedBatchId))
           .sort((left, right) => right.number - left.number)
           .slice(0, 5);
         const recentIssuesWithComments = await Promise.all(
@@ -106,6 +125,31 @@ export function BatchDetailPage({
             issue,
           })),
         );
+
+        if (!batch) {
+          const archive = await loadDeletedBatchArchive({
+            batchId: decodedBatchId,
+            baseBranch: repository.defaultBranch,
+            runtime,
+          });
+
+          if (ignoreResult) {
+            return;
+          }
+
+          if (archive) {
+            setState({
+              type: "deleted",
+              archive,
+              defaultBranch: repository.defaultBranch,
+              recentIssues: recentIssuesWithComments,
+            });
+            return;
+          }
+
+          setState({ type: "not-found", batchId: decodedBatchId });
+          return;
+        }
 
         if (ignoreResult) {
           return;
@@ -140,12 +184,24 @@ export function BatchDetailPage({
   return (
     <section>
       <PageHeader title={t("detail.title")} subtitle={decodedBatchId} />
-      <BatchDetailContent state={state} />
+      <BatchDetailContent
+        createRuntime={createRuntime}
+        readSession={readSession}
+        state={state}
+      />
     </section>
   );
 }
 
-function BatchDetailContent({ state }: { state: BatchDetailState }) {
+function BatchDetailContent({
+  createRuntime,
+  readSession,
+  state,
+}: {
+  createRuntime: (session: GitHubSession) => BatchPlaneRuntimePorts;
+  readSession: () => GitHubSession | null;
+  state: BatchDetailState;
+}) {
   const { t } = useTranslation("batches");
 
   if (state.type === "loading") {
@@ -188,6 +244,18 @@ function BatchDetailContent({ state }: { state: BatchDetailState }) {
     return <ErrorState message={state.message} />;
   }
 
+  if (state.type === "deleted") {
+    return (
+      <div className="space-y-4">
+        <DeletedBatchArchiveCard
+          archive={state.archive}
+          defaultBranch={state.defaultBranch}
+        />
+        <RecentExecutionEvidence issues={state.recentIssues} />
+      </div>
+    );
+  }
+
   const canRequestExecution =
     state.batch.status === "ACTIVE" &&
     state.batch.gateRequired &&
@@ -204,6 +272,10 @@ function BatchDetailContent({ state }: { state: BatchDetailState }) {
         <RequestActionsCard
           batch={state.batch}
           canRequestExecution={canRequestExecution}
+          createRuntime={createRuntime}
+          defaultBranch={state.defaultBranch}
+          readSession={readSession}
+          schedules={state.schedules}
         />
       </section>
       <RecentExecutionEvidence issues={state.recentIssues} />
@@ -388,17 +460,220 @@ function BatchProfileCard({
   );
 }
 
+function DeletedBatchArchiveCard({
+  archive,
+  defaultBranch,
+}: {
+  archive: DeletedBatchArchive;
+  defaultBranch: string;
+}) {
+  const { t } = useTranslation("batches");
+  const { pullRequest, summary } = archive;
+  const schedules =
+    summary.schedules.length > 0 ? summary.schedules : summary.deletedSchedules;
+
+  return (
+    <article className="rounded-lg border border-red-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-bold text-bp-graphite">
+              {summary.name || summary.batchId}
+            </h2>
+            <span className="rounded-md bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">
+              {t("detail.deleted.badge")}
+            </span>
+          </div>
+          <p className="mt-1 font-mono text-sm text-bp-muted">
+            {summary.batchId}
+          </p>
+          <p className="mt-2 text-sm text-bp-muted">
+            {t("detail.deleted.description")}
+          </p>
+        </div>
+        <a
+          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+          href={pullRequest.url}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <GitPullRequest className="h-4 w-4" aria-hidden="true" />
+          {t("detail.deleted.openRequest", { number: pullRequest.number })}
+        </a>
+      </div>
+
+      <dl className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <DetailFact
+          label={t("detail.fields.owner")}
+          value={summary.owner || t("values.none")}
+        />
+        <DetailFact
+          label={t("detail.fields.domain")}
+          value={summary.domain || t("values.none")}
+        />
+        <DetailFact
+          label={t("detail.fields.environment")}
+          value={summary.environment || t("values.none")}
+        />
+        <DetailFact
+          label={t("detail.fields.criticality")}
+          value={summary.criticality || t("values.none")}
+        />
+        <DetailFact
+          label={t("detail.fields.defaultBranch")}
+          value={defaultBranch}
+        />
+        <DetailFact
+          label={t("detail.deleted.removedBy")}
+          value={`#${pullRequest.number}`}
+        />
+      </dl>
+
+      <div className="mt-5 grid gap-5 border-t border-slate-100 pt-5 lg:grid-cols-2">
+        <section>
+          <h3 className="text-sm font-bold text-bp-graphite">
+            {t("detail.workflow.title")}
+          </h3>
+          <dl className="mt-3 space-y-3 text-sm">
+            <DetailFact
+              label={t("detail.workflow.runtime")}
+              value={t("detail.workflow.runtimeGithubActions")}
+            />
+            <DetailFact
+              label={t("detail.workflow.path")}
+              value={summary.workflowPath || t("values.none")}
+            />
+          </dl>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-bold text-bp-graphite">
+            {t("detail.executionSpec.title")}
+          </h3>
+          <dl className="mt-3 space-y-3 text-sm">
+            <DetailFact
+              label={t("detail.executionSpec.runsOn")}
+              value={summary.runsOn || t("values.none")}
+            />
+            <DetailFact
+              label={t("detail.executionSpec.artifactPath")}
+              value={
+                summary.executionFilePath ||
+                t("detail.executionSpec.noArtifact")
+              }
+            />
+            <div>
+              <dt className="text-xs font-semibold uppercase text-bp-muted">
+                {t("detail.executionSpec.command")}
+              </dt>
+              <dd className="mt-1">
+                <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-md bg-bp-graphite p-3 text-xs leading-5 text-white">
+                  {summary.batchCommand || t("detail.executionSpec.missing")}
+                </pre>
+              </dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+
+      <section className="mt-5 border-t border-slate-100 pt-5">
+        <h3 className="text-sm font-bold text-bp-graphite">
+          {t("detail.schedules.title")}
+        </h3>
+        {schedules.length === 0 ? (
+          <p className="mt-3 text-sm text-bp-muted">
+            {t("detail.schedules.empty")}
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {schedules.map((schedule) => (
+              <li
+                className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+                key={schedule.scheduleId}
+              >
+                <p className="text-sm font-bold text-bp-graphite">
+                  {schedule.name}
+                </p>
+                <p className="mt-1 font-mono text-xs text-bp-muted">
+                  {schedule.scheduleId} / {schedule.cron} / {schedule.timezone}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </article>
+  );
+}
+
 function RequestActionsCard({
   batch,
   canRequestExecution,
+  createRuntime,
+  defaultBranch,
+  readSession,
+  schedules,
 }: {
   batch: BatchDefinition;
   canRequestExecution: boolean;
+  createRuntime: (session: GitHubSession) => BatchPlaneRuntimePorts;
+  defaultBranch: string;
+  readSession: () => GitHubSession | null;
+  schedules: ScheduleDefinition[];
 }) {
   const { t } = useTranslation("batches");
+  const navigate = useNavigate();
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletePanelOpen, setDeletePanelOpen] = useState(false);
+  const [deleteRequestState, setDeleteRequestState] = useState<
+    { type: "idle" } | { type: "running" } | { type: "error"; message: string }
+  >({ type: "idle" });
   const executionRequestPath = `/batches/${encodeURIComponent(
     batch.batchId,
   )}/execution-requests/new`;
+  const canConfirmDelete = deleteConfirmation.trim() === batch.batchId;
+
+  async function createDeleteRequest() {
+    if (!canConfirmDelete || deleteRequestState.type === "running") {
+      return;
+    }
+
+    const session = readSession();
+
+    if (!session) {
+      setDeleteRequestState({
+        type: "error",
+        message: t("delete.errors.noSession"),
+      });
+      return;
+    }
+
+    setDeleteRequestState({ type: "running" });
+
+    try {
+      const runtime = createRuntime(session);
+      const branch = createRegistrationBranchName(batch.batchId, "delete");
+      const title = buildRegistrationPullRequestTitle(batch, "delete");
+      const pullRequest =
+        await runtime.registration.createBatchDeletionPullRequest({
+          artifactPath: batch.execution?.artifactPath,
+          baseBranch: defaultBranch,
+          batchDefinitionPath: getBatchDefinitionPath(batch.batchId),
+          body: buildRegistrationPullRequestBody(batch, "delete", schedules),
+          branch,
+          title,
+          workflowPath:
+            batch.workflow.path || getBatchWorkflowPath(batch.batchId),
+        });
+
+      navigate(`/approvals/registration/${pullRequest.number}`);
+    } catch (error) {
+      setDeleteRequestState({
+        type: "error",
+        message: formatRuntimeError(error, t("delete.errors.unknown")),
+      });
+    }
+  }
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -472,6 +747,78 @@ function RequestActionsCard({
           <GitPullRequest className="h-4 w-4" aria-hidden="true" />
           {t("actions.requestChange")}
         </Link>
+      </div>
+
+      <div className="mt-5 border-t border-slate-100 pt-5">
+        <h3 className="text-sm font-bold text-red-700">
+          {t("detail.delete.title")}
+        </h3>
+        <p className="mt-2 text-sm text-bp-muted">
+          {t("detail.delete.description")}
+        </p>
+        {deletePanelOpen ? (
+          <div className="mt-4 space-y-3 rounded-md border border-red-200 bg-red-50 p-3">
+            <label className="block text-xs font-semibold uppercase text-red-700">
+              {t("detail.delete.confirmationLabel")}
+              <input
+                className="mt-1 w-full rounded-md border border-red-200 bg-white px-3 py-2 font-mono text-sm text-bp-graphite outline-none focus:border-red-500"
+                onChange={(event) => {
+                  setDeleteConfirmation(event.target.value);
+                  setDeleteRequestState({ type: "idle" });
+                }}
+                placeholder={batch.batchId}
+                value={deleteConfirmation}
+              />
+            </label>
+            {deleteRequestState.type === "error" ? (
+              <p className="text-sm font-semibold text-red-700">
+                {deleteRequestState.message}
+              </p>
+            ) : (
+              <p className="text-xs text-red-700">
+                {t("detail.delete.blocked")}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={
+                  !canConfirmDelete || deleteRequestState.type === "running"
+                }
+                onClick={() => void createDeleteRequest()}
+                type="button"
+              >
+                {deleteRequestState.type === "running" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                )}
+                {t("actions.createDeleteRequest")}
+              </button>
+              <button
+                className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+                disabled={deleteRequestState.type === "running"}
+                onClick={() => {
+                  setDeletePanelOpen(false);
+                  setDeleteConfirmation("");
+                  setDeleteRequestState({ type: "idle" });
+                }}
+                type="button"
+              >
+                {t("actions.cancel")}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700"
+            onClick={() => setDeletePanelOpen(true)}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {t("actions.requestDelete")}
+          </button>
+        )}
       </div>
     </article>
   );
@@ -562,6 +909,47 @@ function issueContainsBatch(issue: RepositoryIssue, batchId: string): boolean {
   return (
     issue.title.includes(batchId) || issue.body.includes(`batchId=${batchId}`)
   );
+}
+
+async function loadDeletedBatchArchive({
+  baseBranch,
+  batchId,
+  runtime,
+}: {
+  baseBranch: string;
+  batchId: string;
+  runtime: BatchPlaneRuntimePorts;
+}): Promise<DeletedBatchArchive | null> {
+  const pullRequests = await runtime.approvals.listRegistrationRequests({
+    baseBranch,
+    state: "all",
+  });
+  const archives = pullRequests
+    .map((pullRequest) => toDeletedBatchArchive(pullRequest))
+    .filter((archive): archive is DeletedBatchArchive => archive !== null)
+    .filter(
+      (archive) =>
+        archive.summary.batchId === batchId && archive.pullRequest.merged,
+    )
+    .sort((left, right) => right.pullRequest.number - left.pullRequest.number);
+
+  return archives[0] ?? null;
+}
+
+function toDeletedBatchArchive(
+  pullRequest: RepositoryPullRequest,
+): DeletedBatchArchive | null {
+  try {
+    const summary = parseRegistrationRequestSummary(pullRequest);
+
+    if (summary.kind !== "batch" || summary.requestType !== "DELETE") {
+      return null;
+    }
+
+    return { pullRequest, summary };
+  } catch {
+    return null;
+  }
 }
 
 function formatRunnerLabel(

@@ -6,9 +6,18 @@
     "refresh": "새로고침",
     "register": "배치 등록",
     "requestChange": "변경 요청",
+    "requestDelete": "삭제 요청",
+    "createDeleteRequest": "삭제 요청 생성",
     "requestRun": "실행 요청",
+    "cancel": "취소",
     "backToBatches": "배치 목록으로",
     "viewDetails": "상세"
+  },
+  "delete": {
+    "errors": {
+      "noSession": "삭제 요청을 생성하려면 GitHub 저장소를 먼저 연결하세요.",
+      "unknown": "삭제 요청을 생성하지 못했습니다."
+    }
   },
   "execution": {
     "blocked": "실행 불가",
@@ -93,6 +102,18 @@
     "change": {
       "title": "변경 요청",
       "description": "이 배치 정의와 생성 Workflow에 대한 통제된 변경 요청을 생성합니다."
+    },
+    "delete": {
+      "title": "삭제 요청",
+      "description": "이 배치 정의, 생성 Workflow, 등록된 실행 파일을 제거하는 통제 변경 요청을 생성합니다.",
+      "confirmationLabel": "확인을 위해 Batch ID 입력",
+      "blocked": "정확한 Batch ID를 입력한 뒤 삭제 요청을 생성할 수 있습니다."
+    },
+    "deleted": {
+      "badge": "삭제됨",
+      "description": "이 배치는 Workspace에서 더 이상 활성 상태가 아닙니다. 감사 검토를 위해 삭제 당시 정의와 실행 증적은 계속 확인할 수 있습니다.",
+      "openRequest": "원본 요청 #{{number}}",
+      "removedBy": "삭제 요청"
     },
     "schedules": {
       "title": "스케줄",

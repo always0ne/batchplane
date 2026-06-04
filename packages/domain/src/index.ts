@@ -391,6 +391,16 @@ export type CreateRegistrationPullRequestInput = {
   workflowYaml: string;
 };
 
+export type CreateBatchDeletionPullRequestInput = {
+  artifactPath?: string;
+  baseBranch: string;
+  batchDefinitionPath: string;
+  body: string;
+  branch: string;
+  title: string;
+  workflowPath: string;
+};
+
 export type CreateScheduleDefinitionPullRequestInput = {
   baseBranch: string;
   body: string;
@@ -426,6 +436,9 @@ export type RegistrationPort = {
   }): Promise<RegistrationTargetStatus>;
   createRegistrationPullRequest(
     params: CreateRegistrationPullRequestInput,
+  ): Promise<RepositoryPullRequest>;
+  createBatchDeletionPullRequest(
+    params: CreateBatchDeletionPullRequestInput,
   ): Promise<RepositoryPullRequest>;
 };
 

@@ -18,8 +18,11 @@ const pullRequest: RepositoryPullRequest = {
   body: [
     "## BatchPlane Registration",
     "",
+    "- Request type: REGISTER",
     "- Batch ID: `payment.daily-close`",
     "- Name: Daily Close",
+    "- Owner: ops-team",
+    "- Domain: payments",
     "- Environment: PROD",
     "- Criticality: HIGH",
     "- Workflow: `.github/workflows/payment.daily-close.yml`",
@@ -86,12 +89,15 @@ describe("registration approval model", () => {
           timezone: "Asia/Seoul",
         },
       ],
+      domain: "payments",
       environment: "PROD",
       executionFilePath:
         ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
       gateRequired: true,
       kind: "batch",
       name: "Daily Close",
+      owner: "ops-team",
+      requestType: "REGISTER",
       runsOn: "ubuntu-latest",
       schedules: [
         {
@@ -156,6 +162,79 @@ describe("registration approval model", () => {
     });
     expect(deriveRegistrationFilePaths(summary)).toEqual([
       ".batch-governance/schedules/payment.daily-close-daily.yml",
+    ]);
+  });
+
+  it("parses delete request evidence as an auditable deleted batch archive", () => {
+    const deletePullRequest: RepositoryPullRequest = {
+      ...pullRequest,
+      body: [
+        "## BatchPlane Deletion",
+        "",
+        "- Request type: DELETE",
+        "- Batch ID: `payment.daily-close`",
+        "- Name: Daily Close",
+        "- Owner: ops-team",
+        "- Domain: payments",
+        "- Environment: PROD",
+        "- Criticality: HIGH",
+        "- Workflow: `.github/workflows/payment.daily-close.yml`",
+        "- Runtime: GitHub Actions / BatchPlane Lite",
+        "- Runs on: ubuntu-latest",
+        "- BatchPlane Gate: required",
+        "- Execution file: `.batch-governance/batches/payment.daily-close/artifacts/run.sh`",
+        "- Schedule count: 1",
+        "- Schedule deletion count: 1",
+        "",
+        "### Delete scope",
+        "",
+        "- Batch definition: `.batch-governance/batches/payment.daily-close.yml`",
+        "- Workflow: `.github/workflows/payment.daily-close.yml`",
+        "- Execution file: `.batch-governance/batches/payment.daily-close/artifacts/run.sh`",
+        "",
+        "### Batch command",
+        "",
+        "```sh",
+        "./.batch-governance/batches/payment.daily-close/artifacts/run.sh",
+        "```",
+        "",
+        "### Schedule deletions",
+        "",
+        "#### Deleted schedule 1",
+        "- Batch ID: `payment.daily-close`",
+        "- Schedule ID: `payment.daily-close-daily`",
+        "- Name: Daily settlement window",
+        "- Batch definition: `.batch-governance/batches/payment.daily-close.yml`",
+        "- Cron: `0 5 * * *`",
+        "- Timezone: `Asia/Seoul`",
+        "- Enabled: true",
+      ].join("\n"),
+      head: "batchplane/delete/payment.daily-close-20260514010203",
+      merged: true,
+      state: "closed",
+      title: "Delete batch payment.daily-close",
+    };
+    const summary = parseRegistrationRequestSummary(deletePullRequest);
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        batchId: "payment.daily-close",
+        domain: "payments",
+        kind: "batch",
+        owner: "ops-team",
+        requestType: "DELETE",
+        workflowPath: ".github/workflows/payment.daily-close.yml",
+      }),
+    );
+    expect(summary.kind === "batch" ? summary.deletedSchedules : []).toEqual([
+      expect.objectContaining({
+        scheduleId: "payment.daily-close-daily",
+      }),
+    ]);
+    expect(deriveRegistrationFilePaths(summary)).toEqual([
+      ".batch-governance/batches/payment.daily-close.yml",
+      ".github/workflows/payment.daily-close.yml",
+      ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
     ]);
   });
 

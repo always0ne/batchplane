@@ -356,6 +356,8 @@ the UI compares:
 - registration branch ref (`pullRequest.head`)
 
 and classifies each file as `ADDED`, `UPDATED`, `UNCHANGED`, or `MISSING_HEAD`.
+`MISSING_HEAD` is rendered to users as a removed file when the pull request is a
+delete request.
 
 The screen must include:
 
@@ -364,6 +366,21 @@ The screen must include:
 - governance checklist
 - file status summary and head revision preview
 - refresh action
+
+Delete requests use the same registration approval detail contract with request
+type `DELETE`. The browser creates a branch from the target base branch, deletes
+the batch definition and generated workflow, deletes the optional execution
+artifact when present, and opens a pull request. If either the batch definition
+or workflow is missing on the base branch, the browser must block the delete
+request instead of creating a partial deletion request.
+
+When a batch definition is no longer present on the default branch, the batch
+detail route may recover a deleted batch archive by searching merged governed
+change pull requests for a `DELETE` request matching the Batch ID. The archive is
+read from the delete request body and must preserve enough fields to render the
+deleted batch profile, workflow, runner, command, schedules, and source request.
+Execution request Issues and workflow runs remain independent evidence and must
+still be queryable by Batch ID.
 
 Duplicate approval comments for the same request ID, Batch ID, and request
 digest must not create a second `workflow_dispatch` call once `DISPATCHING` or
