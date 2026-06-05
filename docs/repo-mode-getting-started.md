@@ -1,12 +1,13 @@
-# BatchPlane Lite Repo Mode Getting Started
+# BatchPlane Lite Workspace Getting Started
 
-BatchPlane Lite Repo Mode uses a GitHub repository as the governance store,
+BatchPlane Lite uses a GitHub-backed Workspace as the governance store,
 approval surface, dispatcher runtime, and audit trail. The React/Vite UI is
-static; it does not run a BatchPlane server.
+static; it does not run a BatchPlane server. In Lite, the Workspace is backed by
+one target GitHub repository.
 
 This guide covers the first complete Lite path:
 
-1. Prepare a target GitHub repository.
+1. Prepare a target GitHub repository for the Workspace.
 2. Connect it from the Workspace screen.
 3. Install BatchPlane Lite repository files.
 4. Register a batch through a pull request.
@@ -82,7 +83,7 @@ Open the Lite UI and go to Workspace.
 Enter:
 
 - Owner: GitHub user or organization
-- Repository: target repository name
+- Repository: target GitHub repository name
 - Token: fine-grained token
 
 Choose `Save session`, then `Check connection`.
@@ -149,16 +150,27 @@ spec:
     mode: "SELF_APPROVAL_BLOCKED"
 ```
 
-Supported modes:
+Supported approval modes:
 
-- `SELF_APPROVAL_BLOCKED`: default. Requester and approver must be different
-  users.
+- `SELF_APPROVAL_BLOCKED`: default four-eyes control. Requester and approver
+  must be different users. Use this for audit-heavy or production-like
+  Workspaces.
 - `SELF_APPROVAL_ALLOWED`: requester may approve their own execution request.
-  The approval remains explicit evidence and Gate still verifies it.
+  Use this for personal testing, demos, or low-risk automation where one user
+  operates the Workspace. The approval comment is still explicit evidence and
+  Gate still verifies the request, digest, approver authorization, dispatcher
+  actor, and batch definition.
 - `AUTO_APPROVE`: reserved until the separate auto-approval flow is implemented.
+  When implemented, it is a Workspace policy choice for lightweight scheduled or
+  delegated execution. The dispatcher still performs `workflow_dispatch`; the
+  browser UI must not dispatch governed workflows directly.
 
 Changing the approval mode from Workspace creates a pull request. The mode is
 active only after that pull request is merged.
+
+Relaxed modes reduce separation of duties; they do not remove evidence. Request
+payload, approval source, dispatcher state, Gate decision, and workflow run
+correlation must remain auditable.
 
 ## Register A Batch
 
@@ -291,8 +303,8 @@ Scheduled occurrences do not wait in the manual approvals inbox.
 
 ## Security Limitations
 
-Lite Repo Mode deliberately avoids a BatchPlane server. That makes setup simple,
-but it also means these limitations are part of the design:
+BatchPlane Lite deliberately avoids a BatchPlane server. That makes setup
+simple, but it also means these limitations are part of the design:
 
 - GitHub repository permissions, branch protection, PR review, Issues, and
   Actions are the trust boundary.

@@ -53,7 +53,7 @@
   },
   "states": {
     "loading": "Loading work items.",
-    "noSession": "Connect a GitHub repository to view your work.",
+    "noSession": "Connect a Workspace to view your work.",
     "empty": "No work items match this view.",
     "error": "My Work could not be loaded."
   },

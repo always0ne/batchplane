@@ -53,7 +53,7 @@
   },
   "states": {
     "loading": "처리 항목을 불러오고 있습니다.",
-    "noSession": "내처리함을 보려면 GitHub repository를 연결하세요.",
+    "noSession": "내처리함을 보려면 Workspace를 연결하세요.",
     "empty": "이 보기에는 처리 항목이 없습니다.",
     "error": "내처리함을 불러오지 못했습니다."
   },

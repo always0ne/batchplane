@@ -59,7 +59,7 @@ describe("AuditPage", () => {
 
     expect(
       await screen.findByText(
-        "Connect a GitHub repository to inspect the audit trail.",
+        "Connect a Workspace to inspect the audit trail.",
       ),
     ).toBeInTheDocument();
   });

@@ -506,7 +506,7 @@ export function buildWorkspacePolicyPullRequestBody(
   return [
     "## BatchPlane Workspace Policy",
     "",
-    "This pull request updates the repository-backed Workspace policy used by BatchPlane Lite and Gate.",
+    "This pull request updates the Workspace policy used by BatchPlane Lite and Gate.",
     "",
     "### Approval mode",
     "",

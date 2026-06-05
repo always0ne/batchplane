@@ -5,7 +5,7 @@
   "actions": {
     "githubRun": "GitHub run",
     "openRun": "Open run",
-    "openSetup": "Open setup",
+    "openSetup": "Open Workspace",
     "refresh": "Refresh"
   },
   "fields": {
@@ -31,7 +31,7 @@
   "states": {
     "error": "Failed to load execution runs.",
     "loading": "Loading execution runs...",
-    "noSession": "Connect a GitHub repository before reviewing executions."
+    "noSession": "Connect a Workspace before reviewing executions."
   },
   "status": {
     "BLOCKED": "Gate blocked",

@@ -4,7 +4,7 @@
   "actions": {
     "githubRun": "GitHub run",
     "openRun": "Run 열기",
-    "openSetup": "설정 열기",
+    "openSetup": "Workspace 열기",
     "recordFollowUp": "소명 작성",
     "refresh": "새로고침",
     "viewFollowUp": "소명 보기"
@@ -29,7 +29,7 @@
   "states": {
     "error": "실패 증적을 불러오지 못했습니다.",
     "loading": "실패 증적을 불러오는 중...",
-    "noSession": "실패내역을 보려면 GitHub 저장소를 먼저 연결하세요."
+    "noSession": "실패내역을 보려면 Workspace를 먼저 연결하세요."
   },
   "status": {
     "BLOCKED": "Gate 차단",

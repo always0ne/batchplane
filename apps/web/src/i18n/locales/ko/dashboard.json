@@ -2,16 +2,16 @@
   "title": "대시보드",
   "subtitle": "GitHub 증적 기반 Lite 통제 요약입니다.",
   "actions": {
-    "openSetup": "설정 열기",
+    "openSetup": "Workspace 열기",
     "viewApprovals": "승인함 보기"
   },
   "states": {
     "loading": "대시보드 요약을 불러오는 중...",
-    "noSession": "Lite 통제 상태를 보려면 GitHub 저장소를 연결하세요.",
+    "noSession": "Lite 통제 상태를 보려면 Workspace를 연결하세요.",
     "error": "대시보드 요약을 불러오지 못했습니다."
   },
   "connection": {
-    "title": "연결된 저장소",
+    "title": "연결된 Workspace",
     "connected": "연결됨",
     "user": "사용자",
     "defaultBranch": "기본 브랜치",
@@ -29,14 +29,14 @@
     "actionRequired": "조치 필요"
   },
   "cards": {
-    "repoReadiness": "Repository 준비 상태",
+    "repoReadiness": "Workspace 준비 상태",
     "pendingApprovals": "승인 대기",
     "failedRuns": "실패 실행",
     "gateBlocked": "Gate 차단 실행",
     "auditTrail": "감사 trail"
   },
   "cardHints": {
-    "repoReadiness": "설치 상태 확인",
+    "repoReadiness": "Workspace 상태 확인",
     "pendingApprovals": "승인함 열기",
     "failedRuns": "승인 업무가 아닌 조사 대상",
     "gateBlocked": "승인 업무가 아닌 Gate 증적",

@@ -4,7 +4,7 @@
   "actions": {
     "backToBatches": "Back to batches",
     "createRequest": "Create execution request",
-    "openSetup": "Open setup"
+    "openSetup": "Open Workspace"
   },
   "context": {
     "command": "Batch command",
@@ -51,7 +51,7 @@
       "expiresAt": "Expires at",
       "issueState": "Issue state",
       "reason": "Reason",
-      "repository": "Repository",
+      "repository": "Workspace",
       "requestDigest": "Request digest",
       "requestedAt": "Requested at",
       "requestedBy": "Requested by",
@@ -79,7 +79,7 @@
     "states": {
       "error": "Failed to load execution request detail.",
       "loading": "Loading execution request detail...",
-      "noSession": "Connect a GitHub repository before reviewing execution requests.",
+      "noSession": "Connect a Workspace before reviewing execution requests.",
       "notFound": "Execution request Issue #{{issueNumber}} was not found."
     },
     "status": {
@@ -206,7 +206,7 @@
       "actionsPermission": "GitHub Actions read permission is required to load run evidence and job log links. Check the token permissions for this private repository.",
       "error": "Failed to load execution run detail.",
       "loading": "Loading execution run detail...",
-      "noSession": "Connect a GitHub repository before viewing execution runs.",
+      "noSession": "Connect a Workspace before viewing execution runs.",
       "notFound": "Execution run {{runId}} was not found."
     },
     "status": {
@@ -266,7 +266,7 @@
     "created": "Execution request was created.",
     "error": "Failed to load execution request form.",
     "loading": "Loading execution request form...",
-    "noSession": "Connect a GitHub repository before requesting execution.",
+    "noSession": "Connect a Workspace before requesting execution.",
     "notFound": "Batch {{batchId}} was not found.",
     "previewError": "Failed to update request preview.",
     "submitError": "Failed to create execution request."

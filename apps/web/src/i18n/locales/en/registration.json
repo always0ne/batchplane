@@ -96,7 +96,7 @@
     "createPullRequest": "Create registration PR",
     "createChangePullRequest": "Create change PR",
     "openApprovals": "Review in approvals",
-    "openSetup": "Open setup"
+    "openSetup": "Open Workspace"
   },
   "result": {
     "success": "Registration pull request created.",
@@ -106,11 +106,11 @@
     "changeLoading": "Loading the current governed batch definition.",
     "changeLoadError": "Failed to load the current batch definition for change mode.",
     "changeNotFound": "Batch {{batchId}} was not found.",
-    "noSession": "Connect a GitHub repository in setup before loading change mode."
+    "noSession": "Connect a Workspace before loading change mode."
   },
   "errors": {
     "required": "Required fields are missing: {{fields}}",
-    "noSession": "Connect a GitHub repository in setup before creating a registration PR.",
+    "noSession": "Connect a Workspace before creating a registration PR.",
     "alreadyExists": "A batch definition already exists at {{path}}.",
     "changeMissingDefinition": "The governed batch definition was not found at {{path}}.",
     "scheduleAlreadyExists": "A schedule with the same ID already exists in {{path}}.",

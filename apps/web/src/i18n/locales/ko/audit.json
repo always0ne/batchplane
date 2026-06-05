@@ -22,7 +22,7 @@
   },
   "states": {
     "loading": "감사 타임라인을 불러오고 있습니다.",
-    "noSession": "감사 Trail을 보려면 GitHub repository를 연결하세요.",
+    "noSession": "감사 Trail을 보려면 Workspace를 연결하세요.",
     "empty": "조건에 맞는 감사 기록이 없습니다.",
     "error": "감사 타임라인을 불러오지 못했습니다."
   },

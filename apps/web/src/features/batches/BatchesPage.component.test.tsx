@@ -61,13 +61,12 @@ describe("BatchesPage", () => {
 
     expect(
       await screen.findByText(
-        "Connect a GitHub repository before viewing governed batches.",
+        "Connect a Workspace before viewing governed batches.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open setup" })).toHaveAttribute(
-      "href",
-      "/lite/setup",
-    );
+    expect(
+      screen.getByRole("link", { name: "Open Workspace" }),
+    ).toHaveAttribute("href", "/lite/setup");
   });
 
   it("renders the loading state while batch definitions are being fetched", () => {
