@@ -96,8 +96,9 @@ Lite must read as one connected operational flow:
 - Generated workflow updates must create a pull request from the Workspace
   screen. The UI must not write workflow files directly to the default branch,
   and it must not present repository-owned policy files as template drift.
-- `AUTO_APPROVE` may be visible as reserved future scope, but it must not be
-  actionable until the auto-approval implementation exists.
+- `AUTO_APPROVE` must explain that execution requests receive explicit
+  Workspace-policy approval evidence automatically after Issue creation. The UI
+  still must not dispatch governed workflows directly.
 
 ## Gate UX Rules
 

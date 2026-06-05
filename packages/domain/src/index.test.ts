@@ -543,6 +543,30 @@ describe("execution request builders", () => {
       }),
     ).toContain("approvalType=SCHEDULE_DELEGATED");
   });
+
+  it("builds Workspace auto-approval comments", () => {
+    const comment = buildExecutionApprovalComment({
+      approvalMode: "AUTO_APPROVE",
+      approvalType: "WORKSPACE_AUTO_APPROVED",
+      approvedAt: new Date("2026-05-13T05:01:30.000Z"),
+      approver: "developer",
+      request: {
+        batchId: "payment.daily-close",
+        requestDigest:
+          "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        requestId: "btr-20260513050000-payment.daily-close-abcdef12",
+        requestedBy: "developer",
+      },
+    });
+
+    expect(comment).toContain("- Approval mode: AUTO_APPROVE");
+    expect(comment).toContain("- Approval type: WORKSPACE_AUTO_APPROVED");
+    expect(comment).toContain("- Approval source: WORKSPACE_POLICY");
+    expect(comment).toContain("approvalMode=AUTO_APPROVE");
+    expect(comment).toContain("approvalType=WORKSPACE_AUTO_APPROVED");
+    expect(comment).toContain("approvalSource=WORKSPACE_POLICY");
+    expect(comment).not.toContain("selfApproval=true");
+  });
 });
 
 describe("domain schema validation", () => {

@@ -249,6 +249,7 @@
   },
   "review": {
     "commandReady": "Batch command is included in the request payload.",
+    "autoApproval": "Workspace policy auto-approves this request after Issue creation. BatchPlane records approval evidence only; the dispatcher still performs workflow_dispatch.",
     "digest": "Request digest",
     "digestReady": "Request digest will be written to the Issue marker.",
     "expiresAt": "Expires at",

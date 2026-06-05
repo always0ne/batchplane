@@ -651,7 +651,7 @@ function buildGovernanceReadme(): string {
     "This directory stores BatchPlane Lite definitions and audit evidence that are reviewed through GitHub pull requests and issues.",
     "",
     "- `batches/`: approved batch definitions and optional execution artifacts",
-    "- `workspace.yml`: Workspace-level approval mode. Default is `SELF_APPROVAL_BLOCKED`; use `SELF_APPROVAL_ALLOWED` only when the repository intentionally permits requester approval.",
+    "- `workspace.yml`: Workspace-level approval mode. Default is `SELF_APPROVAL_BLOCKED`; use `SELF_APPROVAL_ALLOWED` for explicit requester approval or `AUTO_APPROVE` for automatic Workspace-policy approval evidence.",
     "- `policies/role-mapping.yml`: repository-side approver role mapping used by Gate when self-approval is not explicitly allowed.",
     "- `.github/workflows/batchplane-sample-target.yml`: sample governed target workflow",
     "",

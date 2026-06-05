@@ -120,9 +120,13 @@ Supported `spec.approval.mode` values are:
 - `SELF_APPROVAL_ALLOWED`: requester may approve their own execution request.
   The approval remains explicit audit evidence and Gate still verifies
   authorization, request digest, dispatcher actor, and batch definition.
-- `AUTO_APPROVE`: reserved for a separate auto-approval implementation. When
-  implemented, dispatcher remains responsible for `workflow_dispatch`; the
-  browser UI must not dispatch governed workflows directly.
+- `AUTO_APPROVE`: automatic Workspace-policy approval. Request creation records
+  explicit approval evidence with `approvalType=WORKSPACE_AUTO_APPROVED` and
+  `approvalMode=AUTO_APPROVE`; the evidence must also identify
+  `approvalSource=WORKSPACE_POLICY`. Gate allows that evidence only when the
+  merged Workspace policy is `AUTO_APPROVE`. Dispatcher remains responsible for
+  `workflow_dispatch`; the browser UI must not dispatch governed workflows
+  directly.
 
 If `.batch-governance/workspace.yml` is missing, UI and Gate must treat the
 mode as `SELF_APPROVAL_BLOCKED`. UI-only local settings must not weaken approval policy,
@@ -131,9 +135,7 @@ Actions.
 
 The Workspace screen may expose approval mode as a selectable setting, but save
 must create a pull request that updates `.batch-governance/workspace.yml`.
-Merging that pull request is the policy activation step. `AUTO_APPROVE` must be
-rendered as reserved or disabled until the separate auto-approval flow is
-implemented.
+Merging that pull request is the policy activation step.
 
 Relaxed approval modes are product policy choices, not local convenience
 switches. They reduce separation of duties, but request evidence, approval

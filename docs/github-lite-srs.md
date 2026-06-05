@@ -287,9 +287,10 @@ policy choice for personal testing, demos, or low-risk automation where the
 same operator may request and approve. In that mode, the approval comment must
 make self-approval explicit and Gate must still verify approval evidence, batch
 definition, dispatcher actor, request digest, and approver authorization.
-`AUTO_APPROVE` is reserved for a separate implementation and must not be
-treated as implemented self-approval by the UI. When implemented, auto-approval
-must still create auditable request/approval evidence and the dispatcher
+`AUTO_APPROVE` is an explicit Workspace policy choice. In this mode, manual
+execution request creation must also create auditable approval evidence with an
+auto-approval source/type and `approvalMode=AUTO_APPROVE`. Gate must allow that
+evidence only when the merged Workspace policy is `AUTO_APPROVE`. The dispatcher
 workflow must remain responsible for `workflow_dispatch`.
 
 The Workspace screen must allow an operator to prepare a Workspace policy

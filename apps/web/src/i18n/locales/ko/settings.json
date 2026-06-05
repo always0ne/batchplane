@@ -52,7 +52,7 @@
     "createPullRequest": "정책 PR 생성",
     "success": "Workspace 정책 Pull Request가 생성되었습니다.",
     "selfApprovalNotice": "정책 PR이 머지되면 요청자 자가승인이 허용됩니다. 승인은 명시적인 증적으로 계속 기록됩니다.",
-    "autoApproveReserved": "자동승인은 별도 구현 전까지 활성화할 수 없습니다.",
+    "autoApproveNotice": "정책 PR이 머지되면 실행 요청은 Workspace 정책에 따라 자동 승인됩니다. UI는 명시적인 승인 증적만 기록하고 workflow_dispatch는 dispatcher가 수행합니다.",
     "modes": {
       "SELF_APPROVAL_BLOCKED": "자가승인 금지",
       "SELF_APPROVAL_ALLOWED": "자가승인 허용",

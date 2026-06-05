@@ -291,6 +291,21 @@ export async function verifyLiteAuthorization(
     );
   }
 
+  if (evidence.approval.approvalType === "WORKSPACE_AUTO_APPROVED") {
+    if (workspaceApprovalMode !== "AUTO_APPROVE") {
+      return deny(
+        "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
+        "Workspace auto-approval evidence requires AUTO_APPROVE policy mode.",
+      );
+    }
+
+    return {
+      result: "ALLOW",
+      message:
+        "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
+    };
+  }
+
   if (
     evidence.approval.approver === evidence.request.requestedBy &&
     workspaceApprovalMode !== "SELF_APPROVAL_ALLOWED"

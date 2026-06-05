@@ -9358,6 +9358,7 @@ function buildExecutionApprovalComment({
 }) {
   const selfApproval = approver === request.requestedBy;
   const scheduleDelegated = approvalType === "SCHEDULE_DELEGATED";
+  const workspaceAutoApproved = approvalType === "WORKSPACE_AUTO_APPROVED";
   return [
     `/bgcp approve requestDigest=${request.requestDigest}`,
     "",
@@ -9368,7 +9369,9 @@ function buildExecutionApprovalComment({
     `- Approved at: ${approvedAt.toISOString()}`,
     ...approvalMode ? [`- Approval mode: ${approvalMode}`] : [],
     ...scheduleDelegated ? ["- Approval type: SCHEDULE_DELEGATED"] : [],
-    ...!scheduleDelegated && selfApproval ? ["- Self approval: ALLOWED_BY_WORKSPACE_POLICY"] : [],
+    ...workspaceAutoApproved ? ["- Approval type: WORKSPACE_AUTO_APPROVED"] : [],
+    ...workspaceAutoApproved ? ["- Approval source: WORKSPACE_POLICY"] : [],
+    ...!scheduleDelegated && !workspaceAutoApproved && selfApproval ? ["- Self approval: ALLOWED_BY_WORKSPACE_POLICY"] : [],
     `- Request ID: \`${request.requestId}\``,
     `- Batch ID: \`${request.batchId}\``,
     `- Request digest: \`${request.requestDigest}\``,
@@ -9382,7 +9385,9 @@ function buildExecutionApprovalComment({
     `requestDigest=${request.requestDigest}`,
     ...approvalMode ? [`approvalMode=${approvalMode}`] : [],
     ...scheduleDelegated ? ["approvalType=SCHEDULE_DELEGATED"] : [],
-    ...!scheduleDelegated && selfApproval ? ["selfApproval=true"] : [],
+    ...workspaceAutoApproved ? ["approvalType=WORKSPACE_AUTO_APPROVED"] : [],
+    ...workspaceAutoApproved ? ["approvalSource=WORKSPACE_POLICY"] : [],
+    ...!scheduleDelegated && !workspaceAutoApproved && selfApproval ? ["selfApproval=true"] : [],
     "-->"
   ].join("\n");
 }

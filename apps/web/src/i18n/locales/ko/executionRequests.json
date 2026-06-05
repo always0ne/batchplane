@@ -249,6 +249,7 @@
   },
   "review": {
     "commandReady": "배치 명령이 요청 payload에 포함됩니다.",
+    "autoApproval": "Workspace 정책에 따라 Issue 생성 후 이 요청은 자동 승인됩니다. BatchPlane은 승인 증적만 기록하고 workflow_dispatch는 dispatcher가 수행합니다.",
     "digest": "Request digest",
     "digestReady": "Request digest가 Issue marker에 기록됩니다.",
     "expiresAt": "만료 시각",

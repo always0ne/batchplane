@@ -52,7 +52,7 @@
     "createPullRequest": "Create policy PR",
     "success": "Workspace policy pull request created.",
     "selfApprovalNotice": "Requester self-approval will be allowed after this policy PR is merged. The approval remains explicit evidence.",
-    "autoApproveReserved": "Auto-approve is reserved for a separate implementation and cannot be enabled yet.",
+    "autoApproveNotice": "After this policy PR is merged, execution requests are approved automatically by Workspace policy. The UI records explicit approval evidence; the dispatcher still performs workflow_dispatch.",
     "modes": {
       "SELF_APPROVAL_BLOCKED": "Self-approval blocked",
       "SELF_APPROVAL_ALLOWED": "Self-approval allowed",

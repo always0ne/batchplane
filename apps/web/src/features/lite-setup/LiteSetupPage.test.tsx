@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import "../../i18n/i18n";
+import { writeRuntimeFixtureSelection } from "../../runtime/runtime-fixtures";
 import { LiteSetupPage } from "./LiteSetupPage";
 import { githubSessionStorageKey } from "./github-session";
 
@@ -57,7 +58,7 @@ describe("LiteSetupPage", () => {
   });
 
   it("creates a Workspace policy PR for self-approval mode", async () => {
-    sessionStorage.setItem("batchplane.dev.runtimeFixture", "happy-path");
+    writeRuntimeFixtureSelection("happy-path");
 
     render(<LiteSetupPage />);
 
@@ -87,8 +88,44 @@ describe("LiteSetupPage", () => {
     );
   });
 
+  it("creates a Workspace policy PR for auto-approval mode", async () => {
+    writeRuntimeFixtureSelection("happy-path");
+
+    render(<LiteSetupPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Check connection" }));
+
+    expect(
+      await screen.findByText("Self-approval blocked"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Approval mode"), {
+      target: { value: "AUTO_APPROVE" },
+    });
+    expect(
+      await screen.findByText(
+        "After this policy PR is merged, execution requests are approved automatically by Workspace policy. The UI records explicit approval evidence; the dispatcher still performs workflow_dispatch.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create policy PR" }));
+
+    expect(
+      await screen.findByText("Workspace policy pull request created."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: /^#\d+ Update BatchPlane Workspace policy$/,
+      }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringMatching(
+        /^https:\/\/github\.com\/always0ne\/batch\/pull\/\d+$/,
+      ),
+    );
+  });
+
   it("creates a Workspace workflow update PR when installed workflows are outdated", async () => {
-    sessionStorage.setItem("batchplane.dev.runtimeFixture", "happy-path");
+    writeRuntimeFixtureSelection("happy-path");
 
     render(<LiteSetupPage />);
 
