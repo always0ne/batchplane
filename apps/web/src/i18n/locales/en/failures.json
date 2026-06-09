@@ -2,6 +2,7 @@
   "title": "Failures",
   "subtitle": "Separate business failures from governance blocks.",
   "actions": {
+    "clearContext": "Clear context",
     "githubRun": "GitHub run",
     "openRun": "Open run",
     "openSetup": "Open Workspace",
@@ -10,6 +11,7 @@
     "viewFollowUp": "View follow-up"
   },
   "fields": {
+    "batchId": "Batch ID",
     "completedAt": "Completed",
     "requestId": "Request ID",
     "runId": "Run ID",
@@ -21,6 +23,7 @@
     "failed": "Business failed"
   },
   "list": {
+    "contextFilter": "Filtered by request context",
     "empty": "No failed or Gate-blocked workflow runs match this filter.",
     "subtitle": "{{count}} run is in the follow-up scope.",
     "subtitle_plural": "{{count}} runs are in the follow-up scope.",

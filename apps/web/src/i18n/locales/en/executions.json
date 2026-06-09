@@ -3,12 +3,14 @@
   "subtitle": "Inspect workflow runs and follow-up evidence.",
   "approveCommand": "/bgcp approve requestDigest=...",
   "actions": {
+    "clearContext": "Clear context",
     "githubRun": "GitHub run",
     "openRun": "Open run",
     "openSetup": "Open Workspace",
     "refresh": "Refresh"
   },
   "fields": {
+    "batchId": "Batch ID",
     "completedAt": "Completed",
     "requestId": "Request ID",
     "runId": "Run ID",
@@ -23,6 +25,7 @@
     "succeeded": "Succeeded"
   },
   "list": {
+    "contextFilter": "Filtered by request context",
     "empty": "No workflow runs match this filter.",
     "subtitle": "{{count}} run is visible.",
     "subtitle_plural": "{{count}} runs are visible.",

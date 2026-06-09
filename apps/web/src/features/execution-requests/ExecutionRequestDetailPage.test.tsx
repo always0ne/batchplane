@@ -162,6 +162,12 @@ describe("ExecutionRequestDetailPage", () => {
     expect((await screen.findAllByText("Dispatched")).length).toBeGreaterThan(
       0,
     );
+    expect(
+      screen.getByRole("link", { name: "View execution history" }),
+    ).toHaveAttribute(
+      "href",
+      "/runs?batchId=payment.daily-close&requestId=btr-20260514010400-payment.daily-close-00000004",
+    );
     expect(screen.getByText(/DISPATCHED @/)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Approve execution" }),

@@ -47,6 +47,10 @@ type ExecutionRunFilter =
   | "failed"
   | "succeeded";
 type ExecutionRunListView = "executions" | "failures";
+type ExecutionRunQueryFilter = {
+  batchId: string;
+  requestId: string;
+};
 
 const executionRunFilters = [
   "all",
@@ -69,6 +73,7 @@ export function ExecutionRunListPage({
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<PageState>({ type: "loading" });
   const activeFilter = readExecutionRunFilter(searchParams, view);
+  const queryFilter = readExecutionRunQueryFilter(searchParams);
 
   useEffect(() => {
     let ignoreResult = false;
@@ -113,12 +118,23 @@ export function ExecutionRunListPage({
   }, [createRuntime, readSession, reloadToken, t]);
 
   function changeFilter(filter: ExecutionRunFilter) {
+    const nextSearchParams = new URLSearchParams(searchParams);
+
     if (filter === "all") {
-      setSearchParams({});
+      nextSearchParams.delete("type");
+      setSearchParams(nextSearchParams);
       return;
     }
 
-    setSearchParams({ type: filter });
+    nextSearchParams.set("type", filter);
+    setSearchParams(nextSearchParams);
+  }
+
+  function clearQueryFilter() {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete("batchId");
+    nextSearchParams.delete("requestId");
+    setSearchParams(nextSearchParams);
   }
 
   return (
@@ -137,7 +153,9 @@ export function ExecutionRunListPage({
       <ExecutionRunListContent
         activeFilter={activeFilter}
         namespace={namespace}
+        onClearQueryFilter={clearQueryFilter}
         onFilterChange={changeFilter}
+        queryFilter={queryFilter}
         state={state}
         view={view}
       />
@@ -148,13 +166,17 @@ export function ExecutionRunListPage({
 function ExecutionRunListContent({
   activeFilter,
   namespace,
+  onClearQueryFilter,
   onFilterChange,
+  queryFilter,
   state,
   view,
 }: {
   activeFilter: ExecutionRunFilter;
   namespace: "executions" | "failures";
+  onClearQueryFilter: () => void;
   onFilterChange: (filter: ExecutionRunFilter) => void;
+  queryFilter: ExecutionRunQueryFilter;
   state: PageState;
   view: ExecutionRunListView;
 }) {
@@ -188,7 +210,9 @@ function ExecutionRunListContent({
     <LoadedExecutionRunList
       activeFilter={activeFilter}
       namespace={namespace}
+      onClearQueryFilter={onClearQueryFilter}
       onFilterChange={onFilterChange}
+      queryFilter={queryFilter}
       runs={state.runs}
       view={view}
     />
@@ -198,20 +222,27 @@ function ExecutionRunListContent({
 function LoadedExecutionRunList({
   activeFilter,
   namespace,
+  onClearQueryFilter,
   onFilterChange,
+  queryFilter,
   runs,
   view,
 }: {
   activeFilter: ExecutionRunFilter;
   namespace: "executions" | "failures";
+  onClearQueryFilter: () => void;
   onFilterChange: (filter: ExecutionRunFilter) => void;
+  queryFilter: ExecutionRunQueryFilter;
   runs: ExecutionRun[];
   view: ExecutionRunListView;
 }) {
   const { t } = useTranslation(namespace);
   const visibleRuns = useMemo(
-    () => (view === "failures" ? runs.filter(isFollowUpRun) : runs),
-    [runs, view],
+    () =>
+      (view === "failures" ? runs.filter(isFollowUpRun) : runs).filter((run) =>
+        matchesQueryFilter(run, queryFilter),
+      ),
+    [queryFilter, runs, view],
   );
   const filteredRuns = useMemo(
     () => visibleRuns.filter((run) => matchesFilter(run, activeFilter)),
@@ -307,6 +338,31 @@ function LoadedExecutionRunList({
             ))}
           </div>
         </div>
+
+        {hasQueryFilter(queryFilter) ? (
+          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm text-bp-muted">
+            <span className="font-semibold text-bp-graphite">
+              {t("list.contextFilter")}
+            </span>
+            {queryFilter.batchId ? (
+              <span className="font-mono text-xs font-semibold">
+                {t("fields.batchId")}: {queryFilter.batchId}
+              </span>
+            ) : null}
+            {queryFilter.requestId ? (
+              <span className="font-mono text-xs font-semibold">
+                {t("fields.requestId")}: {queryFilter.requestId}
+              </span>
+            ) : null}
+            <button
+              className="ml-auto text-sm font-semibold text-bp-control underline"
+              onClick={onClearQueryFilter}
+              type="button"
+            >
+              {t("actions.clearContext")}
+            </button>
+          </div>
+        ) : null}
 
         {filteredRuns.length === 0 ? (
           <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
@@ -500,6 +556,20 @@ function matchesFilter(run: ExecutionRun, filter: ExecutionRunFilter): boolean {
   return run.status === "SUCCEEDED";
 }
 
+function matchesQueryFilter(
+  run: ExecutionRun,
+  filter: ExecutionRunQueryFilter,
+): boolean {
+  return (
+    (!filter.batchId || run.batchId === filter.batchId) &&
+    (!filter.requestId || run.requestId === filter.requestId)
+  );
+}
+
+function hasQueryFilter(filter: ExecutionRunQueryFilter): boolean {
+  return filter.batchId !== "" || filter.requestId !== "";
+}
+
 function isFollowUpRun(run: ExecutionRun): boolean {
   return run.status === "FAILED" || run.status === "BLOCKED";
 }
@@ -617,4 +687,13 @@ function readExecutionRunFilter(
     validFilter !== "blocked"
     ? "all"
     : validFilter;
+}
+
+function readExecutionRunQueryFilter(
+  searchParams: URLSearchParams,
+): ExecutionRunQueryFilter {
+  return {
+    batchId: searchParams.get("batchId")?.trim() ?? "",
+    requestId: searchParams.get("requestId")?.trim() ?? "",
+  };
 }

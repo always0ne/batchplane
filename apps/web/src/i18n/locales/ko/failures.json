@@ -2,6 +2,7 @@
   "title": "실패내역",
   "subtitle": "업무 실패와 통제 차단을 분리해서 확인합니다.",
   "actions": {
+    "clearContext": "필터 해제",
     "githubRun": "GitHub run",
     "openRun": "Run 열기",
     "openSetup": "Workspace 열기",
@@ -10,6 +11,7 @@
     "viewFollowUp": "소명 보기"
   },
   "fields": {
+    "batchId": "Batch ID",
     "completedAt": "완료",
     "requestId": "Request ID",
     "runId": "Run ID",
@@ -21,6 +23,7 @@
     "failed": "업무 실패"
   },
   "list": {
+    "contextFilter": "요청 기준 필터",
     "empty": "조건에 맞는 실패 또는 Gate 차단 workflow run이 없습니다.",
     "subtitle": "{{count}}건의 후속 확인 대상이 있습니다.",
     "subtitle_plural": "{{count}}건의 후속 확인 대상이 있습니다.",
