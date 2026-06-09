@@ -188,6 +188,15 @@ describe("approval model", () => {
         pullRequest,
       }),
     ).toContain("Decision: APPROVED");
+    expect(
+      buildRegistrationApprovalComment({
+        approvalMode: "AUTO_APPROVE",
+        approvalType: "WORKSPACE_AUTO_APPROVED",
+        approvedAt: new Date("2026-05-09T01:02:03.000Z"),
+        approver: "maintainer",
+        pullRequest,
+      }),
+    ).toContain("Approval source: WORKSPACE_POLICY");
   });
 
   it("builds an auditable rejection comment", () => {

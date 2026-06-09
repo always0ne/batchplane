@@ -39,6 +39,7 @@ import {
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
+import { approveGovernedChangeIfAutoApprovalEnabled } from "../approvals/governed-change-auto-approval";
 import {
   buildSchedulePullRequestBody,
   buildSchedulePullRequestTitle,
@@ -335,6 +336,12 @@ export function ScheduleDefinitionPage({
           scheduleDefinitionYaml: yaml,
           title,
         });
+
+      await approveGovernedChangeIfAutoApprovalEnabled({
+        defaultBranch: repository.defaultBranch,
+        pullRequest,
+        runtime,
+      });
 
       setSubmissionState({ type: "success", pullRequest });
       navigate(`/approvals/registration/${pullRequest.number}`);

@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { parseExecutionRequestDetail } from "../approvals/approval-model";
+import { approveGovernedChangeIfAutoApprovalEnabled } from "../approvals/governed-change-auto-approval";
 import {
   parseRegistrationRequestSummary,
   type BatchRegistrationRequestBodySummary,
@@ -670,6 +671,12 @@ function RequestActionsCard({
           workflowPath:
             batch.workflow.path || getBatchWorkflowPath(batch.batchId),
         });
+
+      await approveGovernedChangeIfAutoApprovalEnabled({
+        defaultBranch,
+        pullRequest,
+        runtime,
+      });
 
       navigate(`/approvals/registration/${pullRequest.number}`);
     } catch (error) {

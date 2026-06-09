@@ -1,5 +1,6 @@
 import type {
   BatchDefinition,
+  BatchPlaneRuntimePorts,
   BatchStatus,
   Criticality,
   RepositoryPullRequest,
@@ -46,6 +47,8 @@ import {
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
+import { approveGovernedChangeIfAutoApprovalEnabled } from "../approvals/governed-change-auto-approval";
+import type { GitHubSession } from "../lite-setup/github-session";
 import {
   buildBatchWorkflowYaml,
   buildRegistrationPullRequestBody,
@@ -89,6 +92,11 @@ type ScheduleDraft = {
   values: ScheduleFormValues;
 };
 
+type BatchRegistrationPageProps = {
+  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
+  readSession?: () => GitHubSession | null;
+};
+
 type PrefillState =
   | { type: "ready" }
   | { type: "loading" }
@@ -107,7 +115,10 @@ const runnerOptions = [
 ] as const;
 let scheduleDraftSequence = 0;
 
-export function BatchRegistrationPage() {
+export function BatchRegistrationPage({
+  createRuntime = createBatchPlaneRuntime,
+  readSession = readRuntimeSession,
+}: BatchRegistrationPageProps = {}) {
   const { t } = useTranslation("registration");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -288,7 +299,7 @@ export function BatchRegistrationPage() {
         return;
       }
 
-      const session = readRuntimeSession();
+      const session = readSession();
 
       if (!session) {
         setPreviewState({ type: "no-session" });
@@ -298,7 +309,7 @@ export function BatchRegistrationPage() {
       setPreviewState({ type: "loading" });
 
       try {
-        const runtime = createBatchPlaneRuntime(session);
+        const runtime = createRuntime(session);
         const repository = await runtime.settings.getRepository();
         const files = await runtime.registration.previewGovernedChangeFiles({
           baseBranch: repository.defaultBranch,
@@ -323,7 +334,15 @@ export function BatchRegistrationPage() {
     return () => {
       ignoreResult = true;
     };
-  }, [batchPath, definition.batchId, previewFiles, t, workflowPath]);
+  }, [
+    batchPath,
+    createRuntime,
+    definition.batchId,
+    previewFiles,
+    readSession,
+    t,
+    workflowPath,
+  ]);
 
   useEffect(() => {
     if (mode === "change") {
@@ -346,7 +365,7 @@ export function BatchRegistrationPage() {
     let ignoreResult = false;
 
     async function loadChangeTarget() {
-      const session = readRuntimeSession();
+      const session = readSession();
 
       if (!session) {
         if (!ignoreResult) {
@@ -358,7 +377,7 @@ export function BatchRegistrationPage() {
       setPrefillState({ type: "loading" });
 
       try {
-        const runtime = createBatchPlaneRuntime(session);
+        const runtime = createRuntime(session);
         const repository = await runtime.settings.getRepository();
         const [batches, schedules] = await Promise.all([
           runtime.batches.listBatchDefinitions({
@@ -401,7 +420,7 @@ export function BatchRegistrationPage() {
     return () => {
       ignoreResult = true;
     };
-  }, [changeBatchId, mode, t]);
+  }, [changeBatchId, createRuntime, mode, readSession, t]);
 
   function applyPrefill(
     batch: BatchDefinition,
@@ -515,7 +534,7 @@ export function BatchRegistrationPage() {
       return;
     }
 
-    const session = readRuntimeSession();
+    const session = readSession();
 
     if (!session) {
       setSubmissionState({
@@ -528,7 +547,7 @@ export function BatchRegistrationPage() {
     setSubmissionState({ type: "submitting" });
 
     try {
-      const runtime = createBatchPlaneRuntime(session);
+      const runtime = createRuntime(session);
       const repository = await runtime.settings.getRepository();
       const [registrationTargets, existingSchedules] = await Promise.all([
         runtime.registration.checkRegistrationTargets({
@@ -621,6 +640,12 @@ export function BatchRegistrationPage() {
           workflowPath,
           workflowYaml: generatedWorkflowYaml,
         });
+
+      await approveGovernedChangeIfAutoApprovalEnabled({
+        defaultBranch: repository.defaultBranch,
+        pullRequest,
+        runtime,
+      });
 
       setSubmissionState({ type: "success", pullRequest });
       navigate(`/approvals/registration/${pullRequest.number}`);
