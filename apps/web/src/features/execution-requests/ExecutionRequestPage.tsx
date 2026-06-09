@@ -272,21 +272,45 @@ export function ExecutionRequestPage({
         title: previewState.issue.title,
       });
 
+      let navigationState:
+        | {
+            executionApprovalRecorded: {
+              actor: string;
+              decidedAt: string;
+              issueNumber: number;
+              requestId: string;
+            };
+          }
+        | undefined;
+
       if (isAutoApprovalEnabled(state.workspacePolicy)) {
+        const approvedAt = new Date();
+
         await runtime.approvals.approveExecution({
           body: buildExecutionApprovalComment({
             approvalMode: state.workspacePolicy.approval.mode,
             approvalType: "WORKSPACE_AUTO_APPROVED",
-            approvedAt: new Date(),
+            approvedAt,
             approver: state.login,
             request: previewState.issue.request,
           }),
           issueNumber: issue.number,
         });
+
+        navigationState = {
+          executionApprovalRecorded: {
+            actor: state.login,
+            decidedAt: approvedAt.toISOString(),
+            issueNumber: issue.number,
+            requestId: previewState.issue.request.requestId,
+          },
+        };
       }
 
       setSubmitState({ type: "success", issue });
-      navigate(`/execution-requests/${issue.number}`);
+      navigate(`/execution-requests/${issue.number}`, {
+        state: navigationState,
+      });
     } catch (error) {
       setSubmitState({
         type: "error",

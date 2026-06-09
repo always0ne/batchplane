@@ -104,9 +104,16 @@ describe("ExecutionRequestPage", () => {
       sha: "workspace-policy-auto-approve-sha",
     });
     const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
 
     renderExecutionRequestPage({
-      createRuntime: () => createGitHubLiteRuntime(session, { client }),
+      createRuntime: () => ({
+        ...runtime,
+        approvals: {
+          ...runtime.approvals,
+          listExecutionRequestComments: async () => [],
+        },
+      }),
       readSession: () => session,
     });
 
@@ -127,6 +134,12 @@ describe("ExecutionRequestPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Execution request detail" }),
     ).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("Approval recorded")).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", { name: "Approve execution" }),
+    ).not.toBeInTheDocument();
     await waitFor(() => {
       expect(
         client.state.issueComments.some(

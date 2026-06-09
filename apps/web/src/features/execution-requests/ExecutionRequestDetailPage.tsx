@@ -11,7 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -64,11 +64,21 @@ type ActionState =
   | { type: "success"; message: string }
   | { type: "error"; message: string };
 
+type ExecutionApprovalRecordedNavigationState = {
+  executionApprovalRecorded: {
+    actor: string;
+    decidedAt: string;
+    issueNumber: number;
+    requestId: string;
+  };
+};
+
 export function ExecutionRequestDetailPage({
   createRuntime = createBatchPlaneRuntime,
   readSession = readRuntimeSession,
 }: ExecutionRequestDetailPageProps = {}) {
   const { issueNumber = "" } = useParams();
+  const location = useLocation();
   const parsedIssueNumber = Number(issueNumber);
   const { t } = useTranslation("executionRequests");
   const [reloadToken, setReloadToken] = useState(0);
@@ -119,7 +129,11 @@ export function ExecutionRequestDetailPage({
         const comments = await runtime.approvals.listExecutionRequestComments({
           issueNumber: issue.number,
         });
-        const request = parseExecutionRequestDetail(issue, comments);
+        const parsedRequest = parseExecutionRequestDetail(issue, comments);
+        const request = applyRecordedApprovalNavigationState(
+          parsedRequest,
+          location.state,
+        );
 
         if (ignoreResult) {
           return;
@@ -160,7 +174,14 @@ export function ExecutionRequestDetailPage({
     return () => {
       ignoreResult = true;
     };
-  }, [createRuntime, parsedIssueNumber, readSession, reloadToken, t]);
+  }, [
+    createRuntime,
+    location.state,
+    parsedIssueNumber,
+    readSession,
+    reloadToken,
+    t,
+  ]);
 
   async function approveExecution(request: ExecutionApprovalRequest) {
     if (
@@ -393,6 +414,58 @@ export function ExecutionRequestDetailPage({
         </aside>
       </div>
     </section>
+  );
+}
+
+function applyRecordedApprovalNavigationState(
+  request: ExecutionApprovalRequest | null,
+  state: unknown,
+): ExecutionApprovalRequest | null {
+  if (!request || request.approvalDecision || request.status !== "REQUESTED") {
+    return request;
+  }
+
+  if (!isExecutionApprovalRecordedNavigationState(state)) {
+    return request;
+  }
+
+  const { executionApprovalRecorded } = state;
+
+  if (
+    executionApprovalRecorded.issueNumber !== request.issue.number ||
+    executionApprovalRecorded.requestId !== request.requestId
+  ) {
+    return request;
+  }
+
+  return {
+    ...request,
+    approvalDecision: {
+      actor: executionApprovalRecorded.actor,
+      decidedAt: executionApprovalRecorded.decidedAt,
+      decision: "APPROVED",
+      reason: "",
+    },
+    status: "APPROVED",
+  };
+}
+
+function isExecutionApprovalRecordedNavigationState(
+  state: unknown,
+): state is ExecutionApprovalRecordedNavigationState {
+  if (!state || typeof state !== "object") {
+    return false;
+  }
+
+  const maybeState = state as Partial<ExecutionApprovalRecordedNavigationState>;
+  const recorded = maybeState.executionApprovalRecorded;
+
+  return (
+    Boolean(recorded) &&
+    typeof recorded?.actor === "string" &&
+    typeof recorded.decidedAt === "string" &&
+    Number.isInteger(recorded.issueNumber) &&
+    typeof recorded.requestId === "string"
   );
 }
 
