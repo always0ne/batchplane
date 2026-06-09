@@ -210,9 +210,6 @@ function isBlockingExecutionStatus(
   status: ExecutionRequestDisplayStatus,
 ): boolean {
   return (
-    status === "REQUESTED" ||
-    status === "APPROVED" ||
-    status === "DISPATCHING" ||
-    status === "DISPATCH_FAILED"
+    status === "REQUESTED" || status === "APPROVED" || status === "DISPATCHING"
   );
 }

@@ -103,6 +103,24 @@ describe("BatchDetailPage", () => {
     ).toHaveAttribute("href", "/execution-requests/101");
   });
 
+  it("allows change requests when the prior execution request is dispatch failed", async () => {
+    writeRuntimeFixtureSelection("dispatch-failed");
+
+    renderBatchDetailPage("/batches/payment.daily-close");
+
+    expect(
+      await screen.findByRole("heading", { name: "Daily Close" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Request change" }),
+    ).toHaveAttribute("href", "/batches/new?change=payment.daily-close");
+    expect(
+      screen.queryByText(
+        "Resolve pending governed work before creating another change request.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders an empty state when the batch is missing", async () => {
     writeRuntimeFixtureSelection("approval-pending");
 

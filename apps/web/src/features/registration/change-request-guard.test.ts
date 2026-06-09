@@ -68,6 +68,25 @@ describe("change request guard", () => {
 
     expect(blockers).toEqual([]);
   });
+
+  it("allows changes after dispatcher failure because no execution work is pending", () => {
+    const blockers = findBatchChangeRequestBlockers({
+      batchId: "payment.daily-close",
+      issueComments: [[approvalComment, dispatcherFailedComment]],
+      issues: [
+        executionIssue({
+          labels: [
+            "batchplane:execution-request",
+            "batchplane:dispatch-failed",
+          ],
+        }),
+      ],
+      pullRequestComments: [],
+      pullRequests: [],
+    });
+
+    expect(blockers).toEqual([]);
+  });
 });
 
 function governedChangePullRequest(): RepositoryPullRequest {
@@ -97,7 +116,11 @@ function governedChangePullRequest(): RepositoryPullRequest {
   };
 }
 
-function executionIssue(): RepositoryIssue {
+function executionIssue({
+  labels = [],
+}: {
+  labels?: string[];
+} = {}): RepositoryIssue {
   return {
     author: "developer",
     body: [
@@ -144,7 +167,7 @@ function executionIssue(): RepositoryIssue {
     ].join("\n"),
     createdAt: "2026-05-09T01:02:03.000Z",
     isPullRequest: false,
-    labels: [],
+    labels,
     number: 34,
     state: "open",
     title: "Run batch payment.daily-close",
@@ -213,5 +236,27 @@ const dispatcherComment: RepositoryIssueComment = {
   ].join("\n"),
   createdAt: "2026-05-09T03:03:03.000Z",
   id: 3,
+  issueNumber: 34,
+};
+
+const dispatcherFailedComment: RepositoryIssueComment = {
+  author: "github-actions[bot]",
+  body: [
+    "## BatchPlane Dispatcher DISPATCH_FAILED",
+    "",
+    "- Status: DISPATCH_FAILED",
+    "- Request ID: `btr-20260509010203-payment.daily-close-abcdef12`",
+    "- Batch ID: `payment.daily-close`",
+    "- Request digest: `sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`",
+    "",
+    "<!-- batchplane:bgcp:dispatcher",
+    "status=DISPATCH_FAILED",
+    "requestId=btr-20260509010203-payment.daily-close-abcdef12",
+    "batchId=payment.daily-close",
+    "requestDigest=sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "-->",
+  ].join("\n"),
+  createdAt: "2026-05-09T03:03:03.000Z",
+  id: 4,
   issueNumber: 34,
 };
