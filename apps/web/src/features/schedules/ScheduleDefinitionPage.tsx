@@ -29,11 +29,17 @@ import {
   ErrorState,
   LoadingState,
 } from "../../shared/components/PageState";
+import { GovernedChangePreviewPanel } from "../../shared/components/GovernedChangePreviewPanel";
+import {
+  hasNoGovernedFileChanges,
+  type GovernedChangePreviewState,
+} from "../../shared/components/governed-change-preview";
 import {
   createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
+import { approveGovernedChangeIfAutoApprovalEnabled } from "../approvals/governed-change-auto-approval";
 import {
   buildSchedulePullRequestBody,
   buildSchedulePullRequestTitle,
@@ -85,6 +91,9 @@ export function ScheduleDefinitionPage({
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     type: "idle",
   });
+  const [previewState, setPreviewState] = useState<GovernedChangePreviewState>({
+    type: "idle",
+  });
 
   const definition = useMemo(
     () => toScheduleDefinition(decodedBatchId, values),
@@ -98,12 +107,23 @@ export function ScheduleDefinitionPage({
     () => serializeScheduleDefinitionYaml(definition),
     [definition],
   );
+  const previewFiles = useMemo(
+    () =>
+      definition.definitionPath
+        ? [{ content: yaml, path: definition.definitionPath }]
+        : [],
+    [definition.definitionPath, yaml],
+  );
   const missingFields = useMemo(
     () => validateScheduleRegistration(definition),
     [definition],
   );
+  const noGovernedFileChanges = hasNoGovernedFileChanges(previewState);
   const canSubmit =
-    missingFields.length === 0 && submissionState.type !== "submitting";
+    missingFields.length === 0 &&
+    previewState.type === "ready" &&
+    !noGovernedFileChanges &&
+    submissionState.type !== "submitting";
 
   useEffect(() => {
     if (mode === "change") {
@@ -190,6 +210,52 @@ export function ScheduleDefinitionPage({
     };
   }, [changeScheduleId, createRuntime, decodedBatchId, mode, readSession, t]);
 
+  useEffect(() => {
+    let ignoreResult = false;
+
+    async function loadPreview() {
+      if (previewFiles.length === 0 || !definition.scheduleId) {
+        setPreviewState({ type: "idle" });
+        return;
+      }
+
+      const session = readSession();
+
+      if (!session) {
+        setPreviewState({ type: "no-session" });
+        return;
+      }
+
+      setPreviewState({ type: "loading" });
+
+      try {
+        const runtime = createRuntime(session);
+        const repository = await runtime.settings.getRepository();
+        const files = await runtime.registration.previewGovernedChangeFiles({
+          baseBranch: repository.defaultBranch,
+          files: previewFiles,
+        });
+
+        if (!ignoreResult) {
+          setPreviewState({ files, type: "ready" });
+        }
+      } catch (error) {
+        if (!ignoreResult) {
+          setPreviewState({
+            type: "error",
+            message: formatRuntimeError(error, t("errors.previewFailed")),
+          });
+        }
+      }
+    }
+
+    void loadPreview();
+
+    return () => {
+      ignoreResult = true;
+    };
+  }, [createRuntime, definition.scheduleId, previewFiles, readSession, t]);
+
   async function submitSchedulePullRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -199,6 +265,22 @@ export function ScheduleDefinitionPage({
         message: t("errors.required", {
           fields: missingFields.join(", "),
         }),
+      });
+      return;
+    }
+
+    if (previewState.type !== "ready") {
+      setSubmissionState({
+        type: "error",
+        message: t("errors.previewNotReady"),
+      });
+      return;
+    }
+
+    if (noGovernedFileChanges) {
+      setSubmissionState({
+        type: "error",
+        message: t("errors.noChanges"),
       });
       return;
     }
@@ -254,6 +336,12 @@ export function ScheduleDefinitionPage({
           scheduleDefinitionYaml: yaml,
           title,
         });
+
+      await approveGovernedChangeIfAutoApprovalEnabled({
+        defaultBranch: repository.defaultBranch,
+        pullRequest,
+        runtime,
+      });
 
       setSubmissionState({ type: "success", pullRequest });
       navigate(`/approvals/registration/${pullRequest.number}`);
@@ -422,6 +510,10 @@ export function ScheduleDefinitionPage({
             missingFields={missingFields}
             mode={mode}
             submissionState={submissionState}
+          />
+          <GovernedChangePreviewPanel
+            namespace="schedules"
+            state={previewState}
           />
           <YamlPreviewPanel path={definition.definitionPath} yaml={yaml} />
         </aside>

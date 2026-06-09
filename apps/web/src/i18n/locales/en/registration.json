@@ -58,6 +58,22 @@
     "scheduleDeletionTitle": "Scheduled removal: {{scheduleId}}",
     "scheduleDeletionMessage": "This schedule will be removed from the batch definition if this change request is merged."
   },
+  "diff": {
+    "title": "PR diff preview",
+    "subtitle": "Review the exact governed file changes before creating the pull request.",
+    "idle": "Enter the required file paths to load the diff preview.",
+    "loading": "Loading diff preview...",
+    "noSession": "Connect a Workspace to compare against the base branch.",
+    "noChanges": "No governed file changes were detected. Pull request creation is blocked.",
+    "preview": "Unified diff",
+    "empty": "No content",
+    "status": {
+      "ADDED": "Added",
+      "MODIFIED": "Modified",
+      "DELETED": "Deleted",
+      "UNCHANGED": "Unchanged"
+    }
+  },
   "review": {
     "title": "PR review",
     "subtitle": "Confirm the GitHub pull request contents before creating it.",
@@ -115,6 +131,9 @@
     "changeMissingDefinition": "The governed batch definition was not found at {{path}}.",
     "scheduleAlreadyExists": "A schedule with the same ID already exists in {{path}}.",
     "workflowAlreadyExists": "A workflow already exists at {{path}}.",
+    "previewFailed": "Failed to load the governed diff preview.",
+    "previewNotReady": "Governed diff preview is not ready yet.",
+    "noChanges": "No governed file changes were detected.",
     "fileRead": "Failed to read the uploaded execution file.",
     "unknown": "Failed to create the registration pull request."
   }

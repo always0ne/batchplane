@@ -1,5 +1,6 @@
 import type {
   BatchDefinition,
+  BatchPlaneRuntimePorts,
   BatchStatus,
   Criticality,
   RepositoryPullRequest,
@@ -36,11 +37,18 @@ import {
   ErrorState,
   LoadingState,
 } from "../../shared/components/PageState";
+import { GovernedChangePreviewPanel } from "../../shared/components/GovernedChangePreviewPanel";
+import {
+  hasNoGovernedFileChanges,
+  type GovernedChangePreviewState,
+} from "../../shared/components/governed-change-preview";
 import {
   createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
+import { approveGovernedChangeIfAutoApprovalEnabled } from "../approvals/governed-change-auto-approval";
+import type { GitHubSession } from "../lite-setup/github-session";
 import {
   buildBatchWorkflowYaml,
   buildRegistrationPullRequestBody,
@@ -84,6 +92,11 @@ type ScheduleDraft = {
   values: ScheduleFormValues;
 };
 
+type BatchRegistrationPageProps = {
+  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
+  readSession?: () => GitHubSession | null;
+};
+
 type PrefillState =
   | { type: "ready" }
   | { type: "loading" }
@@ -102,7 +115,10 @@ const runnerOptions = [
 ] as const;
 let scheduleDraftSequence = 0;
 
-export function BatchRegistrationPage() {
+export function BatchRegistrationPage({
+  createRuntime = createBatchPlaneRuntime,
+  readSession = readRuntimeSession,
+}: BatchRegistrationPageProps = {}) {
   const { t } = useTranslation("registration");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -113,6 +129,9 @@ export function BatchRegistrationPage() {
     type: "ready",
   });
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
+    type: "idle",
+  });
+  const [previewState, setPreviewState] = useState<GovernedChangePreviewState>({
     type: "idle",
   });
   const [uploadedFile, setUploadedFile] =
@@ -187,6 +206,17 @@ export function BatchRegistrationPage() {
       buildBatchWorkflowYaml(definition, values.runCommand, values.runnerLabel),
     [definition, values.runCommand, values.runnerLabel],
   );
+  const workflowPath = definition.workflow.path;
+  const previewFiles = useMemo(
+    () =>
+      batchPath && workflowPath
+        ? [
+            { content: yaml, path: batchPath },
+            { content: generatedWorkflowYaml, path: workflowPath },
+          ]
+        : [],
+    [batchPath, generatedWorkflowYaml, workflowPath, yaml],
+  );
   const missingFields = useMemo(() => {
     const fields = validateBatchRegistration(definition);
 
@@ -226,7 +256,6 @@ export function BatchRegistrationPage() {
 
     return fields;
   }, [definition, scheduleDefinitions, values.runCommand, values.runnerLabel]);
-  const workflowPath = definition.workflow.path;
   const nextAutoFileCommand = resolvedArtifactPath
     ? buildExecutionFileCommand(resolvedArtifactPath)
     : null;
@@ -235,9 +264,12 @@ export function BatchRegistrationPage() {
   )
     ? values.runnerLabel
     : "custom";
+  const noGovernedFileChanges = hasNoGovernedFileChanges(previewState);
   const canSubmit =
     missingFields.length === 0 &&
     generatedWorkflowYaml.trim().length > 0 &&
+    previewState.type === "ready" &&
+    !noGovernedFileChanges &&
     submissionState.type !== "submitting";
 
   useEffect(() => {
@@ -252,6 +284,65 @@ export function BatchRegistrationPage() {
     );
     setAutoFileCommand(nextAutoFileCommand);
   }, [autoFileCommand, nextAutoFileCommand]);
+
+  useEffect(() => {
+    let ignoreResult = false;
+
+    async function loadPreview() {
+      if (
+        previewFiles.length === 0 ||
+        !definition.batchId ||
+        !batchPath ||
+        !workflowPath
+      ) {
+        setPreviewState({ type: "idle" });
+        return;
+      }
+
+      const session = readSession();
+
+      if (!session) {
+        setPreviewState({ type: "no-session" });
+        return;
+      }
+
+      setPreviewState({ type: "loading" });
+
+      try {
+        const runtime = createRuntime(session);
+        const repository = await runtime.settings.getRepository();
+        const files = await runtime.registration.previewGovernedChangeFiles({
+          baseBranch: repository.defaultBranch,
+          files: previewFiles,
+        });
+
+        if (!ignoreResult) {
+          setPreviewState({ files, type: "ready" });
+        }
+      } catch (error) {
+        if (!ignoreResult) {
+          setPreviewState({
+            type: "error",
+            message: formatRuntimeError(error, t("errors.previewFailed")),
+          });
+        }
+      }
+    }
+
+    void loadPreview();
+
+    return () => {
+      ignoreResult = true;
+    };
+  }, [
+    batchPath,
+    createRuntime,
+    definition.batchId,
+    previewFiles,
+    readSession,
+    t,
+    workflowPath,
+  ]);
 
   useEffect(() => {
     if (mode === "change") {
@@ -274,7 +365,7 @@ export function BatchRegistrationPage() {
     let ignoreResult = false;
 
     async function loadChangeTarget() {
-      const session = readRuntimeSession();
+      const session = readSession();
 
       if (!session) {
         if (!ignoreResult) {
@@ -286,7 +377,7 @@ export function BatchRegistrationPage() {
       setPrefillState({ type: "loading" });
 
       try {
-        const runtime = createBatchPlaneRuntime(session);
+        const runtime = createRuntime(session);
         const repository = await runtime.settings.getRepository();
         const [batches, schedules] = await Promise.all([
           runtime.batches.listBatchDefinitions({
@@ -329,7 +420,7 @@ export function BatchRegistrationPage() {
     return () => {
       ignoreResult = true;
     };
-  }, [changeBatchId, mode, t]);
+  }, [changeBatchId, createRuntime, mode, readSession, t]);
 
   function applyPrefill(
     batch: BatchDefinition,
@@ -427,7 +518,23 @@ export function BatchRegistrationPage() {
       return;
     }
 
-    const session = readRuntimeSession();
+    if (previewState.type !== "ready") {
+      setSubmissionState({
+        type: "error",
+        message: t("errors.previewNotReady"),
+      });
+      return;
+    }
+
+    if (noGovernedFileChanges) {
+      setSubmissionState({
+        type: "error",
+        message: t("errors.noChanges"),
+      });
+      return;
+    }
+
+    const session = readSession();
 
     if (!session) {
       setSubmissionState({
@@ -440,7 +547,7 @@ export function BatchRegistrationPage() {
     setSubmissionState({ type: "submitting" });
 
     try {
-      const runtime = createBatchPlaneRuntime(session);
+      const runtime = createRuntime(session);
       const repository = await runtime.settings.getRepository();
       const [registrationTargets, existingSchedules] = await Promise.all([
         runtime.registration.checkRegistrationTargets({
@@ -533,6 +640,12 @@ export function BatchRegistrationPage() {
           workflowPath,
           workflowYaml: generatedWorkflowYaml,
         });
+
+      await approveGovernedChangeIfAutoApprovalEnabled({
+        defaultBranch: repository.defaultBranch,
+        pullRequest,
+        runtime,
+      });
 
       setSubmissionState({ type: "success", pullRequest });
       navigate(`/approvals/registration/${pullRequest.number}`);
@@ -779,6 +892,10 @@ export function BatchRegistrationPage() {
             submissionState={submissionState}
             uploadedFilePath={resolvedArtifactPath}
             workflowPath={workflowPath}
+          />
+          <GovernedChangePreviewPanel
+            namespace="registration"
+            state={previewState}
           />
           <YamlPreviewPanel
             batchPath={batchPath}

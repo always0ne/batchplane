@@ -46,11 +46,30 @@
   "preview": {
     "title": "YAML preview"
   },
+  "diff": {
+    "title": "PR diff preview",
+    "subtitle": "Review the exact governed schedule file change before creating the pull request.",
+    "idle": "Enter the schedule ID to load the diff preview.",
+    "loading": "Loading diff preview...",
+    "noSession": "Connect a Workspace to compare against the base branch.",
+    "noChanges": "No governed schedule file changes were detected. Pull request creation is blocked.",
+    "preview": "Unified diff",
+    "empty": "No content",
+    "status": {
+      "ADDED": "Added",
+      "MODIFIED": "Modified",
+      "DELETED": "Deleted",
+      "UNCHANGED": "Unchanged"
+    }
+  },
   "errors": {
     "required": "Required fields are missing: {{fields}}",
     "noSession": "Connect a Workspace before creating schedule changes.",
     "alreadyExists": "A governed schedule definition already exists at {{path}}.",
     "changeMissingDefinition": "The governed schedule definition does not exist at {{path}}.",
+    "previewFailed": "Failed to load the governed diff preview.",
+    "previewNotReady": "Governed diff preview is not ready yet.",
+    "noChanges": "No governed schedule file changes were detected.",
     "unknown": "Failed to create schedule pull request."
   },
   "result": {

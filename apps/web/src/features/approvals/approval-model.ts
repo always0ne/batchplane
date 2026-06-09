@@ -110,20 +110,31 @@ export function getGovernedChangeRequestKind(
 }
 
 export function buildRegistrationApprovalComment({
+  approvalMode,
+  approvalType,
   approvedAt,
   approver,
   pullRequest,
 }: {
+  approvalMode?: WorkspaceApprovalMode;
+  approvalType?: "MANUAL" | "WORKSPACE_AUTO_APPROVED";
   approvedAt: Date;
   approver: string;
   pullRequest: RepositoryPullRequest;
 }): string {
+  const workspaceAutoApproved = approvalType === "WORKSPACE_AUTO_APPROVED";
+
   return [
     "## BatchPlane Governed Change Approval",
     "",
     `- Decision: APPROVED`,
     `- Approver: @${approver}`,
     `- Approved at: ${approvedAt.toISOString()}`,
+    ...(approvalMode ? [`- Approval mode: ${approvalMode}`] : []),
+    ...(workspaceAutoApproved
+      ? ["- Approval type: WORKSPACE_AUTO_APPROVED"]
+      : []),
+    ...(workspaceAutoApproved ? ["- Approval source: WORKSPACE_POLICY"] : []),
     `- Pull request: #${pullRequest.number}`,
     "",
     "This approval evidence was recorded by BatchPlane Lite.",

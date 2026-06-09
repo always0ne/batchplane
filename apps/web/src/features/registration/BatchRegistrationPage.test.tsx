@@ -1,11 +1,24 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createMockGitHubLiteClient } from "@batchplane/github-lite";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import "../../i18n/i18n";
 import { RegistrationApprovalDetailPage } from "../approvals/RegistrationApprovalDetailPage";
-import { writeRuntimeFixtureSelection } from "../../runtime/runtime-fixtures";
+import { buildWorkspacePolicyYaml } from "../lite-setup/installation-model";
+import type { GitHubSession } from "../lite-setup/github-session";
+import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import {
+  createRuntimeFixtureMockState,
+  writeRuntimeFixtureSelection,
+} from "../../runtime/runtime-fixtures";
 import { BatchRegistrationPage } from "./BatchRegistrationPage";
+
+const session: GitHubSession = {
+  owner: "always0ne",
+  repo: "batch",
+  token: "fixture-token",
+};
 
 describe("BatchRegistrationPage", () => {
   beforeEach(() => {
@@ -30,6 +43,7 @@ describe("BatchRegistrationPage", () => {
     });
 
     expect(screen.getByText("PR review")).toBeInTheDocument();
+    expect(screen.getByText("PR diff preview")).toBeInTheDocument();
     expect(screen.getByText("Generated files")).toBeInTheDocument();
     expect(screen.getByText("Governance checklist")).toBeInTheDocument();
     expect(screen.getByText("No uploaded execution file")).toBeInTheDocument();
@@ -87,9 +101,16 @@ describe("BatchRegistrationPage", () => {
     fireEvent.change(screen.getByLabelText("Batch command"), {
       target: { value: "./scripts/settlement-rollup.sh" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create registration PR" }),
-    );
+
+    const createButton = screen.getByRole("button", {
+      name: "Create registration PR",
+    });
+
+    await waitFor(() => {
+      expect(createButton).toBeEnabled();
+    });
+
+    fireEvent.click(createButton);
 
     expect(
       await screen.findByRole("heading", { name: "Governed change detail" }),
@@ -168,6 +189,83 @@ describe("BatchRegistrationPage", () => {
     expect(
       screen.getByRole("button", { name: "Undo delete" }),
     ).toBeInTheDocument();
+  });
+
+  it("auto-approves and applies change PRs when Workspace policy enables it", async () => {
+    const state = createRuntimeFixtureMockState("happy-path");
+    state.files = state.files.filter(
+      (file) => file.path !== ".batch-governance/workspace.yml",
+    );
+    state.files.push({
+      branch: "main",
+      content: buildWorkspacePolicyYaml("AUTO_APPROVE"),
+      path: ".batch-governance/workspace.yml",
+      sha: "workspace-policy-auto-approve-sha",
+    });
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/batches/new?change=payment.daily-close"]}
+      >
+        <Routes>
+          <Route
+            path="/batches/new"
+            element={
+              <BatchRegistrationPage
+                createRuntime={() => runtime}
+                readSession={() => session}
+              />
+            }
+          />
+          <Route
+            path="/approvals/registration/:pullNumber"
+            element={
+              <RegistrationApprovalDetailPage
+                createRuntime={() => runtime}
+                readSession={() => session}
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Change request" }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getAllByLabelText("Name")[0]!, {
+      target: { value: "Daily Close Auto" },
+    });
+
+    const createButton = screen.getByRole("button", {
+      name: "Create change PR",
+    });
+
+    await waitFor(() => {
+      expect(createButton).toBeEnabled();
+    });
+
+    fireEvent.click(createButton);
+
+    await waitFor(() => {
+      expect(
+        client.state.pullRequests.some(
+          (pullRequest) =>
+            pullRequest.title === "Change batch payment.daily-close" &&
+            pullRequest.merged,
+        ),
+      ).toBe(true);
+      expect(
+        client.state.issueComments.some(
+          (comment) =>
+            comment.body.includes("Approval mode: AUTO_APPROVE") &&
+            comment.body.includes("Approval type: WORKSPACE_AUTO_APPROVED") &&
+            comment.body.includes("Approval source: WORKSPACE_POLICY"),
+        ),
+      ).toBe(true);
+    });
   });
 });
 
