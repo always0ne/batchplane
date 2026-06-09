@@ -44,7 +44,10 @@ import {
   type ExecutionRequestIssue,
   type ExecutionRequestParameterInput,
 } from "./execution-request-model";
-import { isAutoApprovalEnabled } from "../approvals/approval-model";
+import {
+  isAutoApprovalEnabled,
+  parseExecutionRequestDetail,
+} from "../approvals/approval-model";
 
 type ExecutionRequestPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
@@ -286,7 +289,7 @@ export function ExecutionRequestPage({
       if (isAutoApprovalEnabled(state.workspacePolicy)) {
         const approvedAt = new Date();
 
-        await runtime.approvals.approveExecution({
+        const approvalComment = await runtime.approvals.approveExecution({
           body: buildExecutionApprovalComment({
             approvalMode: state.workspacePolicy.approval.mode,
             approvalType: "WORKSPACE_AUTO_APPROVED",
@@ -296,13 +299,23 @@ export function ExecutionRequestPage({
           }),
           issueNumber: issue.number,
         });
+        const approvedRequest = parseExecutionRequestDetail(issue, [
+          approvalComment,
+        ]);
+
+        if (
+          approvedRequest?.status !== "APPROVED" ||
+          !approvedRequest.approvalDecision
+        ) {
+          throw new Error(t("states.autoApprovalEvidenceMissing"));
+        }
 
         navigationState = {
           executionApprovalRecorded: {
-            actor: state.login,
-            decidedAt: approvedAt.toISOString(),
+            actor: approvedRequest.approvalDecision.actor,
+            decidedAt: approvedRequest.approvalDecision.decidedAt,
             issueNumber: issue.number,
-            requestId: previewState.issue.request.requestId,
+            requestId: approvedRequest.requestId,
           },
         };
       }

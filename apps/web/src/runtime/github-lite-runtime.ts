@@ -82,11 +82,13 @@ export function createGitHubLiteRuntime(
   return {
     approvals: {
       async approveExecution({ body, issueNumber }) {
-        await client.createIssueComment({
+        const comment = await client.createIssueComment({
           ...repositoryRef,
           body,
           issueNumber,
         });
+
+        return toRepositoryIssueComment(comment);
       },
 
       async approveRegistration({ body, commitTitle, pullNumber }) {

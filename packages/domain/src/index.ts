@@ -502,7 +502,7 @@ export type ApprovalPort = {
   approveExecution(params: {
     body: string;
     issueNumber: number;
-  }): Promise<void>;
+  }): Promise<RepositoryIssueComment>;
   rejectExecution(params: { body: string; issueNumber: number }): Promise<void>;
 };
 

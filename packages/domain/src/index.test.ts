@@ -290,7 +290,13 @@ describe("domain model contracts", () => {
   it("defines runtime ports that can be implemented by adapters", () => {
     const runtime: BatchPlaneRuntimePorts = {
       approvals: {
-        approveExecution: async () => undefined,
+        approveExecution: async () => ({
+          author: "maintainer",
+          body: "/bgcp approve requestDigest=sha256:abc",
+          createdAt: "2026-05-09T03:02:03.000Z",
+          id: 1,
+          issueNumber: 101,
+        }),
         approveRegistration: async () => ({
           merged: true,
           message: "merged",

@@ -269,6 +269,7 @@
     "loading": "Loading execution request form...",
     "noSession": "Connect a Workspace before requesting execution.",
     "notFound": "Batch {{batchId}} was not found.",
+    "autoApprovalEvidenceMissing": "Auto-approval evidence was not recorded for this execution request.",
     "previewError": "Failed to update request preview.",
     "submitError": "Failed to create execution request."
   },

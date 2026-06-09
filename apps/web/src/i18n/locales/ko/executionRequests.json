@@ -269,6 +269,7 @@
     "loading": "실행 요청 화면을 불러오는 중...",
     "noSession": "실행 요청 전에 Workspace를 연결해주세요.",
     "notFound": "배치 {{batchId}}를 찾을 수 없습니다.",
+    "autoApprovalEvidenceMissing": "이 실행 요청의 자동승인 증적이 기록되지 않았습니다.",
     "previewError": "요청 미리보기를 갱신하지 못했습니다.",
     "submitError": "실행 요청을 생성하지 못했습니다."
   },

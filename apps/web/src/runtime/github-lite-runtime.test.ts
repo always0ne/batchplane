@@ -618,11 +618,18 @@ describe("createGitHubLiteRuntime", () => {
     };
     const runtime = createGitHubLiteRuntime(session, { fetcher });
 
-    await runtime.approvals.approveExecution({
+    const comment = await runtime.approvals.approveExecution({
       body: "/bgcp approve requestDigest=sha256:abc",
       issueNumber: 101,
     });
 
+    expect(comment).toEqual({
+      author: "",
+      body: "approved",
+      createdAt: "",
+      id: 1,
+      issueNumber: 101,
+    });
     expect(requests).toEqual([
       expect.objectContaining({
         body: { body: "/bgcp approve requestDigest=sha256:abc" },

@@ -152,6 +152,55 @@ describe("ExecutionRequestPage", () => {
     });
   });
 
+  it("does not navigate when Workspace auto-approval evidence is missing", async () => {
+    const state = createRuntimeFixtureMockState("happy-path");
+    state.files = state.files.filter(
+      (file) => file.path !== ".batch-governance/workspace.yml",
+    );
+    state.files.push({
+      branch: "main",
+      content: buildWorkspacePolicyYaml("AUTO_APPROVE"),
+      path: ".batch-governance/workspace.yml",
+      sha: "workspace-policy-auto-approve-sha",
+    });
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    renderExecutionRequestPage({
+      createRuntime: () => ({
+        ...runtime,
+        approvals: {
+          ...runtime.approvals,
+          approveExecution: async ({ issueNumber }) => ({
+            author: "always0ne",
+            body: "not an approval evidence comment",
+            createdAt: new Date(0).toISOString(),
+            id: 999,
+            issueNumber,
+          }),
+        },
+      }),
+      readSession: () => session,
+    });
+
+    const createButton = await screen.findByRole("button", {
+      name: "Create execution request",
+    });
+    await waitFor(() => {
+      expect(createButton).toBeEnabled();
+    });
+    fireEvent.click(createButton);
+
+    expect(
+      await screen.findByText(
+        "Auto-approval evidence was not recorded for this execution request.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Execution request detail" }),
+    ).not.toBeInTheDocument();
+  });
+
   it.each([
     { label: "Reason", locale: "en", message: "Reason is required." },
     { label: "사유", locale: "ko", message: "사유는 필수입니다." },
