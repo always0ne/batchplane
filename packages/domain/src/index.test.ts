@@ -355,6 +355,13 @@ describe("domain model contracts", () => {
           batchDefinitionExists: false,
           workflowExists: false,
         }),
+        previewGovernedChangeFiles: async ({ files }) =>
+          files.map((file) => ({
+            baseContent: "",
+            nextContent: file.content ?? "",
+            path: file.path,
+            status: file.content === null ? "DELETED" : "ADDED",
+          })),
         createBatchDeletionPullRequest: async () => ({
           author: "requester",
           base: "main",

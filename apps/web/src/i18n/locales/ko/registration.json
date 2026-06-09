@@ -58,6 +58,22 @@
     "scheduleDeletionTitle": "삭제 예정 스케줄: {{scheduleId}}",
     "scheduleDeletionMessage": "이 변경 요청이 승인되면 이 스케줄은 배치 정의에서 제거됩니다."
   },
+  "diff": {
+    "title": "PR Diff 미리보기",
+    "subtitle": "Pull Request 생성 전에 통제 파일 변경사항을 정확히 확인합니다.",
+    "idle": "Diff 미리보기를 불러오려면 필요한 파일 경로를 입력하세요.",
+    "loading": "Diff 미리보기를 불러오는 중...",
+    "noSession": "기준 브랜치와 비교하려면 Workspace를 연결하세요.",
+    "noChanges": "통제 파일 변경사항이 없습니다. Pull Request 생성이 차단됩니다.",
+    "preview": "Unified diff",
+    "empty": "내용 없음",
+    "status": {
+      "ADDED": "추가",
+      "MODIFIED": "수정",
+      "DELETED": "삭제",
+      "UNCHANGED": "변경 없음"
+    }
+  },
   "review": {
     "title": "PR 검토",
     "subtitle": "GitHub Pull Request로 생성될 내용을 먼저 확인합니다.",
@@ -115,6 +131,9 @@
     "changeMissingDefinition": "{{path}}에서 통제 대상 배치 정의를 찾지 못했습니다.",
     "scheduleAlreadyExists": "{{path}}에 같은 ID의 스케줄이 이미 있습니다.",
     "workflowAlreadyExists": "{{path}}에 이미 Workflow가 있습니다.",
+    "previewFailed": "통제 파일 Diff 미리보기를 불러오지 못했습니다.",
+    "previewNotReady": "통제 파일 Diff 미리보기가 아직 준비되지 않았습니다.",
+    "noChanges": "통제 파일 변경사항이 없습니다.",
     "fileRead": "업로드한 실행 파일을 읽지 못했습니다.",
     "unknown": "등록 Pull Request 생성에 실패했습니다."
   }

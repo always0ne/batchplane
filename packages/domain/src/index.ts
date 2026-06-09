@@ -378,6 +378,29 @@ export type ScheduleDefinitionTargetStatus = {
   scheduleDefinitionExists: boolean;
 };
 
+export type GovernedChangeFilePreviewStatus =
+  | "ADDED"
+  | "MODIFIED"
+  | "DELETED"
+  | "UNCHANGED";
+
+export type GovernedChangeFilePreviewInput = {
+  content: string | null;
+  path: string;
+};
+
+export type GovernedChangeFilePreview = {
+  baseContent: string;
+  nextContent: string;
+  path: string;
+  status: GovernedChangeFilePreviewStatus;
+};
+
+export type PreviewGovernedChangeFilesInput = {
+  baseBranch: string;
+  files: GovernedChangeFilePreviewInput[];
+};
+
 export type CreateRegistrationPullRequestInput = {
   artifact?: RegistrationArtifactInput;
   baseBranch: string;
@@ -435,6 +458,9 @@ export type RegistrationPort = {
     batchDefinitionPath: string;
     workflowPath: string;
   }): Promise<RegistrationTargetStatus>;
+  previewGovernedChangeFiles(
+    params: PreviewGovernedChangeFilesInput,
+  ): Promise<GovernedChangeFilePreview[]>;
   createRegistrationPullRequest(
     params: CreateRegistrationPullRequestInput,
   ): Promise<RepositoryPullRequest>;

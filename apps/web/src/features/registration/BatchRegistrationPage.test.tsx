@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -30,6 +30,7 @@ describe("BatchRegistrationPage", () => {
     });
 
     expect(screen.getByText("PR review")).toBeInTheDocument();
+    expect(screen.getByText("PR diff preview")).toBeInTheDocument();
     expect(screen.getByText("Generated files")).toBeInTheDocument();
     expect(screen.getByText("Governance checklist")).toBeInTheDocument();
     expect(screen.getByText("No uploaded execution file")).toBeInTheDocument();
@@ -87,9 +88,16 @@ describe("BatchRegistrationPage", () => {
     fireEvent.change(screen.getByLabelText("Batch command"), {
       target: { value: "./scripts/settlement-rollup.sh" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create registration PR" }),
-    );
+
+    const createButton = screen.getByRole("button", {
+      name: "Create registration PR",
+    });
+
+    await waitFor(() => {
+      expect(createButton).toBeEnabled();
+    });
+
+    fireEvent.click(createButton);
 
     expect(
       await screen.findByRole("heading", { name: "Governed change detail" }),

@@ -36,6 +36,11 @@ import {
   ErrorState,
   LoadingState,
 } from "../../shared/components/PageState";
+import { GovernedChangePreviewPanel } from "../../shared/components/GovernedChangePreviewPanel";
+import {
+  hasNoGovernedFileChanges,
+  type GovernedChangePreviewState,
+} from "../../shared/components/governed-change-preview";
 import {
   createBatchPlaneRuntime,
   readRuntimeSession,
@@ -115,6 +120,9 @@ export function BatchRegistrationPage() {
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     type: "idle",
   });
+  const [previewState, setPreviewState] = useState<GovernedChangePreviewState>({
+    type: "idle",
+  });
   const [uploadedFile, setUploadedFile] =
     useState<UploadedExecutionFile | null>(null);
   const [scheduleDrafts, setScheduleDrafts] = useState<ScheduleDraft[]>([]);
@@ -187,6 +195,17 @@ export function BatchRegistrationPage() {
       buildBatchWorkflowYaml(definition, values.runCommand, values.runnerLabel),
     [definition, values.runCommand, values.runnerLabel],
   );
+  const workflowPath = definition.workflow.path;
+  const previewFiles = useMemo(
+    () =>
+      batchPath && workflowPath
+        ? [
+            { content: yaml, path: batchPath },
+            { content: generatedWorkflowYaml, path: workflowPath },
+          ]
+        : [],
+    [batchPath, generatedWorkflowYaml, workflowPath, yaml],
+  );
   const missingFields = useMemo(() => {
     const fields = validateBatchRegistration(definition);
 
@@ -226,7 +245,6 @@ export function BatchRegistrationPage() {
 
     return fields;
   }, [definition, scheduleDefinitions, values.runCommand, values.runnerLabel]);
-  const workflowPath = definition.workflow.path;
   const nextAutoFileCommand = resolvedArtifactPath
     ? buildExecutionFileCommand(resolvedArtifactPath)
     : null;
@@ -235,9 +253,12 @@ export function BatchRegistrationPage() {
   )
     ? values.runnerLabel
     : "custom";
+  const noGovernedFileChanges = hasNoGovernedFileChanges(previewState);
   const canSubmit =
     missingFields.length === 0 &&
     generatedWorkflowYaml.trim().length > 0 &&
+    previewState.type === "ready" &&
+    !noGovernedFileChanges &&
     submissionState.type !== "submitting";
 
   useEffect(() => {
@@ -252,6 +273,57 @@ export function BatchRegistrationPage() {
     );
     setAutoFileCommand(nextAutoFileCommand);
   }, [autoFileCommand, nextAutoFileCommand]);
+
+  useEffect(() => {
+    let ignoreResult = false;
+
+    async function loadPreview() {
+      if (
+        previewFiles.length === 0 ||
+        !definition.batchId ||
+        !batchPath ||
+        !workflowPath
+      ) {
+        setPreviewState({ type: "idle" });
+        return;
+      }
+
+      const session = readRuntimeSession();
+
+      if (!session) {
+        setPreviewState({ type: "no-session" });
+        return;
+      }
+
+      setPreviewState({ type: "loading" });
+
+      try {
+        const runtime = createBatchPlaneRuntime(session);
+        const repository = await runtime.settings.getRepository();
+        const files = await runtime.registration.previewGovernedChangeFiles({
+          baseBranch: repository.defaultBranch,
+          files: previewFiles,
+        });
+
+        if (!ignoreResult) {
+          setPreviewState({ files, type: "ready" });
+        }
+      } catch (error) {
+        if (!ignoreResult) {
+          setPreviewState({
+            type: "error",
+            message: formatRuntimeError(error, t("errors.previewFailed")),
+          });
+        }
+      }
+    }
+
+    void loadPreview();
+
+    return () => {
+      ignoreResult = true;
+    };
+  }, [batchPath, definition.batchId, previewFiles, t, workflowPath]);
 
   useEffect(() => {
     if (mode === "change") {
@@ -423,6 +495,22 @@ export function BatchRegistrationPage() {
         message: t("errors.required", {
           fields: missingFields.join(", "),
         }),
+      });
+      return;
+    }
+
+    if (previewState.type !== "ready") {
+      setSubmissionState({
+        type: "error",
+        message: t("errors.previewNotReady"),
+      });
+      return;
+    }
+
+    if (noGovernedFileChanges) {
+      setSubmissionState({
+        type: "error",
+        message: t("errors.noChanges"),
       });
       return;
     }
@@ -779,6 +867,10 @@ export function BatchRegistrationPage() {
             submissionState={submissionState}
             uploadedFilePath={resolvedArtifactPath}
             workflowPath={workflowPath}
+          />
+          <GovernedChangePreviewPanel
+            namespace="registration"
+            state={previewState}
           />
           <YamlPreviewPanel
             batchPath={batchPath}

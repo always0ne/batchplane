@@ -101,6 +101,48 @@ describe("createGitHubLiteRuntime", () => {
     ]);
   });
 
+  it("previews governed file changes against the base branch", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+    const batchFile = state.files.find(
+      (file) =>
+        file.branch === "main" &&
+        file.path === ".batch-governance/batches/payment.daily-close.yml",
+    );
+
+    expect(batchFile).toBeDefined();
+
+    const preview = await runtime.registration.previewGovernedChangeFiles({
+      baseBranch: "main",
+      files: [
+        {
+          content: batchFile?.content ?? "",
+          path: ".batch-governance/batches/payment.daily-close.yml",
+        },
+        {
+          content: "name: Updated workflow\n",
+          path: ".github/workflows/payment.daily-close.yml",
+        },
+        {
+          content: "new: file\n",
+          path: ".batch-governance/batches/new-batch.yml",
+        },
+        {
+          content: null,
+          path: ".batch-governance/policies/role-mapping.yml",
+        },
+      ],
+    });
+
+    expect(preview.map((file) => [file.path, file.status])).toEqual([
+      [".batch-governance/batches/payment.daily-close.yml", "UNCHANGED"],
+      [".github/workflows/payment.daily-close.yml", "MODIFIED"],
+      [".batch-governance/batches/new-batch.yml", "ADDED"],
+      [".batch-governance/policies/role-mapping.yml", "DELETED"],
+    ]);
+  });
+
   it("updates existing governed files with file SHAs during change-mode PR creation", async () => {
     const requests: Array<{ body: unknown; method: string; url: string }> = [];
     const branch = "batchplane/change/payment.daily-close-20260514010203";

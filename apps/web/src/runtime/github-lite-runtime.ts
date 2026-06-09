@@ -8,6 +8,7 @@ import type {
   ExecutionRunStatus,
   FailureFollowUp,
   GateDecision,
+  GovernedChangeFilePreviewStatus,
   RepositoryFile,
   RepositoryIssue,
   RepositoryIssueComment,
@@ -501,6 +502,30 @@ export function createGitHubLiteRuntime(
           batchDefinitionExists: Boolean(batchDefinitionFile),
           workflowExists: Boolean(workflowFile),
         };
+      },
+
+      async previewGovernedChangeFiles({ baseBranch, files }) {
+        return Promise.all(
+          files.map(async (file) => {
+            const baseFile = await client.getFile({
+              ...repositoryRef,
+              path: file.path,
+              ref: baseBranch,
+            });
+            const baseContent = baseFile?.content ?? "";
+            const nextContent = file.content ?? "";
+
+            return {
+              baseContent,
+              nextContent,
+              path: file.path,
+              status: deriveGovernedChangeFilePreviewStatus(
+                baseFile?.content ?? null,
+                file.content,
+              ),
+            };
+          }),
+        );
       },
 
       async createRegistrationPullRequest({
@@ -1389,6 +1414,25 @@ function toRepositoryPullRequest(
   pullRequest: GitHubPullRequest,
 ): RepositoryPullRequest {
   return pullRequest;
+}
+
+function deriveGovernedChangeFilePreviewStatus(
+  baseContent: string | null,
+  nextContent: string | null,
+): GovernedChangeFilePreviewStatus {
+  if (baseContent === null && nextContent === null) {
+    return "UNCHANGED";
+  }
+
+  if (baseContent === null) {
+    return "ADDED";
+  }
+
+  if (nextContent === null) {
+    return "DELETED";
+  }
+
+  return baseContent === nextContent ? "UNCHANGED" : "MODIFIED";
 }
 
 function toRepositoryPullRequestFile(

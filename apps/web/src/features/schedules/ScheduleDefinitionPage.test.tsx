@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -66,9 +66,19 @@ describe("ScheduleDefinitionPage", () => {
     fireEvent.change(screen.getByLabelText("Cron"), {
       target: { value: "0 6 * * 1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create schedule PR" }));
+
+    const createButton = screen.getByRole("button", {
+      name: "Create schedule PR",
+    });
+
+    await waitFor(() => {
+      expect(createButton).toBeEnabled();
+    });
+
+    fireEvent.click(createButton);
 
     expect(screen.getByText("Expected run times")).toBeInTheDocument();
+    expect(screen.getByText("PR diff preview")).toBeInTheDocument();
     expect(screen.getByText(/Next 1:/)).toBeInTheDocument();
     expect(
       await screen.findByRole("heading", { name: "Governed change detail" }),
@@ -112,6 +122,7 @@ describe("ScheduleDefinitionPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("0 5 * * *")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Asia/Seoul")).toBeInTheDocument();
+    expect(screen.getByText("PR diff preview")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create change PR" }),
     ).toBeInTheDocument();

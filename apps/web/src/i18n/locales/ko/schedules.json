@@ -46,11 +46,30 @@
   "preview": {
     "title": "YAML 미리보기"
   },
+  "diff": {
+    "title": "PR Diff 미리보기",
+    "subtitle": "Pull Request 생성 전에 통제 스케줄 파일 변경사항을 정확히 확인합니다.",
+    "idle": "Diff 미리보기를 불러오려면 Schedule ID를 입력하세요.",
+    "loading": "Diff 미리보기를 불러오는 중...",
+    "noSession": "기준 브랜치와 비교하려면 Workspace를 연결하세요.",
+    "noChanges": "통제 스케줄 파일 변경사항이 없습니다. Pull Request 생성이 차단됩니다.",
+    "preview": "Unified diff",
+    "empty": "내용 없음",
+    "status": {
+      "ADDED": "추가",
+      "MODIFIED": "수정",
+      "DELETED": "삭제",
+      "UNCHANGED": "변경 없음"
+    }
+  },
   "errors": {
     "required": "필수 항목이 누락되었습니다: {{fields}}",
     "noSession": "스케줄 변경 요청을 생성하려면 Workspace를 연결하세요.",
     "alreadyExists": "{{path}} 경로에 통제 스케줄 정의가 이미 존재합니다.",
     "changeMissingDefinition": "{{path}} 경로에 통제 스케줄 정의가 없습니다.",
+    "previewFailed": "통제 파일 Diff 미리보기를 불러오지 못했습니다.",
+    "previewNotReady": "통제 파일 Diff 미리보기가 아직 준비되지 않았습니다.",
+    "noChanges": "통제 스케줄 파일 변경사항이 없습니다.",
     "unknown": "스케줄 PR을 생성하지 못했습니다."
   },
   "result": {
