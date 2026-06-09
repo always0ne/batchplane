@@ -112,6 +112,7 @@
     "createPullRequest": "등록 PR 생성",
     "createChangePullRequest": "변경 PR 생성",
     "openApprovals": "승인함에서 검토",
+    "openBatchDetail": "배치 상세 열기",
     "openSetup": "Workspace 열기"
   },
   "result": {
@@ -120,9 +121,15 @@
   },
   "states": {
     "changeLoading": "현재 통제 대상 배치 정의를 불러오는 중입니다.",
+    "changeBlockedTitle": "변경 요청이 차단되었습니다",
+    "changeBlockedDescription": "{{batchId}} 배치에 선행 처리 중인 통제 작업이 있습니다. 해당 작업을 먼저 완료한 뒤 변경 요청을 생성하세요.",
+    "changeBlockedGovernedChange": "대기 중인 통제 변경 PR #{{number}}",
+    "changeBlockedExecutionRequest": "대기 중인 실행 요청 #{{number}}",
     "changeLoadError": "변경 모드용 현재 배치 정의를 불러오지 못했습니다.",
     "changeNotFound": "배치 {{batchId}}를 찾지 못했습니다.",
-    "noSession": "변경 모드를 불러오기 전에 Workspace를 연결하세요."
+    "noSession": "변경 모드를 불러오기 전에 Workspace를 연결하세요.",
+    "openBlockingPr": "PR 열기",
+    "openBlockingIssue": "Issue 열기"
   },
   "errors": {
     "required": "필수 항목이 누락되었습니다: {{fields}}",

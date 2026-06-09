@@ -320,6 +320,14 @@ export function RegistrationApprovalDetailPage({
             >
               {t("registrationDetail.actions.backToApprovals")}
             </Link>
+            {state.summary.batchId ? (
+              <Link
+                className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+                to={`/batches/${encodeURIComponent(state.summary.batchId)}`}
+              >
+                {t("registrationDetail.actions.openBatchDetail")}
+              </Link>
+            ) : null}
             <a
               className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
               href={state.pullRequest.url}

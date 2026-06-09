@@ -112,6 +112,7 @@
     "createPullRequest": "Create registration PR",
     "createChangePullRequest": "Create change PR",
     "openApprovals": "Review in approvals",
+    "openBatchDetail": "Open batch detail",
     "openSetup": "Open Workspace"
   },
   "result": {
@@ -120,9 +121,15 @@
   },
   "states": {
     "changeLoading": "Loading the current governed batch definition.",
+    "changeBlockedTitle": "Change request is blocked",
+    "changeBlockedDescription": "Batch {{batchId}} already has pending governed work. Resolve it before creating another change request.",
+    "changeBlockedGovernedChange": "Pending governed change PR #{{number}}",
+    "changeBlockedExecutionRequest": "Pending execution request #{{number}}",
     "changeLoadError": "Failed to load the current batch definition for change mode.",
     "changeNotFound": "Batch {{batchId}} was not found.",
-    "noSession": "Connect a Workspace before loading change mode."
+    "noSession": "Connect a Workspace before loading change mode.",
+    "openBlockingPr": "Open PR",
+    "openBlockingIssue": "Open Issue"
   },
   "errors": {
     "required": "Required fields are missing: {{fields}}",

@@ -39,6 +39,10 @@ import {
   getBatchWorkflowPath,
 } from "../registration/registration-model";
 import {
+  loadBatchChangeRequestBlockers,
+  type ChangeRequestBlocker,
+} from "../registration/change-request-guard";
+import {
   createBatchPlaneRuntime,
   readRuntimeSession,
 } from "../../runtime/runtime-fixtures";
@@ -51,6 +55,7 @@ type BatchDetailState =
   | {
       type: "loaded";
       batch: BatchDefinition;
+      changeRequestBlockers: ChangeRequestBlocker[];
       defaultBranch: string;
       recentIssues: RecentExecutionIssue[];
       schedules: ScheduleDefinition[];
@@ -103,15 +108,21 @@ export function BatchDetailPage({
       try {
         const runtime = createRuntime(session);
         const repository = await runtime.settings.getRepository();
-        const [batches, issues, schedules] = await Promise.all([
-          runtime.batches.listBatchDefinitions({
-            ref: repository.defaultBranch,
-          }),
-          runtime.approvals.listExecutionRequestIssues({ state: "all" }),
-          runtime.schedules.listScheduleDefinitions({
-            ref: repository.defaultBranch,
-          }),
-        ]);
+        const [batches, issues, schedules, changeRequestBlockers] =
+          await Promise.all([
+            runtime.batches.listBatchDefinitions({
+              ref: repository.defaultBranch,
+            }),
+            runtime.approvals.listExecutionRequestIssues({ state: "all" }),
+            runtime.schedules.listScheduleDefinitions({
+              ref: repository.defaultBranch,
+            }),
+            loadBatchChangeRequestBlockers({
+              baseBranch: repository.defaultBranch,
+              batchId: decodedBatchId,
+              runtime,
+            }),
+          ]);
         const batch = batches.find(
           (candidate) => candidate.batchId === decodedBatchId,
         );
@@ -160,6 +171,7 @@ export function BatchDetailPage({
         setState({
           type: "loaded",
           batch,
+          changeRequestBlockers,
           defaultBranch: repository.defaultBranch,
           recentIssues: recentIssuesWithComments,
           schedules: schedules.filter(
@@ -274,6 +286,7 @@ function BatchDetailContent({
         <RequestActionsCard
           batch={state.batch}
           canRequestExecution={canRequestExecution}
+          changeRequestBlockers={state.changeRequestBlockers}
           createRuntime={createRuntime}
           defaultBranch={state.defaultBranch}
           readSession={readSession}
@@ -615,6 +628,7 @@ function DeletedBatchArchiveCard({
 function RequestActionsCard({
   batch,
   canRequestExecution,
+  changeRequestBlockers,
   createRuntime,
   defaultBranch,
   readSession,
@@ -622,6 +636,7 @@ function RequestActionsCard({
 }: {
   batch: BatchDefinition;
   canRequestExecution: boolean;
+  changeRequestBlockers: ChangeRequestBlocker[];
   createRuntime: (session: GitHubSession) => BatchPlaneRuntimePorts;
   defaultBranch: string;
   readSession: () => GitHubSession | null;
@@ -637,6 +652,7 @@ function RequestActionsCard({
   const executionRequestPath = `/batches/${encodeURIComponent(
     batch.batchId,
   )}/execution-requests/new`;
+  const changeRequestBlocked = changeRequestBlockers.length > 0;
   const canConfirmDelete = deleteConfirmation.trim() === batch.batchId;
 
   async function createDeleteRequest() {
@@ -752,13 +768,28 @@ function RequestActionsCard({
         <p className="mt-2 text-sm text-bp-muted">
           {t("detail.change.description")}
         </p>
-        <Link
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-          to={`/batches/new?change=${encodeURIComponent(batch.batchId)}`}
-        >
-          <GitPullRequest className="h-4 w-4" aria-hidden="true" />
-          {t("actions.requestChange")}
-        </Link>
+        {changeRequestBlocked ? (
+          <div className="mt-4 space-y-3">
+            <button
+              className="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500"
+              disabled
+              title={t("detail.change.blocked")}
+              type="button"
+            >
+              <GitPullRequest className="h-4 w-4" aria-hidden="true" />
+              {t("actions.requestChange")}
+            </button>
+            <ChangeRequestBlockerList blockers={changeRequestBlockers} />
+          </div>
+        ) : (
+          <Link
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+            to={`/batches/new?change=${encodeURIComponent(batch.batchId)}`}
+          >
+            <GitPullRequest className="h-4 w-4" aria-hidden="true" />
+            {t("actions.requestChange")}
+          </Link>
+        )}
       </div>
 
       <div className="mt-5 border-t border-slate-100 pt-5">
@@ -833,6 +864,50 @@ function RequestActionsCard({
         )}
       </div>
     </article>
+  );
+}
+
+function ChangeRequestBlockerList({
+  blockers,
+}: {
+  blockers: ChangeRequestBlocker[];
+}) {
+  const { t } = useTranslation("batches");
+
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+      <p className="text-xs font-semibold text-amber-950">
+        {t("detail.change.blocked")}
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {blockers.map((blocker) => (
+          <li
+            className="flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900"
+            key={`${blocker.type}-${blocker.number}`}
+          >
+            <span className="font-semibold">
+              {blocker.type === "governed-change"
+                ? t("detail.change.blockedByPr", {
+                    number: blocker.number,
+                  })
+                : t("detail.change.blockedByIssue", {
+                    number: blocker.number,
+                  })}
+            </span>
+            <a
+              className="font-semibold text-amber-950 underline"
+              href={blocker.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {blocker.type === "governed-change"
+                ? t("detail.change.openBlockingPr")
+                : t("detail.change.openBlockingIssue")}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
