@@ -104,7 +104,7 @@ describe("LiteSetupPage", () => {
     });
     expect(
       await screen.findByText(
-        "After this policy PR is merged, execution requests are approved automatically by Workspace policy. The UI records explicit approval evidence; the dispatcher still performs workflow_dispatch.",
+        "After this policy PR is merged, execution requests are approved automatically by Workspace policy. This mode also includes self-approval permission. The UI records explicit approval evidence; the dispatcher still performs workflow_dispatch.",
       ),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create policy PR" }));

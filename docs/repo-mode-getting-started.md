@@ -164,7 +164,8 @@ Supported approval modes:
   execution request creation also records explicit approval evidence
   automatically. Gate allows that evidence only when the merged Workspace policy
   is `AUTO_APPROVE`. The dispatcher still performs `workflow_dispatch`; the
-  browser UI must not dispatch governed workflows directly.
+  browser UI must not dispatch governed workflows directly. This mode also
+  includes `SELF_APPROVAL_ALLOWED` behavior for manual approvals.
 
 Changing the approval mode from Workspace creates a pull request. The mode is
 active only after that pull request is merged.

@@ -119,7 +119,9 @@ expiration window, and workflow target before it performs `workflow_dispatch`.
 By default, requester self-approval is blocked. A target repository may allow
 single-user testing by setting `.batch-governance/workspace.yml` to
 `SELF_APPROVAL_ALLOWED`; the approval comment and Gate verification still make
-that self-approval explicit.
+that self-approval explicit. `AUTO_APPROVE` is a higher relaxation level and
+therefore also includes self-approval permission while recording automatic
+Workspace-policy approval evidence.
 
 See also:
 

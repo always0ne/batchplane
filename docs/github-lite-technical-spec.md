@@ -126,7 +126,8 @@ Supported `spec.approval.mode` values are:
   `approvalSource=WORKSPACE_POLICY`. Gate allows that evidence only when the
   merged Workspace policy is `AUTO_APPROVE`. Dispatcher remains responsible for
   `workflow_dispatch`; the browser UI must not dispatch governed workflows
-  directly.
+  directly. This is the highest approval-relaxation level and includes
+  `SELF_APPROVAL_ALLOWED` behavior for manual approvals.
 
 If `.batch-governance/workspace.yml` is missing, UI and Gate must treat the
 mode as `SELF_APPROVAL_BLOCKED`. UI-only local settings must not weaken approval policy,

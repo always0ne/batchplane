@@ -291,7 +291,9 @@ definition, dispatcher actor, request digest, and approver authorization.
 execution request creation must also create auditable approval evidence with an
 auto-approval source/type and `approvalMode=AUTO_APPROVE`. Gate must allow that
 evidence only when the merged Workspace policy is `AUTO_APPROVE`. The dispatcher
-workflow must remain responsible for `workflow_dispatch`.
+workflow must remain responsible for `workflow_dispatch`. `AUTO_APPROVE` is a
+higher permission level than `SELF_APPROVAL_ALLOWED`, so manual self-approval is
+also allowed under this mode.
 
 The Workspace screen must allow an operator to prepare a Workspace policy
 change without editing YAML by hand. Saving an approval mode change creates a

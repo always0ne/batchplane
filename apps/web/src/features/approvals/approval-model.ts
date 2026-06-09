@@ -256,7 +256,10 @@ export function buildExecutionApprovalComment({
 }
 
 export function allowsSelfApproval(policy: WorkspacePolicy): boolean {
-  return policy.approval.mode === "SELF_APPROVAL_ALLOWED";
+  return (
+    policy.approval.mode === "SELF_APPROVAL_ALLOWED" ||
+    policy.approval.mode === "AUTO_APPROVE"
+  );
 }
 
 export function isAutoApprovalEnabled(policy: WorkspacePolicy): boolean {

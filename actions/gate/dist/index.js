@@ -166,11 +166,11 @@ export async function verifyLiteAuthorization(input) {
         };
     }
     if (evidence.approval.approver === evidence.request.requestedBy &&
-        workspaceApprovalMode !== "SELF_APPROVAL_ALLOWED") {
+        !allowsSelfApproval(workspaceApprovalMode)) {
         return deny("SELF_APPROVAL_NOT_ALLOWED", "Requester and approver must be different users.");
     }
     const selfApprovalAllowedWithoutRoleMapping = evidence.approval.approver === evidence.request.requestedBy &&
-        workspaceApprovalMode === "SELF_APPROVAL_ALLOWED";
+        allowsSelfApproval(workspaceApprovalMode);
     const approverAuthorized = await verifyApproverAuthorization({
         allowMissingRoleMapping: selfApprovalAllowedWithoutRoleMapping,
         approver: evidence.approval.approver,
@@ -243,6 +243,9 @@ function deny(reasonCode, message) {
 }
 function toErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+}
+function allowsSelfApproval(mode) {
+    return mode === "SELF_APPROVAL_ALLOWED" || mode === "AUTO_APPROVE";
 }
 async function findGitHubApprovalEvidence({ client, requestId, }) {
     const issue = await client.findExecutionRequestIssue(requestId);

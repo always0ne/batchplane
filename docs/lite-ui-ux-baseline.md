@@ -98,7 +98,8 @@ Lite must read as one connected operational flow:
   and it must not present repository-owned policy files as template drift.
 - `AUTO_APPROVE` must explain that execution requests receive explicit
   Workspace-policy approval evidence automatically after Issue creation. The UI
-  still must not dispatch governed workflows directly.
+  still must not dispatch governed workflows directly. It must also explain
+  that this mode includes self-approval permission.
 
 ## Gate UX Rules
 

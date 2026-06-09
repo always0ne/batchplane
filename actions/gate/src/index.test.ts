@@ -269,6 +269,34 @@ describe("Gate action runtime", () => {
     });
   });
 
+  it("treats AUTO_APPROVE as including manual self-approval permission", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({
+          comments: [buildApprovalComment({ approver: "developer" })],
+          includeRoleMapping: false,
+          includeWorkspacePolicy: true,
+          workspaceApprovalMode: "AUTO_APPROVE",
+        }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message:
+        "Execution request, approval evidence, and batch policy are verified.",
+      result: "ALLOW",
+    });
+  });
+
   it("allows Workspace auto-approval only when policy explicitly enables it", async () => {
     await expect(
       verifyLiteAuthorization({
