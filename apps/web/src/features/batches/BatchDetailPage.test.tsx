@@ -98,10 +98,9 @@ describe("BatchDetailPage", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Execution request #101")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Issue" })).toHaveAttribute(
-      "href",
-      "https://github.com/always0ne/batch/issues/101",
-    );
+    expect(
+      screen.getByRole("link", { name: "Open execution request" }),
+    ).toHaveAttribute("href", "/execution-requests/101");
   });
 
   it("renders an empty state when the batch is missing", async () => {

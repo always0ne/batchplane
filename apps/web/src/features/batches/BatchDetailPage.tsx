@@ -39,6 +39,7 @@ import {
   getBatchWorkflowPath,
 } from "../registration/registration-model";
 import {
+  getChangeRequestBlockerDetailPath,
   loadBatchChangeRequestBlockers,
   type ChangeRequestBlocker,
 } from "../registration/change-request-guard";
@@ -894,16 +895,14 @@ function ChangeRequestBlockerList({
                     number: blocker.number,
                   })}
             </span>
-            <a
+            <Link
               className="font-semibold text-amber-950 underline"
-              href={blocker.url}
-              rel="noreferrer"
-              target="_blank"
+              to={getChangeRequestBlockerDetailPath(blocker)}
             >
               {blocker.type === "governed-change"
                 ? t("detail.change.openBlockingPr")
                 : t("detail.change.openBlockingIssue")}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>

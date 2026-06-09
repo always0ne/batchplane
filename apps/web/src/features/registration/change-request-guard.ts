@@ -33,6 +33,14 @@ export type ChangeRequestBlocker =
       url: string;
     };
 
+export function getChangeRequestBlockerDetailPath(
+  blocker: ChangeRequestBlocker,
+): string {
+  return blocker.type === "governed-change"
+    ? `/approvals/registration/${blocker.number}`
+    : `/execution-requests/${blocker.number}`;
+}
+
 export async function loadBatchChangeRequestBlockers({
   baseBranch,
   batchId,

@@ -228,10 +228,9 @@ describe("BatchRegistrationPage", () => {
     expect(
       screen.getByText("Pending governed change PR #51"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open PR" })).toHaveAttribute(
-      "href",
-      "https://github.com/always0ne/batch/pull/51",
-    );
+    expect(
+      screen.getByRole("link", { name: "Open change request" }),
+    ).toHaveAttribute("href", "/approvals/registration/51");
     expect(
       screen.getByRole("link", { name: "Open batch detail" }),
     ).toHaveAttribute("href", "/batches/payment.daily-close");

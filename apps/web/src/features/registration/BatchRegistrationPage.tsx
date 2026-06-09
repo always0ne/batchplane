@@ -65,6 +65,7 @@ import {
   type RegistrationRequestMode,
 } from "./registration-model";
 import {
+  getChangeRequestBlockerDetailPath,
   loadBatchChangeRequestBlockers,
   type ChangeRequestBlocker,
 } from "./change-request-guard";
@@ -987,16 +988,14 @@ function ChangeRequestBlockedState({
                 </p>
                 <p className="mt-1 text-xs text-amber-800">{blocker.title}</p>
               </div>
-              <a
+              <Link
                 className="inline-flex items-center justify-center rounded-md border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-950"
-                href={blocker.url}
-                rel="noreferrer"
-                target="_blank"
+                to={getChangeRequestBlockerDetailPath(blocker)}
               >
                 {blocker.type === "governed-change"
                   ? t("states.openBlockingPr")
                   : t("states.openBlockingIssue")}
-              </a>
+              </Link>
             </div>
           </li>
         ))}

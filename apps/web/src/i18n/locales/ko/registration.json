@@ -128,8 +128,8 @@
     "changeLoadError": "변경 모드용 현재 배치 정의를 불러오지 못했습니다.",
     "changeNotFound": "배치 {{batchId}}를 찾지 못했습니다.",
     "noSession": "변경 모드를 불러오기 전에 Workspace를 연결하세요.",
-    "openBlockingPr": "PR 열기",
-    "openBlockingIssue": "Issue 열기"
+    "openBlockingPr": "변경요청 열기",
+    "openBlockingIssue": "실행요청 열기"
   },
   "errors": {
     "required": "필수 항목이 누락되었습니다: {{fields}}",

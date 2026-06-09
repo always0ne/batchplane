@@ -106,8 +106,8 @@
       "blocked": "Resolve pending governed work before creating another change request.",
       "blockedByPr": "Governed change PR #{{number}}",
       "blockedByIssue": "Execution request #{{number}}",
-      "openBlockingPr": "Open PR",
-      "openBlockingIssue": "Open Issue"
+      "openBlockingPr": "Open change request",
+      "openBlockingIssue": "Open execution request"
     },
     "delete": {
       "title": "Delete request",

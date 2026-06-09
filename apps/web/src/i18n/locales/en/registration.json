@@ -128,8 +128,8 @@
     "changeLoadError": "Failed to load the current batch definition for change mode.",
     "changeNotFound": "Batch {{batchId}} was not found.",
     "noSession": "Connect a Workspace before loading change mode.",
-    "openBlockingPr": "Open PR",
-    "openBlockingIssue": "Open Issue"
+    "openBlockingPr": "Open change request",
+    "openBlockingIssue": "Open execution request"
   },
   "errors": {
     "required": "Required fields are missing: {{fields}}",
