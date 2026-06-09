@@ -126,7 +126,7 @@ describe("BatchRegistrationPage", () => {
   });
 
   it("prefills the existing batch when opened in change mode", async () => {
-    writeRuntimeFixtureSelection("approval-pending");
+    writeRuntimeFixtureSelection("happy-path");
 
     render(
       <MemoryRouter
@@ -158,7 +158,7 @@ describe("BatchRegistrationPage", () => {
   });
 
   it("keeps an existing schedule visible when marked for deletion", async () => {
-    writeRuntimeFixtureSelection("approval-pending");
+    writeRuntimeFixtureSelection("happy-path");
 
     render(
       <MemoryRouter
@@ -189,6 +189,54 @@ describe("BatchRegistrationPage", () => {
     expect(
       screen.getByRole("button", { name: "Undo delete" }),
     ).toBeInTheDocument();
+  });
+
+  it("blocks direct change mode when a governed change is already pending", async () => {
+    const state = createRuntimeFixtureMockState("happy-path");
+    state.pullRequests.push(pendingChangePullRequest());
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/batches/new?change=payment.daily-close"]}
+      >
+        <Routes>
+          <Route
+            path="/batches/new"
+            element={
+              <BatchRegistrationPage
+                createRuntime={() => runtime}
+                readSession={() => session}
+              />
+            }
+          />
+          <Route path="/batches/:batchId" element={<p>Batch detail</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Change request" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Change request is blocked")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Batch payment.daily-close already has pending governed work. Resolve it before creating another change request.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Pending governed change PR #51"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open change request" }),
+    ).toHaveAttribute("href", "/approvals/registration/51");
+    expect(
+      screen.getByRole("link", { name: "Open batch detail" }),
+    ).toHaveAttribute("href", "/batches/payment.daily-close");
+    expect(
+      screen.queryByRole("button", { name: "Create change PR" }),
+    ).not.toBeInTheDocument();
   });
 
   it("auto-approves and applies change PRs when Workspace policy enables it", async () => {
@@ -268,6 +316,33 @@ describe("BatchRegistrationPage", () => {
     });
   });
 });
+
+function pendingChangePullRequest() {
+  return {
+    author: "developer",
+    base: "main",
+    body: [
+      "## BatchPlane Registration",
+      "",
+      "- Request type: CHANGE",
+      "- Batch ID: `payment.daily-close`",
+      "- Name: Daily Close",
+      "- Owner: ops-team",
+      "- Domain: payments",
+      "- Environment: PROD",
+      "- Criticality: HIGH",
+      "- Workflow: `.github/workflows/payment.daily-close.yml`",
+      "- Runs on: ubuntu-latest",
+      "- BatchPlane Gate: required",
+    ].join("\n"),
+    head: "batchplane/change/payment.daily-close-20260609010101",
+    merged: false,
+    number: 51,
+    state: "open" as const,
+    title: "Change batch payment.daily-close",
+    url: "https://github.com/always0ne/batch/pull/51",
+  };
+}
 
 function renderRegistrationPage() {
   render(

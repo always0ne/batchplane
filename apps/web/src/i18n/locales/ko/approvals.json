@@ -88,6 +88,7 @@
       "backToApprovals": "승인함으로",
       "closedTitle": "변경 검토 완료",
       "note": "승인 시 이 통제 변경을 Workspace 증적에 반영합니다.",
+      "openBatchDetail": "배치 상세 열기",
       "title": "승인 처리"
     },
     "states": {

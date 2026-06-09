@@ -17,7 +17,7 @@ describe("BatchDetailPage", () => {
   });
 
   it("renders batch detail from mock runtime data", async () => {
-    writeRuntimeFixtureSelection("approval-pending");
+    writeRuntimeFixtureSelection("happy-path");
 
     renderBatchDetailPage("/batches/payment.daily-close");
 
@@ -61,7 +61,7 @@ describe("BatchDetailPage", () => {
     expect(screen.getByText("0 20 * * *")).toBeInTheDocument();
     expect(screen.getByText("Recent execution evidence")).toBeInTheDocument();
     expect(
-      screen.getByText("btr-20260514010100-payment.daily-close-00000001"),
+      screen.getByText("btr-20260514010400-payment.daily-close-00000004"),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Request run" })).toHaveAttribute(
       "href",
@@ -78,6 +78,46 @@ describe("BatchDetailPage", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Change schedule" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("blocks change requests while an execution request is pending", async () => {
+    writeRuntimeFixtureSelection("approval-pending");
+
+    renderBatchDetailPage("/batches/payment.daily-close");
+
+    expect(
+      await screen.findByRole("heading", { name: "Daily Close" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Request change" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(
+        "Resolve pending governed work before creating another change request.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Execution request #101")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open execution request" }),
+    ).toHaveAttribute("href", "/execution-requests/101");
+  });
+
+  it("allows change requests when the prior execution request is dispatch failed", async () => {
+    writeRuntimeFixtureSelection("dispatch-failed");
+
+    renderBatchDetailPage("/batches/payment.daily-close");
+
+    expect(
+      await screen.findByRole("heading", { name: "Daily Close" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Request change" }),
+    ).toHaveAttribute("href", "/batches/new?change=payment.daily-close");
+    expect(
+      screen.queryByText(
+        "Resolve pending governed work before creating another change request.",
+      ),
     ).not.toBeInTheDocument();
   });
 

@@ -54,6 +54,9 @@ describe("RegistrationApprovalDetailPage", () => {
     expect(
       screen.getByRole("button", { name: "Approve and apply change" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open batch detail" }),
+    ).toHaveAttribute("href", "/batches/payment.daily-close");
   });
 
   it("loads the governed change by request number without waiting for the approval list", async () => {
@@ -97,6 +100,9 @@ describe("RegistrationApprovalDetailPage", () => {
       screen.getByText("Cron expression is recorded."),
     ).toBeInTheDocument();
     expect(screen.getByText("Enabled state is recorded.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open batch detail" }),
+    ).toHaveAttribute("href", "/batches/payment.daily-close");
   });
 
   it("shows delete request type and removed governed files", async () => {

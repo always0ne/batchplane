@@ -102,7 +102,12 @@
     },
     "change": {
       "title": "변경 요청",
-      "description": "이 배치 정의와 생성 Workflow에 대한 통제된 변경 요청을 생성합니다."
+      "description": "이 배치 정의와 생성 Workflow에 대한 통제된 변경 요청을 생성합니다.",
+      "blocked": "다른 통제 작업이 처리 중이므로 새 변경 요청을 생성할 수 없습니다.",
+      "blockedByPr": "통제 변경 PR #{{number}}",
+      "blockedByIssue": "실행 요청 #{{number}}",
+      "openBlockingPr": "변경요청 열기",
+      "openBlockingIssue": "실행요청 열기"
     },
     "delete": {
       "title": "삭제 요청",

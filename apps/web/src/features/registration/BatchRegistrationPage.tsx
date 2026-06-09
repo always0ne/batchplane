@@ -65,6 +65,11 @@ import {
   type RegistrationRequestMode,
 } from "./registration-model";
 import {
+  getChangeRequestBlockerDetailPath,
+  loadBatchChangeRequestBlockers,
+  type ChangeRequestBlocker,
+} from "./change-request-guard";
+import {
   defaultScheduleFormValues,
   toBatchSchedule,
   toDerivedScheduleDefinition,
@@ -102,6 +107,7 @@ type PrefillState =
   | { type: "loading" }
   | { type: "no-session" }
   | { type: "not-found"; batchId: string }
+  | { type: "blocked"; batchId: string; blockers: ChangeRequestBlocker[] }
   | { type: "error"; message: string };
 
 const criticalityOptions: Criticality[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
@@ -395,6 +401,23 @@ export function BatchRegistrationPage({
         if (!batch) {
           if (!ignoreResult) {
             setPrefillState({ type: "not-found", batchId: changeBatchId });
+          }
+          return;
+        }
+
+        const blockers = await loadBatchChangeRequestBlockers({
+          baseBranch: repository.defaultBranch,
+          batchId: batch.batchId,
+          runtime,
+        });
+
+        if (blockers.length > 0) {
+          if (!ignoreResult) {
+            setPrefillState({
+              batchId: batch.batchId,
+              blockers,
+              type: "blocked",
+            });
           }
           return;
         }
@@ -698,6 +721,18 @@ export function BatchRegistrationPage({
     );
   }
 
+  if (prefillState.type === "blocked") {
+    return (
+      <section>
+        <PageHeader subtitle={pageSubtitle} title={pageTitle} />
+        <ChangeRequestBlockedState
+          batchId={prefillState.batchId}
+          blockers={prefillState.blockers}
+        />
+      </section>
+    );
+  }
+
   if (prefillState.type === "error") {
     return (
       <section>
@@ -906,6 +941,66 @@ export function BatchRegistrationPage({
         </aside>
       </form>
     </section>
+  );
+}
+
+function ChangeRequestBlockedState({
+  batchId,
+  blockers,
+}: {
+  batchId: string;
+  blockers: ChangeRequestBlocker[];
+}) {
+  const { t } = useTranslation("registration");
+
+  return (
+    <article className="rounded-lg border border-amber-200 bg-amber-50 p-5 shadow-sm">
+      <h2 className="text-lg font-semibold text-amber-950">
+        {t("states.changeBlockedTitle")}
+      </h2>
+      <p className="mt-2 text-sm text-amber-900">
+        {t("states.changeBlockedDescription", { batchId })}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-950"
+          to={`/batches/${encodeURIComponent(batchId)}`}
+        >
+          {t("actions.openBatchDetail")}
+        </Link>
+      </div>
+      <ul className="mt-4 space-y-2">
+        {blockers.map((blocker) => (
+          <li
+            className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950"
+            key={`${blocker.type}-${blocker.number}`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-semibold">
+                  {blocker.type === "governed-change"
+                    ? t("states.changeBlockedGovernedChange", {
+                        number: blocker.number,
+                      })
+                    : t("states.changeBlockedExecutionRequest", {
+                        number: blocker.number,
+                      })}
+                </p>
+                <p className="mt-1 text-xs text-amber-800">{blocker.title}</p>
+              </div>
+              <Link
+                className="inline-flex items-center justify-center rounded-md border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-950"
+                to={getChangeRequestBlockerDetailPath(blocker)}
+              >
+                {blocker.type === "governed-change"
+                  ? t("states.openBlockingPr")
+                  : t("states.openBlockingIssue")}
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </article>
   );
 }
 

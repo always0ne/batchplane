@@ -88,6 +88,7 @@
       "backToApprovals": "Back to approvals",
       "closedTitle": "Change review completed",
       "note": "Approving applies this governed change to the Workspace evidence.",
+      "openBatchDetail": "Open batch detail",
       "title": "Approval action"
     },
     "states": {
