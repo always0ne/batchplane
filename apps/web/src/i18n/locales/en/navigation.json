@@ -3,10 +3,17 @@
     "desktopPrimary": "Desktop primary navigation",
     "mobilePrimary": "Mobile primary navigation"
   },
+  "groups": {
+    "overview": "Overview",
+    "operations": "Operations",
+    "governance": "Governance",
+    "workspace": "Workspace"
+  },
   "items": {
     "dashboard": "Dashboard",
-    "setup": "Workspace",
+    "setup": "Connection",
     "batches": "Batches",
+    "requests": "Requests",
     "approvals": "Approvals",
     "runs": "Runs",
     "failures": "Failures",

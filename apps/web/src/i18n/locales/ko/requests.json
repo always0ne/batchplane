@@ -1,0 +1,68 @@
+{
+  "title": "Workspace 요청",
+  "subtitle": "연결된 Workspace의 통제 변경 요청과 실행 요청을 조회합니다.",
+  "actions": {
+    "openDetail": "요청 열기",
+    "openSource": "소스 열기",
+    "refresh": "새로고침"
+  },
+  "counts": {
+    "execution": "실행 {{count}}건",
+    "governedChange": "통제 변경 {{count}}건",
+    "total": "전체 {{count}}건"
+  },
+  "fields": {
+    "actor": "처리자",
+    "target": "대상",
+    "updated": "갱신"
+  },
+  "filters": {
+    "kinds": {
+      "all": "전체 요청",
+      "execution": "실행 요청",
+      "governed-change": "통제 변경"
+    },
+    "search": "검색",
+    "searchPlaceholder": "배치, 스케줄, 처리자, 소스",
+    "status": "상태",
+    "statuses": {
+      "all": "전체 상태"
+    },
+    "type": "유형"
+  },
+  "list": {
+    "subtitle": "현재 필터에 {{count}}건의 요청이 일치합니다.",
+    "title": "요청 목록"
+  },
+  "states": {
+    "empty": "현재 필터에 일치하는 Workspace 요청이 없습니다.",
+    "error": "Workspace 요청을 불러오지 못했습니다.",
+    "loading": "Workspace 요청을 불러오는 중입니다.",
+    "noSession": "요청을 조회하기 전에 Workspace를 연결하세요."
+  },
+  "statuses": {
+    "APPROVED": "승인됨",
+    "APPROVED_PENDING_MERGE": "승인됨, 병합 대기",
+    "CLOSED": "닫힘",
+    "DISPATCHED": "Dispatch 완료",
+    "DISPATCH_FAILED": "Dispatch 실패",
+    "DISPATCHING": "Dispatch 중",
+    "GATE_BLOCKED": "Gate 차단",
+    "MERGED": "병합됨",
+    "OPEN": "열림",
+    "REJECTED": "반려됨",
+    "REQUESTED": "요청됨"
+  },
+  "types": {
+    "batchChange": "배치 변경",
+    "batchDelete": "배치 삭제",
+    "batchRegister": "배치 등록",
+    "manualExecution": "수동 실행",
+    "scheduleChange": "스케줄 변경",
+    "scheduledExecution": "스케줄 실행"
+  },
+  "values": {
+    "unknown": "알 수 없음",
+    "unknownTime": "알 수 없는 시각"
+  }
+}

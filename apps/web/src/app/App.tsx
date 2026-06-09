@@ -2,6 +2,7 @@ import {
   Activity,
   AlertTriangle,
   ClipboardCheck,
+  FileText,
   GitBranch,
   History,
   Inbox,
@@ -33,6 +34,7 @@ import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
 import { MyWorkPage } from "../features/my-work/MyWorkPage";
 import { BatchRegistrationPage } from "../features/registration/BatchRegistrationPage";
+import { WorkspaceRequestsPage } from "../features/requests/WorkspaceRequestsPage";
 import {
   localeLabels,
   supportedLocales,
@@ -47,15 +49,34 @@ import {
   writeRuntimeFixtureSelection,
 } from "../runtime/runtime-fixtures";
 
-const navItems = [
-  { icon: LayoutDashboard, labelKey: "items.dashboard", to: "/dashboard" },
-  { icon: Inbox, labelKey: "items.myWork", to: "/my-work" },
-  { icon: Settings, labelKey: "items.setup", to: "/lite/setup" },
-  { icon: ListChecks, labelKey: "items.batches", to: "/batches" },
-  { icon: Activity, labelKey: "items.runs", to: "/runs" },
-  { icon: AlertTriangle, labelKey: "items.failures", to: "/failures" },
-  { icon: ClipboardCheck, labelKey: "items.approvals", to: "/approvals" },
-  { icon: History, labelKey: "items.audit", to: "/audit" },
+const navSections = [
+  {
+    labelKey: "groups.overview",
+    items: [
+      { icon: LayoutDashboard, labelKey: "items.dashboard", to: "/dashboard" },
+      { icon: Inbox, labelKey: "items.myWork", to: "/my-work" },
+    ],
+  },
+  {
+    labelKey: "groups.operations",
+    items: [
+      { icon: ListChecks, labelKey: "items.batches", to: "/batches" },
+      { icon: Activity, labelKey: "items.runs", to: "/runs" },
+      { icon: AlertTriangle, labelKey: "items.failures", to: "/failures" },
+    ],
+  },
+  {
+    labelKey: "groups.governance",
+    items: [
+      { icon: FileText, labelKey: "items.requests", to: "/requests" },
+      { icon: ClipboardCheck, labelKey: "items.approvals", to: "/approvals" },
+      { icon: History, labelKey: "items.audit", to: "/audit" },
+    ],
+  },
+  {
+    labelKey: "groups.workspace",
+    items: [{ icon: Settings, labelKey: "items.setup", to: "/lite/setup" }],
+  },
 ] as const;
 const compactMarkSrc = `${import.meta.env.BASE_URL}assets/batchplane-compact-mark.svg`;
 
@@ -105,7 +126,7 @@ export function App() {
             </p>
           </div>
         </div>
-        <nav className="mt-8 space-y-2">
+        <nav className="mt-8 space-y-5">
           <NavigationLinks variant="desktop" />
         </nav>
       </aside>
@@ -195,6 +216,7 @@ export function App() {
               path="/failures"
               element={<ExecutionRunListPage view="failures" />}
             />
+            <Route path="/requests" element={<WorkspaceRequestsPage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
             <Route
               path="/approvals/registration/:pullNumber"
@@ -231,30 +253,52 @@ function NavigationLinks({ variant }: { variant: "desktop" | "mobile" }) {
 
   return (
     <>
-      {navItems.map((item) => {
-        const Icon = item.icon;
-
-        return (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              [
-                "inline-flex items-center gap-2 rounded-lg text-sm font-semibold",
-                variant === "desktop"
-                  ? "w-full px-3 py-2"
-                  : "shrink-0 whitespace-nowrap px-3 py-2",
-                isActive
-                  ? "bg-bp-control text-white"
-                  : "text-bp-muted hover:bg-slate-100 hover:text-bp-graphite",
-              ].join(" ")
+      {navSections.map((section) => (
+        <div
+          aria-label={t(section.labelKey)}
+          className={
+            variant === "desktop"
+              ? "space-y-1"
+              : "flex shrink-0 items-center gap-2"
+          }
+          key={section.labelKey}
+          role="group"
+        >
+          <p
+            className={
+              variant === "desktop"
+                ? "px-3 text-xs font-bold uppercase text-slate-400"
+                : "shrink-0 text-xs font-bold uppercase text-slate-400"
             }
           >
-            <Icon className="h-4 w-4" aria-hidden="true" />
-            {t(item.labelKey)}
-          </NavLink>
-        );
-      })}
+            {t(section.labelKey)}
+          </p>
+          {section.items.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  [
+                    "inline-flex items-center gap-2 rounded-lg text-sm font-semibold",
+                    variant === "desktop"
+                      ? "w-full px-3 py-2"
+                      : "shrink-0 whitespace-nowrap px-3 py-2",
+                    isActive
+                      ? "bg-bp-control text-white"
+                      : "text-bp-muted hover:bg-slate-100 hover:text-bp-graphite",
+                  ].join(" ")
+                }
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {t(item.labelKey)}
+              </NavLink>
+            );
+          })}
+        </div>
+      ))}
     </>
   );
 }

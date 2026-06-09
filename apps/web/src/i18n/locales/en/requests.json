@@ -1,0 +1,68 @@
+{
+  "title": "Workspace requests",
+  "subtitle": "Browse governed changes and execution requests in the connected Workspace.",
+  "actions": {
+    "openDetail": "Open request",
+    "openSource": "Open source",
+    "refresh": "Refresh"
+  },
+  "counts": {
+    "execution": "{{count}} execution",
+    "governedChange": "{{count}} governed changes",
+    "total": "{{count}} total"
+  },
+  "fields": {
+    "actor": "Actor",
+    "target": "Target",
+    "updated": "Updated"
+  },
+  "filters": {
+    "kinds": {
+      "all": "All requests",
+      "execution": "Execution requests",
+      "governed-change": "Governed changes"
+    },
+    "search": "Search",
+    "searchPlaceholder": "Batch, schedule, actor, source",
+    "status": "Status",
+    "statuses": {
+      "all": "All statuses"
+    },
+    "type": "Type"
+  },
+  "list": {
+    "subtitle": "{{count}} requests match the current filters.",
+    "title": "Request list"
+  },
+  "states": {
+    "empty": "No Workspace requests match this filter.",
+    "error": "Failed to load Workspace requests.",
+    "loading": "Loading Workspace requests.",
+    "noSession": "Connect a Workspace before browsing requests."
+  },
+  "statuses": {
+    "APPROVED": "Approved",
+    "APPROVED_PENDING_MERGE": "Approved, pending merge",
+    "CLOSED": "Closed",
+    "DISPATCHED": "Dispatched",
+    "DISPATCH_FAILED": "Dispatch failed",
+    "DISPATCHING": "Dispatching",
+    "GATE_BLOCKED": "Gate blocked",
+    "MERGED": "Merged",
+    "OPEN": "Open",
+    "REJECTED": "Rejected",
+    "REQUESTED": "Requested"
+  },
+  "types": {
+    "batchChange": "Batch change",
+    "batchDelete": "Batch delete",
+    "batchRegister": "Batch registration",
+    "manualExecution": "Manual execution",
+    "scheduleChange": "Schedule change",
+    "scheduledExecution": "Scheduled execution"
+  },
+  "values": {
+    "unknown": "Unknown",
+    "unknownTime": "Unknown time"
+  }
+}
