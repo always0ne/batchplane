@@ -46,6 +46,9 @@ describe("ExecutionRequestDetailPage", () => {
       screen.getByRole("button", { name: "Approve execution" }),
     ).toBeEnabled();
     expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+    expect(
+      screen.queryByRole("link", { name: "View run detail" }),
+    ).not.toBeInTheDocument();
   });
 
   it("loads the request by Issue number without waiting for the approvals list", async () => {
@@ -163,11 +166,8 @@ describe("ExecutionRequestDetailPage", () => {
       0,
     );
     expect(
-      screen.getByRole("link", { name: "View execution history" }),
-    ).toHaveAttribute(
-      "href",
-      "/runs?batchId=payment.daily-close&requestId=btr-20260514010400-payment.daily-close-00000004",
-    );
+      screen.getByRole("link", { name: "View run detail" }),
+    ).toHaveAttribute("href", "/execution-runs/204");
     expect(screen.getByText(/DISPATCHED @/)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Approve execution" }),

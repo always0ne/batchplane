@@ -25,7 +25,7 @@
       "closedTitle": "승인 작업 없음",
       "note": "승인은 Issue comment 증적으로 기록됩니다. 브라우저는 Workflow를 직접 dispatch하지 않습니다.",
       "openIssue": "Issue 열기",
-      "openRuns": "실행내역 보기",
+      "openRunDetail": "Run 상세 보기",
       "refresh": "새로고침",
       "reject": "반려",
       "title": "승인 판단"

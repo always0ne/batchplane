@@ -25,7 +25,7 @@
       "closedTitle": "No approval action",
       "note": "Approval records Issue comment evidence. The browser never dispatches the workflow directly.",
       "openIssue": "Open Issue",
-      "openRuns": "View execution history",
+      "openRunDetail": "View run detail",
       "refresh": "Refresh",
       "reject": "Reject",
       "title": "Approval decision"

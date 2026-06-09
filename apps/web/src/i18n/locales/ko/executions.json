@@ -3,14 +3,12 @@
   "subtitle": "Workflow run과 후속 확인 증적을 조회합니다.",
   "approveCommand": "/bgcp approve requestDigest=...",
   "actions": {
-    "clearContext": "필터 해제",
     "githubRun": "GitHub run",
     "openRun": "Run 열기",
     "openSetup": "Workspace 열기",
     "refresh": "새로고침"
   },
   "fields": {
-    "batchId": "Batch ID",
     "completedAt": "완료",
     "requestId": "Request ID",
     "runId": "Run ID",
@@ -25,7 +23,6 @@
     "succeeded": "성공"
   },
   "list": {
-    "contextFilter": "요청 기준 필터",
     "empty": "조건에 맞는 workflow run이 없습니다.",
     "subtitle": "{{count}}건의 Run이 표시됩니다.",
     "subtitle_plural": "{{count}}건의 Run이 표시됩니다.",

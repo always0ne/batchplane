@@ -319,7 +319,7 @@ export function ExecutionRequestDetailPage({
         })
       : "";
   const isBusy = actionState.type === "running";
-  const executionRunsPath = buildExecutionRunsPath(request);
+  const latestRun = state.runs[0];
 
   return (
     <section>
@@ -335,13 +335,15 @@ export function ExecutionRequestDetailPage({
           >
             {t("detail.actions.backToApprovals")}
           </Link>
-          <Link
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-            to={executionRunsPath}
-          >
-            <Activity className="h-4 w-4" aria-hidden="true" />
-            {t("detail.actions.openRuns")}
-          </Link>
+          {latestRun ? (
+            <Link
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+              to={`/execution-runs/${latestRun.runId}`}
+            >
+              <Activity className="h-4 w-4" aria-hidden="true" />
+              {t("detail.actions.openRunDetail")}
+            </Link>
+          ) : null}
           <a
             className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
             href={request.issue.url}
@@ -424,14 +426,6 @@ export function ExecutionRequestDetailPage({
       </div>
     </section>
   );
-}
-
-function buildExecutionRunsPath(request: ExecutionApprovalRequest): string {
-  const searchParams = new URLSearchParams();
-  searchParams.set("batchId", request.batchId);
-  searchParams.set("requestId", request.requestId);
-
-  return `/runs?${searchParams.toString()}`;
 }
 
 function applyRecordedApprovalNavigationState(

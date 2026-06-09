@@ -95,45 +95,6 @@ describe("ExecutionRunListPage", () => {
     );
   });
 
-  it("filters execution runs by request context query parameters", async () => {
-    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
-
-    renderPage({
-      createRuntime: () => createGitHubLiteRuntime(session, { client }),
-      initialPath:
-        "/runs?batchId=payment.daily-close&requestId=btr-20260514010400-payment.daily-close-00000004",
-      readSession: () => session,
-    });
-
-    expect(
-      await screen.findByText("Filtered by request context"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Batch ID: payment.daily-close"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Request ID: btr-20260514010400-payment.daily-close-00000004",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open run" })).toHaveAttribute(
-      "href",
-      "/execution-runs/204",
-    );
-    expect(
-      screen.queryByText("Batch command failed after Gate allowed the run."),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear context" }));
-
-    expect(
-      screen.queryByText("Filtered by request context"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Batch command failed after Gate allowed the run."),
-    ).toBeInTheDocument();
-  });
-
   it("renders Gate reason messages in Korean while preserving reasonCode", async () => {
     await i18next.changeLanguage("ko");
     const client = createMockGitHubLiteClient(createGitHubLiteMockState());
