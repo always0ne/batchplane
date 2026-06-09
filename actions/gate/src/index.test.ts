@@ -18,6 +18,7 @@ import {
   parseExecutionApprovalEvidence,
   parseExecutionRequestEvidence,
 } from "../../dispatcher/src";
+import type { WorkspaceApprovalMode } from "./gate-schema";
 const workflowPath = ".github/workflows/payment.daily-close.yml";
 
 describe("Gate action runtime", () => {
@@ -265,6 +266,100 @@ describe("Gate action runtime", () => {
       message:
         "Execution request, approval evidence, and batch policy are verified.",
       result: "ALLOW",
+    });
+  });
+
+  it("treats AUTO_APPROVE as including manual self-approval permission", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({
+          comments: [buildApprovalComment({ approver: "developer" })],
+          includeRoleMapping: false,
+          includeWorkspacePolicy: true,
+          workspaceApprovalMode: "AUTO_APPROVE",
+        }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message:
+        "Execution request, approval evidence, and batch policy are verified.",
+      result: "ALLOW",
+    });
+  });
+
+  it("allows Workspace auto-approval only when policy explicitly enables it", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({
+          comments: [
+            buildApprovalComment({
+              approvalType: "WORKSPACE_AUTO_APPROVED",
+              approver: "developer",
+            }),
+          ],
+          includeRoleMapping: false,
+          includeWorkspacePolicy: true,
+          workspaceApprovalMode: "AUTO_APPROVE",
+        }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message:
+        "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
+      result: "ALLOW",
+    });
+  });
+
+  it("denies Workspace auto-approval evidence unless policy enables it", async () => {
+    await expect(
+      verifyLiteAuthorization({
+        actor: "github-actions[bot]",
+        approvalRef: requestId,
+        approvalSource: "issue",
+        batchId,
+        configPath: ".batch-governance",
+        fetcher: createGateFetchMock({
+          comments: [
+            buildApprovalComment({
+              approvalType: "WORKSPACE_AUTO_APPROVED",
+              approver: "developer",
+            }),
+          ],
+          includeWorkspacePolicy: true,
+          workspaceApprovalMode: "SELF_APPROVAL_BLOCKED",
+        }),
+        githubToken: "ghs_test",
+        mode: "lite",
+        repository: "always0ne/batch",
+        requestDigest,
+        requestId,
+        runAttempt: 1,
+      }),
+    ).resolves.toEqual({
+      message:
+        "Workspace auto-approval evidence requires AUTO_APPROVE policy mode.",
+      reasonCode: "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
+      result: "DENY",
     });
   });
 
@@ -551,12 +646,14 @@ function buildRequestIssueBody({
 }
 
 function buildApprovalComment({
+  approvalType,
   approver = "maintainer",
   commandDigest = requestDigest,
   createdAt = "2026-05-13T01:03:03.000Z",
   markerDigest = requestDigest,
   updatedAt = "2026-05-13T01:03:03.000Z",
 }: {
+  approvalType?: string;
   approver?: string;
   commandDigest?: string;
   createdAt?: string;
@@ -577,6 +674,7 @@ function buildApprovalComment({
       "- Decision: APPROVED",
       `- Approver: @${approver}`,
       "- Approved at: 2026-05-13T01:03:03.000Z",
+      ...(approvalType ? [`- Approval type: ${approvalType}`] : []),
       `- Request ID: \`${requestId}\``,
       `- Batch ID: \`${batchId}\``,
       `- Request digest: \`${markerDigest}\``,
@@ -586,6 +684,7 @@ function buildApprovalComment({
       `requestId=${requestId}`,
       `batchId=${batchId}`,
       `requestDigest=${markerDigest}`,
+      ...(approvalType ? [`approvalType=${approvalType}`] : []),
       "-->",
     ].join("\n"),
     created_at: createdAt,
@@ -644,9 +743,7 @@ function buildRoleMappingYamlWithRoles(repositoryRoles: string[]): string {
   ].join("\n");
 }
 
-function buildWorkspacePolicyYaml(
-  mode: "SELF_APPROVAL_BLOCKED" | "SELF_APPROVAL_ALLOWED",
-) {
+function buildWorkspacePolicyYaml(mode: WorkspaceApprovalMode) {
   return [
     'apiVersion: "batchplane.io/v1"',
     'kind: "WorkspacePolicy"',
@@ -682,7 +779,7 @@ function createGateFetchMock({
   includeRoleMapping?: boolean;
   requestIssueBody?: string;
   requestWorkflowRef?: string;
-  workspaceApprovalMode?: "SELF_APPROVAL_BLOCKED" | "SELF_APPROVAL_ALLOWED";
+  workspaceApprovalMode?: WorkspaceApprovalMode;
 } = {}): typeof fetch {
   const issueBody =
     requestIssueBody ??

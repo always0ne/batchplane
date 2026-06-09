@@ -369,7 +369,7 @@ export type GitHubLiteClient = {
   createLabel(params: RepoRef & GitHubLabel): Promise<GitHubLabel>;
   createIssueComment(
     params: RepoRef & { issueNumber: number; body: string },
-  ): Promise<{ id: number; body: string }>;
+  ): Promise<GitHubIssueComment>;
   addIssueLabels(
     params: RepoRef & { issueNumber: number; labels: string[] },
   ): Promise<void>;
@@ -1245,7 +1245,7 @@ export function createGitHubLiteClient({
         );
       }
 
-      return { id: comment.id, body: comment.body };
+      return mapIssueCommentResponse(comment, issueNumber);
     },
 
     async addIssueLabels({ owner, repo, issueNumber, labels }) {
@@ -1703,7 +1703,7 @@ export function createMockGitHubLiteClient(
       state.issueComments.push(comment);
       applyMockExecutionCommentTransition(state, comment);
 
-      return { body: comment.body, id: comment.id };
+      return cloneJson(comment);
     },
 
     async createPullRequest(params) {

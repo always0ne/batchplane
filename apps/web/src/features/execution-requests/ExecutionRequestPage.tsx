@@ -2,6 +2,7 @@ import type {
   BatchDefinition,
   BatchPlaneRuntimePorts,
   RepositoryIssue,
+  WorkspacePolicy,
 } from "@batchplane/domain";
 import {
   AlertCircle,
@@ -37,11 +38,16 @@ import {
 import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
   addHours,
+  buildExecutionApprovalComment,
   buildExecutionRequestIssue,
   createExecutionRequestId,
   type ExecutionRequestIssue,
   type ExecutionRequestParameterInput,
 } from "./execution-request-model";
+import {
+  isAutoApprovalEnabled,
+  parseExecutionRequestDetail,
+} from "../approvals/approval-model";
 
 type ExecutionRequestPageProps = {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
@@ -57,6 +63,7 @@ type PageState =
       batch: BatchDefinition;
       login: string;
       session: GitHubSession;
+      workspacePolicy: WorkspacePolicy;
     }
   | { type: "error"; message: string };
 
@@ -130,11 +137,14 @@ export function ExecutionRequestPage({
       try {
         const runtime = createRuntime(session);
         const repository = await runtime.settings.getRepository();
-        const [batches, user] = await Promise.all([
+        const [batches, user, workspacePolicy] = await Promise.all([
           runtime.batches.listBatchDefinitions({
             ref: repository.defaultBranch,
           }),
           runtime.settings.getCurrentUser(),
+          runtime.settings.getWorkspacePolicy({
+            ref: repository.defaultBranch,
+          }),
         ]);
         const batch = batches.find(
           (candidate) => candidate.batchId === decodedBatchId,
@@ -154,6 +164,7 @@ export function ExecutionRequestPage({
           batch,
           login: user.login,
           session,
+          workspacePolicy,
         });
       } catch (error) {
         if (!ignoreResult) {
@@ -264,8 +275,55 @@ export function ExecutionRequestPage({
         title: previewState.issue.title,
       });
 
+      let navigationState:
+        | {
+            executionApprovalRecorded: {
+              actor: string;
+              decidedAt: string;
+              issueNumber: number;
+              requestId: string;
+            };
+          }
+        | undefined;
+
+      if (isAutoApprovalEnabled(state.workspacePolicy)) {
+        const approvedAt = new Date();
+
+        const approvalComment = await runtime.approvals.approveExecution({
+          body: buildExecutionApprovalComment({
+            approvalMode: state.workspacePolicy.approval.mode,
+            approvalType: "WORKSPACE_AUTO_APPROVED",
+            approvedAt,
+            approver: state.login,
+            request: previewState.issue.request,
+          }),
+          issueNumber: issue.number,
+        });
+        const approvedRequest = parseExecutionRequestDetail(issue, [
+          approvalComment,
+        ]);
+
+        if (
+          approvedRequest?.status !== "APPROVED" ||
+          !approvedRequest.approvalDecision
+        ) {
+          throw new Error(t("states.autoApprovalEvidenceMissing"));
+        }
+
+        navigationState = {
+          executionApprovalRecorded: {
+            actor: approvedRequest.approvalDecision.actor,
+            decidedAt: approvedRequest.approvalDecision.decidedAt,
+            issueNumber: issue.number,
+            requestId: approvedRequest.requestId,
+          },
+        };
+      }
+
       setSubmitState({ type: "success", issue });
-      navigate(`/execution-requests/${issue.number}`);
+      navigate(`/execution-requests/${issue.number}`, {
+        state: navigationState,
+      });
     } catch (error) {
       setSubmitState({
         type: "error",
@@ -345,6 +403,7 @@ export function ExecutionRequestPage({
           canSubmit={canSubmit}
           previewState={previewState}
           submitState={submitState}
+          workspacePolicy={state.workspacePolicy}
         />
       </form>
     </section>
@@ -579,11 +638,13 @@ function RequestReviewPanel({
   canSubmit,
   previewState,
   submitState,
+  workspacePolicy,
 }: {
   batch: BatchDefinition;
   canSubmit: boolean;
   previewState: PreviewState;
   submitState: SubmitState;
+  workspacePolicy: WorkspacePolicy;
 }) {
   const { t } = useTranslation("executionRequests");
   const previewIssue =
@@ -638,6 +699,12 @@ function RequestReviewPanel({
         <p className="mt-5 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bp-muted">
           {t("review.nextStep")}
         </p>
+
+        {isAutoApprovalEnabled(workspacePolicy) ? (
+          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+            {t("review.autoApproval")}
+          </p>
+        ) : null}
 
         <button
           className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-bp-control px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"

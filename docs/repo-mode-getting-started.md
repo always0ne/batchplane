@@ -160,10 +160,12 @@ Supported approval modes:
   operates the Workspace. The approval comment is still explicit evidence and
   Gate still verifies the request, digest, approver authorization, dispatcher
   actor, and batch definition.
-- `AUTO_APPROVE`: reserved until the separate auto-approval flow is implemented.
-  When implemented, it is a Workspace policy choice for lightweight scheduled or
-  delegated execution. The dispatcher still performs `workflow_dispatch`; the
-  browser UI must not dispatch governed workflows directly.
+- `AUTO_APPROVE`: Workspace policy choice for lightweight operation. Manual
+  execution request creation also records explicit approval evidence
+  automatically. Gate allows that evidence only when the merged Workspace policy
+  is `AUTO_APPROVE`. The dispatcher still performs `workflow_dispatch`; the
+  browser UI must not dispatch governed workflows directly. This mode also
+  includes `SELF_APPROVAL_ALLOWED` behavior for manual approvals.
 
 Changing the approval mode from Workspace creates a pull request. The mode is
 active only after that pull request is merged.

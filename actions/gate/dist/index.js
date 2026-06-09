@@ -156,12 +156,21 @@ export async function verifyLiteAuthorization(input) {
     catch (error) {
         return deny("WORKSPACE_POLICY_LOOKUP_FAILED", `Workspace policy lookup failed: ${toErrorMessage(error)}`);
     }
+    if (evidence.approval.approvalType === "WORKSPACE_AUTO_APPROVED") {
+        if (workspaceApprovalMode !== "AUTO_APPROVE") {
+            return deny("WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED", "Workspace auto-approval evidence requires AUTO_APPROVE policy mode.");
+        }
+        return {
+            result: "ALLOW",
+            message: "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
+        };
+    }
     if (evidence.approval.approver === evidence.request.requestedBy &&
-        workspaceApprovalMode !== "SELF_APPROVAL_ALLOWED") {
+        !allowsSelfApproval(workspaceApprovalMode)) {
         return deny("SELF_APPROVAL_NOT_ALLOWED", "Requester and approver must be different users.");
     }
     const selfApprovalAllowedWithoutRoleMapping = evidence.approval.approver === evidence.request.requestedBy &&
-        workspaceApprovalMode === "SELF_APPROVAL_ALLOWED";
+        allowsSelfApproval(workspaceApprovalMode);
     const approverAuthorized = await verifyApproverAuthorization({
         allowMissingRoleMapping: selfApprovalAllowedWithoutRoleMapping,
         approver: evidence.approval.approver,
@@ -234,6 +243,9 @@ function deny(reasonCode, message) {
 }
 function toErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+}
+function allowsSelfApproval(mode) {
+    return mode === "SELF_APPROVAL_ALLOWED" || mode === "AUTO_APPROVE";
 }
 async function findGitHubApprovalEvidence({ client, requestId, }) {
     const issue = await client.findExecutionRequestIssue(requestId);

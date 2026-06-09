@@ -502,7 +502,7 @@ export type ApprovalPort = {
   approveExecution(params: {
     body: string;
     issueNumber: number;
-  }): Promise<void>;
+  }): Promise<RepositoryIssueComment>;
   rejectExecution(params: { body: string; issueNumber: number }): Promise<void>;
 };
 
@@ -680,7 +680,10 @@ export type ExecutionRequestIssue = {
   title: string;
 };
 
-export type ExecutionApprovalCommentType = "MANUAL" | "SCHEDULE_DELEGATED";
+export type ExecutionApprovalCommentType =
+  | "MANUAL"
+  | "SCHEDULE_DELEGATED"
+  | "WORKSPACE_AUTO_APPROVED";
 
 export type BuildExecutionRequestIssueParams = {
   batch: BatchDefinition;
@@ -834,6 +837,7 @@ export function buildExecutionApprovalComment({
 }: BuildExecutionApprovalCommentParams): string {
   const selfApproval = approver === request.requestedBy;
   const scheduleDelegated = approvalType === "SCHEDULE_DELEGATED";
+  const workspaceAutoApproved = approvalType === "WORKSPACE_AUTO_APPROVED";
 
   return [
     `/bgcp approve requestDigest=${request.requestDigest}`,
@@ -845,7 +849,11 @@ export function buildExecutionApprovalComment({
     `- Approved at: ${approvedAt.toISOString()}`,
     ...(approvalMode ? [`- Approval mode: ${approvalMode}`] : []),
     ...(scheduleDelegated ? ["- Approval type: SCHEDULE_DELEGATED"] : []),
-    ...(!scheduleDelegated && selfApproval
+    ...(workspaceAutoApproved
+      ? ["- Approval type: WORKSPACE_AUTO_APPROVED"]
+      : []),
+    ...(workspaceAutoApproved ? ["- Approval source: WORKSPACE_POLICY"] : []),
+    ...(!scheduleDelegated && !workspaceAutoApproved && selfApproval
       ? ["- Self approval: ALLOWED_BY_WORKSPACE_POLICY"]
       : []),
     `- Request ID: \`${request.requestId}\``,
@@ -861,7 +869,11 @@ export function buildExecutionApprovalComment({
     `requestDigest=${request.requestDigest}`,
     ...(approvalMode ? [`approvalMode=${approvalMode}`] : []),
     ...(scheduleDelegated ? ["approvalType=SCHEDULE_DELEGATED"] : []),
-    ...(!scheduleDelegated && selfApproval ? ["selfApproval=true"] : []),
+    ...(workspaceAutoApproved ? ["approvalType=WORKSPACE_AUTO_APPROVED"] : []),
+    ...(workspaceAutoApproved ? ["approvalSource=WORKSPACE_POLICY"] : []),
+    ...(!scheduleDelegated && !workspaceAutoApproved && selfApproval
+      ? ["selfApproval=true"]
+      : []),
     "-->",
   ].join("\n");
 }

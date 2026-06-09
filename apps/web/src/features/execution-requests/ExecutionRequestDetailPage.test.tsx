@@ -46,6 +46,9 @@ describe("ExecutionRequestDetailPage", () => {
       screen.getByRole("button", { name: "Approve execution" }),
     ).toBeEnabled();
     expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+    expect(
+      screen.queryByRole("link", { name: "View run detail" }),
+    ).not.toBeInTheDocument();
   });
 
   it("loads the request by Issue number without waiting for the approvals list", async () => {
@@ -149,6 +152,35 @@ describe("ExecutionRequestDetailPage", () => {
     });
   });
 
+  it("allows self approval when Workspace policy is AUTO_APPROVE", async () => {
+    const state = createRuntimeFixtureMockState("approval-pending");
+    state.currentUser = { login: "developer" };
+    state.files = state.files.filter(
+      (file) => file.path !== ".batch-governance/workspace.yml",
+    );
+    state.files.push({
+      branch: "main",
+      content: buildWorkspacePolicyYaml("AUTO_APPROVE"),
+      path: ".batch-governance/workspace.yml",
+      sha: "workspace-policy-sha",
+    });
+    const client = createMockGitHubLiteClient(state);
+
+    renderDetail({
+      createRuntime: () => createGitHubLiteRuntime(session, { client }),
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByText(
+        "Self-approval is enabled by Workspace policy (AUTO_APPROVE). This approval will still be recorded as self-approval evidence.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Approve execution" }),
+    ).toBeEnabled();
+  });
+
   it("shows dispatcher status from Issue comments and labels", async () => {
     const state = createRuntimeFixtureMockState("happy-path");
     const client = createMockGitHubLiteClient(state);
@@ -162,6 +194,9 @@ describe("ExecutionRequestDetailPage", () => {
     expect((await screen.findAllByText("Dispatched")).length).toBeGreaterThan(
       0,
     );
+    expect(
+      screen.getByRole("link", { name: "View run detail" }),
+    ).toHaveAttribute("href", "/execution-runs/204");
     expect(screen.getByText(/DISPATCHED @/)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Approve execution" }),
@@ -222,7 +257,7 @@ function renderDetail({
 }
 
 function buildWorkspacePolicyYaml(
-  mode: "SELF_APPROVAL_BLOCKED" | "SELF_APPROVAL_ALLOWED",
+  mode: "SELF_APPROVAL_BLOCKED" | "SELF_APPROVAL_ALLOWED" | "AUTO_APPROVE",
 ) {
   return [
     'apiVersion: "batchplane.io/v1"',

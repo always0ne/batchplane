@@ -291,9 +291,24 @@ export async function verifyLiteAuthorization(
     );
   }
 
+  if (evidence.approval.approvalType === "WORKSPACE_AUTO_APPROVED") {
+    if (workspaceApprovalMode !== "AUTO_APPROVE") {
+      return deny(
+        "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
+        "Workspace auto-approval evidence requires AUTO_APPROVE policy mode.",
+      );
+    }
+
+    return {
+      result: "ALLOW",
+      message:
+        "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
+    };
+  }
+
   if (
     evidence.approval.approver === evidence.request.requestedBy &&
-    workspaceApprovalMode !== "SELF_APPROVAL_ALLOWED"
+    !allowsSelfApproval(workspaceApprovalMode)
   ) {
     return deny(
       "SELF_APPROVAL_NOT_ALLOWED",
@@ -303,7 +318,7 @@ export async function verifyLiteAuthorization(
 
   const selfApprovalAllowedWithoutRoleMapping =
     evidence.approval.approver === evidence.request.requestedBy &&
-    workspaceApprovalMode === "SELF_APPROVAL_ALLOWED";
+    allowsSelfApproval(workspaceApprovalMode);
   const approverAuthorized = await verifyApproverAuthorization({
     allowMissingRoleMapping: selfApprovalAllowedWithoutRoleMapping,
     approver: evidence.approval.approver,
@@ -482,6 +497,10 @@ function deny(reasonCode: string, message: string): GateResult {
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function allowsSelfApproval(mode: WorkspaceApprovalMode): boolean {
+  return mode === "SELF_APPROVAL_ALLOWED" || mode === "AUTO_APPROVE";
 }
 
 async function findGitHubApprovalEvidence({

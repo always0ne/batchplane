@@ -25,6 +25,7 @@
       "closedTitle": "승인 작업 없음",
       "note": "승인은 Issue comment 증적으로 기록됩니다. 브라우저는 Workflow를 직접 dispatch하지 않습니다.",
       "openIssue": "Issue 열기",
+      "openRunDetail": "Run 상세 보기",
       "refresh": "새로고침",
       "reject": "반려",
       "title": "승인 판단"
@@ -249,6 +250,7 @@
   },
   "review": {
     "commandReady": "배치 명령이 요청 payload에 포함됩니다.",
+    "autoApproval": "Workspace 정책에 따라 Issue 생성 후 이 요청은 자동 승인됩니다. BatchPlane은 승인 증적만 기록하고 workflow_dispatch는 dispatcher가 수행합니다.",
     "digest": "Request digest",
     "digestReady": "Request digest가 Issue marker에 기록됩니다.",
     "expiresAt": "만료 시각",
@@ -268,6 +270,7 @@
     "loading": "실행 요청 화면을 불러오는 중...",
     "noSession": "실행 요청 전에 Workspace를 연결해주세요.",
     "notFound": "배치 {{batchId}}를 찾을 수 없습니다.",
+    "autoApprovalEvidenceMissing": "이 실행 요청의 자동승인 증적이 기록되지 않았습니다.",
     "previewError": "요청 미리보기를 갱신하지 못했습니다.",
     "submitError": "실행 요청을 생성하지 못했습니다."
   },

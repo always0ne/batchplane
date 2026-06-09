@@ -290,7 +290,13 @@ describe("domain model contracts", () => {
   it("defines runtime ports that can be implemented by adapters", () => {
     const runtime: BatchPlaneRuntimePorts = {
       approvals: {
-        approveExecution: async () => undefined,
+        approveExecution: async () => ({
+          author: "maintainer",
+          body: "/bgcp approve requestDigest=sha256:abc",
+          createdAt: "2026-05-09T03:02:03.000Z",
+          id: 1,
+          issueNumber: 101,
+        }),
         approveRegistration: async () => ({
           merged: true,
           message: "merged",
@@ -542,6 +548,30 @@ describe("execution request builders", () => {
         },
       }),
     ).toContain("approvalType=SCHEDULE_DELEGATED");
+  });
+
+  it("builds Workspace auto-approval comments", () => {
+    const comment = buildExecutionApprovalComment({
+      approvalMode: "AUTO_APPROVE",
+      approvalType: "WORKSPACE_AUTO_APPROVED",
+      approvedAt: new Date("2026-05-13T05:01:30.000Z"),
+      approver: "developer",
+      request: {
+        batchId: "payment.daily-close",
+        requestDigest:
+          "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        requestId: "btr-20260513050000-payment.daily-close-abcdef12",
+        requestedBy: "developer",
+      },
+    });
+
+    expect(comment).toContain("- Approval mode: AUTO_APPROVE");
+    expect(comment).toContain("- Approval type: WORKSPACE_AUTO_APPROVED");
+    expect(comment).toContain("- Approval source: WORKSPACE_POLICY");
+    expect(comment).toContain("approvalMode=AUTO_APPROVE");
+    expect(comment).toContain("approvalType=WORKSPACE_AUTO_APPROVED");
+    expect(comment).toContain("approvalSource=WORKSPACE_POLICY");
+    expect(comment).not.toContain("selfApproval=true");
   });
 });
 

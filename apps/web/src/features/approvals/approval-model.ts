@@ -236,24 +236,34 @@ export function parseExecutionRequestDetail(
 export function buildExecutionApprovalComment({
   approvedAt,
   approvalMode,
+  approvalType,
   approver,
   request,
 }: {
   approvedAt: Date;
   approvalMode?: WorkspaceApprovalMode;
+  approvalType?: "MANUAL" | "SCHEDULE_DELEGATED" | "WORKSPACE_AUTO_APPROVED";
   approver: string;
   request: ExecutionApprovalRequest;
 }): string {
   return buildExecutionApprovalEvidence({
     approvedAt,
     approvalMode,
+    approvalType,
     approver,
     request,
   });
 }
 
 export function allowsSelfApproval(policy: WorkspacePolicy): boolean {
-  return policy.approval.mode === "SELF_APPROVAL_ALLOWED";
+  return (
+    policy.approval.mode === "SELF_APPROVAL_ALLOWED" ||
+    policy.approval.mode === "AUTO_APPROVE"
+  );
+}
+
+export function isAutoApprovalEnabled(policy: WorkspacePolicy): boolean {
+  return policy.approval.mode === "AUTO_APPROVE";
 }
 
 export function buildExecutionRejectionComment({

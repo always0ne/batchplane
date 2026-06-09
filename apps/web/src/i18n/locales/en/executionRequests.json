@@ -25,6 +25,7 @@
       "closedTitle": "No approval action",
       "note": "Approval records Issue comment evidence. The browser never dispatches the workflow directly.",
       "openIssue": "Open Issue",
+      "openRunDetail": "View run detail",
       "refresh": "Refresh",
       "reject": "Reject",
       "title": "Approval decision"
@@ -249,6 +250,7 @@
   },
   "review": {
     "commandReady": "Batch command is included in the request payload.",
+    "autoApproval": "Workspace policy auto-approves this request after Issue creation. BatchPlane records approval evidence only; the dispatcher still performs workflow_dispatch.",
     "digest": "Request digest",
     "digestReady": "Request digest will be written to the Issue marker.",
     "expiresAt": "Expires at",
@@ -268,6 +270,7 @@
     "loading": "Loading execution request form...",
     "noSession": "Connect a Workspace before requesting execution.",
     "notFound": "Batch {{batchId}} was not found.",
+    "autoApprovalEvidenceMissing": "Auto-approval evidence was not recorded for this execution request.",
     "previewError": "Failed to update request preview.",
     "submitError": "Failed to create execution request."
   },

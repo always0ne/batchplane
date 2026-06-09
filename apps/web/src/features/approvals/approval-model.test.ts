@@ -4,9 +4,11 @@ import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
+  WorkspacePolicy,
 } from "@batchplane/domain";
 
 import {
+  allowsSelfApproval,
   buildExecutionApprovalComment,
   buildExecutionRejectionComment,
   buildRegistrationApprovalComment,
@@ -312,6 +314,16 @@ describe("approval model", () => {
     ).toContain("Reason: Missing reconciliation evidence.");
   });
 
+  it("treats AUTO_APPROVE as including self-approval permission", () => {
+    expect(
+      allowsSelfApproval(buildWorkspacePolicy("SELF_APPROVAL_BLOCKED")),
+    ).toBe(false);
+    expect(
+      allowsSelfApproval(buildWorkspacePolicy("SELF_APPROVAL_ALLOWED")),
+    ).toBe(true);
+    expect(allowsSelfApproval(buildWorkspacePolicy("AUTO_APPROVE"))).toBe(true);
+  });
+
   it("derives detail status from approval and dispatcher comments", () => {
     expect(
       parseExecutionApprovalRequest(executionIssue, [
@@ -328,3 +340,11 @@ describe("approval model", () => {
     ).toBe("DISPATCHED");
   });
 });
+
+function buildWorkspacePolicy(
+  mode: WorkspacePolicy["approval"]["mode"],
+): WorkspacePolicy {
+  return {
+    approval: { mode },
+  };
+}

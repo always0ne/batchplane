@@ -1,5 +1,6 @@
 export {
   addHours,
+  buildExecutionApprovalComment,
   buildExecutionRequestIssue,
   createExecutionRequestId,
   createScheduledExecutionRequestId,
