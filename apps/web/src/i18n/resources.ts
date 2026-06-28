@@ -10,6 +10,7 @@ import failuresEn from "./locales/en/failures.json";
 import myWorkEn from "./locales/en/myWork.json";
 import navigationEn from "./locales/en/navigation.json";
 import registrationEn from "./locales/en/registration.json";
+import requestsEn from "./locales/en/requests.json";
 import schedulesEn from "./locales/en/schedules.json";
 import settingsEn from "./locales/en/settings.json";
 import auditKo from "./locales/ko/audit.json";
@@ -24,6 +25,7 @@ import failuresKo from "./locales/ko/failures.json";
 import myWorkKo from "./locales/ko/myWork.json";
 import navigationKo from "./locales/ko/navigation.json";
 import registrationKo from "./locales/ko/registration.json";
+import requestsKo from "./locales/ko/requests.json";
 import schedulesKo from "./locales/ko/schedules.json";
 import settingsKo from "./locales/ko/settings.json";
 
@@ -41,6 +43,7 @@ export const namespaces = [
   "executions",
   "failures",
   "myWork",
+  "requests",
   "audit",
   "settings",
   "errors",
@@ -60,6 +63,7 @@ export const resources = {
     myWork: myWorkEn,
     navigation: navigationEn,
     registration: registrationEn,
+    requests: requestsEn,
     schedules: schedulesEn,
     settings: settingsEn,
   },
@@ -76,6 +80,7 @@ export const resources = {
     myWork: myWorkKo,
     navigation: navigationKo,
     registration: registrationKo,
+    requests: requestsKo,
     schedules: schedulesKo,
     settings: settingsKo,
   },

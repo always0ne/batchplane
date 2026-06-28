@@ -3,10 +3,17 @@
     "desktopPrimary": "데스크톱 주요 탐색",
     "mobilePrimary": "모바일 주요 탐색"
   },
+  "groups": {
+    "overview": "개요",
+    "operations": "운영",
+    "governance": "거버넌스",
+    "workspace": "Workspace"
+  },
   "items": {
     "dashboard": "대시보드",
-    "setup": "Workspace",
+    "setup": "연결",
     "batches": "배치",
+    "requests": "요청",
     "approvals": "승인함",
     "runs": "실행",
     "failures": "실패내역",

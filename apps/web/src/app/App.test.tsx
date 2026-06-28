@@ -18,6 +18,7 @@ describe("App", () => {
     { heading: "Registration", path: "/batches/new" },
     { heading: "Executions", path: "/runs" },
     { heading: "Failures", path: "/failures" },
+    { heading: "Workspace requests", path: "/requests" },
     { heading: "Approvals", path: "/approvals" },
     { heading: "Audit Trail", path: "/audit" },
   ])("renders the $path route", async ({ heading, path }) => {
@@ -111,6 +112,27 @@ describe("App", () => {
     expect(screen.getByRole("option", { name: "Gate blocked" })).toHaveValue(
       "gate-blocked",
     );
+  });
+
+  it("groups navigation by product area and keeps the active request route visible", async () => {
+    render(
+      <MemoryRouter initialEntries={["/requests"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Workspace requests" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("group", { name: "Overview" }).length).toBe(2);
+    expect(screen.getAllByRole("group", { name: "Operations" }).length).toBe(2);
+    expect(screen.getAllByRole("group", { name: "Governance" }).length).toBe(2);
+    expect(screen.getAllByRole("group", { name: "Workspace" }).length).toBe(2);
+    expect(
+      screen
+        .getAllByRole("link", { name: "Requests" })
+        .some((link) => link.className.includes("bg-bp-control")),
+    ).toBe(true);
   });
 
   it.each([
