@@ -7,6 +7,7 @@ import type {
   ExecutionRunJobLog,
   ExecutionRunStatus,
   FailureFollowUp,
+  FailureFollowUpReviewDecision,
   GateDecision,
   GovernedChangeFilePreviewStatus,
   RepositoryFile,
@@ -56,7 +57,9 @@ import {
 } from "../features/batches/batch-repository";
 import {
   buildFailureFollowUpComment,
+  buildFailureFollowUpReviewComment,
   parseFailureFollowUps,
+  parseFailureFollowUpReviews,
 } from "../features/execution-requests/failure-follow-up-model";
 import { loadScheduleDefinitions } from "../features/schedules/schedule-repository";
 
@@ -346,6 +349,8 @@ export function createGitHubLiteRuntime(
             parseRequestIdFromRun(run) ??
             "",
           runId: String(run.id),
+          reviewStatus: "AWAITING_REVIEW",
+          reviews: [],
           status,
         };
         const comment = await client.createIssueComment({
@@ -364,6 +369,97 @@ export function createGitHubLiteRuntime(
               issueNumber: request.issue.number,
             },
           ])[0] ?? followUp
+        );
+      },
+
+      async reviewFailureFollowUp({ decision, followUpId, reason, runId }) {
+        const run = await loadWorkflowRunForFailureFollowUp({
+          client,
+          repositoryRef,
+          runId,
+        });
+        const requests = await loadExecutionApprovalRequests(
+          client,
+          repositoryRef,
+        );
+        const request = findExecutionRequestForRun(
+          run,
+          requests,
+          run.workflowPath,
+        );
+
+        if (!request) {
+          throw new Error(
+            "Execution request evidence was not found for this run.",
+          );
+        }
+
+        const followUp = parseFailureFollowUps(request.comments).find(
+          (candidate) =>
+            candidate.followUpId === followUpId &&
+            candidate.runId === String(run.id),
+        );
+
+        if (!followUp) {
+          throw new Error("Failure follow-up evidence was not found.");
+        }
+
+        const user = await client.getCurrentUser();
+        const permission = await client.getRepositoryPermissionForUser({
+          ...repositoryRef,
+          username: user.login,
+        });
+
+        if (!isWorkspaceManagerPermission(permission.permission)) {
+          throw new Error(
+            "Workspace manager permission is required to review failure follow-up evidence.",
+          );
+        }
+
+        const workspacePolicy = await loadWorkspacePolicy({
+          client,
+          repositoryRef,
+        });
+        const selfReview = followUp.author === user.login;
+
+        if (
+          selfReview &&
+          workspacePolicy.approval.mode === "SELF_APPROVAL_BLOCKED"
+        ) {
+          throw new Error(
+            "Self-review is blocked by the Workspace approval policy.",
+          );
+        }
+
+        const review: FailureFollowUpReviewDecision = {
+          approvalMode: workspacePolicy.approval.mode,
+          batchId: followUp.batchId,
+          decision,
+          followUpId,
+          reason,
+          requestId: followUp.requestId,
+          reviewedAt: new Date().toISOString(),
+          reviewer: user.login,
+          reviewId: createFailureFollowUpReviewId(run.id),
+          runId: String(run.id),
+          selfReview,
+        };
+        const comment = await client.createIssueComment({
+          ...repositoryRef,
+          body: buildFailureFollowUpReviewComment(review),
+          issueNumber: request.issue.number,
+        });
+
+        return (
+          parseFailureFollowUpReviews([
+            {
+              author: user.login,
+              body: comment.body,
+              createdAt: review.reviewedAt,
+              id: comment.id,
+              issueNumber: request.issue.number,
+            },
+          ])[0] ?? review
         );
       },
 
@@ -789,18 +885,7 @@ export function createGitHubLiteRuntime(
       },
 
       async getWorkspacePolicy({ ref } = {}) {
-        const repository = await client.getRepository(repositoryRef);
-        const file = await client.getFile({
-          ...repositoryRef,
-          path: liteWorkspacePolicyPath,
-          ref: ref || repository.defaultBranch,
-        });
-
-        if (!file) {
-          return defaultWorkspacePolicy;
-        }
-
-        return parseWorkspacePolicyFile(file.content);
+        return loadWorkspacePolicy({ client, ref, repositoryRef });
       },
     },
   };
@@ -1042,6 +1127,49 @@ function toExecutionRequestAuditItems(
     });
   }
 
+  for (const followUp of parseFailureFollowUps(request.comments)) {
+    items.push({
+      actor: followUp.author,
+      itemId: `failure-follow-up-${followUp.followUpId}`,
+      occurredAt: followUp.createdAt,
+      sourceUrl: request.issue.url,
+      subjectId: followUp.runId,
+      subjectType: "EXECUTION_RUN",
+      summary: `Failure follow-up recorded for ${followUp.batchId}`,
+      type: "FAILURE_FOLLOW_UP_RECORDED",
+      metadata: compactAuditMetadata({
+        batchId: followUp.batchId,
+        followUpId: followUp.followUpId,
+        requestId: followUp.requestId,
+        reviewStatus: followUp.reviewStatus,
+        runId: followUp.runId,
+        status: followUp.status,
+      }),
+    });
+
+    for (const review of followUp.reviews) {
+      items.push({
+        actor: review.reviewer,
+        itemId: `failure-follow-up-review-${review.reviewId}`,
+        occurredAt: review.reviewedAt,
+        sourceUrl: request.issue.url,
+        subjectId: review.runId,
+        subjectType: "EXECUTION_RUN",
+        summary: `Failure follow-up ${review.decision.toLowerCase()} for ${review.batchId}`,
+        type: "FAILURE_FOLLOW_UP_REVIEWED",
+        metadata: compactAuditMetadata({
+          batchId: review.batchId,
+          decision: review.decision,
+          followUpId: review.followUpId,
+          requestId: review.requestId,
+          reviewId: review.reviewId,
+          runId: review.runId,
+          selfReview: review.selfReview,
+        }),
+      });
+    }
+  }
+
   return items;
 }
 
@@ -1267,6 +1395,42 @@ function createFailureFollowUpId(runId: number): string {
       : Math.random().toString(16).slice(2, 10).padEnd(8, "0");
 
   return `ffu-${runId}-${suffix}`;
+}
+
+function createFailureFollowUpReviewId(runId: number): string {
+  const suffix =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(16).slice(2, 10).padEnd(8, "0");
+
+  return `ffur-${runId}-${suffix}`;
+}
+
+async function loadWorkspacePolicy({
+  client,
+  ref,
+  repositoryRef,
+}: {
+  client: GitHubLiteClient;
+  ref?: string;
+  repositoryRef: RuntimeRepositoryRef;
+}): Promise<WorkspacePolicy> {
+  const repository = await client.getRepository(repositoryRef);
+  const file = await client.getFile({
+    ...repositoryRef,
+    path: liteWorkspacePolicyPath,
+    ref: ref || repository.defaultBranch,
+  });
+
+  if (!file) {
+    return defaultWorkspacePolicy;
+  }
+
+  return parseWorkspacePolicyFile(file.content);
+}
+
+function isWorkspaceManagerPermission(permission: string): boolean {
+  return permission === "admin" || permission === "maintain";
 }
 
 function toExecutionRunJob(job: GitHubWorkflowJob): ExecutionRunJob {

@@ -503,39 +503,62 @@ function toFailureFollowUpWorkItems(
   const openFollowUps = (run.failureFollowUps ?? []).filter((followUp) =>
     ["OPEN", "INVESTIGATING"].includes(followUp.status),
   );
+  const reviewableFollowUps = (run.failureFollowUps ?? []).filter(
+    (followUp) =>
+      followUp.reviewStatus === "AWAITING_REVIEW" && followUp.author !== login,
+  );
   const assignedToMe = openFollowUps.some(
     (followUp) => followUp.owner === login || followUp.author === login,
   );
   const requestedByMe = request?.requestedBy === login;
 
-  if (!assignedToMe && !requestedByMe) {
+  if (!assignedToMe && !requestedByMe && reviewableFollowUps.length === 0) {
     return [];
   }
 
   const gateBlocked = run.status === "BLOCKED";
 
   return [
-    {
-      actionKey: gateBlocked ? "reviewGateEvidence" : "writeFollowUp",
-      actor: run.actor ?? "",
-      descriptionKey:
-        gateBlocked && openFollowUps.length === 0
-          ? "gateBlockedMine"
-          : gateBlocked && assignedToMe
-            ? "gateBlockedAssigned"
-            : openFollowUps.length === 0
-              ? "failureMissing"
-              : assignedToMe
-                ? "failureAssigned"
-                : "failureOpen",
-      itemId: `failure-follow-up-${run.runId}`,
-      kind: "failureFollowUp",
-      labelKey: gateBlocked ? "gateBlocked" : "businessFailure",
-      occurredAt: run.completedAt ?? run.startedAt ?? "",
-      priority: openFollowUps.length === 0 || assignedToMe ? "high" : "normal",
+    ...reviewableFollowUps.map((followUp) => ({
+      actionKey: "reviewFollowUp",
+      actor: followUp.author,
+      descriptionKey: "failureReview",
+      itemId: `failure-follow-up-review-${followUp.followUpId}`,
+      kind: "failureFollowUp" as const,
+      labelKey: "failureReview",
+      occurredAt: followUp.createdAt,
+      priority: "high" as const,
       title: `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`,
-      to: `/execution-runs/${run.runId}`,
-    },
+      to: `/execution-runs/${run.runId}#failure-follow-up`,
+    })),
+    ...(assignedToMe || requestedByMe
+      ? [
+          {
+            actionKey: gateBlocked ? "reviewGateEvidence" : "writeFollowUp",
+            actor: run.actor ?? "",
+            descriptionKey:
+              gateBlocked && openFollowUps.length === 0
+                ? "gateBlockedMine"
+                : gateBlocked && assignedToMe
+                  ? "gateBlockedAssigned"
+                  : openFollowUps.length === 0
+                    ? "failureMissing"
+                    : assignedToMe
+                      ? "failureAssigned"
+                      : "failureOpen",
+            itemId: `failure-follow-up-${run.runId}`,
+            kind: "failureFollowUp" as const,
+            labelKey: gateBlocked ? "gateBlocked" : "businessFailure",
+            occurredAt: run.completedAt ?? run.startedAt ?? "",
+            priority:
+              openFollowUps.length === 0 || assignedToMe
+                ? ("high" as const)
+                : ("normal" as const),
+            title: `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`,
+            to: `/execution-runs/${run.runId}`,
+          },
+        ]
+      : []),
   ];
 }
 

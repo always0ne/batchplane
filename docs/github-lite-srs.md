@@ -355,7 +355,8 @@ follow-up status, author, timestamp, and related run/request IDs. In GitHub
 Lite this explanation must be stored as immutable GitHub-backed evidence, such
 as structured Issue comments or repository evidence files. Final closure of a
 failure explanation requires a Workspace manager review/approval workflow; that
-review workflow is tracked separately from the initial explanation capture.
+review workflow records a separate immutable review decision linked to the
+initial explanation.
 
 Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request

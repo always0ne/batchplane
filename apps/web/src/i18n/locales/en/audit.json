@@ -16,6 +16,10 @@
     "batchId": "Batch",
     "requestId": "Request",
     "runId": "Run",
+    "followUpId": "Follow-up",
+    "reviewId": "Review",
+    "reviewStatus": "Review",
+    "selfReview": "Self review",
     "gateResult": "Gate",
     "status": "Status",
     "reasonCode": "Reason"
@@ -32,6 +36,8 @@
     "EXECUTION_REQUESTED": "Execution requested for {{batchId}}",
     "APPROVAL_RECORDED": "Approval recorded for {{batchId}}",
     "DISPATCH_RECORDED": "Dispatcher recorded {{status}} for {{batchId}}",
+    "FAILURE_FOLLOW_UP_RECORDED": "Failure follow-up recorded for {{batchId}}",
+    "FAILURE_FOLLOW_UP_REVIEWED": "Failure follow-up {{decision}} for {{batchId}}",
     "GATE_DECIDED": "Gate {{gateResult}} for {{batchId}}",
     "RUN_COMPLETED": "Workflow run {{conclusion}} for {{batchId}}",
     "SCHEDULE_OCCURRED": "Schedule occurrence for {{batchId}}"

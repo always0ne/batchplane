@@ -514,7 +514,8 @@ follow-up status, author, timestamp, run ID, and request ID. GitHub Lite must
 persist this as GitHub-backed evidence, such as structured Issue comments or
 repository evidence files, so it remains auditable without a database. The
 follow-up record is a submitted explanation, not final closure. Workspace
-manager review decisions are a separate evidence type and workflow.
+manager review decisions are stored as separate immutable Issue comment
+evidence linked by follow-up ID, run ID, request ID, and batch ID.
 
 The Lite runtime exposes `audit.listAuditTimeline({ limit })` by composing
 GitHub repository evidence rather than reading a database. The GitHub adapter

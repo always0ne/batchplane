@@ -62,6 +62,8 @@
       "EXECUTION_REQUESTED": "실행 요청",
       "APPROVAL_RECORDED": "승인 기록",
       "DISPATCH_RECORDED": "Dispatch 기록",
+      "FAILURE_FOLLOW_UP_RECORDED": "실패 소명 기록",
+      "FAILURE_FOLLOW_UP_REVIEWED": "실패 소명 검토",
       "GATE_DECIDED": "Gate 판단",
       "RUN_COMPLETED": "실행 완료",
       "SCHEDULE_OCCURRED": "스케줄 발생"

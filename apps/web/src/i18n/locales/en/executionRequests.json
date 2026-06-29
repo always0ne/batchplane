@@ -125,7 +125,7 @@
     "followUp": {
       "actionTaken": "Action taken",
       "actionTakenPlaceholder": "Describe the correction, rerun, escalation, or risk-acceptance proposal.",
-      "description": "Record the operator explanation and follow-up action as immutable GitHub-backed evidence. Workspace manager review is tracked separately.",
+      "description": "Record the operator explanation, follow-up action, and Workspace manager review as immutable GitHub-backed evidence.",
       "empty": "No failure explanation has been recorded yet.",
       "error": "Failed to save failure follow-up.",
       "explanation": "Explanation",
@@ -133,6 +133,22 @@
       "history": "Recorded explanations",
       "owner": "Owner",
       "ownerPlaceholder": "ops-team or @username",
+      "review": {
+        "approve": "Approve explanation",
+        "error": "Failed to record review decision.",
+        "latest": "Reviewed by @{{reviewer}} at {{reviewedAt}}",
+        "reason": "Review reason",
+        "reasonPlaceholder": "Record why the explanation is accepted, rejected, or needs changes.",
+        "reject": "Reject",
+        "requestChanges": "Request changes",
+        "saving": "Recording...",
+        "statusValues": {
+          "APPROVED": "Manager approved",
+          "AWAITING_REVIEW": "Manager review pending",
+          "CHANGES_REQUESTED": "Changes requested",
+          "REJECTED": "Manager rejected"
+        }
+      },
       "save": "Record follow-up",
       "saving": "Recording...",
       "status": "Follow-up status",

@@ -53,6 +53,10 @@
     "explanationRecorded": "소명 제출됨",
     "gateBlocked": "Gate 단계에서 배치 명령 실행 전 중단되었습니다.",
     "inProgress": "진행 중",
+    "reviewApproved": "관리자 승인",
+    "reviewAwaiting": "검토 대기",
+    "reviewChangesRequested": "수정요청",
+    "reviewRejected": "반려됨",
     "succeeded": "Workflow run이 정상 완료되었습니다.",
     "unknown": "알 수 없음",
     "unknownBatch": "알 수 없는 배치"

@@ -11,6 +11,7 @@
   },
   "itemActions": {
     "reviewApproval": "검토",
+    "reviewFollowUp": "소명 검토",
     "viewRegistration": "요청 확인",
     "viewRequest": "요청 확인",
     "writeFollowUp": "소명 작성",
@@ -23,6 +24,7 @@
     "scheduleReview": "스케줄 승인 검토가 필요합니다.",
     "executionMine": "실행 요청 상세에서 현재 증적을 확인합니다.",
     "executionApproval": "실행 승인이 maintainer 검토를 기다리고 있습니다.",
+    "failureReview": "실패 소명이 Workspace 관리자 검토를 기다리고 있습니다.",
     "failureMissing": "실패 후속처리 소명이 아직 기록되지 않았습니다.",
     "failureAssigned": "실패 후속처리가 현재 사용자에게 배정되어 있습니다.",
     "failureOpen": "실패 후속처리가 아직 열려 있습니다.",
@@ -34,6 +36,7 @@
     "businessFailure": "업무 실패",
     "executionApproval": "실행 승인",
     "failureFollowUp": "실패 후속처리",
+    "failureReview": "소명 검토",
     "gateBlocked": "Gate 차단",
     "registration": "등록",
     "registrationApproval": "등록 승인",

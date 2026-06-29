@@ -16,6 +16,10 @@
     "batchId": "배치",
     "requestId": "요청",
     "runId": "Run",
+    "followUpId": "소명",
+    "reviewId": "검토",
+    "reviewStatus": "검토",
+    "selfReview": "자가검토",
     "gateResult": "Gate",
     "status": "상태",
     "reasonCode": "사유"
@@ -32,6 +36,8 @@
     "EXECUTION_REQUESTED": "{{batchId}} 실행이 요청되었습니다.",
     "APPROVAL_RECORDED": "{{batchId}} 승인이 기록되었습니다.",
     "DISPATCH_RECORDED": "{{batchId}} dispatch 상태가 {{status}}로 기록되었습니다.",
+    "FAILURE_FOLLOW_UP_RECORDED": "{{batchId}} 실패 소명이 기록되었습니다.",
+    "FAILURE_FOLLOW_UP_REVIEWED": "{{batchId}} 실패 소명이 {{decision}} 처리되었습니다.",
     "GATE_DECIDED": "{{batchId}} Gate 판단이 {{gateResult}}로 기록되었습니다.",
     "RUN_COMPLETED": "{{batchId}} workflow run이 {{conclusion}}로 완료되었습니다.",
     "SCHEDULE_OCCURRED": "{{batchId}} 스케줄 발생이 기록되었습니다."

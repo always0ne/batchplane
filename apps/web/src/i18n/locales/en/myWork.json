@@ -11,6 +11,7 @@
   },
   "itemActions": {
     "reviewApproval": "Review",
+    "reviewFollowUp": "Review follow-up",
     "viewRegistration": "View request",
     "viewRequest": "View request",
     "writeFollowUp": "Write follow-up",
@@ -23,6 +24,7 @@
     "scheduleReview": "Schedule approval is waiting for review.",
     "executionMine": "Open the execution request detail and review current evidence.",
     "executionApproval": "Execution approval is waiting for a maintainer.",
+    "failureReview": "Failure explanation is waiting for Workspace manager review.",
     "failureMissing": "Failure follow-up has not been recorded.",
     "failureAssigned": "Failure follow-up is assigned to the current user.",
     "failureOpen": "Failure follow-up is still open.",
@@ -34,6 +36,7 @@
     "businessFailure": "Business failure",
     "executionApproval": "Execution approval",
     "failureFollowUp": "Failure follow-up",
+    "failureReview": "Failure review",
     "gateBlocked": "Gate blocked",
     "registration": "Registration",
     "registrationApproval": "Registration approval",

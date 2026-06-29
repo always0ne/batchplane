@@ -976,6 +976,8 @@ describe("createGitHubLiteRuntime", () => {
         explanation: "The upstream ledger file arrived late.",
         owner: "ops-team",
         requestId: run.requestId,
+        reviewStatus: "AWAITING_REVIEW",
+        reviews: [],
         runId: String(run.id),
         status: "RESOLVED",
       }),
@@ -996,10 +998,129 @@ describe("createGitHubLiteRuntime", () => {
         failureFollowUps: [
           expect.objectContaining({
             explanation: "The upstream ledger file arrived late.",
+            reviewStatus: "AWAITING_REVIEW",
             status: "RESOLVED",
           }),
         ],
       }),
+    );
+  });
+
+  it("records Workspace manager review evidence for failure follow-up", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+    const run = state.workflowRuns.find(
+      (candidate) =>
+        candidate.batchId === "payment.daily-close" &&
+        candidate.conclusion === "failure",
+    );
+
+    if (!run) {
+      throw new Error("Expected a business failed workflow run fixture.");
+    }
+
+    client.state.currentUser = { login: "developer" };
+    const followUp = await runtime.executions.createFailureFollowUp({
+      actionTaken: "Reprocessed after upstream correction.",
+      explanation: "The upstream ledger file arrived late.",
+      owner: "ops-team",
+      runId: String(run.id),
+      status: "RESOLVED",
+    });
+
+    client.state.currentUser = { login: "maintainer" };
+    const review = await runtime.executions.reviewFailureFollowUp({
+      decision: "APPROVED",
+      followUpId: followUp.followUpId,
+      reason: "Evidence and corrective action are sufficient.",
+      runId: String(run.id),
+    });
+
+    expect(review).toEqual(
+      expect.objectContaining({
+        approvalMode: "SELF_APPROVAL_BLOCKED",
+        decision: "APPROVED",
+        followUpId: followUp.followUpId,
+        reason: "Evidence and corrective action are sufficient.",
+        reviewer: "maintainer",
+        selfReview: false,
+      }),
+    );
+    expect(
+      client.state.issueComments.some(
+        (comment) =>
+          comment.body.includes("batchplane:failure-follow-up-review") &&
+          comment.body.includes("Decision: APPROVED"),
+      ),
+    ).toBe(true);
+
+    await expect(
+      runtime.executions.getExecutionRun({ runId: String(run.id) }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        failureFollowUps: [
+          expect.objectContaining({
+            reviewStatus: "APPROVED",
+            reviews: [expect.objectContaining({ decision: "APPROVED" })],
+          }),
+        ],
+      }),
+    );
+
+    await expect(
+      runtime.audit.listAuditTimeline({ limit: 100 }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            followUpId: followUp.followUpId,
+            reviewStatus: "APPROVED",
+          }),
+          type: "FAILURE_FOLLOW_UP_RECORDED",
+        }),
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            decision: "APPROVED",
+            followUpId: followUp.followUpId,
+          }),
+          type: "FAILURE_FOLLOW_UP_REVIEWED",
+        }),
+      ]),
+    );
+  });
+
+  it("blocks self-review for failure follow-up by default", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+    const run = state.workflowRuns.find(
+      (candidate) =>
+        candidate.batchId === "payment.daily-close" &&
+        candidate.conclusion === "failure",
+    );
+
+    if (!run) {
+      throw new Error("Expected a business failed workflow run fixture.");
+    }
+
+    const followUp = await runtime.executions.createFailureFollowUp({
+      actionTaken: "Reprocessed after upstream correction.",
+      explanation: "The upstream ledger file arrived late.",
+      owner: "ops-team",
+      runId: String(run.id),
+      status: "RESOLVED",
+    });
+
+    await expect(
+      runtime.executions.reviewFailureFollowUp({
+        decision: "APPROVED",
+        followUpId: followUp.followUpId,
+        reason: "Evidence is sufficient.",
+        runId: String(run.id),
+      }),
+    ).rejects.toThrow(
+      "Self-review is blocked by the Workspace approval policy.",
     );
   });
 

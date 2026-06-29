@@ -78,6 +78,47 @@ describe("MyWorkPage", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("surfaces submitted failure follow-ups for Workspace manager review", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+    const run = state.workflowRuns.find(
+      (candidate) =>
+        candidate.batchId === "payment.daily-close" &&
+        candidate.conclusion === "failure",
+    );
+
+    if (!run) {
+      throw new Error("Expected a business failed workflow run fixture.");
+    }
+
+    client.state.currentUser = { login: "developer" };
+    await runtime.executions.createFailureFollowUp({
+      actionTaken: "Reprocessed after upstream correction.",
+      explanation: "The upstream ledger file arrived late.",
+      owner: "ops-team",
+      runId: String(run.id),
+      status: "RESOLVED",
+    });
+    client.state.currentUser = { login: "maintainer" };
+
+    render(
+      <MemoryRouter>
+        <MyWorkPage createRuntime={() => runtime} readSession={() => session} />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(
+        "Failure explanation is waiting for Workspace manager review.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Failure review")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Review follow-up" }),
+    ).toHaveAttribute("href", `/execution-runs/${run.id}#failure-follow-up`);
+  });
+
   it("renders an empty state when no runtime session is available", async () => {
     render(
       <MemoryRouter>

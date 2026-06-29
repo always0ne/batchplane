@@ -204,12 +204,37 @@ export type FailureFollowUpStatus =
   | "RESOLVED"
   | "ACCEPTED_RISK";
 
+export type FailureFollowUpReviewDecisionValue =
+  | "APPROVED"
+  | "REJECTED"
+  | "CHANGES_REQUESTED";
+
+export type FailureFollowUpReviewStatus =
+  | "AWAITING_REVIEW"
+  | FailureFollowUpReviewDecisionValue;
+
+export type FailureFollowUpReviewDecision = {
+  reviewId: string;
+  followUpId: string;
+  runId: string;
+  requestId: string;
+  batchId: string;
+  decision: FailureFollowUpReviewDecisionValue;
+  reason: string;
+  reviewer: string;
+  reviewedAt: string;
+  approvalMode?: WorkspaceApprovalMode;
+  selfReview: boolean;
+};
+
 export type FailureFollowUp = {
   followUpId: string;
   runId: string;
   requestId: string;
   batchId: string;
   status: FailureFollowUpStatus;
+  reviewStatus: FailureFollowUpReviewStatus;
+  reviews: FailureFollowUpReviewDecision[];
   owner: string;
   explanation: string;
   actionTaken: string;
@@ -245,6 +270,8 @@ export type AuditTimelineItemType =
   | "APPROVAL_RECORDED"
   | "DISPATCH_RECORDED"
   | "GATE_DECIDED"
+  | "FAILURE_FOLLOW_UP_RECORDED"
+  | "FAILURE_FOLLOW_UP_REVIEWED"
   | "RUN_COMPLETED"
   | "SCHEDULE_OCCURRED";
 
@@ -477,6 +504,12 @@ export type ExecutionPort = {
     runId: string;
     status: FailureFollowUpStatus;
   }): Promise<FailureFollowUp>;
+  reviewFailureFollowUp(params: {
+    decision: FailureFollowUpReviewDecisionValue;
+    followUpId: string;
+    reason: string;
+    runId: string;
+  }): Promise<FailureFollowUpReviewDecision>;
   createExecutionRequest(params: {
     body: string;
     labels: string[];

@@ -96,6 +96,7 @@ describe("ExecutionRunDetailPage", () => {
     const state = createRuntimeFixtureMockState("business-failed");
     const run = findFirstWorkflowRun(state);
     const client = createMockGitHubLiteClient(state);
+    client.state.currentUser = { login: "developer" };
 
     renderDetail({
       createRuntime: () => createGitHubLiteRuntime(session, { client }),
@@ -155,6 +156,20 @@ describe("ExecutionRunDetailPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText("Reprocessed after the corrected file arrived."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Manager review pending")).toBeInTheDocument();
+
+    client.state.currentUser = { login: "maintainer" };
+    fireEvent.change(screen.getByLabelText("Review reason"), {
+      target: { value: "Evidence and corrective action are sufficient." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Approve explanation" }),
+    );
+
+    expect(await screen.findByText("Manager approved")).toBeInTheDocument();
+    expect(
+      screen.getByText("Evidence and corrective action are sufficient."),
     ).toBeInTheDocument();
   });
 
