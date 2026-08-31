@@ -2,6 +2,11 @@
 
 This document defines the UI/UX baseline for BatchPlane Lite screens.
 Every screen PR should check its scope against this baseline before review.
+It extends the shared product model in `control-plane-srs.md` and
+`main-lite-conformance.md`. Page components, navigation concepts, and primary
+actions must remain suitable for the shared Main/Lite React application;
+GitHub-specific controls belong in connection, provider-detail, and source-link
+surfaces.
 
 ## Operator Journey
 
@@ -17,10 +22,16 @@ Lite must read as one connected operational flow:
 7. Let the dispatcher invoke the governed workflow.
 8. Review execution evidence, Gate decisions, failures, and audit history.
 
+Scheduled execution follows a separate unattended path: an approved Schedule
+Revision allows a matching native cron occurrence to reach Gate and then the
+batch command. It does not create approval work for each occurrence.
+
 ## Screen Responsibilities
 
-- Workspace shows GitHub connection, installation readiness, and
-  Workspace policy changes. If generated Workspace workflows
+- Workspace shows product membership and policy. Its GitHub platform connection
+  shows repository connection and installation readiness. Lite may compose
+  these on one page while keeping their information hierarchy distinct. If
+  generated Workspace workflows
   are older than the current BatchPlane template, the screen must show the
   affected workflow paths and provide a pull-request action to update them.
 - Registration shows what will be controlled, what will run, where it will run,
@@ -96,10 +107,11 @@ Lite must read as one connected operational flow:
 - Generated workflow updates must create a pull request from the Workspace
   screen. The UI must not write workflow files directly to the default branch,
   and it must not present repository-owned policy files as template drift.
-- `AUTO_APPROVE` must explain that execution requests receive explicit
-  Workspace-policy approval evidence automatically after Issue creation. The UI
-  still must not dispatch governed workflows directly. It must also explain
-  that this mode includes self-approval permission.
+- `AUTO_APPROVE` must explain that manual execution and change requests receive
+  explicit Workspace-policy approval evidence. The UI still must not dispatch
+  governed manual workflows directly. It must also explain that this mode
+  includes self-approval permission. Schedule occurrences are authorized by
+  their approved Schedule Revision and are unaffected by this mode.
 
 ## Gate UX Rules
 

@@ -155,17 +155,20 @@ Supported approval modes:
 - `SELF_APPROVAL_BLOCKED`: default four-eyes control. Requester and approver
   must be different users. Use this for audit-heavy or production-like
   Workspaces.
-- `SELF_APPROVAL_ALLOWED`: requester may approve their own execution request.
-  Use this for personal testing, demos, or low-risk automation where one user
-  operates the Workspace. The approval comment is still explicit evidence and
-  Gate still verifies the request, digest, approver authorization, dispatcher
-  actor, and batch definition.
+- `SELF_APPROVAL_ALLOWED`: requester may approve their own eligible Batch change
+  or manual execution request. Use this for personal testing, demos, or low-risk
+  automation where one user operates the Workspace. The decision remains
+  explicit evidence and Gate still verifies execution request, digest,
+  approver authorization, dispatcher actor, and batch definition.
 - `AUTO_APPROVE`: Workspace policy choice for lightweight operation. Manual
-  execution request creation also records explicit approval evidence
-  automatically. Gate allows that evidence only when the merged Workspace policy
-  is `AUTO_APPROVE`. The dispatcher still performs `workflow_dispatch`; the
-  browser UI must not dispatch governed workflows directly. This mode also
-  includes `SELF_APPROVAL_ALLOWED` behavior for manual approvals.
+  execution and eligible Batch change request creation also records explicit
+  approval evidence automatically. Gate allows execution evidence only when the
+  merged Workspace policy is `AUTO_APPROVE`. The dispatcher still performs
+  `workflow_dispatch`; the browser UI must not dispatch governed workflows
+  directly. This mode also includes `SELF_APPROVAL_ALLOWED` behavior.
+
+Workspace policy, role-mapping, and installation requests use the policy that
+is already effective. Proposed policy values never authorize their own merge.
 
 Changing the approval mode from Workspace creates a pull request. The mode is
 active only after that pull request is merged.
@@ -295,13 +298,17 @@ the downstream Batch command failed.
 Schedules are stored inside the owning batch definition and approved through
 the registration or change PR.
 
-GitHub Actions cron entries are generated in UTC. BatchPlane keeps the
-user-entered cron and timezone in batch metadata for audit and occurrence
-validation, but GitHub itself triggers scheduled workflows using UTC cron.
+The current 0.x generator preserves the user-entered timezone in Batch metadata
+but converts the native trigger to UTC cron entries. Its scheduled job creates
+occurrence-specific Issue evidence, writes a legacy `SCHEDULE_DELEGATED`
+compatibility marker, and invokes the dispatcher without waiting in the manual
+approvals inbox.
 
-Scheduled occurrences create or reuse occurrence-specific execution request
-evidence and then dispatch through the same Gate-protected workflow path.
-Scheduled occurrences do not wait in the manual approvals inbox.
+The v2 target uses GitHub.com native POSIX cron plus IANA timezone support. The
+effective approved Schedule Revision becomes the authority, and the native
+schedule run passes Gate before the batch command without creating manual or
+automatic approval evidence. The migration and compatibility window are
+defined in `control-plane-migration-plan.md` and `main-lite-conformance.md`.
 
 ## Security Limitations
 

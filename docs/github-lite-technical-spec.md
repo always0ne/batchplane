@@ -1,6 +1,13 @@
 # GitHub Lite Technical Spec
 
-This document captures implementation contracts for GitHub Lite.
+This document captures implementation contracts for GitHub Lite. It specializes
+the shared domain, Gate, and conformance contracts for a GitHub-backed authority;
+it does not redefine BatchPlane product semantics.
+
+The scheduled-occurrence, native timezone, completion reporter, and immutable
+action-reference sections define the v2 target. Current 0.x workflows retain
+the documented compatibility path until the migration phase replaces their
+writers and updates managed workflows.
 
 ## Repository Layout
 
@@ -117,17 +124,23 @@ Supported `spec.approval.mode` values are:
 
 - `SELF_APPROVAL_BLOCKED`: default four-eyes control. Requester and approver
   must be different users.
-- `SELF_APPROVAL_ALLOWED`: requester may approve their own execution request.
-  The approval remains explicit audit evidence and Gate still verifies
-  authorization, request digest, dispatcher actor, and batch definition.
+- `SELF_APPROVAL_ALLOWED`: requester may approve their own eligible Batch change
+  or manual execution request. The approval remains explicit audit evidence and
+  Gate still verifies authorization, subject digest, dispatcher actor when
+  applicable, and Batch definition.
 - `AUTO_APPROVE`: automatic Workspace-policy approval. Request creation records
   explicit approval evidence with `approvalType=WORKSPACE_AUTO_APPROVED` and
   `approvalMode=AUTO_APPROVE`; the evidence must also identify
-  `approvalSource=WORKSPACE_POLICY`. Gate allows that evidence only when the
-  merged Workspace policy is `AUTO_APPROVE`. Dispatcher remains responsible for
-  `workflow_dispatch`; the browser UI must not dispatch governed workflows
-  directly. This is the highest approval-relaxation level and includes
-  `SELF_APPROVAL_ALLOWED` behavior for manual approvals.
+  `approvalSource=WORKSPACE_POLICY`. The preset applies to eligible Batch
+  register/update/suspend/restore/delete requests and manual execution intents.
+  Gate allows execution evidence only when the merged Workspace policy is
+  `AUTO_APPROVE`. Dispatcher remains responsible for `workflow_dispatch`; the
+  browser UI must not dispatch governed workflows directly. This is the highest
+  approval-relaxation level and includes `SELF_APPROVAL_ALLOWED` behavior.
+
+Workspace policy, role-mapping, and installation requests are evaluated under
+the policy that is effective before the proposal. Proposed policy content must
+not authorize or auto-merge itself.
 
 If `.batch-governance/workspace.yml` is missing, UI and Gate must treat the
 mode as `SELF_APPROVAL_BLOCKED`. UI-only local settings must not weaken approval policy,
@@ -171,11 +184,23 @@ spec:
 
 The generated workflow has:
 
-- one schedule-occurrence job per enabled schedule
+- occurrence-context handling for each enabled schedule
 - `batchplane-gate`
 - `run-batch`
+- `batchplane-complete`
 
 `run-batch` must declare `needs: batchplane-gate`.
+`batchplane-complete` must declare `needs: [batchplane-gate, run-batch]`, use
+`if: ${{ always() }}`, and report the terminal result only when Gate created an
+allowed attempt. Completion reporting is idempotent and must never turn a
+Gate-blocked run into a business failure.
+
+The target Gate Action supports `operation: START | COMPLETE`. `START` outputs
+the Gate decision and execution-attempt correlation. `COMPLETE` receives that
+correlation plus `needs.run-batch.result`, writes structured Lite completion
+evidence, and leaves the GitHub workflow run as the native outcome source. The
+completion job receives `issues: write` only when its configured evidence sink
+requires an Issue or comment; other jobs retain least privilege.
 
 The workflow must set a run name that includes the Batch ID and request ID:
 
@@ -195,24 +220,36 @@ request_digest:
 ```
 
 If the batch definition contains enabled schedules, the generated workflow also
-declares `on.schedule` and creates one scheduler job per enabled schedule. The
-scheduler job must:
+declares `on.schedule` and creates schedule context for each enabled schedule.
+The scheduled path must:
 
 - run only on `github.event_name == 'schedule'`
-- match its generated GitHub Actions UTC cron expression
+- match its generated GitHub Actions cron expression through
+  `github.event.schedule`
 - reject reruns with `github.run_attempt == 1`
 - serialize by schedule-specific `concurrency` so duplicate GitHub cron
-  deliveries cannot create parallel requests for the same schedule
-- emit only generated UTC `cron` values in `on.schedule`; GitHub Actions
-  schedule entries must not rely on non-standard timezone semantics
-- pass the user-entered schedule `cron` and `timezone` to
-  `actions/schedule-request` so occurrence validation, request evidence, and
-  audit text remain timezone-aware
-- call `always0ne/batchplane/actions/schedule-request@main`
-- call `always0ne/batchplane/actions/dispatcher@main` directly when delegated
-  approval evidence was created or reused
+  deliveries cannot create parallel attempts for the same occurrence
+- emit the user-entered POSIX `cron` and IANA `timezone` in `on.schedule`
+- pass the same schedule `cron` and `timezone` to the occurrence-context step
+  so validation and audit use the approved values
+- call the mandatory Gate job with Schedule Revision authority
+- continue to `run-batch` only when that Gate job allows the same workflow run
+- never create an approval comment or call the manual dispatcher
 
-The scheduler job must not execute the batch command directly.
+The occurrence-context step must not execute the batch command. The native
+schedule run reaches the batch command only through `batchplane-gate`.
+
+Enabled schedules in one generated workflow must have unique raw cron strings.
+GitHub exposes the triggering schedule through `github.event.schedule`, but
+does not include the timezone in that value; duplicate cron strings with
+different timezones would therefore be ambiguous. The registration/change UI
+must reject that configuration or the provider must generate separate native
+workflows.
+
+The reference GitHub.com capability is `NATIVE_IANA`. A GitHub deployment that
+does not support native IANA timezone entries must declare `UTC_ONLY` or
+`UNSUPPORTED`. Lite must not silently convert recurring IANA schedules to one
+fixed UTC cron because DST can change the correct offset.
 
 The batch job runs on the selected runner label and then executes the Batch
 command. Uploaded execution files are committed as repository artifacts and are
@@ -223,9 +260,9 @@ The Gate action must deny direct GitHub Actions reruns by default. When
 `RERUN_NOT_AUTHORIZED`. Retrying a governed batch requires a new BatchPlane
 execution request or a future explicit retry-approval flow.
 
-The Gate action must not trust `workflow_dispatch` inputs alone. The generated
-workflow passes `github-token: ${{ secrets.GITHUB_TOKEN }}` to Gate. Gate uses
-that token with `issues: read` permission to verify:
+The Gate action must not trust `workflow_dispatch` inputs alone. For a manual
+run, the generated workflow passes `github-token: ${{ secrets.GITHUB_TOKEN }}`
+to Gate. Gate uses that token with `issues: read` permission to verify:
 
 - the current workflow actor is the dispatcher automation actor
   (`github-actions[bot]` by default)
@@ -234,6 +271,15 @@ that token with `issues: read` permission to verify:
 - the Issue marker matches `batch_id`, `request_digest`, and `REQUESTED` status
 - at least one Issue comment starts with `/bgcp approve ` and contains a
   matching `batchplane:execution-approval` marker with `decision=APPROVED`
+
+For a schedule run, Gate does not look for an execution approval comment. It
+verifies the current merged Batch Definition, embedded Schedule Revision,
+definition commit SHA, generated workflow target, `github.event.schedule`,
+workflow run identity, and `github.run_attempt == 1`. The scheduled run is
+denied if the schedule is disabled, deleted, superseded, drifted, or does not
+match the delivered native event. Expected scheduled time is retained for
+timing analysis, but provider delay alone is not a reason to reinterpret the
+event as a different approval.
 
 ## Execution Request Payload
 
@@ -367,6 +413,12 @@ jobs:
 target repositories that still reference `always0ne/batchtrail` depend on
 GitHub repository redirects until their setup artifacts are regenerated.
 
+`@main` is allowed only by the development template. Published production
+templates pin the Gate, dispatcher, occurrence, and completion actions to an
+approved immutable release tag or commit SHA. Installation inspection reports
+the resolved connector version and offers a governed update PR when the pinned
+version is outdated.
+
 GitHub Actions still creates a workflow run for every `issue_comment.created`
 event. The dispatcher job must be skipped for ordinary discussion comments,
 Pull Request review comments, clarification comments, change-request comments,
@@ -377,9 +429,9 @@ evidence when the comment is not marker-backed approval evidence.
 The browser UI must not directly dispatch governed batch workflows in Lite mode.
 Scheduled occurrences also must not rely on `issue_comment.created` from
 `github-actions[bot]`, because GitHub token-authored Issue comments are not a
-reliable trigger source for a second workflow. Generated schedule jobs invoke
-`actions/dispatcher` directly after they create or reuse delegated approval
-evidence.
+reliable trigger source for a second workflow. The native schedule run calls
+Gate and the batch job in the same generated workflow; the manual dispatcher is
+not involved.
 
 The dispatcher workflow is responsible for:
 
@@ -545,42 +597,60 @@ Schedules are approved by PR and stored inside the owning batch definition:
 .batch-governance/batches/{batchId}.yml
 ```
 
-Every due occurrence creates or reuses one execution request issue keyed by:
+Every due time creates or reuses one scheduled occurrence keyed by:
 
 ```text
-{scheduleId}:{scheduledAt}
+{repositoryId}:{batchId}:{scheduleRevisionDigest}:{scheduledAt}
 ```
 
-Scheduled request payloads extend manual requests:
+Scheduled occurrence evidence is separate from manual request payloads:
 
 ```json
 {
-  "spec": {
-    "triggerType": "SCHEDULE",
-    "schedule": {
-      "scheduleId": "payment.daily-close.weekday-0900",
-      "scheduledAt": "2026-05-13T00:00:00.000Z",
-      "definitionPath": ".batch-governance/batches/payment.daily-close.yml",
-      "definitionCommitSha": "..."
-    }
-  }
+  "apiVersion": "batchplane.io/v1",
+  "kind": "ScheduledOccurrence",
+  "batchId": "payment.daily-close",
+  "scheduleId": "payment.daily-close.weekday-0900",
+  "scheduledAt": "2026-05-13T00:00:00.000Z",
+  "definitionPath": ".batch-governance/batches/payment.daily-close.yml",
+  "definitionCommitSha": "...",
+  "scheduleRevisionDigest": "sha256:...",
+  "nativeRunId": "...",
+  "nativeRunAttempt": 1
 }
 ```
 
-`scheduledAt` is part of the digest. A previous occurrence approval cannot be
-reused for a later occurrence.
+`scheduledAt` is part of the occurrence identity. A previous occurrence or Gate
+decision cannot be reused for a later occurrence.
 
-The scheduler may inspect the latest request for:
+The scheduled path may inspect previous occurrence state for:
 
-- duplicate request prevention
+- duplicate-attempt prevention
 - overlap prevention
 - retry decisions
 - skip decisions
 
-The scheduler must not use the latest request as authorization for a new
-occurrence.
+It must not use previous occurrence state as authorization for a new
+occurrence. Authority comes from the currently effective approved Schedule
+Revision.
 
-Scheduled occurrences do not enter the human approval inbox. The approved batch
-definition is the approval source of truth; each occurrence writes delegated
-approval evidence and then dispatches through the same dispatcher-plus-Gate
-path used by manual requests.
+Scheduled occurrences do not enter the human approval inbox and do not write
+automatic or delegated approval evidence. The generated native schedule run
+records occurrence evidence and passes through Gate before the batch command.
+
+During migration, readers accept existing scheduled execution-request Issues
+and `SCHEDULE_DELEGATED` markers. The UI maps them to scheduled occurrence
+history. New writers use `ScheduledOccurrence`, and Gate compatibility for the
+legacy marker is time-bounded and versioned.
+
+GitHub schedules use the latest commit on the default branch, have a minimum
+five-minute interval, and can be delayed or dropped under high load. The run
+model records expected and observed times separately when an expected slot can
+be determined. Lite does not promise catch-up execution unless a separately
+governed misfire policy is implemented.
+
+## GitHub Constraint References
+
+- [GitHub Actions schedule event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+- [GitHub Actions OIDC claims](https://docs.github.com/en/actions/reference/security/oidc#oidc-token-claims)
+- [GitHub Actions `GITHUB_TOKEN`](https://docs.github.com/en/actions/concepts/security/github_token)
