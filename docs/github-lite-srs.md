@@ -295,6 +295,12 @@ workflow must remain responsible for `workflow_dispatch`. `AUTO_APPROVE` is a
 higher permission level than `SELF_APPROVAL_ALLOWED`, so manual self-approval is
 also allowed under this mode.
 
+For failure follow-up evidence, both `SELF_APPROVAL_ALLOWED` and `AUTO_APPROVE`
+also permit a current `maintain` or `admin` user to manually review their own
+follow-up. This does not synthesize a post-failure review decision: even in
+`AUTO_APPROVE`, the manager must submit an explicit review comment with one of
+the terminal decisions and a nonblank reason.
+
 The Workspace screen must allow an operator to prepare a Workspace policy
 change without editing YAML by hand. Saving an approval mode change creates a
 pull request that updates `.batch-governance/workspace.yml`; the effective mode
@@ -315,6 +321,22 @@ another maintainer, execution requests authored by the user, execution approval
 items awaiting review, and failed or Gate-blocked runs that require follow-up.
 Every row must route to the relevant BatchPlane detail screen rather than only
 to a raw GitHub page.
+
+Failure follow-up routing is stateful. If no valid follow-up exists, the
+execution requester receives `Write follow-up` for a business failure. A
+Gate-blocked run with no follow-up remains `Gate blocked` evidence work and
+routes its requester to `Review evidence`; it must not claim that a business
+failure explanation is missing because the batch command never ran. A follow-up in
+`AWAITING_REVIEW` is review work only for a Runtime-eligible Workspace manager;
+the requester must not receive a false missing-evidence item merely because
+they requested the run. `APPROVED` clears follow-up work for its author and
+requester. `CHANGES_REQUESTED` and `REJECTED` route the follow-up author or
+owner to `Submit follow-up update` at the execution detail follow-up anchor.
+An `OPEN` or `INVESTIGATING` follow-up may remain assigned as `Continue
+follow-up`, but must not duplicate an eligible manager's review item for the
+same record. Gate-block follow-ups preserve the `Gate blocked` label and Gate
+context for ongoing work; Gate revisions may use the same update action as
+business-failure revisions while retaining that label.
 
 Each execution request must also have a BatchPlane detail screen. The detail
 screen must show request status, requester, batch, environment, workflow
@@ -352,11 +374,29 @@ from business failures and route rows to execution run detail. Business failure
 rows must support audit follow-up/explanation separately from approval work. A
 failure explanation must capture explanation text, action taken, owner,
 follow-up status, author, timestamp, and related run/request IDs. In GitHub
-Lite this explanation must be stored as immutable GitHub-backed evidence, such
-as structured Issue comments or repository evidence files. Final closure of a
-failure explanation requires a Workspace manager review/approval workflow; that
-review workflow records a separate immutable review decision linked to the
-initial explanation.
+Lite this explanation must be stored as GitHub-backed evidence, such as
+structured Issue comments or repository evidence files. Final closure of a
+failure explanation requires a Workspace manager review/approval workflow. A
+review record is accepted only when its actual GitHub comment author currently
+has `maintain` or `admin` repository permission; marker text cannot supply the
+reviewer identity or timestamp. Operational follow-up status (`OPEN`,
+`INVESTIGATING`, `RESOLVED`, or `ACCEPTED_RISK`) is independent from review
+status (`AWAITING_REVIEW`, `APPROVED`, `CHANGES_REQUESTED`, or `REJECTED`). Each
+of the three terminal review decisions requires a nonblank reason. Under the
+default `SELF_APPROVAL_BLOCKED` policy, the author cannot review their own
+follow-up; `SELF_APPROVAL_ALLOWED` and `AUTO_APPROVE` explicitly permit a
+manager's manual self-review. `AUTO_APPROVE` does not create a post-failure
+review decision automatically: the manager must still write an explicit review
+comment with a nonblank reason.
+For a request Issue, a follow-up marker is eligible only when its `requestId`
+and `batchId` match the containing execution request. The first valid base
+comment for each `followUpId` is authoritative, and only the first valid
+terminal review for that base record affects its state. Detail screens show
+ineligible review state as a compact reason/tooltip, not an apparently usable
+decision control. GitHub comments remain editable or deletable under GitHub's
+own permissions, and Lite has no trusted cross-client transaction lock, so it
+presents repository-backed evidence rather than claiming an independent
+immutable audit store.
 
 Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request

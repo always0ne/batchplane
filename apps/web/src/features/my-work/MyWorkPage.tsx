@@ -500,23 +500,37 @@ function toFailureFollowUpWorkItems(
     return [];
   }
 
-  const openFollowUps = (run.failureFollowUps ?? []).filter((followUp) =>
-    ["OPEN", "INVESTIGATING"].includes(followUp.status),
-  );
+  const followUps = run.failureFollowUps ?? [];
   const reviewableFollowUps = (run.failureFollowUps ?? []).filter(
     (followUp) =>
-      followUp.reviewStatus === "AWAITING_REVIEW" && followUp.author !== login,
+      followUp.reviewStatus === "AWAITING_REVIEW" &&
+      followUp.reviewCapability?.canReview === true,
   );
-  const assignedToMe = openFollowUps.some(
-    (followUp) => followUp.owner === login || followUp.author === login,
+  const revisionFollowUps = followUps.filter(
+    (followUp) =>
+      ["CHANGES_REQUESTED", "REJECTED"].includes(followUp.reviewStatus) &&
+      (followUp.owner === login || followUp.author === login),
+  );
+  const ongoingFollowUps = followUps.filter(
+    (followUp) =>
+      followUp.reviewStatus === "AWAITING_REVIEW" &&
+      ["OPEN", "INVESTIGATING"].includes(followUp.status) &&
+      (followUp.owner === login || followUp.author === login) &&
+      !reviewableFollowUps.some(
+        (reviewableFollowUp) =>
+          reviewableFollowUp.followUpId === followUp.followUpId,
+      ),
   );
   const requestedByMe = request?.requestedBy === login;
+  const gateBlocked = run.status === "BLOCKED";
 
-  if (!assignedToMe && !requestedByMe && reviewableFollowUps.length === 0) {
+  if (
+    followUps.length === 0 &&
+    !requestedByMe &&
+    reviewableFollowUps.length === 0
+  ) {
     return [];
   }
-
-  const gateBlocked = run.status === "BLOCKED";
 
   return [
     ...reviewableFollowUps.map((followUp) => ({
@@ -525,37 +539,54 @@ function toFailureFollowUpWorkItems(
       descriptionKey: "failureReview",
       itemId: `failure-follow-up-review-${followUp.followUpId}`,
       kind: "failureFollowUp" as const,
-      labelKey: "failureReview",
+      labelKey: gateBlocked ? "gateBlocked" : "failureReview",
       occurredAt: followUp.createdAt,
       priority: "high" as const,
       title: `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`,
       to: `/execution-runs/${run.runId}#failure-follow-up`,
     })),
-    ...(assignedToMe || requestedByMe
+    ...revisionFollowUps.map((followUp) => ({
+      actionKey: "updateFollowUp",
+      actor: followUp.author,
+      descriptionKey:
+        followUp.reviewStatus === "CHANGES_REQUESTED"
+          ? "failureChangesRequested"
+          : "failureRejected",
+      itemId: `failure-follow-up-update-${followUp.followUpId}`,
+      kind: "failureFollowUp" as const,
+      labelKey: gateBlocked ? "gateBlocked" : "failureFollowUp",
+      occurredAt: followUp.createdAt,
+      priority: "high" as const,
+      title: `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`,
+      to: `/execution-runs/${run.runId}#failure-follow-up`,
+    })),
+    ...ongoingFollowUps.map((followUp) => ({
+      actionKey: "continueFollowUp",
+      actor: followUp.author,
+      descriptionKey: gateBlocked ? "gateBlockedAssigned" : "failureOngoing",
+      itemId: `failure-follow-up-ongoing-${followUp.followUpId}`,
+      kind: "failureFollowUp" as const,
+      labelKey: gateBlocked ? "gateBlocked" : "failureFollowUp",
+      occurredAt: followUp.createdAt,
+      priority: "normal" as const,
+      title: `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`,
+      to: `/execution-runs/${run.runId}#failure-follow-up`,
+    })),
+    ...(followUps.length === 0 && requestedByMe
       ? [
           {
             actionKey: gateBlocked ? "reviewGateEvidence" : "writeFollowUp",
             actor: run.actor ?? "",
-            descriptionKey:
-              gateBlocked && openFollowUps.length === 0
-                ? "gateBlockedMine"
-                : gateBlocked && assignedToMe
-                  ? "gateBlockedAssigned"
-                  : openFollowUps.length === 0
-                    ? "failureMissing"
-                    : assignedToMe
-                      ? "failureAssigned"
-                      : "failureOpen",
+            descriptionKey: gateBlocked ? "gateBlockedMine" : "failureMissing",
             itemId: `failure-follow-up-${run.runId}`,
             kind: "failureFollowUp" as const,
-            labelKey: gateBlocked ? "gateBlocked" : "businessFailure",
+            labelKey: gateBlocked ? "gateBlocked" : "failureFollowUp",
             occurredAt: run.completedAt ?? run.startedAt ?? "",
-            priority:
-              openFollowUps.length === 0 || assignedToMe
-                ? ("high" as const)
-                : ("normal" as const),
+            priority: "high" as const,
             title: `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`,
-            to: `/execution-runs/${run.runId}`,
+            to: gateBlocked
+              ? `/execution-runs/${run.runId}`
+              : `/execution-runs/${run.runId}#failure-follow-up`,
           },
         ]
       : []),

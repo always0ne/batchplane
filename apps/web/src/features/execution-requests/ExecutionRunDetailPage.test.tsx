@@ -11,7 +11,7 @@ import {
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
 import { createRuntimeFixtureMockState } from "../../runtime/runtime-fixtures";
 import type { GitHubSession } from "../lite-setup/github-session";
-import "../../i18n/i18n";
+import { i18next } from "../../i18n/i18n";
 import { ExecutionRunDetailPage } from "./ExecutionRunDetailPage";
 
 const session = {
@@ -21,8 +21,9 @@ const session = {
 };
 
 describe("ExecutionRunDetailPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     sessionStorage.clear();
+    await i18next.changeLanguage("en");
   });
 
   it("separates Gate blocked evidence from business execution", async () => {
@@ -160,6 +161,8 @@ describe("ExecutionRunDetailPage", () => {
     expect(screen.getByText("Manager review pending")).toBeInTheDocument();
 
     client.state.currentUser = { login: "maintainer" };
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await screen.findByLabelText("Review reason");
     fireEvent.change(screen.getByLabelText("Review reason"), {
       target: { value: "Evidence and corrective action are sufficient." },
     });
@@ -171,6 +174,126 @@ describe("ExecutionRunDetailPage", () => {
     expect(
       screen.getByText("Evidence and corrective action are sufficient."),
     ).toBeInTheDocument();
+  });
+
+  it("does not offer failure review actions to a non-manager", async () => {
+    const state = createRuntimeFixtureMockState("business-failed");
+    const run = findFirstWorkflowRun(state);
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    client.state.currentUser = { login: "developer" };
+    await runtime.executions.createFailureFollowUp({
+      actionTaken: "Reprocessed after upstream correction.",
+      explanation: "The upstream ledger file arrived late.",
+      owner: "ops-team",
+      runId: String(run.id),
+      status: "RESOLVED",
+    });
+
+    renderDetail({
+      createRuntime: () => runtime,
+      readSession: () => session,
+      runId: run.id,
+    });
+
+    expect(
+      await screen.findByText(
+        "Workspace manager permission is required to review this explanation.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Approve explanation" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Review reason")).not.toBeInTheDocument();
+  });
+
+  it("shows a compact self-review-blocked state instead of review actions", async () => {
+    const state = createRuntimeFixtureMockState("business-failed");
+    const run = findFirstWorkflowRun(state);
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    await runtime.executions.createFailureFollowUp({
+      actionTaken: "Reprocessed after upstream correction.",
+      explanation: "The upstream ledger file arrived late.",
+      owner: "ops-team",
+      runId: String(run.id),
+      status: "RESOLVED",
+    });
+
+    renderDetail({
+      createRuntime: () => runtime,
+      readSession: () => session,
+      runId: run.id,
+    });
+
+    expect(
+      await screen.findByText(
+        "You cannot review your own explanation under the current Workspace policy.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Approve explanation" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders localized follow-up evidence timestamps instead of raw ISO strings", async () => {
+    const state = createRuntimeFixtureMockState("business-failed");
+    const run = findFirstWorkflowRun(state);
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+
+    client.state.currentUser = { login: "developer" };
+    const followUp = await runtime.executions.createFailureFollowUp({
+      actionTaken: "Reprocessed after upstream correction.",
+      explanation: "The upstream ledger file arrived late.",
+      owner: "ops-team",
+      runId: String(run.id),
+      status: "RESOLVED",
+    });
+    client.state.currentUser = { login: "maintainer" };
+    const review = await runtime.executions.reviewFailureFollowUp({
+      decision: "APPROVED",
+      followUpId: followUp.followUpId,
+      reason: "Evidence is sufficient.",
+      runId: String(run.id),
+    });
+
+    renderDetail({
+      createRuntime: () => runtime,
+      readSession: () => session,
+      runId: run.id,
+    });
+
+    const formatTimestamp = (value: string) =>
+      new Intl.DateTimeFormat(i18next.language, {
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        month: "2-digit",
+        second: "2-digit",
+        year: "numeric",
+      }).format(new Date(value));
+    const createdAt = formatTimestamp(followUp.createdAt);
+    const reviewedAt = formatTimestamp(review.reviewedAt);
+
+    expect(
+      await screen.findByText(
+        (_, element) =>
+          element?.tagName === "SPAN" &&
+          element.textContent?.includes(createdAt) === true,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === "P" &&
+          element.textContent?.includes(reviewedAt) === true,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(followUp.createdAt)).not.toBeInTheDocument();
+    expect(screen.queryByText(review.reviewedAt)).not.toBeInTheDocument();
   });
 
   it("shows unknown Gate evidence separately from allowed and blocked states", async () => {

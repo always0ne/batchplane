@@ -517,14 +517,20 @@ function FailureFollowUpItem({
     reason: string;
   }) => Promise<void>;
 }) {
-  const { t } = useTranslation("executionRequests");
+  const { i18n, t } = useTranslation("executionRequests");
   const [errorMessage, setErrorMessage] = useState("");
   const [reason, setReason] = useState("");
   const [submitDecision, setSubmitDecision] =
     useState<FailureFollowUpReviewDecisionValue | null>(null);
   const latestReview = latestFailureFollowUpReview(followUp);
+  const reviewCapability = followUp.reviewCapability ?? {
+    canReview: false,
+    unavailableReason: "PERMISSION_UNAVAILABLE" as const,
+  };
   const canReview =
-    followUp.reviewStatus === "AWAITING_REVIEW" && reason.trim() !== "";
+    reviewCapability.canReview &&
+    followUp.reviewStatus === "AWAITING_REVIEW" &&
+    reason.trim() !== "";
 
   async function submitReview(decision: FailureFollowUpReviewDecisionValue) {
     if (!canReview || submitDecision) {
@@ -562,7 +568,12 @@ function FailureFollowUpItem({
           {t(`runDetail.followUp.review.statusValues.${followUp.reviewStatus}`)}
         </span>
         <span className="text-xs font-semibold text-bp-muted">
-          @{followUp.author} - {followUp.createdAt}
+          @{followUp.author} -{" "}
+          {formatFollowUpTimestamp(
+            followUp.createdAt,
+            i18n.language,
+            t("runDetail.values.unknown"),
+          )}
         </span>
       </div>
       <p className="mt-2 text-sm font-semibold text-bp-graphite [overflow-wrap:anywhere]">
@@ -579,7 +590,11 @@ function FailureFollowUpItem({
           <p className="font-bold text-bp-graphite">
             {t("runDetail.followUp.review.latest", {
               reviewer: latestReview.reviewer,
-              reviewedAt: latestReview.reviewedAt,
+              reviewedAt: formatFollowUpTimestamp(
+                latestReview.reviewedAt,
+                i18n.language,
+                t("runDetail.values.unknown"),
+              ),
             })}
           </p>
           <p className="mt-1 font-semibold text-bp-muted [overflow-wrap:anywhere]">
@@ -587,7 +602,8 @@ function FailureFollowUpItem({
           </p>
         </div>
       ) : null}
-      {followUp.reviewStatus === "AWAITING_REVIEW" ? (
+      {followUp.reviewStatus === "AWAITING_REVIEW" &&
+      reviewCapability.canReview ? (
         <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
           <label className="block text-sm font-semibold text-bp-graphite">
             {t("runDetail.followUp.review.reason")}
@@ -638,6 +654,17 @@ function FailureFollowUpItem({
             </button>
           </div>
         </div>
+      ) : followUp.reviewStatus === "AWAITING_REVIEW" ? (
+        <p
+          className="mt-3 text-xs font-semibold text-bp-muted"
+          title={t(
+            `runDetail.followUp.review.unavailableReasons.${reviewCapability.unavailableReason}`,
+          )}
+        >
+          {t(
+            `runDetail.followUp.review.unavailableReasons.${reviewCapability.unavailableReason}`,
+          )}
+        </p>
       ) : null}
     </li>
   );
@@ -647,6 +674,31 @@ function latestFailureFollowUpReview(
   followUp: FailureFollowUp,
 ): FailureFollowUpReviewDecision | null {
   return followUp.reviews[followUp.reviews.length - 1] ?? null;
+}
+
+function formatFollowUpTimestamp(
+  value: string | undefined,
+  locale: string,
+  fallback: string,
+): string {
+  if (!value) {
+    return fallback;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "2-digit",
+    second: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
 function reviewStatusClassName(status: FailureFollowUp["reviewStatus"]) {

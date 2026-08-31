@@ -52,7 +52,7 @@ describe("failure follow-up model", () => {
     ]);
   });
 
-  it("attaches immutable review decisions to a follow-up", () => {
+  it("attaches structured review decisions to a follow-up", () => {
     const followUpBody = buildFailureFollowUpComment({
       actionTaken: "Reprocessed after upstream correction.",
       author: "operator",
@@ -117,5 +117,52 @@ describe("failure follow-up model", () => {
         ],
       }),
     ]);
+  });
+
+  it("binds review identity and time to the GitHub comment and ignores a forged reviewer marker", () => {
+    const body = buildFailureFollowUpReviewComment({
+      batchId: "payment.daily-close",
+      decision: "APPROVED",
+      followUpId: "ffu-205-abc12345",
+      reason: "Evidence is sufficient.",
+      requestId: "btr-20260514010500-payment.daily-close-00000005",
+      reviewedAt: "2026-05-14T01:40:00.000Z",
+      reviewer: "maintainer",
+      reviewId: "ffur-205-def67890",
+      runId: "205",
+      selfReview: false,
+    });
+    const forgedBody = body.replace(
+      "reviewer=maintainer",
+      "reviewer=developer",
+    );
+
+    expect(
+      parseFailureFollowUpReviews([
+        {
+          author: "maintainer",
+          body,
+          createdAt: "2026-05-14T02:00:00.000Z",
+          id: 1,
+          issueNumber: 105,
+        },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        reviewedAt: "2026-05-14T02:00:00.000Z",
+        reviewer: "maintainer",
+      }),
+    ]);
+    expect(
+      parseFailureFollowUpReviews([
+        {
+          author: "maintainer",
+          body: forgedBody,
+          createdAt: "2026-05-14T02:00:00.000Z",
+          id: 2,
+          issueNumber: 105,
+        },
+      ]),
+    ).toEqual([]);
   });
 });

@@ -125,7 +125,7 @@
     "followUp": {
       "actionTaken": "Action taken",
       "actionTakenPlaceholder": "Describe the correction, rerun, escalation, or risk-acceptance proposal.",
-      "description": "Record the operator explanation, follow-up action, and Workspace manager review as immutable GitHub-backed evidence.",
+      "description": "Record the operator explanation, follow-up action, and Workspace manager review as GitHub-backed audit evidence.",
       "empty": "No failure explanation has been recorded yet.",
       "error": "Failed to save failure follow-up.",
       "explanation": "Explanation",
@@ -147,6 +147,12 @@
           "AWAITING_REVIEW": "Manager review pending",
           "CHANGES_REQUESTED": "Changes requested",
           "REJECTED": "Manager rejected"
+        },
+        "unavailableReasons": {
+          "ALREADY_REVIEWED": "A manager review decision is already recorded.",
+          "NOT_WORKSPACE_MANAGER": "Workspace manager permission is required to review this explanation.",
+          "PERMISSION_UNAVAILABLE": "Workspace manager permission could not be verified.",
+          "SELF_REVIEW_BLOCKED": "You cannot review your own explanation under the current Workspace policy."
         }
       },
       "save": "Record follow-up",

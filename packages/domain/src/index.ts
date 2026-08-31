@@ -213,6 +213,21 @@ export type FailureFollowUpReviewStatus =
   | "AWAITING_REVIEW"
   | FailureFollowUpReviewDecisionValue;
 
+export type FailureFollowUpReviewUnavailableReason =
+  | "NOT_WORKSPACE_MANAGER"
+  | "SELF_REVIEW_BLOCKED"
+  | "ALREADY_REVIEWED"
+  | "PERMISSION_UNAVAILABLE";
+
+/**
+ * Product-level review affordance. Runtime adapters calculate this from their
+ * own identity and authorization evidence; presentational UI must not do so.
+ */
+export type FailureFollowUpReviewCapability = {
+  canReview: boolean;
+  unavailableReason?: FailureFollowUpReviewUnavailableReason;
+};
+
 export type FailureFollowUpReviewDecision = {
   reviewId: string;
   followUpId: string;
@@ -234,6 +249,7 @@ export type FailureFollowUp = {
   batchId: string;
   status: FailureFollowUpStatus;
   reviewStatus: FailureFollowUpReviewStatus;
+  reviewCapability?: FailureFollowUpReviewCapability;
   reviews: FailureFollowUpReviewDecision[];
   owner: string;
   explanation: string;

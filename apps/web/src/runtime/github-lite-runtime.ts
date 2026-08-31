@@ -7,6 +7,7 @@ import type {
   ExecutionRunJobLog,
   ExecutionRunStatus,
   FailureFollowUp,
+  FailureFollowUpReviewCapability,
   FailureFollowUpReviewDecision,
   GateDecision,
   GovernedChangeFilePreviewStatus,
@@ -82,6 +83,7 @@ export function createGitHubLiteRuntime(
     owner: session.owner,
     repo: session.repo,
   };
+  const failureFollowUpReviewsInFlight = new Set<string>();
 
   return {
     approvals: {
@@ -242,6 +244,25 @@ export function createGitHubLiteRuntime(
         const workflowById = new Map(
           workflows.map((workflow) => [workflow.id, workflow]),
         );
+        const executionRequests = issues
+          .map((issue, index) => {
+            const mappedIssue = toRepositoryIssue(issue);
+            const comments = (issueComments[index] ?? []).map(
+              toRepositoryIssueComment,
+            );
+
+            return parseExecutionRequestDetail(mappedIssue, comments);
+          })
+          .filter(
+            (request): request is ExecutionRequestForRun => request !== null,
+          );
+        const failureFollowUpsByIssue =
+          await projectFailureFollowUpsForRequests({
+            client,
+            includeReviewCapabilities: false,
+            repositoryRef,
+            requests: executionRequests,
+          });
 
         return [
           ...pullRequests.flatMap((pullRequest, index) =>
@@ -250,15 +271,13 @@ export function createGitHubLiteRuntime(
               (pullRequestComments[index] ?? []).map(toRepositoryIssueComment),
             ),
           ),
-          ...issues.flatMap((issue, index) => {
-            const mappedIssue = toRepositoryIssue(issue);
-            const comments = (issueComments[index] ?? []).map(
-              toRepositoryIssueComment,
-            );
-            const request = parseExecutionRequestDetail(mappedIssue, comments);
-
-            return request ? toExecutionRequestAuditItems(request) : [];
-          }),
+          ...executionRequests.flatMap((request) =>
+            toExecutionRequestAuditItems({
+              failureFollowUps:
+                failureFollowUpsByIssue.get(request.issue.number) ?? [],
+              request,
+            }),
+          ),
           ...workflowRuns.map((run) => {
             const workflow = workflowById.get(run.workflowId);
 
@@ -309,6 +328,20 @@ export function createGitHubLiteRuntime(
         runId,
         status,
       }) {
+        const normalizedActionTaken = actionTaken.trim();
+        const normalizedExplanation = explanation.trim();
+        const normalizedOwner = owner.trim();
+
+        if (
+          !normalizedActionTaken ||
+          !normalizedExplanation ||
+          !normalizedOwner
+        ) {
+          throw new Error(
+            "Failure follow-up explanation, action taken, and owner are required.",
+          );
+        }
+
         const run = await loadWorkflowRunForFailureFollowUp({
           client,
           repositoryRef,
@@ -330,24 +363,19 @@ export function createGitHubLiteRuntime(
           );
         }
 
-        const user = await client.getCurrentUser();
+        const [user, workspacePolicy] = await Promise.all([
+          client.getCurrentUser(),
+          loadWorkspacePolicy({ client, repositoryRef }),
+        ]);
         const followUp: FailureFollowUp = {
-          actionTaken,
+          actionTaken: normalizedActionTaken,
           author: user.login,
-          batchId:
-            run.batchId ??
-            request.batchId ??
-            parseBatchIdFromRun(run, run.workflowPath) ??
-            "",
+          batchId: request.batchId,
           createdAt: new Date().toISOString(),
-          explanation,
+          explanation: normalizedExplanation,
           followUpId: createFailureFollowUpId(run.id),
-          owner,
-          requestId:
-            run.requestId ??
-            request.requestId ??
-            parseRequestIdFromRun(run) ??
-            "",
+          owner: normalizedOwner,
+          requestId: request.requestId,
           runId: String(run.id),
           reviewStatus: "AWAITING_REVIEW",
           reviews: [],
@@ -358,109 +386,175 @@ export function createGitHubLiteRuntime(
           body: buildFailureFollowUpComment(followUp),
           issueNumber: request.issue.number,
         });
-
-        return (
-          parseFailureFollowUps([
-            {
-              author: user.login,
-              body: comment.body,
-              createdAt: followUp.createdAt,
-              id: comment.id,
-              issueNumber: request.issue.number,
-            },
-          ])[0] ?? followUp
-        );
-      },
-
-      async reviewFailureFollowUp({ decision, followUpId, reason, runId }) {
-        const run = await loadWorkflowRunForFailureFollowUp({
-          client,
-          repositoryRef,
-          runId,
-        });
-        const requests = await loadExecutionApprovalRequests(
-          client,
-          repositoryRef,
-        );
-        const request = findExecutionRequestForRun(
-          run,
-          requests,
-          run.workflowPath,
-        );
-
-        if (!request) {
-          throw new Error(
-            "Execution request evidence was not found for this run.",
-          );
-        }
-
-        const followUp = parseFailureFollowUps(request.comments).find(
+        const persistedFollowUp = (
+          await projectFailureFollowUps({
+            actorLogin: user.login,
+            comments: [
+              ...request.comments,
+              {
+                author: comment.author,
+                body: comment.body,
+                createdAt: comment.createdAt,
+                id: comment.id,
+                issueNumber: request.issue.number,
+              },
+            ],
+            context: createFailureFollowUpProjectionContext({
+              client,
+              repositoryRef,
+              workspacePolicy,
+            }),
+            expectedRequest: request,
+          })
+        ).find(
           (candidate) =>
-            candidate.followUpId === followUpId &&
+            candidate.followUpId === followUp.followUpId &&
             candidate.runId === String(run.id),
         );
 
-        if (!followUp) {
-          throw new Error("Failure follow-up evidence was not found.");
-        }
-
-        const user = await client.getCurrentUser();
-        const permission = await client.getRepositoryPermissionForUser({
-          ...repositoryRef,
-          username: user.login,
-        });
-
-        if (!isWorkspaceManagerPermission(permission.permission)) {
+        if (!persistedFollowUp) {
           throw new Error(
-            "Workspace manager permission is required to review failure follow-up evidence.",
+            "GitHub did not return verifiable failure follow-up evidence.",
           );
         }
 
-        const workspacePolicy = await loadWorkspacePolicy({
-          client,
-          repositoryRef,
-        });
-        const selfReview = followUp.author === user.login;
+        return persistedFollowUp;
+      },
 
-        if (
-          selfReview &&
-          workspacePolicy.approval.mode === "SELF_APPROVAL_BLOCKED"
-        ) {
-          throw new Error(
-            "Self-review is blocked by the Workspace approval policy.",
-          );
+      async reviewFailureFollowUp({ decision, followUpId, reason, runId }) {
+        const normalizedReason = reason.trim();
+
+        if (!normalizedReason) {
+          throw new Error("A review reason is required.");
         }
 
-        const review: FailureFollowUpReviewDecision = {
-          approvalMode: workspacePolicy.approval.mode,
-          batchId: followUp.batchId,
-          decision,
-          followUpId,
-          reason,
-          requestId: followUp.requestId,
-          reviewedAt: new Date().toISOString(),
-          reviewer: user.login,
-          reviewId: createFailureFollowUpReviewId(run.id),
-          runId: String(run.id),
-          selfReview,
-        };
-        const comment = await client.createIssueComment({
-          ...repositoryRef,
-          body: buildFailureFollowUpReviewComment(review),
-          issueNumber: request.issue.number,
-        });
+        if (failureFollowUpReviewsInFlight.has(followUpId)) {
+          throw new Error("A review decision is already being recorded.");
+        }
 
-        return (
-          parseFailureFollowUpReviews([
-            {
-              author: user.login,
-              body: comment.body,
-              createdAt: review.reviewedAt,
-              id: comment.id,
-              issueNumber: request.issue.number,
-            },
-          ])[0] ?? review
-        );
+        failureFollowUpReviewsInFlight.add(followUpId);
+
+        try {
+          const run = await loadWorkflowRunForFailureFollowUp({
+            client,
+            repositoryRef,
+            runId,
+          });
+          const requests = await loadExecutionApprovalRequests(
+            client,
+            repositoryRef,
+          );
+          const request = findExecutionRequestForRun(
+            run,
+            requests,
+            run.workflowPath,
+          );
+
+          if (!request) {
+            throw new Error(
+              "Execution request evidence was not found for this run.",
+            );
+          }
+
+          const user = await client.getCurrentUser();
+          const workspacePolicy = await loadWorkspacePolicy({
+            client,
+            repositoryRef,
+          });
+          const followUps = await projectFailureFollowUps({
+            actorLogin: user.login,
+            comments: request.comments,
+            context: createFailureFollowUpProjectionContext({
+              client,
+              repositoryRef,
+              workspacePolicy,
+            }),
+            expectedRequest: request,
+          });
+          const followUp = followUps.find(
+            (candidate) =>
+              candidate.followUpId === followUpId &&
+              candidate.runId === String(run.id),
+          );
+
+          if (!followUp) {
+            throw new Error("Failure follow-up evidence was not found.");
+          }
+
+          if (followUp.reviewStatus !== "AWAITING_REVIEW") {
+            throw new Error(
+              "Failure follow-up has already received a review decision.",
+            );
+          }
+
+          if (!followUp.reviewCapability?.canReview) {
+            throw new Error(
+              failureFollowUpReviewCapabilityError(
+                followUp.reviewCapability?.unavailableReason,
+              ),
+            );
+          }
+
+          const selfReview = followUp.author === user.login;
+
+          const review: FailureFollowUpReviewDecision = {
+            approvalMode: workspacePolicy.approval.mode,
+            batchId: followUp.batchId,
+            decision,
+            followUpId,
+            reason: normalizedReason,
+            requestId: followUp.requestId,
+            reviewedAt: new Date().toISOString(),
+            reviewer: user.login,
+            reviewId: createFailureFollowUpReviewId(run.id),
+            runId: String(run.id),
+            selfReview,
+          };
+          const comment = await client.createIssueComment({
+            ...repositoryRef,
+            body: buildFailureFollowUpReviewComment(review),
+            issueNumber: request.issue.number,
+          });
+
+          const persistedFollowUps = await projectFailureFollowUps({
+            actorLogin: user.login,
+            comments: [
+              ...request.comments,
+              {
+                author: comment.author,
+                body: comment.body,
+                createdAt: comment.createdAt,
+                id: comment.id,
+                issueNumber: request.issue.number,
+              },
+            ],
+            context: createFailureFollowUpProjectionContext({
+              client,
+              repositoryRef,
+              workspacePolicy,
+            }),
+            expectedRequest: request,
+          });
+          const persistedReview = persistedFollowUps
+            .find(
+              (candidate) =>
+                candidate.followUpId === followUpId &&
+                candidate.runId === String(run.id),
+            )
+            ?.reviews.find(
+              (candidate) => candidate.reviewId === review.reviewId,
+            );
+
+          if (!persistedReview) {
+            throw new Error(
+              "GitHub did not return verifiable failure follow-up review evidence.",
+            );
+          }
+
+          return persistedReview;
+        } finally {
+          failureFollowUpReviewsInFlight.delete(followUpId);
+        }
       },
 
       async createExecutionRequest({ body, labels, title }) {
@@ -504,7 +598,19 @@ export function createGitHubLiteRuntime(
           workflow?.path,
         );
 
+        const failureFollowUpsByIssue =
+          await projectFailureFollowUpsForRequests({
+            client,
+            includeReviewCapabilities: true,
+            repositoryRef,
+            requests: request ? [request] : [],
+          });
+        const failureFollowUps = request
+          ? (failureFollowUpsByIssue.get(request.issue.number) ?? [])
+          : [];
+
         return toExecutionRun(run, {
+          failureFollowUps,
           jobs,
           request,
           workflow,
@@ -552,22 +658,37 @@ export function createGitHubLiteRuntime(
           repositoryRef,
           runs,
         });
+        const runContexts = runs.map((run) => {
+          const workflow = workflowById.get(run.workflowId);
+          const request = findExecutionRequestForRun(
+            run,
+            requests,
+            workflow?.path,
+          );
 
-        return runs
-          .map((run) => {
-            const workflow = workflowById.get(run.workflowId);
-            const request = findExecutionRequestForRun(
-              run,
-              requests,
-              workflow?.path,
-            );
+          return { request, run, workflow };
+        });
+        const failureFollowUpsByIssue =
+          await projectFailureFollowUpsForRequests({
+            client,
+            includeReviewCapabilities: true,
+            repositoryRef,
+            requests: runContexts.flatMap(({ request }) =>
+              request ? [request] : [],
+            ),
+          });
 
-            return toExecutionRun(run, {
+        return runContexts
+          .map(({ request, run, workflow }) =>
+            toExecutionRun(run, {
+              failureFollowUps: request
+                ? failureFollowUpsByIssue.get(request.issue.number)
+                : undefined,
               jobs: jobsByRunId.get(run.id),
               request,
               workflow,
-            });
-          })
+            }),
+          )
           .filter((run) => !batchId || run.batchId === batchId)
           .filter((run) => !requestId || run.requestId === requestId)
           .filter((run) => !workflowPath || run.workflowPath === workflowPath)
@@ -1047,9 +1168,13 @@ function isRegistrationAuditPullRequest(
   );
 }
 
-function toExecutionRequestAuditItems(
-  request: ExecutionRequestForRun,
-): AuditTimelineItem[] {
+function toExecutionRequestAuditItems({
+  failureFollowUps,
+  request,
+}: {
+  failureFollowUps: FailureFollowUp[];
+  request: ExecutionRequestForRun;
+}): AuditTimelineItem[] {
   const items: AuditTimelineItem[] = [
     {
       actor: request.requestedBy,
@@ -1127,7 +1252,7 @@ function toExecutionRequestAuditItems(
     });
   }
 
-  for (const followUp of parseFailureFollowUps(request.comments)) {
+  for (const followUp of failureFollowUps) {
     items.push({
       actor: followUp.author,
       itemId: `failure-follow-up-${followUp.followUpId}`,
@@ -1158,6 +1283,7 @@ function toExecutionRequestAuditItems(
         summary: `Failure follow-up ${review.decision.toLowerCase()} for ${review.batchId}`,
         type: "FAILURE_FOLLOW_UP_REVIEWED",
         metadata: compactAuditMetadata({
+          approvalMode: review.approvalMode,
           batchId: review.batchId,
           decision: review.decision,
           followUpId: review.followUpId,
@@ -1312,13 +1438,275 @@ function findExecutionRequestForRun(
   });
 }
 
+type FailureFollowUpProjectionContext = {
+  permissionByLogin: Map<string, Promise<string>>;
+  repositoryRef: RuntimeRepositoryRef;
+  workspacePolicy: WorkspacePolicy;
+  client: GitHubLiteClient;
+};
+
+function createFailureFollowUpProjectionContext({
+  client,
+  repositoryRef,
+  workspacePolicy,
+}: Omit<
+  FailureFollowUpProjectionContext,
+  "permissionByLogin"
+>): FailureFollowUpProjectionContext {
+  return {
+    client,
+    permissionByLogin: new Map(),
+    repositoryRef,
+    workspacePolicy,
+  };
+}
+
+async function projectFailureFollowUpsForRequests({
+  client,
+  includeReviewCapabilities,
+  repositoryRef,
+  requests,
+}: {
+  client: GitHubLiteClient;
+  includeReviewCapabilities: boolean;
+  repositoryRef: RuntimeRepositoryRef;
+  requests: ExecutionRequestForRun[];
+}): Promise<Map<number, FailureFollowUp[]>> {
+  const uniqueRequests = new Map(
+    requests.map((request) => [request.issue.number, request]),
+  );
+  const requestsWithFollowUps = [...uniqueRequests.values()].filter(
+    hasFailureFollowUpsForExecutionRequest,
+  );
+
+  if (requestsWithFollowUps.length === 0) {
+    return new Map();
+  }
+
+  const [workspacePolicy, user] = await Promise.all([
+    loadWorkspacePolicy({ client, repositoryRef }),
+    includeReviewCapabilities ? client.getCurrentUser() : undefined,
+  ]);
+  const context = createFailureFollowUpProjectionContext({
+    client,
+    repositoryRef,
+    workspacePolicy,
+  });
+  const projections = await Promise.all(
+    requestsWithFollowUps.map(
+      async (request) =>
+        [
+          request.issue.number,
+          await projectFailureFollowUps({
+            ...(user ? { actorLogin: user.login } : {}),
+            comments: request.comments,
+            context,
+            expectedRequest: request,
+          }),
+        ] as const,
+    ),
+  );
+
+  return new Map(projections);
+}
+
+function hasFailureFollowUpsForExecutionRequest(
+  request: ExecutionRequestForRun,
+): boolean {
+  return parseFailureFollowUps(request.comments, []).some(
+    (followUp) =>
+      followUp.requestId === request.requestId &&
+      followUp.batchId === request.batchId,
+  );
+}
+
+async function projectFailureFollowUps({
+  actorLogin,
+  comments,
+  context,
+  expectedRequest,
+}: {
+  actorLogin?: string;
+  comments: RepositoryIssueComment[];
+  context: FailureFollowUpProjectionContext;
+  expectedRequest: Pick<ExecutionRequestForRun, "batchId" | "requestId">;
+}): Promise<FailureFollowUp[]> {
+  const followUpById = new Map<string, FailureFollowUp>();
+
+  for (const followUp of parseFailureFollowUps(comments, [])) {
+    if (
+      followUp.requestId !== expectedRequest.requestId ||
+      followUp.batchId !== expectedRequest.batchId ||
+      followUpById.has(followUp.followUpId)
+    ) {
+      continue;
+    }
+
+    // The first structurally valid GitHub comment for an ID is authoritative.
+    // Later duplicate markers must not replace its author or request relation.
+    followUpById.set(followUp.followUpId, followUp);
+  }
+
+  const acceptedReviewByFollowUpId = new Set<string>();
+  const verifiedReviews: FailureFollowUpReviewDecision[] = [];
+
+  for (const parsedReview of parseFailureFollowUpReviews(comments)) {
+    const followUp = followUpById.get(parsedReview.followUpId);
+
+    if (
+      !followUp ||
+      !parsedReview.reason.trim() ||
+      acceptedReviewByFollowUpId.has(followUp.followUpId)
+    ) {
+      continue;
+    }
+
+    try {
+      const permission = await getFailureFollowUpReviewerPermission(
+        context,
+        parsedReview.reviewer,
+      );
+      const selfReview = parsedReview.reviewer === followUp.author;
+
+      if (
+        !isWorkspaceManagerPermission(permission) ||
+        (selfReview &&
+          context.workspacePolicy.approval.mode === "SELF_APPROVAL_BLOCKED")
+      ) {
+        continue;
+      }
+
+      acceptedReviewByFollowUpId.add(followUp.followUpId);
+      verifiedReviews.push({
+        approvalMode: context.workspacePolicy.approval.mode,
+        batchId: followUp.batchId,
+        decision: parsedReview.decision,
+        followUpId: followUp.followUpId,
+        reason: parsedReview.reason.trim(),
+        requestId: followUp.requestId,
+        reviewedAt: parsedReview.reviewedAt,
+        reviewer: parsedReview.reviewer,
+        reviewId: parsedReview.reviewId,
+        runId: followUp.runId,
+        selfReview,
+      });
+    } catch {
+      // A permission lookup failure cannot create review evidence.
+    }
+  }
+
+  const reviewsByFollowUpId = new Map<
+    string,
+    FailureFollowUpReviewDecision[]
+  >();
+
+  for (const review of verifiedReviews) {
+    reviewsByFollowUpId.set(review.followUpId, [review]);
+  }
+
+  const followUps: FailureFollowUp[] = [...followUpById.values()].map(
+    (followUp) => {
+      const reviews = reviewsByFollowUpId.get(followUp.followUpId) ?? [];
+
+      return {
+        ...followUp,
+        reviewStatus: reviews[0]?.decision ?? "AWAITING_REVIEW",
+        reviews,
+      };
+    },
+  );
+
+  if (!actorLogin) {
+    return followUps;
+  }
+
+  let actorPermission: string;
+
+  try {
+    actorPermission = await getFailureFollowUpReviewerPermission(
+      context,
+      actorLogin,
+    );
+  } catch {
+    return followUps.map((followUp) => ({
+      ...followUp,
+      reviewCapability: {
+        canReview: false,
+        unavailableReason: "PERMISSION_UNAVAILABLE",
+      },
+    }));
+  }
+
+  return followUps.map((followUp) => ({
+    ...followUp,
+    reviewCapability: deriveFailureFollowUpReviewCapability({
+      actorLogin,
+      actorPermission,
+      followUp,
+      workspacePolicy: context.workspacePolicy,
+    }),
+  }));
+}
+
+function getFailureFollowUpReviewerPermission(
+  context: FailureFollowUpProjectionContext,
+  login: string,
+): Promise<string> {
+  const existing = context.permissionByLogin.get(login);
+
+  if (existing) {
+    return existing;
+  }
+
+  const permission = context.client
+    .getRepositoryPermissionForUser({
+      ...context.repositoryRef,
+      username: login,
+    })
+    .then((result) => result.permission);
+  context.permissionByLogin.set(login, permission);
+
+  return permission;
+}
+
+function deriveFailureFollowUpReviewCapability({
+  actorLogin,
+  actorPermission,
+  followUp,
+  workspacePolicy,
+}: {
+  actorLogin: string;
+  actorPermission: string;
+  followUp: FailureFollowUp;
+  workspacePolicy: WorkspacePolicy;
+}): FailureFollowUpReviewCapability {
+  if (followUp.reviewStatus !== "AWAITING_REVIEW") {
+    return { canReview: false, unavailableReason: "ALREADY_REVIEWED" };
+  }
+
+  if (!isWorkspaceManagerPermission(actorPermission)) {
+    return { canReview: false, unavailableReason: "NOT_WORKSPACE_MANAGER" };
+  }
+
+  if (
+    followUp.author === actorLogin &&
+    workspacePolicy?.approval.mode === "SELF_APPROVAL_BLOCKED"
+  ) {
+    return { canReview: false, unavailableReason: "SELF_REVIEW_BLOCKED" };
+  }
+
+  return { canReview: true };
+}
+
 function toExecutionRun(
   run: GitHubWorkflowRun,
   {
+    failureFollowUps = [],
     jobs = [],
     request,
     workflow,
   }: {
+    failureFollowUps?: FailureFollowUp[];
     jobs?: GitHubWorkflowJob[];
     request?: ExecutionRequestForRun;
     workflow?: { name: string; path: string };
@@ -1336,11 +1724,9 @@ function toExecutionRun(
     ...(run.updatedAt ? { completedAt: run.updatedAt } : {}),
     event: run.event,
     ...(gateDecision ? { gateDecision } : {}),
-    failureFollowUps: request
-      ? parseFailureFollowUps(request.comments).filter(
-          (followUp) => followUp.runId === String(run.id),
-        )
-      : [],
+    failureFollowUps: failureFollowUps.filter(
+      (followUp) => followUp.runId === String(run.id),
+    ),
     jobs: mappedJobs,
     requestId:
       run.requestId ?? request?.requestId ?? parseRequestIdFromRun(run) ?? "",
@@ -1431,6 +1817,24 @@ async function loadWorkspacePolicy({
 
 function isWorkspaceManagerPermission(permission: string): boolean {
   return permission === "admin" || permission === "maintain";
+}
+
+function failureFollowUpReviewCapabilityError(
+  reason: FailureFollowUpReviewCapability["unavailableReason"],
+): string {
+  if (reason === "SELF_REVIEW_BLOCKED") {
+    return "Self-review is blocked by the Workspace approval policy.";
+  }
+
+  if (reason === "ALREADY_REVIEWED") {
+    return "Failure follow-up has already received a review decision.";
+  }
+
+  if (reason === "PERMISSION_UNAVAILABLE") {
+    return "Workspace manager permission could not be verified.";
+  }
+
+  return "Workspace manager permission is required to review failure follow-up evidence.";
 }
 
 function toExecutionRunJob(job: GitHubWorkflowJob): ExecutionRunJob {

@@ -112,10 +112,9 @@ export function buildFailureFollowUpReviewComment({
 
 export function parseFailureFollowUps(
   comments: RepositoryIssueComment[],
+  reviews = parseFailureFollowUpReviews(comments),
 ): FailureFollowUp[] {
-  const reviewsByFollowUpId = groupReviewsByFollowUpId(
-    parseFailureFollowUpReviews(comments),
-  );
+  const reviewsByFollowUpId = groupReviewsByFollowUpId(reviews);
 
   return comments
     .map((comment) =>
@@ -162,12 +161,10 @@ function parseFailureFollowUp(
 
   return {
     actionTaken: readMarkdownSection(comment.body, "Action taken"),
-    author:
-      readMarkdownField(comment.body, "Author").replace(/^@/, "") ||
-      comment.author,
+    // The comment author is the only reliable Lite identity for the record.
+    author: comment.author,
     batchId,
-    createdAt:
-      readMarkdownField(comment.body, "Created at") || comment.createdAt,
+    createdAt: comment.createdAt,
     explanation: readMarkdownSection(comment.body, "Explanation"),
     followUpId,
     owner,
@@ -192,10 +189,9 @@ function parseFailureFollowUpReview(
   const requestId = marker.get("requestId");
   const batchId = marker.get("batchId");
   const decision = marker.get("decision");
-  const reviewer =
+  const claimedReviewer =
     marker.get("reviewer") ||
-    readMarkdownField(comment.body, "Reviewer").replace(/^@/, "") ||
-    comment.author;
+    readMarkdownField(comment.body, "Reviewer").replace(/^@/, "");
   const approvalMode = marker.get("approvalMode");
 
   if (
@@ -209,6 +205,12 @@ function parseFailureFollowUpReview(
     return null;
   }
 
+  // Marker fields are descriptive only. A mismatched claimed reviewer must
+  // never become a review record, even before runtime permission verification.
+  if (claimedReviewer && claimedReviewer !== comment.author) {
+    return null;
+  }
+
   return {
     ...(isWorkspaceApprovalMode(approvalMode) ? { approvalMode } : {}),
     batchId,
@@ -216,9 +218,8 @@ function parseFailureFollowUpReview(
     followUpId,
     reason: readMarkdownSection(comment.body, "Reason"),
     requestId,
-    reviewedAt:
-      readMarkdownField(comment.body, "Reviewed at") || comment.createdAt,
-    reviewer,
+    reviewedAt: comment.createdAt,
+    reviewer: comment.author,
     reviewId,
     runId,
     selfReview: marker.get("selfReview") === "true",
