@@ -9198,6 +9198,7 @@ var require_dist = __commonJS({
 // src/index.ts
 var import_cron_parser = __toESM(require_dist(), 1);
 import { appendFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 // ../../packages/digest/src/index.ts
 function canonicalize(value) {
@@ -10381,7 +10382,8 @@ function setActionOutput(name, value) {
   appendFileSync(outputPath, `${name}=${value}
 `);
 }
-if (import.meta.url === `file://${process.argv[1]}`) {
+var invokedPath = process.argv[1];
+if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
   run().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

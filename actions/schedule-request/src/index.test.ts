@@ -1,4 +1,6 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -75,6 +77,25 @@ describe("schedule request action", () => {
 
     expect(dist).toContain("cron-parser");
     expect(dist).not.toMatch(/from\s+["']cron-parser["']/u);
+  });
+
+  it("runs the bundled Action when Node invokes it as the direct entrypoint", () => {
+    const result = spawnSync(
+      process.execPath,
+      [fileURLToPath(new URL("../dist/index.js", import.meta.url))],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          GITHUB_REPOSITORY: "invalid-repository",
+        },
+      },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "GITHUB_REPOSITORY must be in owner/repo format.",
+    );
   });
 
   it("creates a new delegated scheduled request and approval comment", async () => {

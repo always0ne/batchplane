@@ -13,9 +13,39 @@ This repository uses pnpm workspaces.
 
 ```bash
 corepack prepare pnpm@10.14.0 --activate
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
+
+## Local Verification
+
+BatchPlane requires Node 24 or later. CI and the checked-in JavaScript Actions
+use Node 24. `.node-version` provides the single version-manager hint. The
+complete local verification sequence is:
+
+```bash
+corepack prepare pnpm@10.14.0 --activate
+pnpm install --frozen-lockfile
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist
+VITE_BASE_PATH=/batchplane/ pnpm --filter @batchplane/web build
+git diff --check
+```
+
+Each JavaScript Action builds a self-contained Node 24 `dist/index.js` bundle.
+The Action dist diff check fails when a build changed a tracked bundle that has
+not been committed. Generated dispatcher, target, and scheduled workflow
+behavior is covered by focused TypeScript tests, including the exact
+single-quoted `github.event.schedule` expression. No Go toolchain is required.
+
+These checks use deterministic fixtures and generated workflow tests only;
+they do not prove a live GitHub repository cycle. Repository installation,
+Issue/PR writes, approval evidence, dispatcher, Gate, Actions logs, and cron
+trigger behavior still require the separate authorized Lite smoke test below.
 
 ## Lite Smoke Test
 

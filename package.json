@@ -5,7 +5,7 @@
   "description": "BatchPlane batch control and audit platform. Git-backed Lite first, scheduler adapters later.",
   "packageManager": "pnpm@10.14.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "pnpm --filter @batchplane/web dev",
@@ -19,7 +19,7 @@
     "@eslint/js": "^9.0.0",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.0.0",
-    "@types/node": "^20.0.0",
+    "@types/node": "^24.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@vitejs/plugin-react": "^4.0.0",

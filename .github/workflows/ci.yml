@@ -32,7 +32,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -52,6 +52,9 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Verify checked-in Action bundles
+        run: git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist
 
       - name: Build GitHub Pages static bundle
         run: VITE_BASE_PATH=/${{ github.event.repository.name }}/ pnpm --filter @batchplane/web build
