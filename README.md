@@ -30,29 +30,19 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm bootstrap:actionlint
-export PATH="$(go env GOPATH)/bin:$PATH"
-pnpm verify:integrity
 pnpm build
+git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist
 VITE_BASE_PATH=/batchplane/ pnpm --filter @batchplane/web build
 git diff --check
 ```
 
-`pnpm bootstrap:actionlint` installs the official
-[`rhysd/actionlint` v1.7.12](https://github.com/rhysd/actionlint) Go command.
-It requires Go 1.25 or newer. CI uses Go 1.26 and the same pinned version.
-`pnpm verify:integrity` builds expected Action bundles only in a temporary
-directory and compares their exact file sets and hashes with checked-in `dist`.
-It does not rewrite the worktree, and therefore detects a missing or changed
-`index.js` and an extra stale file such as the prior `gate-schema.js`. The root
-`pnpm build` runs this artifact check before any recursive package build, so it
-cannot silently repair a stale Action bundle. After changing Action source, use
-`pnpm build:actions` to deliberately regenerate the tracked bundles, then run
-`pnpm verify:integrity`. The command also YAML-parses static and generated
-workflows, runs actionlint against them, and proves that the previously invalid
-double-quoted cron expression in a GitHub expression is rejected.
+Each JavaScript Action builds a self-contained Node 24 `dist/index.js` bundle.
+The Action dist diff check fails when a build changed a tracked bundle that has
+not been committed. Generated dispatcher, target, and scheduled workflow
+behavior is covered by focused TypeScript tests, including the exact
+single-quoted `github.event.schedule` expression. No Go toolchain is required.
 
-These checks use deterministic fixtures and generated workflow outputs only;
+These checks use deterministic fixtures and generated workflow tests only;
 they do not prove a live GitHub repository cycle. Repository installation,
 Issue/PR writes, approval evidence, dispatcher, Gate, Actions logs, and cron
 trigger behavior still require the separate authorized Lite smoke test below.

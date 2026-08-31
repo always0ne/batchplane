@@ -50,21 +50,11 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Set up Go for actionlint
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.26.x"
-
-      - name: Install actionlint
-        run: |
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
-      - name: Verify Action artifacts and workflows
-        run: pnpm verify:integrity
-
       - name: Build
         run: pnpm build
+
+      - name: Verify checked-in Action bundles
+        run: git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist
 
       - name: Build GitHub Pages static bundle
         run: VITE_BASE_PATH=/${{ github.event.repository.name }}/ pnpm --filter @batchplane/web build

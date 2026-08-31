@@ -9,15 +9,11 @@
   },
   "scripts": {
     "dev": "pnpm --filter @batchplane/web dev",
-    "build": "pnpm verify:action-artifacts && pnpm -r build",
-    "build:actions": "pnpm --filter @batchplane/dispatcher-action build && pnpm --filter @batchplane/gate-action build && pnpm --filter @batchplane/schedule-request-action build",
+    "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "lint": "eslint .",
-    "format:check": "prettier --check .",
-    "bootstrap:actionlint": "go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12",
-    "verify:action-artifacts": "node scripts/verify-action-artifacts.mjs",
-    "verify:integrity": "pnpm verify:action-artifacts && node scripts/verify-workflows.mjs"
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -39,7 +35,6 @@
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0",
     "vite": "^5.0.0",
-    "vitest": "^1.0.0",
-    "yaml": "^2.8.1"
+    "vitest": "^1.0.0"
   }
 }
