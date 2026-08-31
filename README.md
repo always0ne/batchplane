@@ -152,6 +152,7 @@ See also:
 - `docs/audit-and-evidence.md`
 - `docs/main-lite-conformance.md`
 - `docs/control-plane-migration-plan.md`
+- `docs/adr/0001-modular-monorepo.md`
 - `docs/repo-mode-getting-started.md`
 - `docs/github-pages.md`
 - `docs/i18n.md`

@@ -14,7 +14,9 @@ The migration introduces:
 - a GitHub-backed Lite runtime;
 - a Kotlin/Spring Boot Main runtime with MySQL;
 - a provider boundary that supports GitHub Actions first and Jenkins next;
-- one Gate protocol with edition-specific authority verifiers.
+- one Gate protocol with edition-specific authority verifiers;
+- one modular source repository with independently buildable and releasable
+  Main and Lite editions.
 
 This is an incremental extraction. It is not a big-bang rewrite.
 
@@ -120,9 +122,13 @@ direction must be enforced before directory perfection.
    depend on JPA entities.
 8. Keep UI page components shared; only application bootstraps and bounded
    provider configuration differ.
-9. Do not merge repository-wide moves with behavior changes unless the move is
-   required for the behavior.
-10. Every phase closes with local CI, contract tests, and a manually executable
+9. Do not introduce direct Main-to-Lite or Lite-to-Main implementation
+   dependencies. Both editions depend only on explicit shared modules.
+10. Keep each edition independently buildable and releasable even while root CI
+    runs cross-edition contract and conformance tests.
+11. Do not merge repository-wide moves with behavior changes unless the move is
+    required for the behavior.
+12. Every phase closes with local CI, contract tests, and a manually executable
     golden path.
 
 ## 6. Phase plan
@@ -260,7 +266,8 @@ Exit criteria:
 
 - all applicable P0 requirements pass in both editions;
 - remaining Lite limitations are explicit in UI and docs;
-- one shared UI build is proven with both bootstraps.
+- one shared React feature source and test suite are proven through independently
+  deployable Main and Lite UI builds.
 
 ### Phase 6: Add Jenkins as the second provider
 
@@ -336,18 +343,19 @@ behavioral boundaries and run the full repository CI before pull-request creatio
 
 ## 10. Risks and controls
 
-| Risk                                             | Control                                                                         |
-| ------------------------------------------------ | ------------------------------------------------------------------------------- |
-| Core abstraction remains GitHub-shaped           | Validate every provider concept against Jenkins before freezing it              |
-| Lite regressions slow Main work                  | Preserve vertical smoke tests and compatibility readers per phase               |
-| Shared UI becomes full of edition branches       | Enforce `BatchPlaneClient` injection and capability-based rendering             |
-| Duplicate external events corrupt state          | Require provider idempotency keys, unique indexes, inbox/outbox patterns        |
-| Gate outage runs ungoverned work                 | Fail closed before the batch command; expose denial and recovery state          |
-| MySQL model becomes coupled to provider payloads | Store normalized identifiers and separate versioned raw evidence                |
-| Plugin extensibility creates supply-chain risk   | Ship providers with releases first; do not load arbitrary JVM JARs              |
-| Lite and Main both govern one repository         | Require explicit authority ownership and adoption cutover                       |
-| Audit growth hurts operational queries           | Separate current-state projections from append-only evidence and archive safely |
-| Architecture docs drift from code                | Add dependency checks, contract tests, and requirement links to PR templates    |
+| Risk                                             | Control                                                                                 |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Core abstraction remains GitHub-shaped           | Validate every provider concept against Jenkins before freezing it                      |
+| Lite regressions slow Main work                  | Preserve vertical smoke tests and compatibility readers per phase                       |
+| Shared UI becomes full of edition branches       | Enforce `BatchPlaneClient` injection and capability-based rendering                     |
+| Duplicate external events corrupt state          | Require provider idempotency keys, unique indexes, inbox/outbox patterns                |
+| Gate outage runs ungoverned work                 | Fail closed before the batch command; expose denial and recovery state                  |
+| MySQL model becomes coupled to provider payloads | Store normalized identifiers and separate versioned raw evidence                        |
+| Plugin extensibility creates supply-chain risk   | Ship providers with releases first; do not load arbitrary JVM JARs                      |
+| Lite and Main both govern one repository         | Require explicit authority ownership and adoption cutover                               |
+| Audit growth hurts operational queries           | Separate current-state projections from append-only evidence and archive safely         |
+| Architecture docs drift from code                | Add dependency checks, contract tests, and requirement links to PR templates            |
+| Monorepo hides direct edition coupling           | Fail CI on Main/Lite implementation imports; allow dependencies only via shared modules |
 
 ## 11. Definition of migration complete
 

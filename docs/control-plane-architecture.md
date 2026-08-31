@@ -12,6 +12,12 @@ or persistence implementation.
 The architecture uses one product, two runtime editions, and multiple Platform
 Provider Bundles.
 
+Main and Lite remain in one authoritative source repository during the current
+product stage, but they are independent builds and release artifacts. Neither
+edition may import the other's implementation. The repository decision and its
+reconsideration triggers are recorded in
+[`ADR-0001`](./adr/0001-modular-monorepo.md).
+
 ## System Context
 
 ```mermaid
@@ -143,6 +149,33 @@ providers/
 The first implementation MAY keep current pnpm packages and add a Gradle build
 alongside them. Root CI orchestrates pnpm and Gradle without making one language
 toolchain responsible for the other.
+
+## Source Repository Strategy
+
+BatchPlane uses a modular monorepo, not a single undifferentiated application.
+The repository contains Main, Lite, shared libraries, and provider source so
+that contract and conformance changes can be verified atomically while those
+boundaries are still evolving.
+
+```text
+Main ----\
+          +---> shared UI, contracts, policy, and provider SPI
+Lite ----/
+
+Main --X--> Lite implementation
+Lite --X--> Main implementation
+```
+
+Main and Lite have separate composition roots, build entry points, deployment
+pipelines, and release artifacts. Shared React source produces separate Main
+and Lite builds. Shared-module changes run all affected consumer tests; an
+edition-local change may use path-scoped CI.
+
+This source layout is reassessed only after Main completes a production-capable
+vertical flow and GitHub Actions passes Main/Lite conformance in both hosting
+modes. Independent teams, materially different release cadences, repository-
+level security isolation, or measurable repository and CI cost may then justify
+a split through a new ADR.
 
 ## Dependency Rules
 

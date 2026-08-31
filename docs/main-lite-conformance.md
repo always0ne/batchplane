@@ -138,6 +138,12 @@ bootstrap binds it to GitHub-backed application services. A feature page may
 render provider-specific fields returned as typed capabilities, but it must not
 branch on `edition === "lite"` for core business behavior.
 
+Shared UI means one feature source and one behavioral test suite, not one
+deployment artifact. Main and Lite use separate composition roots and produce
+independently deployable builds. Neither bootstrap may depend on the other
+edition's implementation. The source-repository decision is defined in
+[`ADR-0001`](./adr/0001-modular-monorepo.md).
+
 ## 6. Capability negotiation
 
 Platform differences are represented by capabilities, not scattered UI checks.
