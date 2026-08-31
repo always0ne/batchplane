@@ -1,11 +1,24 @@
 # BatchPlane
 
-Git-backed batch control and audit.
+Unified batch control and audit across execution platforms.
 
-BatchPlane starts with **Lite**, a GitHub-backed Workspace model for batch
-definitions, execution requests, approval evidence, dispatcher workflows, and Gate
-decisions. It is designed to grow into an installable BatchPlane server for
-enterprise use.
+BatchPlane gives operators one governed inventory for batch registration,
+change, deletion, execution, schedules, Gate decisions, run history, failure
+follow-up, and audit evidence. GitHub Actions is the first supported platform;
+Jenkins is the next provider used to prove the platform boundary. Other batch
+platforms can be added through versioned provider contracts.
+
+The product architecture defines two editions:
+
+- **BatchPlane Main** is the planned Kotlin/Spring Boot control plane backed by
+  MySQL. It supports multiple Workspaces and platform connections, including
+  GitHub Actions.
+- **BatchPlane Lite** is the currently implemented GitHub-native edition. It uses a repository, pull
+  requests, Issues, comments, and Actions as its authority and requires no
+  BatchPlane server.
+
+Both editions share product semantics and the React/Vite feature UI. Their
+runtime bootstraps and authoritative stores differ.
 
 ## Development
 
@@ -88,15 +101,16 @@ branch, and removes the request from the approval inbox. Return to `Batches` and
 choose `Refresh`; the approved batch definition should appear from the
 repository's `.batch-governance/batches` directory.
 
-To test schedule execution, include at least one enabled schedule during batch
-registration or change approval. After the registration PR is merged, GitHub
-Actions cron triggers create one execution request Issue per occurrence,
-record delegated approval evidence automatically, and dispatch the governed
-workflow through the same Gate-protected path as manual requests. Scheduled
-occurrences do not wait in `Approvals`; they appear as execution request/audit
-evidence and in execution run history. GitHub Actions scheduled workflows run
-from the latest commit on the repository's default branch, support a minimum
-interval of 5 minutes, and may be delayed during high-load periods.
+To test the current 0.x schedule flow, include at least one enabled schedule
+during batch registration or change approval. After merge, the generated cron
+job creates occurrence-specific Issue evidence, writes the legacy
+`SCHEDULE_DELEGATED` compatibility marker, and calls the dispatcher. It does not
+wait in `Approvals`. This compatibility representation is being replaced by
+the v2 contract in `docs/github-lite-srs.md`: the merged Schedule Revision is
+the authority, and a scheduled occurrence reaches Gate in the same native run
+without fabricating approval. GitHub Actions scheduled workflows run from the
+latest default-branch commit, have a minimum five-minute interval, and can be
+delayed or dropped under high load.
 
 Lite currently covers repository installation PR creation, registration
 request, approval, merge, Workspace-backed batch listing, execution request creation,
@@ -126,6 +140,18 @@ Workspace-policy approval evidence.
 See also:
 
 - `BRAND_GUIDELINES.md`
+- `docs/product-scope-and-editions.md`
+- `docs/control-plane-srs.md`
+- `docs/domain-model.md`
+- `docs/control-plane-architecture.md`
+- `docs/control-plane-ui-architecture.md`
+- `docs/control-plane-architecture-review.md`
+- `docs/platform-provider-contract.md`
+- `docs/gate-protocol.md`
+- `docs/identity-and-authorization.md`
+- `docs/audit-and-evidence.md`
+- `docs/main-lite-conformance.md`
+- `docs/control-plane-migration-plan.md`
 - `docs/repo-mode-getting-started.md`
 - `docs/github-pages.md`
 - `docs/i18n.md`
@@ -134,7 +160,7 @@ See also:
 - `docs/repository-rename-runbook.md`
 - `examples/github-lite-demo/README.md`
 
-## Workspace
+## Current Lite Workspace
 
 ```text
 apps/web              React/Vite Lite UI
@@ -144,6 +170,11 @@ packages/github-lite  GitHub Lite client contracts
 actions/gate          BatchPlane Gate Action scaffold
 actions/dispatcher    BatchPlane Dispatcher Action scaffold
 ```
+
+The target modular-monolith and provider layout is defined in
+`docs/control-plane-architecture.md`. The migration deliberately keeps this
+Lite workspace runnable while product contracts, UI ports, Kotlin Main modules,
+and platform providers are extracted in reviewable phases.
 
 ## Internationalization
 

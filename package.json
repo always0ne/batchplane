@@ -2,7 +2,7 @@
   "name": "batchplane",
   "version": "0.0.0",
   "private": true,
-  "description": "BatchPlane batch control and audit platform. Git-backed Lite first, scheduler adapters later.",
+  "description": "BatchPlane unified batch control and audit platform with Main and GitHub Lite editions.",
   "packageManager": "pnpm@10.14.0",
   "engines": {
     "node": ">=20"
