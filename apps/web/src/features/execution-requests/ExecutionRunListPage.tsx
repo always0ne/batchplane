@@ -375,6 +375,7 @@ function ExecutionRunRow({
       ? `/execution-runs/${run.runId}?from=failures#failure-follow-up`
       : runDetailPath;
   const hasFailureFollowUp = (run.failureFollowUps ?? []).length > 0;
+  const failureFollowUpStatusKey = getFailureFollowUpStatusKey(run);
 
   return (
     <li className="grid gap-4 py-4 first:pt-0 last:pb-0 xl:grid-cols-[minmax(0,1fr)_auto]">
@@ -398,9 +399,7 @@ function ExecutionRunRow({
         </p>
         {view === "failures" && run.status === "FAILED" ? (
           <p className="w-fit rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-800">
-            {(run.failureFollowUps ?? []).length > 0
-              ? t("values.explanationRecorded")
-              : t("values.explanationNeeded")}
+            {t(`values.${failureFollowUpStatusKey}`)}
           </p>
         ) : null}
         <dl className="grid gap-3 text-xs md:grid-cols-2">
@@ -458,6 +457,28 @@ function ExecutionRunRow({
       </div>
     </li>
   );
+}
+
+function getFailureFollowUpStatusKey(run: ExecutionRun) {
+  const latestFollowUp = (run.failureFollowUps ?? []).at(-1);
+
+  if (!latestFollowUp) {
+    return "explanationNeeded";
+  }
+
+  if (latestFollowUp.reviewStatus === "APPROVED") {
+    return "reviewApproved";
+  }
+
+  if (latestFollowUp.reviewStatus === "REJECTED") {
+    return "reviewRejected";
+  }
+
+  if (latestFollowUp.reviewStatus === "CHANGES_REQUESTED") {
+    return "reviewChangesRequested";
+  }
+
+  return "reviewAwaiting";
 }
 
 function ExecutionRunFact({ label, value }: { label: string; value: string }) {

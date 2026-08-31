@@ -11,9 +11,12 @@
   },
   "itemActions": {
     "reviewApproval": "Review",
+    "reviewFollowUp": "Review follow-up",
     "viewRegistration": "View request",
     "viewRequest": "View request",
     "writeFollowUp": "Write follow-up",
+    "updateFollowUp": "Submit follow-up update",
+    "continueFollowUp": "Continue follow-up",
     "reviewGateEvidence": "Review evidence"
   },
   "itemDescriptions": {
@@ -23,9 +26,11 @@
     "scheduleReview": "Schedule approval is waiting for review.",
     "executionMine": "Open the execution request detail and review current evidence.",
     "executionApproval": "Execution approval is waiting for a maintainer.",
+    "failureReview": "Failure explanation is waiting for Workspace manager review.",
     "failureMissing": "Failure follow-up has not been recorded.",
-    "failureAssigned": "Failure follow-up is assigned to the current user.",
-    "failureOpen": "Failure follow-up is still open.",
+    "failureChangesRequested": "A Workspace manager requested changes. Submit an updated follow-up.",
+    "failureRejected": "A Workspace manager rejected this follow-up. Submit an updated follow-up.",
+    "failureOngoing": "Failure follow-up remains assigned to the current user.",
     "gateBlockedMine": "Gate blocked this run before the batch command executed.",
     "gateBlockedAssigned": "Gate-block follow-up is assigned to the current user."
   },
@@ -34,6 +39,7 @@
     "businessFailure": "Business failure",
     "executionApproval": "Execution approval",
     "failureFollowUp": "Failure follow-up",
+    "failureReview": "Failure review",
     "gateBlocked": "Gate blocked",
     "registration": "Registration",
     "registrationApproval": "Registration approval",

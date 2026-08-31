@@ -53,6 +53,10 @@
     "explanationRecorded": "Explanation submitted",
     "gateBlocked": "Gate stopped before the batch command ran.",
     "inProgress": "In progress",
+    "reviewApproved": "Manager approved",
+    "reviewAwaiting": "Review pending",
+    "reviewChangesRequested": "Changes requested",
+    "reviewRejected": "Rejected",
     "succeeded": "The workflow run completed successfully.",
     "unknown": "Unknown",
     "unknownBatch": "Unknown batch"

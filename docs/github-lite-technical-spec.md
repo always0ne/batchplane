@@ -119,7 +119,10 @@ Supported `spec.approval.mode` values are:
   must be different users.
 - `SELF_APPROVAL_ALLOWED`: requester may approve their own execution request.
   The approval remains explicit audit evidence and Gate still verifies
-  authorization, request digest, dispatcher actor, and batch definition.
+  authorization, request digest, dispatcher actor, and batch definition. For
+  failure follow-up evidence, an eligible manager may also manually review
+  their own follow-up with an explicit terminal review comment and nonblank
+  reason.
 - `AUTO_APPROVE`: automatic Workspace-policy approval. Request creation records
   explicit approval evidence with `approvalType=WORKSPACE_AUTO_APPROVED` and
   `approvalMode=AUTO_APPROVE`; the evidence must also identify
@@ -127,7 +130,10 @@ Supported `spec.approval.mode` values are:
   merged Workspace policy is `AUTO_APPROVE`. Dispatcher remains responsible for
   `workflow_dispatch`; the browser UI must not dispatch governed workflows
   directly. This is the highest approval-relaxation level and includes
-  `SELF_APPROVAL_ALLOWED` behavior for manual approvals.
+  `SELF_APPROVAL_ALLOWED` behavior for manual approvals, including a manager's
+  manual self-review of failure follow-up evidence. It does not synthesize a
+  post-failure review decision: the manager must still submit an explicit
+  terminal review comment with a nonblank reason.
 
 If `.batch-governance/workspace.yml` is missing, UI and Gate must treat the
 mode as `SELF_APPROVAL_BLOCKED`. UI-only local settings must not weaken approval policy,
@@ -510,11 +516,40 @@ fall back to the generated `Run batch` step.
 
 Failure follow-up is separate from approval. Business-failed runs must be able
 to collect an explanation record with explanation text, action taken, owner,
-follow-up status, author, timestamp, run ID, and request ID. GitHub Lite must
-persist this as GitHub-backed evidence, such as structured Issue comments or
-repository evidence files, so it remains auditable without a database. The
-follow-up record is a submitted explanation, not final closure. Workspace
-manager review decisions are a separate evidence type and workflow.
+operational status, author, timestamp, run ID, and request ID. Operational
+status (`OPEN`, `INVESTIGATING`, `RESOLVED`, `ACCEPTED_RISK`) is distinct from
+review status (`AWAITING_REVIEW`, `APPROVED`, `CHANGES_REQUESTED`, `REJECTED`).
+GitHub Lite persists these records as GitHub-backed audit evidence, such as
+structured Issue comments or repository evidence files, so they remain
+auditable without a database. The follow-up record is a submitted explanation,
+not final closure. Workspace manager review decisions are separate Issue comment
+evidence. Every terminal decision (`APPROVED`, `CHANGES_REQUESTED`, or
+`REJECTED`) requires a nonblank reason.
+
+The projection first parses base follow-up markers without review evidence. A
+base record is eligible only when its `requestId` and `batchId` match the
+containing execution request; for duplicate `followUpId` values, the first
+valid GitHub comment is authoritative. Review relation fields in marker text
+are descriptive and are normalized from that authoritative base record. The
+runtime binds reviewer identity and reviewed time to actual GitHub comment
+author and comment creation time, rejects a claimed-reviewer mismatch, and
+accepts evidence only after the actual author has current `maintain` or `admin`
+permission. The default `SELF_APPROVAL_BLOCKED` policy excludes a review where
+that actual reviewer is the base follow-up author; a Workspace policy must
+explicitly allow self-review to change this. `SELF_APPROVAL_ALLOWED` and
+`AUTO_APPROVE` permit an eligible manager's manual self-review, but
+`AUTO_APPROVE` does not synthesize a post-failure terminal decision; an explicit
+review comment and nonblank reason remain required. Only the first valid
+terminal review for an authoritative follow-up affects its projected state.
+
+The browser suppresses duplicate submissions while one review call is in
+flight, and the runtime re-reads verified evidence before writing a decision.
+GitHub Lite has no trusted transaction or dispatcher lock around two concurrent
+browser clients, so a simultaneous cross-client race remains possible until a
+trusted server-side coordinator is introduced. GitHub comments are
+repository-backed audit evidence, not an immutable store independent of GitHub
+edit and deletion permissions. A browser may suppress its own duplicate click,
+but this is not a cross-client lock.
 
 The Lite runtime exposes `audit.listAuditTimeline({ limit })` by composing
 GitHub repository evidence rather than reading a database. The GitHub adapter
@@ -528,7 +563,19 @@ The My Work screen is a UI aggregation over existing ports. It loads the
 current GitHub user, registration pull requests, execution request Issues and
 comments, and recent execution runs. Items are classified into approvals,
 registrations, user requests, and failure follow-ups, then linked to the
-corresponding BatchPlane detail route.
+corresponding BatchPlane detail route. For failure follow-up: no valid record
+on a business-failed run routes the execution requester to `Write follow-up`.
+A Gate-blocked run without follow-up remains `Gate blocked` evidence work and
+routes that requester to `Review evidence`, because its batch command did not
+run. `AWAITING_REVIEW` routes only Runtime-eligible managers to review;
+`APPROVED` creates no remaining author/requester follow-up item;
+`CHANGES_REQUESTED` or `REJECTED` routes the author or owner to `Submit
+follow-up update`; and assigned `OPEN` or `INVESTIGATING` records may route as
+`Continue follow-up` without duplicating the same manager's review work.
+Gate-block revisions and ongoing records retain the `Gate blocked` label and
+context. Execution detail receives a neutral
+`reviewCapability` from the runtime and renders an ineligible state as compact
+text with a tooltip rather than performing GitHub permission lookup itself.
 
 Parsers must accept both BatchPlane and legacy BatchTrail evidence namespaces:
 `batchplane.io/v1` and `batchtrail.io/v1`, plus `batchplane:*` and

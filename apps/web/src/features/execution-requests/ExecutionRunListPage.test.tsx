@@ -142,6 +142,40 @@ describe("ExecutionRunListPage", () => {
     ).toEqual(expect.arrayContaining(["/execution-runs/205?from=failures"]));
   });
 
+  it("distinguishes submitted failure follow-up review state", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+    const run = state.workflowRuns.find(
+      (candidate) =>
+        candidate.batchId === "payment.daily-close" &&
+        candidate.conclusion === "failure",
+    );
+
+    if (!run) {
+      throw new Error("Expected a business failed workflow run fixture.");
+    }
+
+    client.state.currentUser = { login: "developer" };
+    await runtime.executions.createFailureFollowUp({
+      actionTaken: "Reprocessed after upstream correction.",
+      explanation: "The upstream ledger file arrived late.",
+      owner: "ops-team",
+      runId: String(run.id),
+      status: "RESOLVED",
+    });
+
+    renderPage({
+      createRuntime: () => runtime,
+      initialPath: "/failures",
+      readSession: () => session,
+      view: "failures",
+    });
+
+    expect(await screen.findByText("Review pending")).toBeInTheDocument();
+    expect(screen.queryByText("Explanation needed")).not.toBeInTheDocument();
+  });
+
   it("defaults invalid failure filters to all follow-up runs", async () => {
     const client = createMockGitHubLiteClient(createGitHubLiteMockState());
 

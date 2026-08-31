@@ -62,6 +62,8 @@
       "EXECUTION_REQUESTED": "Execution requested",
       "APPROVAL_RECORDED": "Approval recorded",
       "DISPATCH_RECORDED": "Dispatch recorded",
+      "FAILURE_FOLLOW_UP_RECORDED": "Failure follow-up recorded",
+      "FAILURE_FOLLOW_UP_REVIEWED": "Failure follow-up reviewed",
       "GATE_DECIDED": "Gate decided",
       "RUN_COMPLETED": "Run completed",
       "SCHEDULE_OCCURRED": "Schedule occurred"

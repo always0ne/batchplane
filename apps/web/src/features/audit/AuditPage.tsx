@@ -292,11 +292,15 @@ function toAuditSummaryValues(
     batchId: String(item.metadata?.batchId ?? item.subjectId),
     conclusion: String(item.metadata?.conclusion ?? ""),
     decision: String(item.metadata?.decision ?? ""),
+    followUpId: String(item.metadata?.followUpId ?? ""),
     gateResult: gateResult ? translate(`values.gateResult.${gateResult}`) : "",
     pullNumber: Number(item.metadata?.pullNumber ?? 0),
     reasonCode: String(item.metadata?.reasonCode ?? ""),
     requestId: String(item.metadata?.requestId ?? item.subjectId),
+    reviewId: String(item.metadata?.reviewId ?? ""),
+    reviewStatus: String(item.metadata?.reviewStatus ?? ""),
     runId: Number(item.metadata?.runId ?? 0),
+    selfReview: String(item.metadata?.selfReview ?? ""),
     status: String(item.metadata?.status ?? ""),
   };
 }

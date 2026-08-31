@@ -204,12 +204,53 @@ export type FailureFollowUpStatus =
   | "RESOLVED"
   | "ACCEPTED_RISK";
 
+export type FailureFollowUpReviewDecisionValue =
+  | "APPROVED"
+  | "REJECTED"
+  | "CHANGES_REQUESTED";
+
+export type FailureFollowUpReviewStatus =
+  | "AWAITING_REVIEW"
+  | FailureFollowUpReviewDecisionValue;
+
+export type FailureFollowUpReviewUnavailableReason =
+  | "NOT_WORKSPACE_MANAGER"
+  | "SELF_REVIEW_BLOCKED"
+  | "ALREADY_REVIEWED"
+  | "PERMISSION_UNAVAILABLE";
+
+/**
+ * Product-level review affordance. Runtime adapters calculate this from their
+ * own identity and authorization evidence; presentational UI must not do so.
+ */
+export type FailureFollowUpReviewCapability = {
+  canReview: boolean;
+  unavailableReason?: FailureFollowUpReviewUnavailableReason;
+};
+
+export type FailureFollowUpReviewDecision = {
+  reviewId: string;
+  followUpId: string;
+  runId: string;
+  requestId: string;
+  batchId: string;
+  decision: FailureFollowUpReviewDecisionValue;
+  reason: string;
+  reviewer: string;
+  reviewedAt: string;
+  approvalMode?: WorkspaceApprovalMode;
+  selfReview: boolean;
+};
+
 export type FailureFollowUp = {
   followUpId: string;
   runId: string;
   requestId: string;
   batchId: string;
   status: FailureFollowUpStatus;
+  reviewStatus: FailureFollowUpReviewStatus;
+  reviewCapability?: FailureFollowUpReviewCapability;
+  reviews: FailureFollowUpReviewDecision[];
   owner: string;
   explanation: string;
   actionTaken: string;
@@ -245,6 +286,8 @@ export type AuditTimelineItemType =
   | "APPROVAL_RECORDED"
   | "DISPATCH_RECORDED"
   | "GATE_DECIDED"
+  | "FAILURE_FOLLOW_UP_RECORDED"
+  | "FAILURE_FOLLOW_UP_REVIEWED"
   | "RUN_COMPLETED"
   | "SCHEDULE_OCCURRED";
 
@@ -477,6 +520,12 @@ export type ExecutionPort = {
     runId: string;
     status: FailureFollowUpStatus;
   }): Promise<FailureFollowUp>;
+  reviewFailureFollowUp(params: {
+    decision: FailureFollowUpReviewDecisionValue;
+    followUpId: string;
+    reason: string;
+    runId: string;
+  }): Promise<FailureFollowUpReviewDecision>;
   createExecutionRequest(params: {
     body: string;
     labels: string[];

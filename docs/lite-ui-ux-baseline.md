@@ -44,7 +44,16 @@ Lite must read as one connected operational flow:
 - My Work is the current user's work queue. It should compactly group approval
   work, the user's own registration and execution requests, and failure
   follow-up items, with each row linking to the relevant BatchPlane detail
-  route.
+  route. Failure routing is explicit: no valid business-failure follow-up gives
+  the requester `Write follow-up`; a no-follow-up Gate block remains `Gate
+blocked` evidence work with `Review evidence`, because the batch command did
+  not run. `AWAITING_REVIEW` gives only an eligible manager review work;
+  `APPROVED` clears author/requester follow-up work; and
+  `CHANGES_REQUESTED` or `REJECTED` gives the author or owner `Submit
+follow-up update`. An assigned `OPEN` or `INVESTIGATING` record may appear as
+  `Continue follow-up`, but not alongside an incoherent duplicate review item
+  for the same user and record. Gate-block revisions and ongoing records retain
+  the `Gate blocked` label and Gate context.
 - Audit Trail is the evidence timeline. It should show event type, actor, time,
   source link, and compact metadata, with Batch ID and request ID filters.
 - Execution run list is the primary run-history surface. It must show normal,
@@ -56,7 +65,27 @@ Lite must read as one connected operational flow:
   action that records the operator's explanation, action taken, owner, status,
   author, timestamp, and related execution evidence. The UI must not imply that
   an operator explanation is final closure until a Workspace manager review
-  approves it.
+  decision is recorded. Operational status (`OPEN`, `INVESTIGATING`,
+  `RESOLVED`, `ACCEPTED_RISK`) and review status (`AWAITING_REVIEW`,
+  `APPROVED`, `CHANGES_REQUESTED`, `REJECTED`) are shown separately. Review
+  controls are shown only when the Runtime reports that the current actor is
+  eligible; unavailable review affordances use a compact reason or tooltip
+  rather than a large explanatory panel. Follow-up and review timestamps use
+  the active locale's compact date/time format and fall back to the localized
+  unknown value for empty or invalid evidence. Review reasons are mandatory for
+  `APPROVED`, `CHANGES_REQUESTED`, and `REJECTED`.
+
+- The runtime accepts a follow-up only when its `requestId` and `batchId` match
+  the containing execution request, retains the first valid base comment for a
+  duplicate `followUpId`, and uses actual GitHub comment author/time plus
+  current `admin`/`maintain` verification for review evidence. Default
+  `SELF_APPROVAL_BLOCKED` prevents author self-review unless the Workspace
+  policy explicitly allows it. `SELF_APPROVAL_ALLOWED` and `AUTO_APPROVE`
+  permit an eligible manager's manual self-review, but `AUTO_APPROVE` must not
+  make a post-failure decision appear automatically: an explicit review comment
+  and nonblank reason remain required. GitHub comments may be edited or
+  deleted, and Lite has no cross-client transaction lock; the UI must not
+  present this repository-backed evidence as immutable.
 - Execution run detail must separate control evidence from business execution:
   Gate-blocked runs explain that the batch command did not run, while business
   failures explain that Gate allowed the run and the downstream command failed.
