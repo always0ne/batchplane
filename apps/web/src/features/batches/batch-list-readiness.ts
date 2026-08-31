@@ -1,11 +1,11 @@
-import type { BatchDefinition } from "@batchplane/domain";
+import type { BatchListItem } from "@batchplane/ui-client";
 
 export function getExecutionRequestBlockReason({
   batch,
   isRequestInProgress,
   t,
 }: {
-  batch: BatchDefinition;
+  batch: BatchListItem;
   isRequestInProgress: boolean;
   t: (key: string) => string;
 }): string | null {
@@ -17,7 +17,7 @@ export function getExecutionRequestBlockReason({
     return t("execution.errors.gateRequired");
   }
 
-  if (!batch.execution?.command.trim()) {
+  if (!batch.hasExecutableCommand) {
     return t("execution.errors.missingCommand");
   }
 

@@ -1,4 +1,4 @@
-import type { BatchDefinition } from "@batchplane/domain";
+import type { BatchListResult } from "@batchplane/ui-client";
 import { Loader2, Play, Plus, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -10,25 +10,18 @@ import {
   ErrorState,
   LoadingState,
 } from "../../shared/components/PageState";
-import {
-  createBatchPlaneRuntime,
-  readRuntimeSession,
-} from "../../runtime/runtime-fixtures";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
+import { useBatchPlaneClient } from "../../app/batch-plane-client-context";
 import { getExecutionRequestBlockReason } from "./batch-list-readiness";
 
 type BatchListState =
   | { type: "loading" }
-  | { type: "no-session" }
-  | {
-      type: "loaded";
-      batches: BatchDefinition[];
-      defaultBranch: string;
-    }
+  | BatchListResult
   | { type: "error"; message: string };
 
 export function BatchesPage() {
   const { t } = useTranslation("batches");
+  const client = useBatchPlaneClient();
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<BatchListState>({ type: "loading" });
 
@@ -36,28 +29,13 @@ export function BatchesPage() {
     let ignoreResult = false;
 
     async function loadBatches() {
-      const session = readRuntimeSession();
-
-      if (!session) {
-        setState({ type: "no-session" });
-        return;
-      }
-
       setState({ type: "loading" });
 
       try {
-        const runtime = createBatchPlaneRuntime(session);
-        const repository = await runtime.settings.getRepository();
-        const batches = await runtime.batches.listBatchDefinitions({
-          ref: repository.defaultBranch,
-        });
+        const batchList = await client.listBatches();
 
         if (!ignoreResult) {
-          setState({
-            type: "loaded",
-            batches,
-            defaultBranch: repository.defaultBranch,
-          });
+          setState(batchList);
         }
       } catch (error) {
         if (!ignoreResult) {
@@ -74,7 +52,7 @@ export function BatchesPage() {
     return () => {
       ignoreResult = true;
     };
-  }, [reloadToken, t]);
+  }, [client, reloadToken, t]);
 
   return (
     <section>
@@ -115,7 +93,7 @@ function BatchListContent({ state }: { state: BatchListState }) {
     return <LoadingState message={t("states.loading")} />;
   }
 
-  if (state.type === "no-session") {
+  if (state.type === "workspace-not-connected") {
     return (
       <EmptyState
         action={
@@ -138,7 +116,7 @@ function BatchListContent({ state }: { state: BatchListState }) {
   if (state.batches.length === 0) {
     return (
       <EmptyState
-        message={t("states.empty", { branch: state.defaultBranch })}
+        message={t("states.empty", { branch: state.sourceRevision })}
       />
     );
   }

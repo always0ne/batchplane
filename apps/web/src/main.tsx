@@ -3,19 +3,24 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import { App } from "./app/App";
+import { BatchPlaneClientContext } from "./app/batch-plane-client-context";
 import "./i18n/i18n";
+import { createRuntimeBatchPlaneClient } from "./runtime/runtime-batch-plane-client";
 import "./shared/styles/global.css";
 
 restoreGitHubPagesRedirect();
 
 const browserBaseName =
   import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL;
+const batchPlaneClient = createRuntimeBatchPlaneClient();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <BrowserRouter basename={browserBaseName}>
-      <App />
-    </BrowserRouter>
+    <BatchPlaneClientContext.Provider value={batchPlaneClient}>
+      <BrowserRouter basename={browserBaseName}>
+        <App />
+      </BrowserRouter>
+    </BatchPlaneClientContext.Provider>
   </React.StrictMode>,
 );
 

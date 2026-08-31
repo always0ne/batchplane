@@ -1,63 +1,36 @@
-import { render, screen } from "@testing-library/react";
-import type {
-  BatchDefinition,
-  BatchPlaneRuntimePorts,
-} from "@batchplane/domain";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { BatchListItem, BatchPlaneClient } from "@batchplane/ui-client";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import "../../i18n/i18n";
+import { BatchPlaneClientContext } from "../../app/batch-plane-client-context";
 import { BatchesPage } from "./BatchesPage";
 
-const runtimeMocks = vi.hoisted(() => ({
-  createBatchPlaneRuntime: vi.fn(),
-  readRuntimeSession: vi.fn(),
-}));
-
-vi.mock("../../runtime/runtime-fixtures", () => ({
-  createBatchPlaneRuntime: runtimeMocks.createBatchPlaneRuntime,
-  readRuntimeSession: runtimeMocks.readRuntimeSession,
-}));
-
-const session = {
-  owner: "always0ne",
-  repo: "batch",
-  token: "fixture-token",
-};
-
-const activeBatch: BatchDefinition = {
+const activeBatch: BatchListItem = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
-  domain: "payments",
   environment: "PROD",
-  execution: {
-    command: "echo close payments",
-    runsOn: "ubuntu-latest",
-  },
   gateRequired: true,
+  hasExecutableCommand: true,
   name: "Daily Close",
   owner: "ops-team",
   status: "ACTIVE",
-  workflow: {
-    path: ".github/workflows/payment.daily-close.yml",
-    ref: "main",
-  },
 };
 
 describe("BatchesPage", () => {
+  let client: BatchPlaneClient;
+
   beforeEach(() => {
-    runtimeMocks.createBatchPlaneRuntime.mockReset();
-    runtimeMocks.readRuntimeSession.mockReset();
-    runtimeMocks.readRuntimeSession.mockReturnValue(session);
-    runtimeMocks.createBatchPlaneRuntime.mockReturnValue(
-      createRuntime({ batches: [activeBatch] }),
-    );
+    client = createClient({ batches: [activeBatch] });
   });
 
   it("renders the no-session state with a setup link", async () => {
-    runtimeMocks.readRuntimeSession.mockReturnValue(null);
+    client = {
+      listBatches: async () => ({ type: "workspace-not-connected" }),
+    };
 
-    renderPage();
+    renderPage(client);
 
     expect(
       await screen.findByText(
@@ -70,13 +43,11 @@ describe("BatchesPage", () => {
   });
 
   it("renders the loading state while batch definitions are being fetched", () => {
-    runtimeMocks.createBatchPlaneRuntime.mockReturnValue(
-      createRuntime({
-        getRepository: () => new Promise(() => undefined),
-      }),
-    );
+    client = {
+      listBatches: () => new Promise(() => undefined),
+    };
 
-    renderPage();
+    renderPage(client);
 
     expect(
       screen.getByText("Loading batch definitions..."),
@@ -85,11 +56,9 @@ describe("BatchesPage", () => {
   });
 
   it("renders the empty state for an installed Workspace with no batches", async () => {
-    runtimeMocks.createBatchPlaneRuntime.mockReturnValue(
-      createRuntime({ batches: [] }),
-    );
+    client = createClient({ batches: [] });
 
-    renderPage();
+    renderPage(client);
 
     expect(
       await screen.findByText(
@@ -99,15 +68,13 @@ describe("BatchesPage", () => {
   });
 
   it("renders an error state when batch loading fails", async () => {
-    runtimeMocks.createBatchPlaneRuntime.mockReturnValue(
-      createRuntime({
-        listBatchDefinitions: async () => {
-          throw new Error("Batch list unavailable");
-        },
-      }),
-    );
+    client = {
+      listBatches: async () => {
+        throw new Error("Batch list unavailable");
+      },
+    };
 
-    renderPage();
+    renderPage(client);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Batch list unavailable",
@@ -115,21 +82,19 @@ describe("BatchesPage", () => {
   });
 
   it("renders executable and blocked batch rows with clear actions", async () => {
-    runtimeMocks.createBatchPlaneRuntime.mockReturnValue(
-      createRuntime({
-        batches: [
-          activeBatch,
-          {
-            ...activeBatch,
-            batchId: "payment.paused",
-            name: "Paused Payment",
-            status: "INACTIVE",
-          },
-        ],
-      }),
-    );
+    client = createClient({
+      batches: [
+        activeBatch,
+        {
+          ...activeBatch,
+          batchId: "payment.paused",
+          name: "Paused Payment",
+          status: "INACTIVE",
+        },
+      ],
+    });
 
-    renderPage();
+    renderPage(client);
 
     expect(
       await screen.findByRole("link", { name: "payment.daily-close" }),
@@ -151,43 +116,54 @@ describe("BatchesPage", () => {
     );
     expect(screen.getByRole("button", { name: "Request run" })).toBeDisabled();
   });
+
+  it("reloads the batch list when Refresh is selected", async () => {
+    const listBatches = vi
+      .fn()
+      .mockResolvedValueOnce({
+        batches: [activeBatch],
+        sourceRevision: "main",
+        type: "loaded",
+      })
+      .mockResolvedValueOnce({
+        batches: [{ ...activeBatch, name: "Refreshed Daily Close" }],
+        sourceRevision: "main",
+        type: "loaded",
+      });
+    client = { listBatches };
+
+    renderPage(client);
+
+    expect(await screen.findByText("Daily Close")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(
+      await screen.findByText("Refreshed Daily Close"),
+    ).toBeInTheDocument();
+    expect(listBatches).toHaveBeenCalledTimes(2);
+  });
 });
 
-function renderPage() {
+function renderPage(client: BatchPlaneClient) {
   render(
-    <MemoryRouter>
-      <BatchesPage />
-    </MemoryRouter>,
+    <BatchPlaneClientContext.Provider value={client}>
+      <MemoryRouter>
+        <BatchesPage />
+      </MemoryRouter>
+    </BatchPlaneClientContext.Provider>,
   );
 }
 
-function createRuntime({
+function createClient({
   batches = [activeBatch],
-  getRepository = async () => ({
-    defaultBranch: "main",
-    owner: "always0ne",
-    private: true,
-    repo: "batch",
-    url: "https://github.com/always0ne/batch",
-  }),
-  listBatchDefinitions = async () => batches,
 }: {
-  batches?: BatchDefinition[];
-  getRepository?: () => Promise<{
-    defaultBranch: string;
-    owner: string;
-    private: boolean;
-    repo: string;
-    url: string;
-  }>;
-  listBatchDefinitions?: () => Promise<BatchDefinition[]>;
-} = {}): BatchPlaneRuntimePorts {
+  batches?: BatchListItem[];
+} = {}): BatchPlaneClient {
   return {
-    batches: {
-      listBatchDefinitions,
-    },
-    settings: {
-      getRepository,
-    },
-  } as unknown as BatchPlaneRuntimePorts;
+    listBatches: async () => ({
+      batches,
+      sourceRevision: "main",
+      type: "loaded",
+    }),
+  };
 }

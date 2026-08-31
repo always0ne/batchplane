@@ -18,7 +18,8 @@
     "paths": {
       "@batchplane/digest": ["packages/digest/src/index.ts"],
       "@batchplane/domain": ["packages/domain/src/index.ts"],
-      "@batchplane/github-lite": ["packages/github-lite/src/index.ts"]
+      "@batchplane/github-lite": ["packages/github-lite/src/index.ts"],
+      "@batchplane/ui-client": ["packages/ui-client/src/index.ts"]
     },
     "resolveJsonModule": true,
     "skipLibCheck": true,
