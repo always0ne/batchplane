@@ -1,4 +1,5 @@
 import { appendFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 import { CronExpressionParser } from "cron-parser";
 
@@ -734,7 +735,9 @@ function setActionOutput(name: string, value: string) {
   appendFileSync(outputPath, `${name}=${value}\n`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const invokedPath = process.argv[1];
+
+if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
   run().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
