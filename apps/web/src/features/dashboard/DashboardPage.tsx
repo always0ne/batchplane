@@ -28,12 +28,8 @@ import {
   parseExecutionApprovalRequest,
 } from "../approvals/approval-model";
 import type { GitHubSession } from "../lite-setup/github-session";
-import { PageHeader } from "../../shared/components/PageHeader";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "../../shared/components/PageState";
+import { PageHeader } from "../../ui/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
 import {
   createBatchPlaneRuntime,
   readRuntimeSession,

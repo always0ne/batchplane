@@ -21,7 +21,7 @@ const activeBatch: BatchListItem = {
   status: "ACTIVE",
 };
 
-describe("BatchesPage execution request readiness", () => {
+describe("getExecutionRequestBlockReason", () => {
   it("returns no block reason for executable batches", () => {
     expect(
       getExecutionRequestBlockReason({

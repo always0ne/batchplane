@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "./App";
-import { BatchPlaneClientContext } from "./batch-plane-client-context";
+import { BatchPlaneClientContext } from "../client/batch-plane-client-context";
 import "../i18n/i18n";
 
 const disconnectedClient = {

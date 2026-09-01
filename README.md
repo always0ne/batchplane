@@ -11,6 +11,10 @@ enterprise use.
 
 This repository uses pnpm workspaces.
 
+Before contributing, read the mandatory repository instructions in
+[`AGENTS.md`](AGENTS.md) and the shared React application principles in
+[`docs/frontend-engineering-principles.md`](docs/frontend-engineering-principles.md).
+
 ```bash
 corepack prepare pnpm@10.14.0 --activate
 pnpm install --frozen-lockfile

@@ -9,12 +9,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import { PageHeader } from "../../shared/components/PageHeader";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "../../shared/components/PageState";
+import { PageHeader } from "../../ui/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
 import {
   createBatchPlaneRuntime,
   readRuntimeSession,

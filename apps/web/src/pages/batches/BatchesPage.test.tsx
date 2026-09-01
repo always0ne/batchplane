@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import "../../i18n/i18n";
-import { BatchPlaneClientContext } from "../../app/batch-plane-client-context";
+import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import { BatchesPage } from "./BatchesPage";
 
 const activeBatch: BatchListItem = {
@@ -115,6 +115,14 @@ describe("BatchesPage", () => {
       "Inactive batches cannot be requested for execution.",
     );
     expect(screen.getByRole("button", { name: "Request run" })).toBeDisabled();
+  });
+
+  it("keeps loaded columns reachable through a horizontal scroll container", async () => {
+    renderPage(client);
+
+    const table = await screen.findByRole("table");
+
+    expect(table.parentElement).toHaveClass("max-w-full", "overflow-x-auto");
   });
 
   it("reloads the batch list when Refresh is selected", async () => {
