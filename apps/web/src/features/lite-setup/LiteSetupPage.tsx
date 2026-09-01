@@ -18,7 +18,7 @@ import {
 import { type FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { PageHeader } from "../../shared/components/PageHeader";
+import { PageHeader } from "../../ui/PageHeader";
 import {
   createBatchPlaneRuntime,
   readRuntimeSession,

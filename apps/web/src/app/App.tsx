@@ -21,7 +21,7 @@ import {
 } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import { BatchesPage } from "../features/batches/BatchesPage";
+import { BatchesPage } from "../pages/batches/BatchesPage";
 import { BatchDetailPage } from "../features/batches/BatchDetailPage";
 import { ExecutionRequestDetailPage } from "../features/execution-requests/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../features/execution-requests/ExecutionRequestPage";

@@ -1,9 +1,15 @@
 import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "./App";
+import { BatchPlaneClientContext } from "../client/batch-plane-client-context";
 import "../i18n/i18n";
+
+const disconnectedClient = {
+  listBatches: async () => ({ type: "workspace-not-connected" as const }),
+};
 
 describe("App", () => {
   beforeEach(() => {
@@ -22,7 +28,7 @@ describe("App", () => {
     { heading: "Approvals", path: "/approvals" },
     { heading: "Audit Trail", path: "/audit" },
   ])("renders the $path route", async ({ heading, path }) => {
-    render(
+    renderApp(
       <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>,
@@ -35,7 +41,7 @@ describe("App", () => {
   });
 
   it("redirects the root route to the dashboard", async () => {
-    render(
+    renderApp(
       <MemoryRouter initialEntries={["/"]}>
         <App />
       </MemoryRouter>,
@@ -47,7 +53,7 @@ describe("App", () => {
   });
 
   it("redirects direct schedule routes into the batch change request flow", async () => {
-    render(
+    renderApp(
       <MemoryRouter
         initialEntries={["/batches/payment.daily-close/schedules/new"]}
       >
@@ -63,7 +69,7 @@ describe("App", () => {
   it("renders the execution run detail route with the development fixture", async () => {
     sessionStorage.setItem("batchplane.dev.runtimeFixture", "happy-path");
 
-    render(
+    renderApp(
       <MemoryRouter initialEntries={["/execution-runs/204"]}>
         <App />
       </MemoryRouter>,
@@ -75,7 +81,7 @@ describe("App", () => {
   });
 
   it("renders a not found state for unknown routes", async () => {
-    render(
+    renderApp(
       <MemoryRouter initialEntries={["/unknown"]}>
         <App />
       </MemoryRouter>,
@@ -87,7 +93,7 @@ describe("App", () => {
   });
 
   it("renders the development runtime fixture switcher", async () => {
-    render(
+    renderApp(
       <MemoryRouter initialEntries={["/dashboard"]}>
         <App />
       </MemoryRouter>,
@@ -115,7 +121,7 @@ describe("App", () => {
   });
 
   it("groups navigation by product area and keeps the active request route visible", async () => {
-    render(
+    renderApp(
       <MemoryRouter initialEntries={["/requests"]}>
         <App />
       </MemoryRouter>,
@@ -141,7 +147,7 @@ describe("App", () => {
   ])("keeps the app shell stable at $name width", async ({ height, width }) => {
     setViewportSize(width, height);
 
-    render(
+    renderApp(
       <MemoryRouter initialEntries={["/dashboard"]}>
         <App />
       </MemoryRouter>,
@@ -161,6 +167,14 @@ describe("App", () => {
     expect(screen.getByRole("main")).toHaveClass("lg:pl-72");
   });
 });
+
+function renderApp(content: ReactNode) {
+  render(
+    <BatchPlaneClientContext.Provider value={disconnectedClient}>
+      {content}
+    </BatchPlaneClientContext.Provider>,
+  );
+}
 
 function setViewportSize(width: number, height: number) {
   Object.defineProperty(window, "innerWidth", {

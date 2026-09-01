@@ -1,4 +1,4 @@
-import type { BatchDefinition } from "@batchplane/domain";
+import type { BatchListItem } from "@batchplane/ui-client";
 import { describe, expect, it } from "vitest";
 
 import { getExecutionRequestBlockReason } from "./batch-list-readiness";
@@ -10,26 +10,18 @@ const messages: Record<string, string> = {
   "execution.errors.requestInProgress": "Request in progress",
 };
 
-const activeBatch: BatchDefinition = {
+const activeBatch: BatchListItem = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
-  domain: "payments",
   environment: "PROD",
-  execution: {
-    command: "echo close payments",
-    runsOn: "ubuntu-latest",
-  },
   gateRequired: true,
+  hasExecutableCommand: true,
   name: "Daily Close",
   owner: "ops-team",
   status: "ACTIVE",
-  workflow: {
-    path: ".github/workflows/payment.daily-close.yml",
-    ref: "main",
-  },
 };
 
-describe("BatchesPage execution request readiness", () => {
+describe("getExecutionRequestBlockReason", () => {
   it("returns no block reason for executable batches", () => {
     expect(
       getExecutionRequestBlockReason({
@@ -57,10 +49,7 @@ describe("BatchesPage execution request readiness", () => {
     ).toBe("Gate missing");
     expect(
       getExecutionRequestBlockReason({
-        batch: {
-          ...activeBatch,
-          execution: { ...activeBatch.execution!, command: "" },
-        },
+        batch: { ...activeBatch, hasExecutableCommand: false },
         isRequestInProgress: false,
         t,
       }),

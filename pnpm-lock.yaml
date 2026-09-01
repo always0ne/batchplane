@@ -92,6 +92,9 @@ importers:
       "@batchplane/github-lite":
         specifier: workspace:*
         version: link:../../packages/github-lite
+      "@batchplane/ui-client":
+        specifier: workspace:*
+        version: link:../../packages/ui-client
       cron-parser:
         specifier: ^5.5.0
         version: 5.5.0
@@ -123,6 +126,12 @@ importers:
         version: link:../digest
 
   packages/github-lite:
+    dependencies:
+      "@batchplane/domain":
+        specifier: workspace:*
+        version: link:../domain
+
+  packages/ui-client:
     dependencies:
       "@batchplane/domain":
         specifier: workspace:*

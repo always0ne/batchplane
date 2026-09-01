@@ -18,12 +18,8 @@ import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import type { GitHubSession } from "../lite-setup/github-session";
-import { PageHeader } from "../../shared/components/PageHeader";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "../../shared/components/PageState";
+import { PageHeader } from "../../ui/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
 import {
   createBatchPlaneRuntime,
   readRuntimeSession,

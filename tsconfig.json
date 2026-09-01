@@ -4,6 +4,7 @@
     { "path": "./packages/digest" },
     { "path": "./packages/domain" },
     { "path": "./packages/github-lite" },
+    { "path": "./packages/ui-client" },
     { "path": "./apps/web" },
     { "path": "./actions/gate" },
     { "path": "./actions/dispatcher" },
