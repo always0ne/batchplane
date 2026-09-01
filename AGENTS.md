@@ -15,9 +15,12 @@ file is the enforcement checklist.
   priorities before creating another issue, and avoid duplicate backlog items.
 - Never merge a pull request. Remote CI result tracking and merge decisions
   belong to the user.
-- Before commit or push, run the complete local verification sequence documented
-  in `README.md`. UI work also requires browser review at desktop and mobile
-  widths in English and Korean.
+- Match verification to the risk changed. Code, configuration, dependency, and
+  build changes require the complete local verification sequence documented in
+  `README.md`. Documentation-only changes require only relevant document
+  formatting, content, link, and diff checks; do not run application builds or
+  tests when they cannot validate the change. UI work also requires browser
+  review at desktop and mobile widths in English and Korean.
 
 ## Product And Runtime Boundaries
 

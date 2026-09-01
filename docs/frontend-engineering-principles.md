@@ -67,6 +67,41 @@ The arrows describe imports. Lower layers do not import route pages or app
 composition. A page does not import another page. A feature does not import a
 page. A page composes multiple features instead of coupling features directly.
 
+## Migration Status
+
+This repository is transitioning from its original domain-folder structure to
+the target structure above. PR #198 establishes the Batch list as the first
+completed vertical slice; the remaining `*Page.tsx` files under `features` are
+legacy placement, not examples for new work.
+
+| Surface                         | Current Page                                                 | Status                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Batch list                      | `pages/batches/BatchesPage.tsx`                              | Migrated; first reference slice                                                                             |
+| Dashboard                       | `features/dashboard/DashboardPage.tsx`                       | Legacy route Page; migration pending                                                                        |
+| My Work                         | `features/my-work/MyWorkPage.tsx`                            | Legacy route Page; migration pending                                                                        |
+| Batch registration and change   | `features/registration/BatchRegistrationPage.tsx`            | Legacy route Page; migration pending                                                                        |
+| Batch detail                    | `features/batches/BatchDetailPage.tsx`                       | Legacy route Page; migration pending                                                                        |
+| Execution request creation      | `features/execution-requests/ExecutionRequestPage.tsx`       | Legacy route Page; migration pending                                                                        |
+| Execution request detail        | `features/execution-requests/ExecutionRequestDetailPage.tsx` | Legacy route Page; migration pending                                                                        |
+| Execution run list and failures | `features/execution-requests/ExecutionRunListPage.tsx`       | Legacy route Page; migration pending                                                                        |
+| Execution run detail            | `features/execution-requests/ExecutionRunDetailPage.tsx`     | Legacy route Page; migration pending                                                                        |
+| Workspace requests              | `features/requests/WorkspaceRequestsPage.tsx`                | Legacy route Page; migration pending                                                                        |
+| Approvals                       | `features/approvals/ApprovalsPage.tsx`                       | Legacy route Page; migration pending                                                                        |
+| Registration approval detail    | `features/approvals/RegistrationApprovalDetailPage.tsx`      | Legacy route Page; migration pending                                                                        |
+| Audit                           | `features/audit/AuditPage.tsx`                               | Legacy route Page; migration pending                                                                        |
+| Workspace connection and setup  | `features/lite-setup/LiteSetupPage.tsx`                      | Legacy route Page; migration pending                                                                        |
+| Standalone schedule definition  | `features/schedules/ScheduleDefinitionPage.tsx`              | Legacy Page module not connected to the current App router; evaluate removal or reuse in the schedule slice |
+
+New route screens must start under `pages`; the legacy paths above do not
+authorize adding another Page to `features`. A migration is complete only when
+the route composition, page-only state and components, product-client boundary,
+and tests follow this document. Moving a file without separating those
+responsibilities is not a completed slice.
+
+Update this inventory in the same pull request that migrates, removes, or
+reconnects one of these Pages. Migrations remain vertical and reviewable; this
+table is not a reason to perform a cosmetic mass move.
+
 ## Page Contract
 
 A Page is a route boundary. It may:
@@ -304,6 +339,8 @@ Batch list is the first proof surface.
 - [ ] Functions and files remain readable without speculative abstractions.
 - [ ] Tests cover the relevant observable states and remain correctly located.
 - [ ] UI/UX, accessibility, English/Korean, desktop/mobile checks are complete.
-- [ ] Full local verification passes before commit or push.
+- [ ] Verification matches the changed risk: full local verification for code,
+      configuration, dependency, or build changes; focused document checks for
+      documentation-only changes.
 - [ ] No unrelated feature, dependency, cache, framework, or design-system scope
       was added.
