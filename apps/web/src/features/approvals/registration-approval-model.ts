@@ -4,14 +4,9 @@ import type {
 } from "@batchplane/domain";
 
 import {
-  getGovernedChangeRequestKind,
-  type GovernedChangeRequestKind,
-} from "./approval-model";
-import {
   getBatchDefinitionPath,
   getBatchWorkflowPath,
 } from "../registration/registration-model";
-import { getScheduleDefinitionPath } from "../schedules/schedule-model";
 
 export type BatchRegistrationRequestType = "REGISTER" | "CHANGE" | "DELETE";
 
@@ -34,10 +29,8 @@ export type BatchRegistrationRequestBodySummary = {
 };
 
 export type ScheduleRegistrationRequestBodySummary = {
-  kind: "schedule";
   batchId: string;
   cron: string;
-  definitionPath: string;
   enabled: boolean;
   generatedSchedulerCron: string;
   name: string;
@@ -46,8 +39,7 @@ export type ScheduleRegistrationRequestBodySummary = {
 };
 
 export type RegistrationRequestBodySummary =
-  | BatchRegistrationRequestBodySummary
-  | ScheduleRegistrationRequestBodySummary;
+  BatchRegistrationRequestBodySummary;
 
 export type RegistrationApprovalDecision = {
   actor: string;
@@ -66,12 +58,6 @@ export type RegistrationReviewState =
 export function parseRegistrationRequestSummary(
   pullRequest: RepositoryPullRequest,
 ): RegistrationRequestBodySummary {
-  const kind = getGovernedChangeRequestKind(pullRequest);
-
-  if (kind === "schedule") {
-    return parseScheduleSummary(pullRequest);
-  }
-
   return parseBatchSummary(pullRequest);
 }
 
@@ -80,7 +66,7 @@ function parseBatchSummary(
 ): BatchRegistrationRequestBodySummary {
   const batchId =
     readMarkdownField(pullRequest.body, "Batch ID") ||
-    parseBatchIdFromTitle(pullRequest.title, "batch") ||
+    parseBatchIdFromTitle(pullRequest.title) ||
     "";
   const workflowPath =
     readMarkdownField(pullRequest.body, "Workflow") ||
@@ -112,49 +98,13 @@ function parseBatchSummary(
   };
 }
 
-function parseScheduleSummary(
-  pullRequest: RepositoryPullRequest,
-): ScheduleRegistrationRequestBodySummary {
-  const scheduleId =
-    readMarkdownField(pullRequest.body, "Schedule ID") ||
-    parseBatchIdFromTitle(pullRequest.title, "schedule") ||
-    "";
-
-  return {
-    batchId: readMarkdownField(pullRequest.body, "Batch ID"),
-    cron: readMarkdownField(pullRequest.body, "Cron"),
-    definitionPath:
-      readFirstMarkdownField(pullRequest.body, [
-        "Batch definition",
-        "Schedule definition",
-      ]) ||
-      getBatchDefinitionPath(readMarkdownField(pullRequest.body, "Batch ID")) ||
-      getScheduleDefinitionPath(scheduleId),
-    enabled: readMarkdownBoolean(pullRequest.body, "Enabled"),
-    generatedSchedulerCron: readMarkdownField(
-      pullRequest.body,
-      "Generated scheduler cron",
-    ),
-    kind: "schedule",
-    name: readMarkdownField(pullRequest.body, "Name"),
-    scheduleId,
-    timezone: readMarkdownField(pullRequest.body, "Timezone"),
-  };
-}
-
 export function deriveRegistrationFilePaths(
   summary: RegistrationRequestBodySummary,
 ): string[] {
-  if (summary.kind === "schedule") {
-    return summary.definitionPath ? [summary.definitionPath] : [];
-  }
-
   const candidates = [
     summary.batchId ? getBatchDefinitionPath(summary.batchId) : "",
     summary.workflowPath,
     summary.executionFilePath,
-    ...summary.schedules.map((schedule) => schedule.definitionPath),
-    ...summary.deletedSchedules.map((schedule) => schedule.definitionPath),
   ];
 
   return [...new Set(candidates.filter(Boolean))];
@@ -219,18 +169,6 @@ export function deriveRegistrationReviewState(
   return "CLOSED";
 }
 
-function parseBatchIdFromTitle(
-  title: string,
-  target: GovernedChangeRequestKind,
-): string {
-  const match = new RegExp(
-    `^(Register|Change|Delete) ${target}\\s+(.+)$`,
-    "i",
-  ).exec(title.trim());
-
-  return match?.[2]?.trim() || "";
-}
-
 function parseBatchRegistrationRequestType(
   value: string,
   title: string,
@@ -254,6 +192,12 @@ function parseBatchRegistrationRequestType(
   }
 
   return "REGISTER";
+}
+
+function parseBatchIdFromTitle(title: string): string {
+  const match = /^(Register|Change|Delete) batch\s+(.+)$/i.exec(title.trim());
+
+  return match?.[2]?.trim() || "";
 }
 
 function readFirstMarkdownField(body: string, labels: string[]): string {
@@ -340,22 +284,16 @@ function parseScheduleBlock(
     return null;
   }
 
+  const batchId = readMarkdownField(block, "Batch ID");
+
   return {
-    batchId: readMarkdownField(block, "Batch ID"),
+    batchId,
     cron: readMarkdownField(block, "Cron"),
-    definitionPath:
-      readFirstMarkdownField(block, [
-        "Batch definition",
-        "Schedule definition",
-      ]) ||
-      getBatchDefinitionPath(readMarkdownField(block, "Batch ID")) ||
-      getScheduleDefinitionPath(scheduleId),
     enabled: readMarkdownBoolean(block, "Enabled"),
     generatedSchedulerCron: readMarkdownField(
       block,
       "Generated scheduler cron",
     ),
-    kind: "schedule",
     name: readMarkdownField(block, "Name"),
     scheduleId,
     timezone: readMarkdownField(block, "Timezone"),

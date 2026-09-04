@@ -1,11 +1,13 @@
 import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
+  createGitHubLiteGovernedChangeClient,
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
   type GitHubLiteMockExecutionState,
   type GitHubLiteMockState,
   type MockGitHubLiteClient,
 } from "@batchplane/github-lite";
+import type { BatchPlaneClient } from "@batchplane/ui-client";
 
 import {
   readGitHubSession,
@@ -105,6 +107,28 @@ export function createBatchPlaneRuntime(
   return createGitHubLiteRuntime(mockRuntimeSession, {
     client: getRuntimeFixtureClient(fixtureId),
   });
+}
+
+export function createRuntimeGovernedChangeClient(
+  session: GitHubSession,
+): Pick<
+  BatchPlaneClient,
+  | "approveGovernedChange"
+  | "createBatchChangeRequest"
+  | "getGovernedChange"
+  | "loadBatchChangeDraft"
+  | "previewBatchChange"
+  | "rejectGovernedChange"
+  | "withdrawGovernedChange"
+> {
+  const fixtureId = readRuntimeFixtureSelection();
+
+  return fixtureId === "live"
+    ? createGitHubLiteGovernedChangeClient(session)
+    : createGitHubLiteGovernedChangeClient(
+        mockRuntimeSession,
+        getRuntimeFixtureClient(fixtureId),
+      );
 }
 
 export function createRuntimeFixtureMockState(

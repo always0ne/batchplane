@@ -9218,6 +9218,9 @@ async function sha256Hex(value) {
     "SHA-256",
     new TextEncoder().encode(value)
   );
+  return digestToHex(digest);
+}
+function digestToHex(digest) {
   return Array.from(
     new Uint8Array(digest),
     (byte) => byte.toString(16).padStart(2, "0")
@@ -9257,6 +9260,9 @@ var supportedBatchPlaneApiVersions = [
 ];
 function isBatchPlaneApiVersion(value) {
   return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
+}
+function isCanonicalBatchId(value) {
+  return typeof value === "string" && /^[A-Za-z0-9](?:[A-Za-z0-9]|[.-](?=[A-Za-z0-9]))*$/.test(value);
 }
 async function buildExecutionRequestIssue({
   batch,
@@ -9474,7 +9480,7 @@ function validateBatchDefinition(definition) {
   if (!record) {
     return diagnostics;
   }
-  requireString(record, "batchId", diagnostics);
+  requireCanonicalBatchId(record.batchId, diagnostics);
   requireString(record, "name", diagnostics);
   requireString(record, "owner", diagnostics);
   requireString(record, "domain", diagnostics);
@@ -9686,6 +9692,17 @@ function requireString(record, key, diagnostics, field = key) {
     severity: "error"
   });
   return void 0;
+}
+function requireCanonicalBatchId(value, diagnostics) {
+  if (isCanonicalBatchId(value)) {
+    return;
+  }
+  diagnostics.push({
+    code: value === void 0 || value === "" ? "required" : "invalid_batch_id",
+    field: "batchId",
+    message: value === void 0 || value === "" ? "batchId is required." : "batchId must be a canonical repository-safe Batch ID.",
+    severity: "error"
+  });
 }
 function requireBoolean(record, key, diagnostics, field = key) {
   const value = record[key];

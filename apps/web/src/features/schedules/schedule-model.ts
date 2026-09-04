@@ -1,15 +1,4 @@
-import {
-  formatYamlDiagnostics,
-  parseYamlDocument,
-  serializeYamlDocument,
-} from "@batchplane/domain";
-import type {
-  BatchSchedule,
-  ScheduleDefinition,
-  YamlValue,
-} from "@batchplane/domain";
-
-import { formatGeneratedScheduleCrons } from "../registration/registration-model";
+import type { BatchSchedule } from "@batchplane/domain";
 
 export type ScheduleFormValues = {
   scheduleId: string;
@@ -18,8 +7,6 @@ export type ScheduleFormValues = {
   timezone: string;
   enabled: boolean;
 };
-
-export type ScheduleRequestMode = "create" | "change";
 
 export const defaultScheduleFormValues: ScheduleFormValues = {
   cron: "0 5 * * *",
@@ -30,7 +17,7 @@ export const defaultScheduleFormValues: ScheduleFormValues = {
 };
 
 export function toScheduleFormValues(
-  definition: ScheduleDefinition,
+  definition: BatchSchedule,
 ): ScheduleFormValues {
   return {
     cron: definition.cron,
@@ -39,17 +26,6 @@ export function toScheduleFormValues(
     scheduleId: definition.scheduleId,
     timezone: definition.timezone,
   };
-}
-
-export function toScheduleDefinition(
-  batchId: string,
-  values: ScheduleFormValues,
-): ScheduleDefinition {
-  return toDerivedScheduleDefinition(
-    batchId,
-    getScheduleDefinitionPath(values.scheduleId),
-    toBatchSchedule(values),
-  );
 }
 
 export function toBatchSchedule(values: ScheduleFormValues): BatchSchedule {
@@ -62,182 +38,15 @@ export function toBatchSchedule(values: ScheduleFormValues): BatchSchedule {
   };
 }
 
-export function toDerivedScheduleDefinition(
-  batchId: string,
-  definitionPath: string,
-  schedule: BatchSchedule,
-): ScheduleDefinition {
-  return {
-    batchId: batchId.trim(),
-    cron: schedule.cron,
-    definitionPath: definitionPath.trim(),
-    enabled: schedule.enabled,
-    name: schedule.name,
-    scheduleId: schedule.scheduleId,
-    timezone: schedule.timezone,
-  };
-}
-
-export function getScheduleDefinitionPath(scheduleId: string): string {
-  const id = scheduleId.trim();
-
-  if (!id) {
-    return "";
-  }
-
-  return `.batch-governance/schedules/${id}.yml`;
-}
-
-export function serializeScheduleDefinitionYaml(
-  definition: ScheduleDefinition,
-): string {
-  return serializeYamlDocument({
-    apiVersion: "batchplane.io/v1",
-    kind: "ScheduleDefinition",
-    metadata: {
-      batchId: definition.batchId,
-      id: definition.scheduleId,
-      name: definition.name,
-    },
-    spec: {
-      cron: definition.cron,
-      enabled: definition.enabled,
-      timezone: definition.timezone,
-    },
-  });
-}
-
-export function parseScheduleDefinitionYaml(yaml: string): ScheduleDefinition {
-  const result = parseYamlDocument(yaml);
-
-  if (!result.ok) {
-    throw new Error(
-      `Invalid BatchPlane YAML: ${formatYamlDiagnostics(result.diagnostics)}`,
-    );
-  }
-
-  const document = asYamlRecord(result.value);
-  const metadata = asYamlRecord(document.metadata);
-  const spec = asYamlRecord(document.spec);
-  const scheduleId = readYamlString(metadata, "id");
-
-  return {
-    batchId: readYamlString(metadata, "batchId"),
-    cron: readYamlString(spec, "cron"),
-    definitionPath: getScheduleDefinitionPath(scheduleId),
-    enabled: readYamlBoolean(spec, "enabled"),
-    name: readYamlString(metadata, "name"),
-    scheduleId,
-    timezone: readYamlString(spec, "timezone"),
-  };
-}
-
 export function validateScheduleRegistration(
-  definition: ScheduleDefinition,
+  definition: BatchSchedule,
 ): string[] {
   const missingFields: string[] = [];
 
-  if (!definition.batchId) missingFields.push("batchId");
   if (!definition.scheduleId) missingFields.push("scheduleId");
   if (!definition.name) missingFields.push("name");
   if (!definition.cron) missingFields.push("cron");
   if (!definition.timezone) missingFields.push("timezone");
 
   return missingFields;
-}
-
-export function createScheduleBranchName(
-  scheduleId: string,
-  mode: ScheduleRequestMode = "create",
-  date = new Date(),
-): string {
-  const timestamp = date
-    .toISOString()
-    .replaceAll("-", "")
-    .replaceAll(":", "")
-    .replaceAll(".", "")
-    .replaceAll("T", "")
-    .replaceAll("Z", "")
-    .slice(0, 14);
-  const slug = toFileSlug(scheduleId);
-  const prefix = mode === "change" ? "change" : "register";
-
-  return `batchplane/schedule/${prefix}/${slug || "schedule"}-${timestamp}`;
-}
-
-export function buildSchedulePullRequestTitle(
-  definition: ScheduleDefinition,
-  mode: ScheduleRequestMode = "create",
-): string {
-  return `${mode === "change" ? "Change" : "Register"} schedule ${definition.scheduleId}`;
-}
-
-export function buildSchedulePullRequestBody(
-  definition: ScheduleDefinition,
-  mode: ScheduleRequestMode = "create",
-): string {
-  const heading =
-    mode === "change"
-      ? "## BatchPlane Schedule Change"
-      : "## BatchPlane Schedule Registration";
-  const requestType = mode === "change" ? "CHANGE" : "REGISTER";
-  const summary =
-    mode === "change"
-      ? "This pull request was generated by BatchPlane Lite and updates the governed schedule definition."
-      : "This pull request was generated by BatchPlane Lite and registers a governed schedule definition.";
-
-  return [
-    heading,
-    "",
-    `- Request type: ${requestType}`,
-    "- Target kind: SCHEDULE",
-    `- Batch ID: \`${definition.batchId}\``,
-    `- Schedule ID: \`${definition.scheduleId}\``,
-    `- Name: ${definition.name}`,
-    `- Schedule definition: \`${definition.definitionPath}\``,
-    `- Cron: \`${definition.cron}\``,
-    `- Timezone: \`${definition.timezone}\``,
-    `- Generated scheduler cron: \`${formatGeneratedScheduleCrons(definition)}\``,
-    `- Enabled: ${definition.enabled ? "true" : "false"}`,
-    "",
-    summary,
-  ].join("\n");
-}
-
-function asYamlRecord(
-  value: YamlValue | undefined,
-): Record<string, YamlValue | undefined> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value
-    : {};
-}
-
-function readYamlBoolean(
-  record: Record<string, YamlValue | undefined>,
-  key: string,
-): boolean {
-  return record[key] === true;
-}
-
-function readYamlString(
-  record: Record<string, YamlValue | undefined>,
-  key: string,
-): string {
-  const value = record[key];
-
-  if (value === undefined || value === null || Array.isArray(value)) {
-    return "";
-  }
-
-  return typeof value === "object" ? "" : String(value);
-}
-
-function toFileSlug(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/[._-]+$/g, "")
-    .replace(/^[._-]+/g, "")
-    .slice(0, 80);
 }

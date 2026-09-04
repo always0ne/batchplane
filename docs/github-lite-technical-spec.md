@@ -444,11 +444,21 @@ request instead of creating a partial deletion request.
 
 When a batch definition is no longer present on the default branch, the batch
 detail route may recover a deleted batch archive by searching merged governed
-change pull requests for a `DELETE` request matching the Batch ID. The archive is
-read from the delete request body and must preserve enough fields to render the
-deleted batch profile, workflow, runner, command, schedules, and source request.
-Execution request Issues and workflow runs remain independent evidence and must
-still be queryable by Batch ID.
+change pull requests for the latest `DELETE` request matching the Batch ID.
+The adapter must parse the v2 request evidence, read
+`.batch-governance/batches/{batchId}.yml` at the evidence
+`baseRevisionSha`, and compare the file digest with that artifact's
+`beforeDigest`. Only a matching BatchDefinition may be returned as a verified
+archive. The verified archive preserves the batch profile, workflow, runner,
+command, embedded schedules, and source request locator.
+
+The PR body is a display summary only and is never an archive source of truth.
+Malformed or edited evidence, a missing base revision/file, or a digest
+mismatch returns an explicit archive-evidence-unavailable result without
+displaying inferred batch fields. Legacy delete requests without verifiable v2
+evidence are also unavailable under this contract. Execution request Issues
+and workflow runs remain independent evidence and must still be queryable by
+Batch ID.
 
 Duplicate approval comments for the same request ID, Batch ID, and request
 digest must not create a second `workflow_dispatch` call once `DISPATCHING` or

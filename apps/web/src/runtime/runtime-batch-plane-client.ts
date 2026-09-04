@@ -3,18 +3,20 @@ import {
   type BatchListItem,
 } from "@batchplane/ui-client";
 import type { BatchDefinition } from "@batchplane/domain";
-
 import {
   createBatchPlaneRuntime,
+  createRuntimeGovernedChangeClient,
   readRuntimeSession,
 } from "./runtime-fixtures";
 
 type RuntimeBatchPlaneClientDependencies = {
+  createGovernedChangeClient?: typeof createRuntimeGovernedChangeClient;
   createRuntime?: typeof createBatchPlaneRuntime;
   readSession?: typeof readRuntimeSession;
 };
 
 export function createRuntimeBatchPlaneClient({
+  createGovernedChangeClient = createRuntimeGovernedChangeClient,
   createRuntime = createBatchPlaneRuntime,
   readSession = readRuntimeSession,
 }: RuntimeBatchPlaneClientDependencies = {}): BatchPlaneClient {
@@ -38,7 +40,52 @@ export function createRuntimeBatchPlaneClient({
         type: "loaded",
       };
     },
+    async loadBatchChangeDraft(input) {
+      const session = requireSession(readSession());
+
+      return createGovernedChangeClient(session).loadBatchChangeDraft(input);
+    },
+    async previewBatchChange(input) {
+      const session = requireSession(readSession());
+
+      return createGovernedChangeClient(session).previewBatchChange(input);
+    },
+    async createBatchChangeRequest(input) {
+      const session = requireSession(readSession());
+
+      return createGovernedChangeClient(session).createBatchChangeRequest(
+        input,
+      );
+    },
+    async getGovernedChange(input) {
+      const session = requireSession(readSession());
+
+      return createGovernedChangeClient(session).getGovernedChange(input);
+    },
+    async approveGovernedChange(input) {
+      const session = requireSession(readSession());
+
+      return createGovernedChangeClient(session).approveGovernedChange(input);
+    },
+    async rejectGovernedChange(input) {
+      const session = requireSession(readSession());
+
+      return createGovernedChangeClient(session).rejectGovernedChange(input);
+    },
+    async withdrawGovernedChange(input) {
+      const session = requireSession(readSession());
+
+      return createGovernedChangeClient(session).withdrawGovernedChange(input);
+    },
   };
+}
+
+function requireSession(session: ReturnType<typeof readRuntimeSession>) {
+  if (!session) {
+    throw new Error("Connect a Workspace before requesting a governed change.");
+  }
+
+  return session;
 }
 
 function toBatchListItem(batch: BatchDefinition): BatchListItem {

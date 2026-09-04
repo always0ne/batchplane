@@ -28,7 +28,7 @@ describe("BatchesPage", () => {
   it("renders the no-session state with a setup link", async () => {
     client = {
       listBatches: async () => ({ type: "workspace-not-connected" }),
-    };
+    } as unknown as BatchPlaneClient;
 
     renderPage(client);
 
@@ -45,7 +45,7 @@ describe("BatchesPage", () => {
   it("renders the loading state while batch definitions are being fetched", () => {
     client = {
       listBatches: () => new Promise(() => undefined),
-    };
+    } as unknown as BatchPlaneClient;
 
     renderPage(client);
 
@@ -72,7 +72,7 @@ describe("BatchesPage", () => {
       listBatches: async () => {
         throw new Error("Batch list unavailable");
       },
-    };
+    } as unknown as BatchPlaneClient;
 
     renderPage(client);
 
@@ -138,7 +138,7 @@ describe("BatchesPage", () => {
         sourceRevision: "main",
         type: "loaded",
       });
-    client = { listBatches };
+    client = { listBatches } as unknown as BatchPlaneClient;
 
     renderPage(client);
 
@@ -173,5 +173,5 @@ function createClient({
       sourceRevision: "main",
       type: "loaded",
     }),
-  };
+  } as BatchPlaneClient;
 }

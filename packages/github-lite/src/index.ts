@@ -1,3 +1,8 @@
+export * from "./governed-change-evidence.js";
+export * from "./governed-change-client.js";
+export * from "./governed-change-verifier.js";
+export * from "./batch-definition-codec.js";
+
 export type RepoRef = {
   owner: string;
   repo: string;
@@ -16,6 +21,7 @@ export type GitHubRepository = RepoRef & {
 export type GitHubFile = {
   path: string;
   content: string;
+  contentBase64?: string;
   sha: string;
 };
 
@@ -48,7 +54,9 @@ export type GitHubPullRequest = {
   title: string;
   url: string;
   head: string;
+  headSha?: string;
   base: string;
+  baseSha?: string;
   state: Exclude<GitHubPullRequestState, "all">;
   author: string;
   body: string;
@@ -69,6 +77,7 @@ export type GitHubPullRequestFileStatus =
 export type GitHubPullRequestFile = {
   patch?: string;
   path: string;
+  previousPath?: string;
   status: GitHubPullRequestFileStatus;
 };
 
@@ -84,6 +93,7 @@ export type GitHubIssueComment = {
   body: string;
   author: string;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type GitHubLabel = {
@@ -263,6 +273,12 @@ export type GetPullRequestParams = RepoRef & {
   pullNumber: number;
 };
 
+export type UpdatePullRequestParams = RepoRef & {
+  pullNumber: number;
+  body?: string;
+  title?: string;
+};
+
 export type ListPullRequestsParams = RepoRef & {
   state?: GitHubPullRequestState;
   base?: string;
@@ -292,6 +308,7 @@ export type MergePullRequestParams = RepoRef & {
   commitTitle?: string;
   commitMessage?: string;
   mergeMethod?: "merge" | "squash" | "rebase";
+  expectedHeadSha?: string;
 };
 
 export type ListWorkflowRunsParams = RepoRef & {
@@ -331,6 +348,9 @@ export type GitHubLiteClient = {
   getPullRequest(
     params: GetPullRequestParams,
   ): Promise<GitHubPullRequest | null>;
+  updatePullRequest(
+    params: UpdatePullRequestParams,
+  ): Promise<GitHubPullRequest>;
   listPullRequests(
     params: ListPullRequestsParams,
   ): Promise<GitHubPullRequest[]>;
@@ -467,6 +487,7 @@ type GitHubCommentResponse = {
     login: string;
   } | null;
   created_at?: string;
+  updated_at?: string;
 };
 
 type GitHubLabelResponse = {
@@ -520,15 +541,18 @@ type GitHubPullRequestResponse = {
   } | null;
   head: {
     ref: string;
+    sha: string;
   };
   base: {
     ref: string;
+    sha?: string;
   };
 };
 
 type GitHubPullRequestFileResponse = {
   filename: string;
   patch?: string;
+  previous_filename?: string;
   status: GitHubPullRequestFileStatus;
 };
 
@@ -757,6 +781,7 @@ export function createGitHubLiteClient({
       return {
         path: content.path,
         content: decodeBase64(content.content),
+        contentBase64: content.content.replace(/\s/g, ""),
         sha: content.sha,
       };
     },
@@ -912,6 +937,31 @@ export function createGitHubLiteClient({
       return pullRequest ? mapPullRequestResponse(pullRequest) : null;
     },
 
+    async updatePullRequest({ owner, repo, pullNumber, body, title }) {
+      const pullRequest = await request<GitHubPullRequestResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}/pulls/${pullNumber}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            ...(body !== undefined ? { body } : {}),
+            ...(title !== undefined ? { title } : {}),
+          }),
+        },
+      );
+
+      if (!pullRequest) {
+        throw new GitHubLiteApiError(
+          "GitHub pull request was empty.",
+          "unknown",
+          500,
+        );
+      }
+
+      return mapPullRequestResponse(pullRequest);
+    },
+
     async listPullRequests({ owner, repo, state = "open", base, head }) {
       const query = buildQuery({ base, head, per_page: "100", state });
       const pullRequests = await request<GitHubPullRequestResponse[]>(
@@ -940,6 +990,7 @@ export function createGitHubLiteClient({
       commitTitle,
       commitMessage,
       mergeMethod = "squash",
+      expectedHeadSha,
     }) {
       const result = await request<GitHubMergeResponse>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
@@ -951,6 +1002,7 @@ export function createGitHubLiteClient({
             ...(commitMessage ? { commit_message: commitMessage } : {}),
             ...(commitTitle ? { commit_title: commitTitle } : {}),
             merge_method: mergeMethod,
+            ...(expectedHeadSha ? { sha: expectedHeadSha } : {}),
           }),
         },
       );
@@ -1464,6 +1516,7 @@ export function createGitHubLiteMockState(
         body: "Register payment daily close batch.",
         createdAt: "2026-05-14T01:01:00.000Z",
         head: "batchplane/register/payment.daily-close-20260514010203",
+        headSha: "mock-registration-head-sha",
         merged: false,
         number: 12,
         state: "open",
@@ -1698,6 +1751,7 @@ export function createMockGitHubLiteClient(
           state.issueComments.map((candidate) => candidate.id),
         ),
         issueNumber: params.issueNumber,
+        updatedAt: new Date(0).toISOString(),
       };
 
       state.issueComments.push(comment);
@@ -1716,16 +1770,25 @@ export function createMockGitHubLiteClient(
       const pullRequest: GitHubPullRequest = {
         author: state.currentUser.login,
         base: params.base,
+        baseSha: state.branches[params.base],
         body: params.body,
+        createdAt: new Date(0).toISOString(),
         head: params.head,
+        headSha: state.branches[params.head],
         merged: false,
         number: pullNumber,
         state: "open",
         title: params.title,
+        updatedAt: new Date(0).toISOString(),
         url: `${state.repository.url}/pull/${pullNumber}`,
       };
 
       state.pullRequests.push(pullRequest);
+      state.pullRequestFiles[pullNumber] = buildMockPullRequestFiles(
+        state,
+        params.base,
+        params.head,
+      );
 
       return cloneJson(pullRequest);
     },
@@ -1738,6 +1801,33 @@ export function createMockGitHubLiteClient(
       );
 
       return pullRequest ? cloneJson(pullRequest) : null;
+    },
+
+    async updatePullRequest(params) {
+      assertMockRepository(state, params);
+
+      const pullRequest = state.pullRequests.find(
+        (candidate) => candidate.number === params.pullNumber,
+      );
+
+      if (!pullRequest) {
+        throw new GitHubLiteApiError(
+          `GitHub pull request not found: ${params.pullNumber}`,
+          "not-found",
+          404,
+        );
+      }
+
+      if (params.body !== undefined) {
+        pullRequest.body = params.body;
+      }
+
+      if (params.title !== undefined) {
+        pullRequest.title = params.title;
+      }
+
+      pullRequest.updatedAt = new Date(0).toISOString();
+      return cloneJson(pullRequest);
     },
 
     async getBranchHeadSha(params) {
@@ -1781,6 +1871,7 @@ export function createMockGitHubLiteClient(
       return file
         ? {
             content: file.content,
+            contentBase64: encodeBase64(file.content),
             path: file.path,
             sha: file.sha,
           }
@@ -2045,6 +2136,17 @@ export function createMockGitHubLiteClient(
         );
       }
 
+      if (
+        params.expectedHeadSha &&
+        params.expectedHeadSha !== pullRequest.headSha
+      ) {
+        return {
+          merged: false,
+          message: "Pull request head SHA no longer matches.",
+          sha: "",
+        };
+      }
+
       pullRequest.merged = true;
       pullRequest.state = "closed";
 
@@ -2104,6 +2206,8 @@ export function createMockGitHubLiteClient(
         });
       }
 
+      state.branches[params.branch] = `mock-branch-sha-${state.files.length}`;
+
       return { path: params.path, sha };
     },
 
@@ -2131,6 +2235,7 @@ export function createMockGitHubLiteClient(
       }
 
       state.files.splice(existingIndex, 1);
+      state.branches[params.branch] = `mock-branch-sha-${state.files.length}`;
 
       return { path: params.path };
     },
@@ -2528,6 +2633,7 @@ function mapIssueCommentResponse(
     author: comment.user?.login ?? "",
     body: comment.body,
     createdAt: comment.created_at ?? "",
+    updatedAt: comment.updated_at ?? comment.created_at ?? "",
     id: comment.id,
     issueNumber,
   };
@@ -2561,7 +2667,9 @@ function mapPullRequestResponse(
     title: pullRequest.title,
     url: pullRequest.html_url,
     head: pullRequest.head.ref,
+    headSha: pullRequest.head.sha,
     base: pullRequest.base.ref,
+    ...(pullRequest.base.sha ? { baseSha: pullRequest.base.sha } : {}),
     state: pullRequest.state,
     author: pullRequest.user?.login ?? "",
     body: pullRequest.body ?? "",
@@ -2577,6 +2685,7 @@ function mapPullRequestFileResponse(
   return {
     ...(file.patch ? { patch: file.patch } : {}),
     path: file.filename,
+    ...(file.previous_filename ? { previousPath: file.previous_filename } : {}),
     status: file.status,
   };
 }
@@ -2959,7 +3068,15 @@ function resolveMockBranch(
   state: GitHubLiteMockState,
   ref = state.repository.defaultBranch,
 ): string {
-  if (!state.branches[ref]) {
+  if (state.branches[ref]) {
+    return ref;
+  }
+
+  const branch = Object.entries(state.branches).find(
+    ([, sha]) => sha === ref,
+  )?.[0];
+
+  if (!branch) {
     throw new GitHubLiteApiError(
       `GitHub branch not found: ${ref}`,
       "not-found",
@@ -2967,7 +3084,7 @@ function resolveMockBranch(
     );
   }
 
-  return ref;
+  return branch;
 }
 
 function getMockDirectoryEntries(
@@ -3477,6 +3594,37 @@ function buildMockWorkflowJobLog(job: GitHubWorkflowJob): string {
     `2026-05-14T01:09:00.000Z ##[endgroup]${job.name}`,
     "",
   ].join("\n");
+}
+
+function buildMockPullRequestFiles(
+  state: GitHubLiteMockState,
+  base: string,
+  head: string,
+): GitHubPullRequestFile[] {
+  const baseFiles = new Map(
+    state.files
+      .filter((file) => file.branch === base)
+      .map((file) => [file.path, file]),
+  );
+  const headFiles = new Map(
+    state.files
+      .filter((file) => file.branch === head)
+      .map((file) => [file.path, file]),
+  );
+  const paths = [...new Set([...baseFiles.keys(), ...headFiles.keys()])].sort();
+
+  return paths.flatMap((path): GitHubPullRequestFile[] => {
+    const baseFile = baseFiles.get(path);
+    const headFile = headFiles.get(path);
+
+    if (!baseFile && headFile) return [{ path, status: "added" as const }];
+    if (baseFile && !headFile) return [{ path, status: "removed" as const }];
+    if (baseFile?.content !== headFile?.content) {
+      return [{ path, status: "modified" as const }];
+    }
+
+    return [];
+  });
 }
 
 function buildMockBatchDefinitionYaml(batchId: string): string {

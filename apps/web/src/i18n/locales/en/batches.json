@@ -118,8 +118,20 @@
     "deleted": {
       "badge": "Deleted",
       "description": "This batch is no longer active in the Workspace. The archived definition and execution evidence remain available for audit review.",
-      "openRequest": "Source request #{{number}}",
-      "removedBy": "Removed by"
+      "evidenceUnavailableDescription": "The deleted BatchDefinition could not be verified at its recorded revision. Unverified batch details are not shown.",
+      "evidenceUnavailableReasonLabel": "Verification reason",
+      "evidenceUnavailableTitle": "Archive evidence unavailable",
+      "openRequest": "Source request {{locator}}",
+      "unavailableReasons": {
+        "BASE_REVISION_UNAVAILABLE": "The recorded deletion base revision is unavailable.",
+        "BATCH_DEFINITION_DIGEST_MISMATCH": "The archived BatchDefinition does not match its recorded digest.",
+        "BATCH_DEFINITION_MALFORMED": "The archived BatchDefinition is malformed.",
+        "BATCH_DEFINITION_NOT_FOUND": "The BatchDefinition was not found at the recorded revision.",
+        "LEGACY_OR_MALFORMED_EVIDENCE": "The deletion request evidence is missing or malformed.",
+        "REQUEST_EVIDENCE_MISMATCH": "The deletion request evidence does not match the requested batch.",
+        "REQUEST_EVIDENCE_UNVERIFIED": "The deletion request evidence could not be verified.",
+        "unknown": "The archive evidence could not be verified."
+      }
     },
     "schedules": {
       "title": "Schedules",

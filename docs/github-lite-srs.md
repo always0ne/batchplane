@@ -211,13 +211,25 @@ pull request titled `Delete batch {batchId}` and remove:
 - the generated workflow path recorded in the batch definition
 - the optional execution artifact path, when one is registered and present
 
-The delete request body must preserve a deleted batch archive snapshot:
+The delete request must preserve enough verified evidence to recover the
+deleted batch archive after merge. The governed change evidence must include
+the deletion base revision and the `beforeDigest` for the BatchDefinition
+artifact. The archive source of truth is the BatchDefinition at that recorded
+`baseRevisionSha`, not the editable PR body summary. The recovered definition
+must preserve:
 
-- request type `DELETE`
-- Batch ID, name, owner, domain, environment, criticality
-- workflow path, runner, command, optional execution file
+- Batch ID, name, owner, domain, environment, and criticality
+- workflow path and ref
+- runner, command, and optional execution file
 - embedded schedules at deletion time
-- source request number and URL through the PR itself
+- the source request number and URL
+
+The adapter must compare the recovered BatchDefinition bytes with the
+evidence `beforeDigest` before returning the archive to the UI. If the request
+evidence is malformed, altered, or the base revision cannot be read or does
+not match the digest, the UI must show an explicit archive-evidence-unavailable
+state and source request link. It must not reconstruct or display archive
+fields from the PR body.
 
 After the delete PR is merged, the batch no longer appears as an active
 definition, but direct access to `/batches/{batchId}` must still show the

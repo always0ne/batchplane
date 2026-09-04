@@ -1,8 +1,14 @@
 {
   "title": "Registration",
-  "subtitle": "Create a pull request for a governed batch definition and its BatchPlane-protected workflow.",
+  "subtitle": "Define a governed batch, its execution settings, and optional schedules in one change request.",
   "titleChange": "Change request",
-  "subtitleChange": "Update an existing governed batch definition and workflow through a controlled pull request.",
+  "subtitleChange": "Update an existing governed batch through a controlled change request.",
+  "titleDelete": "Delete batch",
+  "subtitleDelete": "Review the governed batch information that will be removed through a controlled deletion request.",
+  "delete": {
+    "summaryTitle": "Deletion target",
+    "summaryBody": "This request removes the governed batch and any registered execution artifact. The fields cannot be edited in a deletion request."
+  },
   "form": {
     "definition": "Batch definition",
     "workflow": "Workflow",
@@ -20,6 +26,12 @@
       "markDeleted": "Delete",
       "pendingDeletion": "Pending delete",
       "pendingDeletionHelp": "If this change request is merged, this schedule will be removed from the batch definition.",
+      "placeholders": {
+        "scheduleId": "daily-close",
+        "name": "Daily close",
+        "cron": "0 5 * * *",
+        "timezone": "Asia/Seoul"
+      },
       "scheduleId": "Schedule ID",
       "name": "Name",
       "cron": "Cron",
@@ -45,10 +57,22 @@
     "workflowPath": "Generated workflow path",
     "workflowRef": "Workflow ref",
     "runnerLabel": "Execution environment",
+    "customRunner": "Custom",
     "customRunnerLabel": "Custom runner label",
     "executionFile": "Execution file",
+    "existingArtifact": "Current artifact: {{name}}",
     "runCommand": "Batch command",
-    "gateRequiredInline": "BatchPlane Gate always runs before the batch command."
+    "gateRequiredInline": "Gate required before the batch command.",
+    "placeholders": {
+      "batchId": "payment.daily-close",
+      "name": "Daily close",
+      "owner": "payments-ops",
+      "domain": "payments",
+      "environment": "PROD",
+      "workflowRef": "main",
+      "customRunner": "self-hosted, linux",
+      "runCommand": "./run-daily-close.sh"
+    }
   },
   "preview": {
     "title": "YAML preview",
@@ -59,14 +83,16 @@
     "scheduleDeletionMessage": "This schedule will be removed from the batch definition if this change request is merged."
   },
   "diff": {
-    "title": "PR diff preview",
-    "subtitle": "Review the exact governed file changes before creating the pull request.",
-    "idle": "Enter the required file paths to load the diff preview.",
+    "title": "Change preview",
+    "subtitle": "Review the exact governed configuration changes before creating the change request.",
+    "idle": "Complete the required fields to load the change preview.",
     "loading": "Loading diff preview...",
     "noSession": "Connect a Workspace to compare against the base branch.",
-    "noChanges": "No governed file changes were detected. Pull request creation is blocked.",
+    "noChanges": "No governed configuration changes were detected. Change request creation is blocked.",
     "preview": "Unified diff",
     "empty": "No content",
+    "binaryDigest": "Content digest",
+    "evidenceUnavailable": "The source file path is known, but authoritative file evidence is unavailable for this request.",
     "status": {
       "ADDED": "Added",
       "MODIFIED": "Modified",
@@ -75,9 +101,10 @@
     }
   },
   "review": {
-    "title": "PR review",
-    "subtitle": "Confirm the GitHub pull request contents before creating it.",
-    "subtitleChange": "Confirm the governed file updates before creating the change pull request.",
+    "title": "Review change",
+    "subtitle": "Confirm the governed configuration changes before creating the request.",
+    "subtitleChange": "Confirm the governed configuration updates before creating the change request.",
+    "subtitleDelete": "Confirm the governed configuration that will be removed before creating the deletion request.",
     "files": {
       "title": "Generated files",
       "batchDefinition": "Batch definition",
@@ -109,8 +136,9 @@
     "nextStep": "After creation, BatchPlane opens the governed change detail."
   },
   "actions": {
-    "createPullRequest": "Create registration PR",
-    "createChangePullRequest": "Create change PR",
+    "createChange": "Create registration change",
+    "createUpdateChange": "Create change request",
+    "createDeleteChange": "Create deletion request",
     "openApprovals": "Review in approvals",
     "openBatchDetail": "Open batch detail",
     "openSetup": "Open Workspace"
@@ -142,6 +170,6 @@
     "previewNotReady": "Governed diff preview is not ready yet.",
     "noChanges": "No governed file changes were detected.",
     "fileRead": "Failed to read the uploaded execution file.",
-    "unknown": "Failed to create the registration pull request."
+    "unknown": "Failed to create the change request."
   }
 }

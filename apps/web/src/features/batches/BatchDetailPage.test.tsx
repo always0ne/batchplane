@@ -1,3 +1,8 @@
+import type {
+  BatchDefinition,
+  BatchPlaneRuntimePorts,
+  DeletedBatchArchiveResult,
+} from "@batchplane/domain";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -150,68 +155,20 @@ describe("BatchDetailPage", () => {
     );
 
     expect(
-      await screen.findByText("Delete request detail opened"),
+      await screen.findByText("Delete request review opened"),
     ).toBeInTheDocument();
   });
 
-  it("shows deleted batch archive evidence when the active definition is gone", async () => {
-    const state = createGitHubLiteMockState();
-    const deletePullRequest = {
-      author: "maintainer",
-      base: "main",
-      body: [
-        "## BatchPlane Deletion",
-        "",
-        "- Request type: DELETE",
-        "- Batch ID: `payment.daily-close`",
-        "- Name: Daily Close",
-        "- Owner: ops-team",
-        "- Domain: payments",
-        "- Environment: PROD",
-        "- Criticality: HIGH",
-        "- Workflow: `.github/workflows/payment.daily-close.yml`",
-        "- Runtime: GitHub Actions / BatchPlane Lite",
-        "- Runs on: ubuntu-latest",
-        "- BatchPlane Gate: required",
-        "- Schedule count: 1",
-        "- Schedule deletion count: 1",
-        "",
-        "### Batch command",
-        "",
-        "```sh",
-        "echo mock batch",
-        "```",
-        "",
-        "### Schedule deletions",
-        "",
-        "#### Deleted schedule 1",
-        "- Batch ID: `payment.daily-close`",
-        "- Schedule ID: `payment.daily-close-daily`",
-        "- Name: Daily settlement window",
-        "- Batch definition: `.batch-governance/batches/payment.daily-close.yml`",
-        "- Cron: `0 5 * * *`",
-        "- Timezone: `Asia/Seoul`",
-        "- Enabled: true",
-      ].join("\n"),
-      head: "batchplane/delete/payment.daily-close-20260514010203",
-      merged: true,
-      number: 40,
-      state: "closed" as const,
-      title: "Delete batch payment.daily-close",
-      url: "https://github.com/always0ne/batch/pull/40",
-    };
-    const client = createMockGitHubLiteClient({
-      ...state,
-      files: state.files.filter(
-        (file) =>
-          file.path !== ".batch-governance/batches/payment.daily-close.yml",
-      ),
-      pullRequests: [deletePullRequest],
+  it("shows the verified deleted batch definition from the runtime archive contract", async () => {
+    const runtime = createDeletedArchiveRuntime({
+      batch: createArchivedBatchDefinition(),
+      sourceRequest: {
+        locator: "40",
+        number: 40,
+        url: "https://github.com/always0ne/batch/pull/40",
+      },
+      status: "VERIFIED",
     });
-    const runtime = createGitHubLiteRuntime(
-      { owner: "always0ne", repo: "batch", token: "fixture-token" },
-      { client },
-    );
 
     renderBatchDetailPage("/batches/payment.daily-close", {
       createRuntime: () => runtime,
@@ -222,13 +179,127 @@ describe("BatchDetailPage", () => {
       }),
     });
 
-    expect(await screen.findByText("Deleted")).toBeInTheDocument();
-    expect(screen.getByText("Source request #40")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Daily Close" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Deleted")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Source request #40" }),
+    ).toHaveAttribute("href", "https://github.com/always0ne/batch/pull/40");
+    expect(screen.getByText("ops-team")).toBeInTheDocument();
+    expect(screen.getByText("payments")).toBeInTheDocument();
+    expect(screen.getByText("PROD")).toBeInTheDocument();
+    expect(screen.getByText("HIGH")).toBeInTheDocument();
+    expect(
+      screen.getByText(".github/workflows/payment.daily-close.yml"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("ubuntu-latest")).toBeInTheDocument();
     expect(screen.getByText("echo mock batch")).toBeInTheDocument();
     expect(screen.getByText("Daily settlement window")).toBeInTheDocument();
+    expect(screen.getByText("0 5 * * *")).toBeInTheDocument();
+    expect(screen.getByText("Asia/Seoul")).toBeInTheDocument();
+    expect(screen.getByText("Scheduler cron")).toBeInTheDocument();
+    expect(screen.getByText("Recent execution evidence")).toBeInTheDocument();
+  });
+
+  it("does not show unverified deleted batch content", async () => {
+    const runtime = createDeletedArchiveRuntime({
+      sourceRequest: {
+        locator: "41",
+        number: 41,
+        url: "https://github.com/always0ne/batch/pull/41",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "BATCH_DEFINITION_DIGEST_MISMATCH",
+    });
+
+    renderBatchDetailPage("/batches/payment.daily-close", {
+      createRuntime: () => runtime,
+      readSession: () => ({
+        owner: "always0ne",
+        repo: "batch",
+        token: "fixture-token",
+      }),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Archive evidence unavailable",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Source request #41" }),
+    ).toHaveAttribute("href", "https://github.com/always0ne/batch/pull/41");
+    expect(
+      screen.getByText(
+        "The archived BatchDefinition does not match its recorded digest.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Daily Close")).not.toBeInTheDocument();
+    expect(screen.queryByText("ops-team")).not.toBeInTheDocument();
+    expect(screen.queryByText("echo mock batch")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Daily settlement window"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Recent execution evidence")).toBeInTheDocument();
   });
 });
+
+function createArchivedBatchDefinition(): BatchDefinition {
+  return {
+    batchId: "payment.daily-close",
+    criticality: "HIGH",
+    domain: "payments",
+    environment: "PROD",
+    execution: {
+      artifactPath: ".batch-governance/batches/payment.daily-close/run.sh",
+      command: "echo mock batch",
+      runsOn: "ubuntu-latest",
+    },
+    gateRequired: true,
+    name: "Daily Close",
+    owner: "ops-team",
+    schedules: [
+      {
+        cron: "0 5 * * *",
+        enabled: true,
+        name: "Daily settlement window",
+        scheduleId: "payment.daily-close-daily",
+        timezone: "Asia/Seoul",
+      },
+    ],
+    status: "ACTIVE",
+    workflow: {
+      path: ".github/workflows/payment.daily-close.yml",
+      ref: "main",
+    },
+  };
+}
+
+function createDeletedArchiveRuntime(
+  archive: DeletedBatchArchiveResult,
+): BatchPlaneRuntimePorts {
+  const state = createGitHubLiteMockState();
+  const client = createMockGitHubLiteClient({
+    ...state,
+    files: state.files.filter(
+      (file) =>
+        file.path !== ".batch-governance/batches/payment.daily-close.yml",
+    ),
+  });
+  const baseRuntime = createGitHubLiteRuntime(
+    { owner: "always0ne", repo: "batch", token: "fixture-token" },
+    { client },
+  );
+
+  return {
+    ...baseRuntime,
+    batches: {
+      ...baseRuntime.batches,
+      getDeletedBatchArchive: async () => archive,
+    },
+  };
+}
 
 function renderBatchDetailPage(
   path: string,
@@ -242,8 +313,8 @@ function renderBatchDetailPage(
           element={<BatchDetailPage {...props} />}
         />
         <Route
-          path="/approvals/registration/:pullNumber"
-          element={<p>Delete request detail opened</p>}
+          path="/batches/new"
+          element={<p>Delete request review opened</p>}
         />
       </Routes>
     </MemoryRouter>,

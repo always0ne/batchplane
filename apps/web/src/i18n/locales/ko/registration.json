@@ -1,8 +1,14 @@
 {
   "title": "등록",
-  "subtitle": "통제 대상 배치 정의와 BatchPlane Gate가 적용된 Workflow를 Pull Request로 생성합니다.",
+  "subtitle": "통제 대상 배치, 실행 설정, 선택 스케줄을 하나의 변경 요청으로 정의합니다.",
   "titleChange": "변경 요청",
-  "subtitleChange": "기존 통제 대상 배치 정의와 Workflow를 통제된 Pull Request로 변경합니다.",
+  "subtitleChange": "기존 통제 대상 배치를 통제된 변경 요청으로 수정합니다.",
+  "titleDelete": "배치 삭제",
+  "subtitleDelete": "통제된 삭제 요청으로 제거될 배치 정보를 검토합니다.",
+  "delete": {
+    "summaryTitle": "삭제 대상",
+    "summaryBody": "이 요청은 통제 대상 배치와 등록된 실행 파일을 제거합니다. 삭제 요청에서는 대상 정보를 수정할 수 없습니다."
+  },
   "form": {
     "definition": "배치 정의",
     "workflow": "Workflow",
@@ -20,6 +26,12 @@
       "markDeleted": "삭제",
       "pendingDeletion": "삭제 예정",
       "pendingDeletionHelp": "이 변경 요청이 승인되면 이 스케줄은 배치 정의에서 제거됩니다.",
+      "placeholders": {
+        "scheduleId": "daily-close",
+        "name": "일마감",
+        "cron": "0 5 * * *",
+        "timezone": "Asia/Seoul"
+      },
       "scheduleId": "Schedule ID",
       "name": "이름",
       "cron": "Cron",
@@ -45,10 +57,22 @@
     "workflowPath": "생성될 Workflow 경로",
     "workflowRef": "Workflow ref",
     "runnerLabel": "실행 환경",
+    "customRunner": "직접 입력",
     "customRunnerLabel": "Custom runner label",
     "executionFile": "실행 파일",
+    "existingArtifact": "현재 실행 파일: {{name}}",
     "runCommand": "배치 명령",
-    "gateRequiredInline": "BatchPlane Gate는 업무 실행 명령 전에 항상 실행됩니다."
+    "gateRequiredInline": "배치 명령 전 Gate 필수 적용",
+    "placeholders": {
+      "batchId": "payment.daily-close",
+      "name": "일마감",
+      "owner": "payments-ops",
+      "domain": "payments",
+      "environment": "PROD",
+      "workflowRef": "main",
+      "customRunner": "self-hosted, linux",
+      "runCommand": "./run-daily-close.sh"
+    }
   },
   "preview": {
     "title": "YAML 미리보기",
@@ -59,14 +83,16 @@
     "scheduleDeletionMessage": "이 변경 요청이 승인되면 이 스케줄은 배치 정의에서 제거됩니다."
   },
   "diff": {
-    "title": "PR Diff 미리보기",
-    "subtitle": "Pull Request 생성 전에 통제 파일 변경사항을 정확히 확인합니다.",
-    "idle": "Diff 미리보기를 불러오려면 필요한 파일 경로를 입력하세요.",
+    "title": "변경 미리보기",
+    "subtitle": "변경 요청을 만들기 전에 통제 설정의 실제 변경사항을 확인합니다.",
+    "idle": "변경 미리보기를 불러오려면 필수 항목을 입력하세요.",
     "loading": "Diff 미리보기를 불러오는 중...",
     "noSession": "기준 브랜치와 비교하려면 Workspace를 연결하세요.",
-    "noChanges": "통제 파일 변경사항이 없습니다. Pull Request 생성이 차단됩니다.",
+    "noChanges": "통제 설정 변경사항이 없습니다. 변경 요청 생성을 차단합니다.",
     "preview": "Unified diff",
     "empty": "내용 없음",
+    "binaryDigest": "내용 digest",
+    "evidenceUnavailable": "원본 파일 경로는 알 수 있지만, 이 요청의 신뢰할 수 있는 파일 증적을 불러올 수 없습니다.",
     "status": {
       "ADDED": "추가",
       "MODIFIED": "수정",
@@ -75,9 +101,10 @@
     }
   },
   "review": {
-    "title": "PR 검토",
-    "subtitle": "GitHub Pull Request로 생성될 내용을 먼저 확인합니다.",
-    "subtitleChange": "변경 Pull Request로 반영될 통제 파일 변경사항을 먼저 확인합니다.",
+    "title": "변경 검토",
+    "subtitle": "변경 요청을 만들기 전에 통제 설정 변경사항을 확인합니다.",
+    "subtitleChange": "변경 요청을 만들기 전에 통제 설정의 수정사항을 확인합니다.",
+    "subtitleDelete": "삭제 요청을 만들기 전에 제거될 통제 설정을 확인합니다.",
     "files": {
       "title": "생성 파일",
       "batchDefinition": "배치 정의",
@@ -109,8 +136,9 @@
     "nextStep": "생성 후 BatchPlane은 변경 승인 상세로 바로 이동합니다."
   },
   "actions": {
-    "createPullRequest": "등록 PR 생성",
-    "createChangePullRequest": "변경 PR 생성",
+    "createChange": "등록 변경 요청 생성",
+    "createUpdateChange": "변경 요청 생성",
+    "createDeleteChange": "삭제 요청 생성",
     "openApprovals": "승인함에서 검토",
     "openBatchDetail": "배치 상세 열기",
     "openSetup": "Workspace 열기"
@@ -142,6 +170,6 @@
     "previewNotReady": "통제 파일 Diff 미리보기가 아직 준비되지 않았습니다.",
     "noChanges": "통제 파일 변경사항이 없습니다.",
     "fileRead": "업로드한 실행 파일을 읽지 못했습니다.",
-    "unknown": "등록 Pull Request 생성에 실패했습니다."
+    "unknown": "변경 요청 생성에 실패했습니다."
   }
 }
