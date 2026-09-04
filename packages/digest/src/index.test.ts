@@ -8,6 +8,7 @@ import {
   createParameterDigest,
   createReasonDigest,
   createRequestDigest,
+  sha256BytesHex,
   sha256Hex,
 } from "./index";
 
@@ -27,6 +28,18 @@ describe("canonicalize", () => {
   it("creates SHA-256 digests", async () => {
     await expect(sha256Hex("hello")).resolves.toBe(
       "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+    );
+  });
+
+  it("hashes the exact supplied bytes", async () => {
+    const textBytes = new TextEncoder().encode("artifact\n");
+    const changedBytes = new TextEncoder().encode("artifact\r\n");
+
+    await expect(sha256BytesHex(textBytes)).resolves.toBe(
+      "5b3513f580c8397212ff2c8f459c199efc0c90e4354a5f3533adf0a3fff3a530",
+    );
+    await expect(sha256BytesHex(changedBytes)).resolves.not.toBe(
+      "5b3513f580c8397212ff2c8f459c199efc0c90e4354a5f3533adf0a3fff3a530",
     );
   });
 

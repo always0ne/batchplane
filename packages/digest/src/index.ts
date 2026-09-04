@@ -74,6 +74,32 @@ export async function sha256Hex(value: string): Promise<string> {
     new TextEncoder().encode(value),
   );
 
+  return digestToHex(digest);
+}
+
+export async function sha256BytesHex(
+  value: ArrayBuffer | ArrayBufferView,
+): Promise<string> {
+  const bytes = toByteView(value);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+
+  return digestToHex(digest);
+}
+
+function toByteView(
+  value: ArrayBuffer | ArrayBufferView,
+): Uint8Array<ArrayBuffer> {
+  const source =
+    value instanceof ArrayBuffer
+      ? new Uint8Array(value)
+      : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  const copiedBytes = new Uint8Array(source.byteLength);
+
+  copiedBytes.set(source);
+  return copiedBytes;
+}
+
+function digestToHex(digest: ArrayBuffer): string {
   return Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, "0"),
   ).join("");

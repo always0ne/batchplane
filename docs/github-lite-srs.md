@@ -13,8 +13,8 @@ user-provided token stored only in session storage.
 GitHub Lite must support:
 
 - Repository installation through a setup pull request.
-- Batch registration through pull requests.
-- Registration approval through the approvals inbox.
+- Batch registration, change, and deletion through governed change requests.
+- Governed change approval through the request detail route and approvals inbox.
 - Execution requests through GitHub Issues.
 - Execution approval evidence through GitHub Issue comments.
 - Dispatcher handoff through a repository workflow.
@@ -181,21 +181,23 @@ it was auto-generated and the Batch ID changes.
 
 ### Registration Review UX
 
-Before creating the registration pull request, the UI must show a PR review
-panel with:
+Before creating a governed change request, the UI must show a review panel
+with:
 
 - generated file paths for the batch definition, workflow, and optional
   execution file
 - a governance checklist confirming Batch ID-derived paths, mandatory Gate,
   selected execution environment, and recorded Batch command
 - a YAML preview for the batch definition and generated workflow
-- a short handoff note that creation routes the PR to approvals and GitHub list
-  results can lag briefly
+- a short note that the created request opens immediately in its internal detail
+  route while GitHub list results can lag briefly
 
-Registration PR creation routes directly to the returned PR detail page. The
-approvals inbox may still lag behind GitHub list APIs, so newly created
-registration, change, and deletion requests must remain reviewable through the
-direct detail route immediately after creation.
+The registration, change, and deletion pages invoke `BatchPlaneClient` product
+operations. The GitHub Lite adapter owns branch, file, and pull-request
+mechanics; the page does not treat a pull-request body as its command contract.
+Each successful mutation routes directly to the returned internal governed
+change detail page. The approvals inbox may still lag behind GitHub list APIs,
+so the direct detail route remains immediately available.
 
 The review panel is the primary operator surface. YAML preview is supporting
 evidence, not the first thing the user should have to interpret.
@@ -211,13 +213,25 @@ pull request titled `Delete batch {batchId}` and remove:
 - the generated workflow path recorded in the batch definition
 - the optional execution artifact path, when one is registered and present
 
-The delete request body must preserve a deleted batch archive snapshot:
+The delete request must preserve enough verified evidence to recover the
+deleted batch archive after merge. The governed change evidence must include
+the deletion base revision and the `beforeDigest` for the BatchDefinition
+artifact. The archive source of truth is the BatchDefinition at that recorded
+`baseRevisionSha`, not the editable PR body summary. The recovered definition
+must preserve:
 
-- request type `DELETE`
-- Batch ID, name, owner, domain, environment, criticality
-- workflow path, runner, command, optional execution file
+- Batch ID, name, owner, domain, environment, and criticality
+- workflow path and ref
+- runner, command, and optional execution file
 - embedded schedules at deletion time
-- source request number and URL through the PR itself
+- the source request number and URL
+
+The adapter must compare the recovered BatchDefinition bytes with the
+evidence `beforeDigest` before returning the archive to the UI. If the request
+evidence is malformed, altered, or the base revision cannot be read or does
+not match the digest, the UI must show an explicit archive-evidence-unavailable
+state and source request link. It must not reconstruct or display archive
+fields from the PR body.
 
 After the delete PR is merged, the batch no longer appears as an active
 definition, but direct access to `/batches/{batchId}` must still show the
@@ -270,6 +284,19 @@ status. The digest is audit evidence; the UI must not make approvers rely on the
 digest as the primary decision material.
 
 ## Approval Requirements
+
+For governed registration, change, and deletion requests, GitHub PR comments
+are repository-backed audit evidence only. They never grant merge authority on
+their own. Before every approval or approved-change apply attempt, BatchPlane
+must reload the current Workspace policy and role mapping, re-authorize the
+current actor under the current self-approval rule, and reject a stale approval
+when that authority has been removed or tightened.
+
+The authoritative verifier must read the PR head rather than trust request
+evidence alone. It must require the canonical BatchDefinition and generated
+Gate-first workflow transition for the requested operation, and it may govern
+only the definition, generated workflow, and the permitted batch artifact
+envelope. Arbitrary repository paths are never governed artifacts.
 
 Execution approval happens in the approvals inbox.
 
@@ -471,9 +498,10 @@ auditable after the BatchPlane rebrand.
 
 ## Schedule Requirements
 
-Schedules do not directly execute batch workflows.
+Schedules are stored only in `BatchDefinition.spec.schedules` and do not
+directly execute batch workflows.
 
-An approved schedule definition means:
+An approved schedule embedded in a BatchDefinition revision means:
 
 > This batch may be requested for execution according to this recurrence
 > policy.
@@ -481,19 +509,20 @@ An approved schedule definition means:
 For every due occurrence, the scheduler must create or reuse an execution
 request identified by `scheduleId + scheduledAt`.
 
-Each scheduled occurrence request must include:
+Each scheduled occurrence request must identify the approved owning Batch
+revision and include:
 
 - `triggerType: SCHEDULE`
 - `scheduleId`
 - `scheduledAt`
-- approved schedule definition path
-- approved schedule definition commit SHA
+- BatchDefinition path
+- BatchDefinition revision SHA
 - current batch/workflow target
 - occurrence-specific request digest
 
 Automatic approval is allowed only when the request is derived from an approved
-schedule definition. This is equivalent to delegated approval, not to skipping
-approval.
+schedule embedded in the approved BatchDefinition revision. This is equivalent
+to delegated approval, not to skipping approval.
 
 Scheduled occurrence requests must not appear in the manual approval inbox.
 They are auditable execution records, not human approval tasks.

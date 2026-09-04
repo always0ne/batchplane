@@ -1,24 +1,54 @@
-import type { BatchStatus, Criticality } from "@batchplane/domain";
+export * from "./batches.js";
+export * from "./governed-changes.js";
 
-export type BatchListItem = {
-  batchId: string;
-  criticality: Criticality;
-  environment: string;
-  gateRequired: boolean;
-  hasExecutableCommand: boolean;
-  name: string;
-  owner: string;
-  status: BatchStatus;
-};
-
-export type BatchListResult =
-  | { type: "workspace-not-connected" }
-  | {
-      type: "loaded";
-      batches: BatchListItem[];
-      sourceRevision: string;
-    };
+import type {
+  BatchChangeDraft,
+  BatchChangeBlocker,
+  CreateGovernedChangeResult,
+  GovernedChangeDetail,
+  GovernedChangePreview,
+} from "./governed-changes.js";
+import type { BatchListResult } from "./batches.js";
 
 export type BatchPlaneClient = {
   listBatches(): Promise<BatchListResult>;
+  loadBatchChangeDraft(input: {
+    batchId?: string;
+    mode: "create" | "change" | "delete";
+  }): Promise<BatchChangeDraft>;
+  getBatchChangeBlocker(input: {
+    batchId: string;
+  }): Promise<BatchChangeBlocker | null>;
+  previewBatchChange(input: BatchChangeDraft): Promise<GovernedChangePreview>;
+  createBatchChangeRequest(
+    input: BatchChangeDraft,
+  ): Promise<CreateGovernedChangeResult>;
+  getGovernedChange(input: {
+    requestLocator: string;
+  }): Promise<GovernedChangeDetail | null>;
+  approveGovernedChange(input: {
+    requestLocator: string;
+  }): Promise<GovernedChangeDetail>;
+  rejectGovernedChange(input: {
+    reason: string;
+    requestLocator: string;
+  }): Promise<GovernedChangeDetail>;
+  withdrawGovernedChange(input: {
+    requestLocator: string;
+  }): Promise<GovernedChangeDetail>;
 };
+
+export class WorkspaceNotConnectedError extends Error {
+  readonly code = "WORKSPACE_NOT_CONNECTED";
+
+  constructor() {
+    super("Connect a Workspace before requesting a governed change.");
+    this.name = "WorkspaceNotConnectedError";
+  }
+}
+
+export function isWorkspaceNotConnectedError(
+  error: unknown,
+): error is WorkspaceNotConnectedError {
+  return error instanceof WorkspaceNotConnectedError;
+}

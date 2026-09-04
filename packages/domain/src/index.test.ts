@@ -15,10 +15,9 @@ import {
   validateApprovalPolicyFile,
   validateBatchDefinition,
   validateBatchDefinitionFile,
+  isCanonicalBatchId,
   validateRoleMapping,
   validateRoleMappingFile,
-  validateScheduleDefinition,
-  validateScheduleDefinitionFile,
   validateWorkspacePolicy,
   validateWorkspacePolicyFile,
 } from "./index";
@@ -32,14 +31,13 @@ import type {
   BatchDefinition,
   BatchDefinitionFile,
   BatchGovernanceConfigFile,
+  DeletedBatchArchiveResult,
   ExecutionRequest,
   ExecutionRequestPayload,
   ExecutionRun,
   GitHubLiteRepositoryFile,
   RoleMapping,
   RoleMappingFile,
-  ScheduleDefinition,
-  ScheduleDefinitionFile,
   ScheduleOccurrenceRef,
   WorkspacePolicy,
   WorkspacePolicyFile,
@@ -95,16 +93,6 @@ const workspacePolicy: WorkspacePolicy = {
   },
 };
 
-const scheduleDefinition: ScheduleDefinition = {
-  batchId: batchDefinition.batchId,
-  cron: "0 5 * * *",
-  definitionPath: ".batch-governance/schedules/payment.daily-close-daily.yml",
-  enabled: true,
-  name: "Daily settlement window",
-  scheduleId: "payment.daily-close-daily",
-  timezone: "Asia/Seoul",
-};
-
 describe("domain model contracts", () => {
   it("exports core batch, approval, execution, and audit contracts", () => {
     const request: ExecutionRequest = {
@@ -154,6 +142,21 @@ describe("domain model contracts", () => {
     expect(auditItem.type).toBe("APPROVAL_RECORDED");
   });
 
+  it("keeps unavailable deleted archives free of batch content", () => {
+    const result: DeletedBatchArchiveResult = {
+      sourceRequest: {
+        locator: "40",
+        number: 40,
+        url: "https://github.com/always0ne/batch/pull/40",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "LEGACY_OR_MALFORMED_EVIDENCE",
+    };
+
+    expect(result.status).toBe("UNAVAILABLE");
+    expect(result).not.toHaveProperty("batch");
+  });
+
   it("exports GitHub Lite repository file schemas", () => {
     const configFile: BatchGovernanceConfigFile = {
       apiVersion: "batchplane.io/v1",
@@ -166,7 +169,6 @@ describe("domain model contracts", () => {
         configPath: ".batch-governance",
         defaultWorkflowRef: "main",
         dispatcherWorkflowPath: ".github/workflows/batchplane-dispatcher.yml",
-        schedulesPath: ".batch-governance/schedules",
       },
     };
     const batchFile: BatchDefinitionFile = {
@@ -211,20 +213,6 @@ describe("domain model contracts", () => {
       },
       spec: workspacePolicy,
     };
-    const scheduleFile: ScheduleDefinitionFile = {
-      apiVersion: "batchplane.io/v1",
-      kind: "ScheduleDefinition",
-      metadata: {
-        batchId: scheduleDefinition.batchId,
-        id: scheduleDefinition.scheduleId,
-        name: scheduleDefinition.name,
-      },
-      spec: {
-        cron: scheduleDefinition.cron,
-        enabled: scheduleDefinition.enabled,
-        timezone: scheduleDefinition.timezone,
-      },
-    };
     const requestPayload: ExecutionRequestPayload = {
       apiVersion: "batchplane.io/v1",
       kind: "ExecutionRequest",
@@ -258,7 +246,6 @@ describe("domain model contracts", () => {
       approvalPolicyFile,
       roleMappingFile,
       workspacePolicyFile,
-      scheduleFile,
       requestPayload,
     ];
 
@@ -268,7 +255,6 @@ describe("domain model contracts", () => {
       "ApprovalPolicy",
       "RoleMapping",
       "WorkspacePolicy",
-      "ScheduleDefinition",
       "ExecutionRequest",
     ]);
   });
@@ -276,6 +262,7 @@ describe("domain model contracts", () => {
   it("keeps required and optional file fields explicit", () => {
     expectTypeOf<BatchDefinitionFile["metadata"]>().toEqualTypeOf<{
       id: string;
+      governedChangeId?: string;
       labels?: string[];
       name: string;
     }>();
@@ -316,6 +303,7 @@ describe("domain model contracts", () => {
         listAuditTimeline: async () => [],
       },
       batches: {
+        getDeletedBatchArchive: async () => null,
         listBatchDefinitions: async () => [batchDefinition],
       },
       executions: {
@@ -399,23 +387,6 @@ describe("domain model contracts", () => {
           title: "Register batch payment.daily-close",
           url: "https://github.com/always0ne/batch/pull/2",
         }),
-      },
-      schedules: {
-        checkScheduleDefinitionTarget: async () => ({
-          scheduleDefinitionExists: false,
-        }),
-        createScheduleDefinitionPullRequest: async () => ({
-          author: "requester",
-          base: "main",
-          body: "body",
-          head: "batchplane/schedule/register/payment.daily-close-daily",
-          merged: false,
-          number: 5,
-          state: "open",
-          title: "Register schedule payment.daily-close-daily",
-          url: "https://github.com/always0ne/batch/pull/5",
-        }),
-        listScheduleDefinitions: async () => [scheduleDefinition],
       },
       settings: {
         checkInstallationStatus: async () => ({
@@ -598,6 +569,14 @@ describe("execution request builders", () => {
 });
 
 describe("domain schema validation", () => {
+  it("accepts canonical dot and hyphen Batch IDs but rejects repository paths", () => {
+    expect(isCanonicalBatchId("payment.daily-close")).toBe(true);
+    expect(isCanonicalBatchId("../../workflows/release")).toBe(false);
+    expect(isCanonicalBatchId("payment/daily-close")).toBe(false);
+    expect(isCanonicalBatchId("payment\\daily-close")).toBe(false);
+    expect(isCanonicalBatchId("payment daily-close")).toBe(false);
+  });
+
   it("returns field-level diagnostics when required batch fields are missing", () => {
     expect(
       validateBatchDefinition({ ...batchDefinition, batchId: "", owner: "" }),
@@ -610,6 +589,22 @@ describe("domain schema validation", () => {
         expect.objectContaining({
           code: "required",
           field: "owner",
+        }),
+      ]),
+    );
+  });
+
+  it("reports unsafe Batch IDs in BatchDefinition validation", () => {
+    expect(
+      validateBatchDefinition({
+        ...batchDefinition,
+        batchId: "../../workflows/release",
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "invalid_batch_id",
+          field: "batchId",
         }),
       ]),
     );
@@ -658,76 +653,6 @@ describe("domain schema validation", () => {
         }),
       ]),
     );
-  });
-
-  it("validates required schedule definition fields", () => {
-    expect(validateScheduleDefinition(scheduleDefinition)).toEqual([]);
-    expect(
-      validateScheduleDefinition({
-        ...scheduleDefinition,
-        cron: "",
-        timezone: "",
-      }),
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: "required",
-          field: "cron",
-        }),
-        expect.objectContaining({
-          code: "required",
-          field: "timezone",
-        }),
-      ]),
-    );
-  });
-
-  it("validates schedule definition file documents", () => {
-    const file: ScheduleDefinitionFile = {
-      apiVersion: "batchplane.io/v1",
-      kind: "ScheduleDefinition",
-      metadata: {
-        batchId: scheduleDefinition.batchId,
-        id: scheduleDefinition.scheduleId,
-        name: scheduleDefinition.name,
-      },
-      spec: {
-        cron: scheduleDefinition.cron,
-        enabled: scheduleDefinition.enabled,
-        timezone: scheduleDefinition.timezone,
-      },
-    };
-
-    expect(validateScheduleDefinitionFile(file)).toEqual({
-      diagnostics: [],
-      ok: true,
-      value: file,
-    });
-    expect(
-      validateScheduleDefinitionFile({
-        ...file,
-        metadata: {
-          ...file.metadata,
-          batchId: "",
-        },
-        spec: {
-          ...file.spec,
-          cron: "",
-        },
-      }),
-    ).toEqual({
-      diagnostics: expect.arrayContaining([
-        expect.objectContaining({
-          code: "required",
-          field: "metadata.batchId",
-        }),
-        expect.objectContaining({
-          code: "required",
-          field: "spec.cron",
-        }),
-      ]),
-      ok: false,
-    });
   });
 
   it("validates batch definition repository files", () => {

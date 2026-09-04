@@ -4,12 +4,49 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "./App";
+import type { BatchChangeDraft, BatchPlaneClient } from "@batchplane/ui-client";
 import { BatchPlaneClientContext } from "../client/batch-plane-client-context";
 import "../i18n/i18n";
 
 const disconnectedClient = {
+  approveGovernedChange: async () => {
+    throw new Error("Workspace is not connected.");
+  },
+  createBatchChangeRequest: async () => {
+    throw new Error("Workspace is not connected.");
+  },
+  getGovernedChange: async () => null,
   listBatches: async () => ({ type: "workspace-not-connected" as const }),
-};
+  loadBatchChangeDraft: async (): Promise<BatchChangeDraft> => ({
+    batch: {
+      batchId: "",
+      criticality: "MEDIUM",
+      domain: "",
+      environment: "PROD",
+      name: "",
+      owner: "",
+      runCommand: "",
+      runnerLabel: "ubuntu-latest",
+      status: "ACTIVE",
+      workflowRef: "main",
+    },
+    governedChangeId: "test-change",
+    mode: "create",
+    schedules: [],
+  }),
+  getBatchChangeBlocker: async () => null,
+  previewBatchChange: async () => ({
+    files: [],
+    hasEffectiveChanges: false,
+    targetRevisionDigest: "sha256:test",
+  }),
+  rejectGovernedChange: async () => {
+    throw new Error("Workspace is not connected.");
+  },
+  withdrawGovernedChange: async () => {
+    throw new Error("Workspace is not connected.");
+  },
+} satisfies BatchPlaneClient;
 
 describe("App", () => {
   beforeEach(() => {
@@ -52,7 +89,7 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("redirects direct schedule routes into the batch change request flow", async () => {
+  it("redirects a legacy schedule deep link into the batch change form", async () => {
     renderApp(
       <MemoryRouter
         initialEntries={["/batches/payment.daily-close/schedules/new"]}
