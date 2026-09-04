@@ -8,6 +8,7 @@ import type {
 import {
   deriveRegistrationFilePaths,
   deriveRegistrationReviewState,
+  isOpenRegistrationReview,
   parseRegistrationApprovalDecision,
   parseRegistrationRequestSummary,
 } from "./registration-approval-model";
@@ -229,5 +230,26 @@ describe("registration approval model", () => {
     expect(
       deriveRegistrationReviewState({ ...pullRequest, merged: true }, null),
     ).toBe("MERGED");
+    expect(isOpenRegistrationReview(pullRequest, comments)).toBe(false);
+    const approvedComment = comments[0];
+    if (!approvedComment) throw new Error("Expected approval comment.");
+    const rejectedDecision = parseRegistrationApprovalDecision([
+      {
+        ...approvedComment,
+        body: approvedComment.body.replace("APPROVED", "REJECTED"),
+      },
+    ]);
+    expect(deriveRegistrationReviewState(pullRequest, rejectedDecision)).toBe(
+      "OPEN",
+    );
+    expect(
+      isOpenRegistrationReview(pullRequest, [
+        {
+          ...approvedComment,
+          body: approvedComment.body.replace("APPROVED", "REJECTED"),
+        },
+      ]),
+    ).toBe(true);
+    expect(isOpenRegistrationReview(pullRequest, [])).toBe(true);
   });
 });

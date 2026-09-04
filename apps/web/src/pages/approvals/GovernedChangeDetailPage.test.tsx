@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type {
-  BatchPlaneClient,
-  GovernedChangeDetail,
+import {
+  WorkspaceNotConnectedError,
+  type BatchPlaneClient,
+  type GovernedChangeDetail,
 } from "@batchplane/ui-client";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
@@ -11,6 +12,25 @@ import "../../i18n/i18n";
 import { GovernedChangeDetailPage } from "./GovernedChangeDetailPage";
 
 describe("GovernedChangeDetailPage", () => {
+  it("routes a disconnected Workspace to setup instead of showing a detail failure", async () => {
+    renderPage(
+      createClient({
+        getGovernedChange: vi
+          .fn()
+          .mockRejectedValue(new WorkspaceNotConnectedError()),
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Connect a Workspace before reviewing governed changes.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open Workspace" }),
+    ).toHaveAttribute("href", "/lite/setup");
+  });
+
   it("requires a rejection reason and sends it through the product client", async () => {
     const rejectGovernedChange = vi
       .fn()
@@ -116,6 +136,28 @@ describe("GovernedChangeDetailPage", () => {
     expect(
       screen.queryByRole("button", { name: "Approve and apply change" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Withdraw request" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the permitted rejection action for an open legacy request", async () => {
+    renderPage(
+      createClient({
+        getGovernedChange: async () => ({
+          ...detail(),
+          canApprove: false,
+          canReject: true,
+          canWithdraw: false,
+          evidence: { kind: "LEGACY_UNAPPROVABLE" },
+          reviewState: "LEGACY_UNAPPROVABLE",
+        }),
+      }),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Reject" }),
+    ).toBeInTheDocument();
   });
 
   it("renders Korean product titles and localizes the decision source", async () => {
@@ -143,6 +185,70 @@ describe("GovernedChangeDetailPage", () => {
     expect(screen.getByText("Workspace 정책")).toBeInTheDocument();
     await i18next.changeLanguage("en");
   });
+
+  it("ignores a stale detail load after navigating to another request", async () => {
+    const firstRequest = deferred<GovernedChangeDetail>();
+    const getGovernedChange = vi.fn(({ requestLocator }) =>
+      requestLocator === "42"
+        ? firstRequest.promise
+        : Promise.resolve(detailFor("43")),
+    );
+    renderNavigablePage(createClient({ getGovernedChange }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Open request 43" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Change request: payment.daily-close-43",
+      }),
+    ).toBeInTheDocument();
+
+    firstRequest.resolve(detail());
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", {
+          name: "Change request: payment.daily-close-43",
+        }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("ignores a stale action result after navigating to another request", async () => {
+    const approval = deferred<GovernedChangeDetail>();
+    const approveGovernedChange = vi.fn(() => approval.promise);
+    const getGovernedChange = vi.fn(({ requestLocator }) =>
+      Promise.resolve(requestLocator === "42" ? detail() : detailFor("43")),
+    );
+    renderNavigablePage(
+      createClient({ approveGovernedChange, getGovernedChange }),
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Approve and apply change" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open request 43" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Change request: payment.daily-close-43",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Approve and apply change" }),
+    ).not.toBeDisabled();
+
+    approval.resolve({ ...detail(), reviewState: "MERGED" });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", {
+          name: "Change request: payment.daily-close-43",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Approve and apply change" }),
+      ).not.toBeDisabled();
+    });
+  });
 });
 
 function renderPage(client: BatchPlaneClient) {
@@ -160,6 +266,37 @@ function renderPage(client: BatchPlaneClient) {
   );
 }
 
+function renderNavigablePage(client: BatchPlaneClient) {
+  render(
+    <BatchPlaneClientContext.Provider value={client}>
+      <MemoryRouter initialEntries={["/approvals/registration/42"]}>
+        <Routes>
+          <Route
+            path="/approvals/registration/:requestLocator"
+            element={<NavigableGovernedChangeDetailPage />}
+          />
+        </Routes>
+      </MemoryRouter>
+    </BatchPlaneClientContext.Provider>,
+  );
+}
+
+function NavigableGovernedChangeDetailPage() {
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => navigate("/approvals/registration/43")}
+      >
+        Open request 43
+      </button>
+      <GovernedChangeDetailPage />
+    </>
+  );
+}
+
 function createClient(
   overrides: Partial<BatchPlaneClient> = {},
 ): BatchPlaneClient {
@@ -167,6 +304,7 @@ function createClient(
     approveGovernedChange: async () => detail(),
     createBatchChangeRequest: async () => ({ request: detail() }),
     getGovernedChange: async () => detail(),
+    getBatchChangeBlocker: async () => null,
     listBatches: async () => ({
       batches: [],
       sourceRevision: "main",
@@ -177,6 +315,7 @@ function createClient(
     },
     previewBatchChange: async () => ({
       files: [],
+      hasEffectiveChanges: false,
       targetRevisionDigest: "sha256:test",
     }),
     rejectGovernedChange: async () => detail(),
@@ -213,4 +352,22 @@ function detail(): GovernedChangeDetail {
     sourceLabel: "#42",
     title: "Change batch payment.daily-close",
   };
+}
+
+function detailFor(requestLocator: string): GovernedChangeDetail {
+  return {
+    ...detail(),
+    batchId: `payment.daily-close-${requestLocator}`,
+    requestLocator,
+    sourceLabel: `#${requestLocator}`,
+  };
+}
+
+function deferred<Value>() {
+  let resolve: (value: Value) => void = () => undefined;
+  const promise = new Promise<Value>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+
+  return { promise, resolve };
 }

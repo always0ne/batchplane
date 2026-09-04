@@ -2,6 +2,7 @@ import type {
   BatchDefinition,
   BatchPlaneRuntimePorts,
 } from "@batchplane/domain";
+import { isWorkspaceNotConnectedError } from "@batchplane/ui-client";
 import { describe, expect, it, vi } from "vitest";
 
 import { createRuntimeBatchPlaneClient } from "./runtime-batch-plane-client";
@@ -88,6 +89,16 @@ describe("runtime BatchPlane client", () => {
       type: "workspace-not-connected",
     });
     expect(createRuntime).not.toHaveBeenCalled();
+  });
+
+  it("throws the named Workspace connection error for governed change commands", async () => {
+    const client = createRuntimeBatchPlaneClient({
+      readSession: () => null,
+    });
+
+    await expect(
+      client.loadBatchChangeDraft({ mode: "create" }),
+    ).rejects.toSatisfy(isWorkspaceNotConnectedError);
   });
 
   it.each([

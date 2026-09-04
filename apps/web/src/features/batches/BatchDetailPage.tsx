@@ -10,6 +10,7 @@ import type {
 import {
   GitPullRequest,
   Loader2,
+  Pencil,
   Play,
   ShieldCheck,
   Trash2,
@@ -815,6 +816,12 @@ function RequestActionsCard({
         )}
       </div>
 
+      {changeRequestBlocked ? (
+        <div className="mt-5 border-t border-slate-100 pt-5">
+          <ChangeRequestBlockerList blockers={changeRequestBlockers} />
+        </div>
+      ) : null}
+
       <div className="mt-5 border-t border-slate-100 pt-5">
         <h3 className="text-sm font-bold text-bp-graphite">
           {t("detail.change.title")}
@@ -823,24 +830,21 @@ function RequestActionsCard({
           {t("detail.change.description")}
         </p>
         {changeRequestBlocked ? (
-          <div className="mt-4 space-y-3">
-            <button
-              className="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500"
-              disabled
-              title={t("detail.change.blocked")}
-              type="button"
-            >
-              <GitPullRequest className="h-4 w-4" aria-hidden="true" />
-              {t("actions.requestChange")}
-            </button>
-            <ChangeRequestBlockerList blockers={changeRequestBlockers} />
-          </div>
+          <button
+            className="mt-4 inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500"
+            disabled
+            title={t("detail.change.blocked")}
+            type="button"
+          >
+            <Pencil className="h-4 w-4" aria-hidden="true" />
+            {t("actions.requestChange")}
+          </button>
         ) : (
           <Link
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
             to={`/batches/new?change=${encodeURIComponent(batch.batchId)}`}
           >
-            <GitPullRequest className="h-4 w-4" aria-hidden="true" />
+            <Pencil className="h-4 w-4" aria-hidden="true" />
             {t("actions.requestChange")}
           </Link>
         )}
@@ -853,7 +857,17 @@ function RequestActionsCard({
         <p className="mt-2 text-sm text-bp-muted">
           {t("detail.delete.description")}
         </p>
-        {deletePanelOpen ? (
+        {changeRequestBlocked ? (
+          <button
+            className="mt-4 inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-400"
+            disabled
+            title={t("detail.change.blocked")}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {t("actions.requestDelete")}
+          </button>
+        ) : deletePanelOpen ? (
           <div className="mt-4 space-y-3 rounded-md border border-red-200 bg-red-50 p-3">
             <label className="block text-xs font-semibold uppercase text-red-700">
               {t("detail.delete.confirmationLabel")}

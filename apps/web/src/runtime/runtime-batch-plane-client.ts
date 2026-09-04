@@ -1,4 +1,5 @@
 import {
+  WorkspaceNotConnectedError,
   type BatchPlaneClient,
   type BatchListItem,
 } from "@batchplane/ui-client";
@@ -45,6 +46,11 @@ export function createRuntimeBatchPlaneClient({
 
       return createGovernedChangeClient(session).loadBatchChangeDraft(input);
     },
+    async getBatchChangeBlocker(input) {
+      const session = requireSession(readSession());
+
+      return createGovernedChangeClient(session).getBatchChangeBlocker(input);
+    },
     async previewBatchChange(input) {
       const session = requireSession(readSession());
 
@@ -82,7 +88,7 @@ export function createRuntimeBatchPlaneClient({
 
 function requireSession(session: ReturnType<typeof readRuntimeSession>) {
   if (!session) {
-    throw new Error("Connect a Workspace before requesting a governed change.");
+    throw new WorkspaceNotConnectedError();
   }
 
   return session;

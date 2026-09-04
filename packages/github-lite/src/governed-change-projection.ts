@@ -200,24 +200,9 @@ async function loadGovernedChangeCapabilities(
     "canApprove" | "canApplyApprovedChange" | "canReject" | "canWithdraw"
   >
 > {
-  const canApplyApprovedChange =
-    request.reviewState === "APPROVED_PENDING_MERGE" &&
-    request.evidence.kind === "VERIFIED_V2";
   const actor = await client.getCurrentUser();
   const canWithdraw =
     pullRequest.state === "open" && actor.login === pullRequest.author;
-  if (
-    request.reviewState !== "OPEN" &&
-    request.reviewState !== "REAPPROVAL_REQUIRED" &&
-    request.reviewState !== "LEGACY_UNAPPROVABLE"
-  ) {
-    return {
-      canApplyApprovedChange,
-      canApprove: false,
-      canReject: false,
-      canWithdraw,
-    };
-  }
 
   let policy: WorkspacePolicy;
   let roleMapping: RoleMapping;
@@ -230,7 +215,7 @@ async function loadGovernedChangeCapabilities(
   } catch {
     // A request must remain readable even when its current Workspace policy is absent.
     return {
-      canApplyApprovedChange,
+      canApplyApprovedChange: false,
       canApprove: false,
       canReject: false,
       canWithdraw,
@@ -253,6 +238,24 @@ async function loadGovernedChangeCapabilities(
     actorIsRequester: actor.login === request.requester,
     approvalMode: policy.approval.mode,
   });
+
+  const canApplyApprovedChange =
+    request.reviewState === "APPROVED_PENDING_MERGE" &&
+    request.evidence.kind === "VERIFIED_V2" &&
+    approval.allowed;
+
+  if (
+    request.reviewState !== "OPEN" &&
+    request.reviewState !== "REAPPROVAL_REQUIRED" &&
+    request.reviewState !== "LEGACY_UNAPPROVABLE"
+  ) {
+    return {
+      canApplyApprovedChange,
+      canApprove: false,
+      canReject: false,
+      canWithdraw,
+    };
+  }
 
   return {
     canApplyApprovedChange,
@@ -653,6 +656,13 @@ async function findVerifiedDecision(
   request: GovernedChangeRequestEvidence,
   requestDigest: string,
 ) {
+  const currentAuthorization =
+    pullRequest.state === "open"
+      ? await loadCurrentWorkspaceAuthorization(client, repository).catch(
+          () => null,
+        )
+      : null;
+
   for (const comment of [...comments].sort(compareNewestFirst)) {
     const evidence = parseGovernedChangeDecisionEvidence(comment.body);
 
@@ -673,43 +683,82 @@ async function findVerifiedDecision(
       evidence.authorizationRevisionSha,
     ).catch(() => null);
     if (!authorization) continue;
-    const { policy, roleMapping } = authorization;
-
-    const actorHasApproverRole = await hasGovernedChangeRole(
+    const authorizedAtRecordedRevision = await isDecisionAuthorized({
+      authorization,
       client,
-      repository,
-      comment.author,
-      roleMapping.roles.approver,
-    );
-    const actorHasRequesterRole = await hasGovernedChangeRole(
-      client,
-      repository,
-      comment.author,
-      roleMapping.roles.requester,
-    );
-    const isWorkspacePolicyApproval =
-      evidence.decision === "APPROVED" &&
-      evidence.decisionSource === "WORKSPACE_POLICY";
-    const sourceIsAllowed = isWorkspacePolicyApproval
-      ? policy.approval.mode === "AUTO_APPROVE" &&
-        comment.author === request.requester &&
-        actorHasRequesterRole
-      : evidence.decisionSource === "USER" && evidence.decision === "REJECTED"
-        ? actorHasApproverRole
-        : evidence.decisionSource === "USER" &&
-          authorizeGovernedChangeApproval({
-            actorHasApproverRole,
-            actorHasRequesterRole,
-            actorIsRequester: comment.author === request.requester,
-            approvalMode: policy.approval.mode,
-          }).allowed;
+      comment,
+      evidence,
+      request,
+    });
+    const authorizedNow = currentAuthorization
+      ? await isDecisionAuthorized({
+          authorization: currentAuthorization,
+          client,
+          comment,
+          evidence,
+          request,
+        })
+      : pullRequest.state !== "open";
 
-    if (sourceIsAllowed) {
+    if (authorizedAtRecordedRevision && authorizedNow) {
       return { actor: comment.author, createdAt: comment.createdAt, evidence };
     }
   }
 
   return undefined;
+}
+
+async function isDecisionAuthorized({
+  authorization,
+  client,
+  comment,
+  evidence,
+  request,
+}: {
+  authorization: { policy: WorkspacePolicy; roleMapping: RoleMapping };
+  client: GitHubLiteClient;
+  comment: GitHubIssueComment;
+  evidence: NonNullable<ReturnType<typeof parseGovernedChangeDecisionEvidence>>;
+  request: GovernedChangeRequestEvidence;
+}): Promise<boolean> {
+  const actorHasApproverRole = await hasGovernedChangeRole(
+    client,
+    repositoryForComment(request),
+    comment.author,
+    authorization.roleMapping.roles.approver,
+  );
+  const actorHasRequesterRole = await hasGovernedChangeRole(
+    client,
+    repositoryForComment(request),
+    comment.author,
+    authorization.roleMapping.roles.requester,
+  );
+  const isWorkspacePolicyApproval =
+    evidence.decision === "APPROVED" &&
+    evidence.decisionSource === "WORKSPACE_POLICY";
+
+  if (isWorkspacePolicyApproval) {
+    return (
+      authorization.policy.approval.mode === "AUTO_APPROVE" &&
+      comment.author === request.requester &&
+      actorHasRequesterRole
+    );
+  }
+
+  if (evidence.decision === "REJECTED") return actorHasApproverRole;
+
+  return authorizeGovernedChangeApproval({
+    actorHasApproverRole,
+    actorHasRequesterRole,
+    actorIsRequester: comment.author === request.requester,
+    approvalMode: authorization.policy.approval.mode,
+  }).allowed;
+}
+
+function repositoryForComment(request: GovernedChangeRequestEvidence): RepoRef {
+  const [owner, repo] = request.repository.split("/");
+
+  return { owner: owner ?? "", repo: repo ?? "" };
 }
 
 async function loadWorkspaceAuthorizationAtRevision(

@@ -1,9 +1,9 @@
 import type { FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../ui/PageHeader";
-import { ErrorState, LoadingState } from "../../ui/PageState";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
 import { BatchChangeFormRegions } from "./BatchChangeFormRegions";
 import { BatchChangeReview } from "./BatchChangeReview";
 import { useBatchChangeEditor } from "./useBatchChangeEditor";
@@ -37,6 +37,48 @@ export function BatchRegistrationPage() {
     );
   }
 
+  if (editor.loadState === "workspace-not-connected") {
+    return (
+      <EmptyState
+        action={
+          <Link
+            className="font-semibold text-bp-control underline"
+            to="/lite/setup"
+          >
+            {t("actions.openSetup")}
+          </Link>
+        }
+        message={t("states.noSession")}
+      />
+    );
+  }
+
+  if (editor.blocker) {
+    const detailPath =
+      editor.blocker.kind === "GOVERNED_CHANGE"
+        ? `/approvals/registration/${encodeURIComponent(editor.blocker.requestLocator)}`
+        : `/execution-requests/${encodeURIComponent(editor.blocker.requestLocator)}`;
+
+    return (
+      <section>
+        <PageHeader
+          subtitle={t(pageCopyKey(mode, "subtitle"))}
+          title={t(pageCopyKey(mode, "title"))}
+        />
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+          <p className="font-semibold">{t("states.changeBlocked")}</p>
+          <p className="mt-2">{editor.blocker.title}</p>
+          <Link
+            className="mt-4 inline-block font-semibold text-bp-control underline"
+            to={detailPath}
+          >
+            {t("states.openBlockingRequest")}
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section>
       <PageHeader
@@ -56,6 +98,7 @@ export function BatchRegistrationPage() {
             />
           ) : (
             <BatchChangeFormRegions
+              batchIdReadOnly={mode === "change"}
               existingArtifact={editor.existingArtifact}
               onAddSchedule={editor.addSchedule}
               onArtifactChange={editor.selectArtifact}

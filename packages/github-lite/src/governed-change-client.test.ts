@@ -16,8 +16,10 @@ import { sha256BytesHex } from "@batchplane/digest";
 import {
   getBatchDefinitionPath,
   getBatchWorkflowPath,
+  parseBatchDefinitionYaml,
   serializeBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
+import { buildBatchWorkflowYaml } from "./github-workflow.js";
 import {
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
@@ -63,6 +65,7 @@ describe("GitHub Lite governed change client", () => {
   it("reads the installed Workspace policy fixture from its canonical path", async () => {
     const state = createGitHubLiteMockState({
       currentUser: { login: "developer" },
+      issues: [],
     });
     state.files.push({
       branch: "main",
@@ -197,6 +200,205 @@ describe("GitHub Lite governed change client", () => {
     },
   );
 
+  it("requires the original Batch ID for direct change and delete commands", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+
+    await expect(
+      governedChanges.createBatchChangeRequest({
+        ...changeDraft({}),
+        targetBatchId: undefined,
+      }),
+    ).rejects.toThrow("Batch ID cannot change");
+
+    const loaded = await governedChanges.loadBatchChangeDraft({
+      batchId: "payment.daily-close",
+      mode: "change",
+    });
+    expect(loaded.targetBatchId).toBe("payment.daily-close");
+    await expect(
+      governedChanges.previewBatchChange({
+        ...loaded,
+        targetBatchId: undefined,
+      }),
+    ).rejects.toThrow("Batch ID cannot change");
+    await expect(
+      governedChanges.previewBatchChange({
+        ...loaded,
+        targetBatchId: "payment.month-end",
+      }),
+    ).rejects.toThrow("Batch ID cannot change");
+    await expect(
+      governedChanges.createBatchChangeRequest({
+        ...changeDraft({}),
+        batch: { ...registrationDraft.batch, batchId: "payment.daily-close" },
+      }),
+    ).rejects.toThrow("Batch ID cannot change");
+    await expect(
+      governedChanges.createBatchChangeRequest({
+        ...changeDraft({}),
+        mode: "delete",
+        targetBatchId: undefined,
+      }),
+    ).rejects.toThrow("Batch ID cannot change");
+  });
+
+  it("blocks direct create, change, and delete commands while the batch has a pending governed change", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+
+    await governedChanges.createBatchChangeRequest(registrationDraft);
+
+    await expect(
+      governedChanges.createBatchChangeRequest({
+        ...registrationDraft,
+        governedChangeId: "bgc-20260901-payment-month-end-0002",
+      }),
+    ).rejects.toThrow("pending governed change");
+    await expect(
+      governedChanges.createBatchChangeRequest(changeDraft({})),
+    ).rejects.toThrow("pending governed change");
+    await expect(
+      governedChanges.createBatchChangeRequest({
+        ...changeDraft({}),
+        mode: "delete",
+      }),
+    ).rejects.toThrow("pending governed change");
+    await expect(
+      governedChanges.loadBatchChangeDraft({
+        batchId: "payment.daily-close",
+        mode: "delete",
+      }),
+    ).resolves.toMatchObject({
+      targetBatchId: "payment.daily-close",
+    });
+  });
+
+  it.each([
+    ["REQUESTED", [], true],
+    ["APPROVED", ["batchplane:approved"], true],
+    ["DISPATCHING", ["batchplane:dispatching"], true],
+    ["DISPATCH_FAILED", ["batchplane:dispatch-failed"], false],
+    ["DISPATCHED", ["batchplane:dispatched"], false],
+    ["GATE_BLOCKED", ["batchplane:gate-blocked"], false],
+    ["REJECTED", ["batchplane:rejected"], false],
+  ])(
+    "treats execution request %s as %s blocking",
+    async (_status, statusLabels, blocksChange) => {
+      const state = createGitHubLiteMockState({
+        currentUser: { login: "developer" },
+        issues: [
+          executionRequestIssue({
+            labels: ["batchplane:execution-request", ...statusLabels],
+          }),
+        ],
+      });
+      const client = createMockGitHubLiteClient(state);
+      const governedChanges = createGitHubLiteGovernedChangeClient(
+        session(),
+        client,
+      );
+
+      if (blocksChange) {
+        await expect(
+          governedChanges.createBatchChangeRequest(
+            changeDraft({ batchId: "payment.daily-close" }),
+          ),
+        ).rejects.toThrow("pending execution request");
+        return;
+      }
+
+      await expect(
+        governedChanges.getBatchChangeBlocker({
+          batchId: "payment.daily-close",
+        }),
+      ).resolves.toBeNull();
+    },
+  );
+
+  it("does not create a branch or request for a governedChangeId-only change", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({
+        currentUser: { login: "developer" },
+        issues: [],
+        pullRequests: [],
+      }),
+    );
+    alignMockBatchWithGeneratedWorkflow(client.state, "payment.daily-close");
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+    const loaded = await governedChanges.loadBatchChangeDraft({
+      batchId: "payment.daily-close",
+      mode: "change",
+    });
+    const draft = {
+      ...loaded,
+      governedChangeId: "bgc-20260901-payment-daily-close-0002",
+      targetBatchId: loaded.batch.batchId,
+    };
+    const branchCount = Object.keys(client.state.branches).length;
+    const pullRequestCount = client.state.pullRequests.length;
+
+    await expect(
+      governedChanges.previewBatchChange(draft),
+    ).resolves.toMatchObject({
+      hasEffectiveChanges: false,
+    });
+    await expect(
+      governedChanges.createBatchChangeRequest(draft),
+    ).rejects.toThrow("does not modify any file");
+    expect(Object.keys(client.state.branches)).toHaveLength(branchCount);
+    expect(client.state.pullRequests).toHaveLength(pullRequestCount);
+  });
+
+  it("keeps a schedule change effective when the governedChangeId rotates", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({
+        currentUser: { login: "developer" },
+        issues: [],
+        pullRequests: [],
+      }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+    const loaded = await governedChanges.loadBatchChangeDraft({
+      batchId: "payment.daily-close",
+      mode: "change",
+    });
+
+    await expect(
+      governedChanges.previewBatchChange({
+        ...loaded,
+        governedChangeId: "bgc-20260901-payment-daily-close-0003",
+        schedules: [
+          ...loaded.schedules,
+          {
+            cron: "0 6 * * *",
+            enabled: true,
+            name: "Morning close",
+            scheduleId: "morning-close",
+            timezone: "Asia/Seoul",
+          },
+        ],
+        targetBatchId: loaded.batch.batchId,
+      }),
+    ).resolves.toMatchObject({ hasEffectiveChanges: true });
+  });
+
   it("uses the governed change suffix to avoid same-second branch collisions", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-01T12:00:00.000Z"));
@@ -211,6 +413,8 @@ describe("GitHub Lite governed change client", () => {
       );
       const draft = { ...registrationDraft, governedChangeId: undefined };
       const first = await governedChanges.createBatchChangeRequest(draft);
+      findCreatedPullRequest(client, first.request.requestLocator).state =
+        "closed";
       const second = await governedChanges.createBatchChangeRequest(draft);
       const firstPullRequest = findCreatedPullRequest(
         client,
@@ -485,6 +689,215 @@ describe("GitHub Lite governed change client", () => {
     });
   });
 
+  it("rejects a requester-controlled README artifact path with coherent evidence", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+    const created = await governedChanges.createBatchChangeRequest({
+      ...registrationDraft,
+      artifact: {
+        bytes: new TextEncoder().encode("trusted?\n"),
+        fileName: "run.sh",
+      },
+    });
+    const pullRequest = findCreatedPullRequest(
+      client,
+      created.request.requestLocator,
+    );
+    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+    const definitionFile = client.state.files.find(
+      (file) =>
+        file.branch === pullRequest.head &&
+        file.path === getBatchDefinitionPath(registrationDraft.batch.batchId),
+    );
+    const workflowFile = client.state.files.find(
+      (file) =>
+        file.branch === pullRequest.head &&
+        file.path === getBatchWorkflowPath(registrationDraft.batch.batchId),
+    );
+    const originalArtifact = evidence?.artifacts.find(
+      (artifact) => artifact.kind === "ARTIFACT",
+    );
+
+    if (!evidence || !definitionFile || !workflowFile || !originalArtifact) {
+      throw new Error("Expected generated registration evidence.");
+    }
+
+    const requestedDefinition = parseBatchDefinitionYaml(
+      definitionFile.content,
+    );
+    const forgedDefinition = {
+      ...requestedDefinition,
+      execution: {
+        ...requestedDefinition.execution!,
+        artifactPath: "README.md",
+      },
+    };
+    definitionFile.content = serializeBatchDefinitionYaml(forgedDefinition);
+    workflowFile.content = buildBatchWorkflowYaml(forgedDefinition);
+    client.state.files = client.state.files.filter(
+      (file) =>
+        !(
+          file.branch === pullRequest.head &&
+          file.path === originalArtifact.path
+        ),
+    );
+    client.state.files.push({
+      branch: pullRequest.head,
+      content: "trusted?\n",
+      path: "README.md",
+      sha: "forged-readme-artifact-sha",
+    });
+    client.state.pullRequestFiles[pullRequest.number] = [
+      {
+        path: getBatchDefinitionPath(registrationDraft.batch.batchId),
+        status: "added",
+      },
+      {
+        path: getBatchWorkflowPath(registrationDraft.batch.batchId),
+        status: "added",
+      },
+      { path: "README.md", status: "added" },
+    ];
+    const artifacts = await Promise.all(
+      evidence.artifacts.map(async (artifact) => {
+        if (artifact.kind === "BATCH_DEFINITION") {
+          return {
+            ...artifact,
+            afterDigest: await sha256BytesHex(
+              new TextEncoder().encode(definitionFile.content),
+            ),
+          };
+        }
+        if (artifact.kind === "WORKFLOW") {
+          return {
+            ...artifact,
+            afterDigest: await sha256BytesHex(
+              new TextEncoder().encode(workflowFile.content),
+            ),
+          };
+        }
+        return {
+          ...artifact,
+          afterDigest: await sha256BytesHex(
+            new TextEncoder().encode("trusted?\n"),
+          ),
+          path: "README.md",
+        };
+      }),
+    );
+    pullRequest.body = buildGovernedChangeRequestBody({
+      ...evidence,
+      artifacts,
+      targetRevisionDigest: await createTargetRevisionDigest(artifacts),
+    });
+
+    await expect(
+      governedChanges.getGovernedChange({
+        requestLocator: created.request.requestLocator,
+      }),
+    ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
+  });
+
+  it("rejects an evidence-consistent workflow that omits the mandatory Gate", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+    const created =
+      await governedChanges.createBatchChangeRequest(registrationDraft);
+    const pullRequest = findCreatedPullRequest(
+      client,
+      created.request.requestLocator,
+    );
+    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+    const workflow = client.state.files.find(
+      (file) =>
+        file.branch === pullRequest.head &&
+        file.path === getBatchWorkflowPath(registrationDraft.batch.batchId),
+    );
+
+    if (!evidence || !workflow) throw new Error("Expected governed workflow.");
+
+    workflow.content =
+      "name: altered\non: workflow_dispatch\njobs:\n  run:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo bypass\n";
+    const workflowDigest = await sha256BytesHex(
+      new TextEncoder().encode(workflow.content),
+    );
+    const artifacts = evidence.artifacts.map((artifact) =>
+      artifact.kind === "WORKFLOW"
+        ? { ...artifact, afterDigest: workflowDigest }
+        : artifact,
+    );
+    pullRequest.body = buildGovernedChangeRequestBody({
+      ...evidence,
+      artifacts,
+      targetRevisionDigest: await createTargetRevisionDigest(artifacts),
+    });
+
+    await expect(
+      governedChanges.getGovernedChange({
+        requestLocator: created.request.requestLocator,
+      }),
+    ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
+  });
+
+  it("rejects a registration request that removes its generated workflow", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+    const created =
+      await governedChanges.createBatchChangeRequest(registrationDraft);
+    const pullRequest = findCreatedPullRequest(
+      client,
+      created.request.requestLocator,
+    );
+    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+
+    if (!evidence) throw new Error("Expected governed evidence.");
+
+    client.state.files = client.state.files.filter(
+      (file) =>
+        !(
+          file.branch === pullRequest.head &&
+          file.path === getBatchWorkflowPath(registrationDraft.batch.batchId)
+        ),
+    );
+    client.state.pullRequestFiles[pullRequest.number] = [
+      {
+        path: getBatchDefinitionPath(registrationDraft.batch.batchId),
+        status: "added",
+      },
+    ];
+    const artifacts = evidence.artifacts.map((artifact) =>
+      artifact.kind === "WORKFLOW"
+        ? { ...artifact, afterDigest: null }
+        : artifact,
+    );
+    pullRequest.body = buildGovernedChangeRequestBody({
+      ...evidence,
+      artifacts,
+      targetRevisionDigest: await createTargetRevisionDigest(artifacts),
+    });
+
+    await expect(
+      governedChanges.getGovernedChange({
+        requestLocator: created.request.requestLocator,
+      }),
+    ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
+  });
+
   it("keeps a manually crafted request from a non-requester unapprovable", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
@@ -667,6 +1080,111 @@ describe("GitHub Lite governed change client", () => {
       evidence: { kind: "REAPPROVAL_REQUIRED", reason: "UNVERIFIED_REQUEST" },
       reviewState: "REAPPROVAL_REQUIRED",
     });
+  });
+
+  it("does not approve a coherent request targeting a non-default branch", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+    const created =
+      await governedChanges.createBatchChangeRequest(registrationDraft);
+    const pullRequest = findCreatedPullRequest(
+      client,
+      created.request.requestLocator,
+    );
+    pullRequest.base = "release";
+    client.state.currentUser.login = "maintainer";
+    client.state.repositoryPermissions.push({
+      permission: "maintain",
+      roleName: "maintain",
+      username: "maintainer",
+    });
+
+    await expect(
+      governedChanges.approveGovernedChange({
+        requestLocator: created.request.requestLocator,
+      }),
+    ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
+    expect(pullRequest.merged).toBe(false);
+  });
+
+  it("keeps a merged historical request verified after the default branch changes", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+    const created =
+      await governedChanges.createBatchChangeRequest(registrationDraft);
+    client.state.currentUser.login = "maintainer";
+    client.state.repositoryPermissions.push({
+      permission: "maintain",
+      roleName: "maintain",
+      username: "maintainer",
+    });
+    await governedChanges.approveGovernedChange({
+      requestLocator: created.request.requestLocator,
+    });
+
+    renameDefaultBranch(client.state, "trunk");
+    replaceDefaultFile(
+      client.state,
+      ".batch-governance/policies/role-mapping.yml",
+      workspaceRoleMapping(["admin"]),
+    );
+
+    await expect(
+      governedChanges.getGovernedChange({
+        requestLocator: created.request.requestLocator,
+      }),
+    ).resolves.toMatchObject({ reviewState: "MERGED" });
+  });
+
+  it("keeps a rejected historical request verified after current policy changes", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+    const created =
+      await governedChanges.createBatchChangeRequest(registrationDraft);
+    client.state.currentUser.login = "maintainer";
+    client.state.repositoryPermissions.push({
+      permission: "maintain",
+      roleName: "maintain",
+      username: "maintainer",
+    });
+    await governedChanges.rejectGovernedChange({
+      reason: "Not ready.",
+      requestLocator: created.request.requestLocator,
+    });
+
+    renameDefaultBranch(client.state, "trunk");
+    client.state.files.push({
+      branch: "trunk",
+      content: workspaceApprovalPolicy("SELF_APPROVAL_BLOCKED"),
+      path: ".batch-governance/workspace.yml",
+      sha: "trunk-policy-sha",
+    });
+    replaceDefaultFile(
+      client.state,
+      ".batch-governance/policies/role-mapping.yml",
+      workspaceRoleMapping(["admin"]),
+    );
+
+    await expect(
+      governedChanges.getGovernedChange({
+        requestLocator: created.request.requestLocator,
+      }),
+    ).resolves.toMatchObject({ reviewState: "REJECTED" });
   });
 
   it("does not project an invalid request body as trusted file content", async () => {
@@ -891,7 +1409,27 @@ describe("GitHub Lite governed change client", () => {
       governedChanges.getGovernedChange({
         requestLocator: created.request.requestLocator,
       }),
+    ).resolves.toMatchObject({ reviewState: "OPEN" });
+
+    preserveBranchRevision(client.state, "invalid-approval-current");
+    client.state.branches.main = "reapproval-authorization-sha";
+    client.state.currentUser.login = "admin";
+    client.state.repositoryPermissions.push({
+      permission: "admin",
+      roleName: "admin",
+      username: "admin",
+    });
+
+    await expect(
+      governedChanges.approveGovernedChange({
+        requestLocator: created.request.requestLocator,
+      }),
     ).resolves.toMatchObject({ reviewState: "APPROVED_PENDING_MERGE" });
+    expect(
+      parseGovernedChangeDecisionEvidence(
+        client.state.issueComments.at(-1)?.body ?? "",
+      )?.authorizationRevisionSha,
+    ).toBe("reapproval-authorization-sha");
   });
 
   it("loads creation policy and roles from the captured base revision", async () => {
@@ -1146,6 +1684,45 @@ describe("GitHub Lite governed change client", () => {
     ).resolves.toMatchObject({ reviewState: "OPEN" });
   });
 
+  it.each([
+    ["closed", false],
+    ["merged", true],
+  ])(
+    "does not mutate a verified %s governed change when rejecting it",
+    async (_description, merged) => {
+      const client = createMockGitHubLiteClient(
+        createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+      );
+      const governedChanges = createGitHubLiteGovernedChangeClient(
+        session(),
+        client,
+      );
+      const created =
+        await governedChanges.createBatchChangeRequest(registrationDraft);
+      const pullRequest = findCreatedPullRequest(
+        client,
+        created.request.requestLocator,
+      );
+      pullRequest.state = "closed";
+      pullRequest.merged = merged;
+      client.state.currentUser.login = "maintainer";
+      client.state.repositoryPermissions.push({
+        permission: "maintain",
+        roleName: "maintain",
+        username: "maintainer",
+      });
+      const commentCount = client.state.issueComments.length;
+
+      await expect(
+        governedChanges.rejectGovernedChange({
+          reason: "Too late to reject.",
+          requestLocator: created.request.requestLocator,
+        }),
+      ).rejects.toThrow("no longer awaiting a decision");
+      expect(client.state.issueComments).toHaveLength(commentCount);
+    },
+  );
+
   it("does not call an externally closed request withdrawn", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
@@ -1218,6 +1795,7 @@ describe("GitHub Lite governed change client", () => {
     const state = createGitHubLiteMockState({
       currentUser: { login: "developer" },
     });
+    state.issues = state.issues.map((issue) => ({ ...issue, state: "closed" }));
     const oldArtifactPath = "vendor/releases/runner.jar";
     state.files = state.files.map((file) =>
       file.path === ".batch-governance/batches/payment.daily-close.yml"
@@ -1451,6 +2029,51 @@ function findCreatedPullRequest(
   return pullRequest;
 }
 
+function alignMockBatchWithGeneratedWorkflow(
+  state: GitHubLiteMockState,
+  batchId: string,
+): void {
+  const definitionFile = state.files.find(
+    (file) =>
+      file.branch === state.repository.defaultBranch &&
+      file.path === getBatchDefinitionPath(batchId),
+  );
+  const workflowFile = state.files.find(
+    (file) =>
+      file.branch === state.repository.defaultBranch &&
+      file.path === getBatchWorkflowPath(batchId),
+  );
+  if (!definitionFile || !workflowFile) {
+    throw new Error("Expected BatchDefinition and workflow fixtures.");
+  }
+
+  const definition = {
+    ...parseBatchDefinitionYaml(definitionFile.content),
+    governedChangeId: "bgc-existing-payment-daily-close",
+  };
+  definitionFile.content = serializeBatchDefinitionYaml(definition);
+  workflowFile.content = buildBatchWorkflowYaml(definition);
+}
+
+function executionRequestIssue({ labels }: { labels: string[] }) {
+  return {
+    author: "developer",
+    body: [
+      "<!-- batchplane:execution-request",
+      "requestId=btr-20260901-payment-daily-close-0001",
+      "batchId=payment.daily-close",
+      "requestDigest=sha256:request",
+      "-->",
+    ].join("\n"),
+    isPullRequest: false,
+    labels,
+    number: 99,
+    state: "open" as const,
+    title: "Run batch payment.daily-close",
+    url: "https://github.com/always0ne/batch/issues/99",
+  };
+}
+
 function workspaceAutoApprovalPolicy(): string {
   return workspaceApprovalPolicy("AUTO_APPROVE");
 }
@@ -1472,6 +2095,23 @@ function workspaceApprovalPolicy(
 
 function preserveDefaultBranchRevision(state: GitHubLiteMockState): void {
   preserveBranchRevision(state, "request-base");
+}
+
+function renameDefaultBranch(
+  state: GitHubLiteMockState,
+  defaultBranch: string,
+): void {
+  const previousDefaultBranch = state.repository.defaultBranch;
+  const revisionSha = state.branches[previousDefaultBranch];
+
+  if (!revisionSha) throw new Error("Expected default branch SHA.");
+  state.repository.defaultBranch = defaultBranch;
+  state.branches[defaultBranch] = revisionSha;
+  state.files.push(
+    ...state.files
+      .filter((file) => file.branch === previousDefaultBranch)
+      .map((file) => ({ ...file, branch: defaultBranch })),
+  );
 }
 
 function preserveBranchRevision(
@@ -1537,5 +2177,6 @@ function changeDraft(
     ...(artifact ? { artifact } : {}),
     batch: { ...registrationDraft.batch, ...batch },
     mode: "change",
+    targetBatchId: batch.batchId ?? registrationDraft.batch.batchId,
   };
 }

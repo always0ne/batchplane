@@ -189,6 +189,43 @@ export async function loadPreparedChangePreviewFiles(
   );
 }
 
+export function hasEffectivePreparedChange(
+  files: GovernedChangePreviewFile[],
+): boolean {
+  return files.some((file) => {
+    if (file.status === "UNCHANGED") return false;
+    if (file.path.includes(".batch-governance/batches/")) {
+      return hasEffectiveBatchDefinitionChange(file);
+    }
+    return true;
+  });
+}
+
+function hasEffectiveBatchDefinitionChange(
+  file: GovernedChangePreviewFile,
+): boolean {
+  if (file.status !== "MODIFIED" || !file.baseContent || !file.nextContent) {
+    return file.status !== "UNCHANGED";
+  }
+
+  try {
+    return (
+      serializeWithoutGovernedChangeId(file.baseContent) !==
+      serializeWithoutGovernedChangeId(file.nextContent)
+    );
+  } catch {
+    return true;
+  }
+}
+
+function serializeWithoutGovernedChangeId(content: string): string {
+  const definition = parseBatchDefinitionYaml(content);
+  return serializeBatchDefinitionYaml({
+    ...definition,
+    governedChangeId: undefined,
+  });
+}
+
 export async function createPreparedChangeTargetDigest({
   client,
   prepared,

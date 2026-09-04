@@ -116,6 +116,7 @@ export function createRuntimeGovernedChangeClient(
   | "approveGovernedChange"
   | "createBatchChangeRequest"
   | "getGovernedChange"
+  | "getBatchChangeBlocker"
   | "loadBatchChangeDraft"
   | "previewBatchChange"
   | "rejectGovernedChange"

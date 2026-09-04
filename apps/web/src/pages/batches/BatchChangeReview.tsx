@@ -1,16 +1,18 @@
-import { GitPullRequest, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BatchChangeDraft } from "@batchplane/ui-client";
+import type {
+  BatchChangeDraft,
+  GovernedChangePreview,
+} from "@batchplane/ui-client";
 
 import { GovernedChangePreviewPanel } from "../../features/governed-changes/GovernedChangePreviewPanel";
-import { hasNoPreviewFileChanges } from "../../features/governed-changes/governed-change-preview";
 import { Button } from "../../ui/Button";
 
 type PreviewState =
   | { type: "idle" }
   | { type: "loading" }
   | {
-      preview: { files: Parameters<typeof hasNoPreviewFileChanges>[0] };
+      preview: GovernedChangePreview;
       type: "ready";
     }
   | { message: string; type: "error" };
@@ -28,8 +30,7 @@ export function BatchChangeReview({
 }) {
   const { t } = useTranslation("registration");
   const noChanges =
-    previewState.type === "ready" &&
-    hasNoPreviewFileChanges(previewState.preview.files);
+    previewState.type === "ready" && !previewState.preview.hasEffectiveChanges;
   const canSubmit =
     missingFields.length === 0 &&
     previewState.type === "ready" &&
@@ -80,7 +81,7 @@ export function BatchChangeReview({
           {submissionState === "submitting" ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
-            <GitPullRequest className="h-4 w-4" aria-hidden="true" />
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
           )}
           {t(actionCopyKey(mode))}
         </Button>

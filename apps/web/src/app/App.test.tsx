@@ -34,8 +34,10 @@ const disconnectedClient = {
     mode: "create",
     schedules: [],
   }),
+  getBatchChangeBlocker: async () => null,
   previewBatchChange: async () => ({
     files: [],
+    hasEffectiveChanges: false,
     targetRevisionDigest: "sha256:test",
   }),
   rejectGovernedChange: async () => {

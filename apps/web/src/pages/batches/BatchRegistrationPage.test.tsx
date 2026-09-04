@@ -1,5 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { BatchChangeDraft, BatchPlaneClient } from "@batchplane/ui-client";
+import {
+  WorkspaceNotConnectedError,
+  type BatchChangeDraft,
+  type BatchPlaneClient,
+} from "@batchplane/ui-client";
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import "../../i18n/i18n";
 import { i18next } from "../../i18n/i18n";
@@ -53,6 +57,25 @@ describe("BatchRegistrationPage", () => {
     expect(createBatchChangeRequest).toHaveBeenCalledWith(
       expect.objectContaining({ mode: "create" }),
     );
+  });
+
+  it("routes a disconnected Workspace to setup instead of showing a load failure", async () => {
+    renderPage(
+      createClient({
+        loadBatchChangeDraft: vi
+          .fn()
+          .mockRejectedValue(new WorkspaceNotConnectedError()),
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Connect a Workspace before loading change mode.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open Workspace" }),
+    ).toHaveAttribute("href", "/lite/setup");
   });
 
   it("keeps schedule add and deletion inside the batch change draft", async () => {
@@ -245,6 +268,7 @@ describe("BatchRegistrationPage", () => {
       createClient({
         previewBatchChange: vi.fn().mockResolvedValue({
           files: [{ path: "batch.yml", status: "UNCHANGED" }],
+          hasEffectiveChanges: false,
           targetRevisionDigest: "sha256:no-op",
         }),
       }),
@@ -335,6 +359,7 @@ function createClient(
   return {
     approveGovernedChange: async () => requestDetail(),
     createBatchChangeRequest: async () => ({ request: requestResult("42") }),
+    getBatchChangeBlocker: async () => null,
     getGovernedChange: async () => requestDetail(),
     listBatches: async () => ({
       batches: [],
@@ -359,6 +384,7 @@ function preview() {
         status: "ADDED" as const,
       },
     ],
+    hasEffectiveChanges: true,
     targetRevisionDigest: "sha256:preview",
   };
 }

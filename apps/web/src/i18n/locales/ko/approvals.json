@@ -78,7 +78,7 @@
     "githubLagHint": "새로 생성한 요청은 상세 화면에서 바로 확인합니다. 승인함에는 처리 대기 중인 요청이 표시됩니다.",
     "loading": "승인 요청을 불러오는 중입니다...",
     "noSession": "승인 요청을 보려면 Workspace를 먼저 연결하세요.",
-    "registrationReviewHint": "변경 상세에서 체크리스트 확인 후 반영/반려를 처리하세요."
+    "registrationReviewHint": "변경 상세에서 체크리스트를 확인하고 결정하세요."
   },
   "registrationDetail": {
     "title": "통제 변경 상세",
@@ -129,7 +129,7 @@
       "actor": "처리자",
       "decidedAt": "처리 시각",
       "source": "결정 출처",
-      "noEvidence": "아직 BatchPlane 검토 증적 코멘트가 없습니다.",
+      "noEvidence": "아직 BatchPlane 검토 결정이 기록되지 않았습니다.",
       "recreateRequired": "이 요청은 승인할 수 없습니다. 요청을 철회하고 현재 배치 정의 기준으로 새 변경 요청을 생성하세요.",
       "decisions": {
         "APPROVED": "승인",

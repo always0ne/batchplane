@@ -78,7 +78,7 @@
     "githubLagHint": "Newly created requests open in their detail page immediately. This inbox shows requests waiting for action.",
     "loading": "Loading approval requests...",
     "noSession": "Connect a Workspace before reviewing approvals.",
-    "registrationReviewHint": "Open change detail to review checklist and decide merge or rejection."
+    "registrationReviewHint": "Open change detail to review the checklist and record a decision."
   },
   "registrationDetail": {
     "title": "Governed change detail",
@@ -129,7 +129,7 @@
       "actor": "Actor",
       "decidedAt": "Decided at",
       "source": "Decision source",
-      "noEvidence": "No BatchPlane review evidence comment is recorded yet.",
+      "noEvidence": "No BatchPlane review decision is recorded yet.",
       "recreateRequired": "This request cannot be approved. Withdraw it and create a new change request from the current Batch definition.",
       "decisions": {
         "APPROVED": "Approved",

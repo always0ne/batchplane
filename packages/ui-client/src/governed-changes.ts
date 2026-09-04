@@ -32,6 +32,8 @@ export type BatchChangeDraft = {
   governedChangeId?: string;
   mode: "create" | "change" | "delete";
   schedules: BatchSchedule[];
+  /** Immutable identity supplied by the change route, never user-editable. */
+  targetBatchId?: string;
 };
 
 export type GovernedChangePreviewFile = {
@@ -48,7 +50,15 @@ export type GovernedChangePreviewFile = {
 
 export type GovernedChangePreview = {
   files: GovernedChangePreviewFile[];
+  /** True when the proposed Batch revision changes product behavior or data. */
+  hasEffectiveChanges: boolean;
   targetRevisionDigest: string;
+};
+
+export type BatchChangeBlocker = {
+  kind: "EXECUTION_REQUEST" | "GOVERNED_CHANGE";
+  requestLocator: string;
+  title: string;
 };
 
 type GovernedChangeRequestBase = {

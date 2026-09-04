@@ -7,10 +7,12 @@ import { sha256BytesHex } from "@batchplane/digest";
 
 import {
   assertCanonicalBatchId,
+  getBatchArtifactPath,
   getBatchDefinitionPath,
   getBatchWorkflowPath,
   parseBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
+import { buildBatchWorkflowYaml } from "./github-workflow.js";
 import {
   hasGovernedChangeRole,
   loadGovernedChangeRoles,
@@ -28,7 +30,15 @@ export async function hasAuthoritativeGovernedChangeRequest(
   pullRequest: GitHubPullRequest,
   evidence: GovernedChangeRequestEvidence | null,
 ): Promise<boolean> {
-  if (!hasMatchingRequestMetadata(repository, pullRequest, evidence)) {
+  const workspace = await client.getRepository(repository);
+  if (
+    !hasMatchingRequestMetadata(
+      repository,
+      workspace.defaultBranch,
+      pullRequest,
+      evidence,
+    )
+  ) {
     return false;
   }
 
@@ -126,6 +136,7 @@ function isValidVerifiedBatchId(batchId: string): boolean {
 
 function hasMatchingRequestMetadata(
   repository: RepoRef,
+  defaultBranch: string,
   pullRequest: GitHubPullRequest,
   evidence: GovernedChangeRequestEvidence | null,
 ): evidence is GovernedChangeRequestEvidence {
@@ -136,6 +147,7 @@ function hasMatchingRequestMetadata(
     pullRequest.createdAt &&
     evidence.repository === `${repository.owner}/${repository.repo}` &&
     evidence.workspace === `${repository.owner}/${repository.repo}` &&
+    (pullRequest.state !== "open" || pullRequest.base === defaultBranch) &&
     evidence.requester === pullRequest.author &&
     evidence.requestedAt === pullRequest.createdAt &&
     evidence.baseRevisionSha === pullRequest.baseSha &&
@@ -181,6 +193,7 @@ async function hasMatchingDefinitionMeaning(
   evidence: GovernedChangeRequestEvidence,
 ): Promise<boolean> {
   const definitionPath = getBatchDefinitionPath(evidence.batchId);
+  const workflowPath = getBatchWorkflowPath(evidence.batchId);
   const [baseFile, headFile] = await Promise.all([
     client.getFile({
       ...repository,
@@ -201,6 +214,18 @@ async function hasMatchingDefinitionMeaning(
     const headDefinition = headFile
       ? parseBatchDefinitionYaml(headFile.content)
       : null;
+    const [baseWorkflow, headWorkflow] = await Promise.all([
+      client.getFile({
+        ...repository,
+        path: workflowPath,
+        ref: evidence.baseRevisionSha,
+      }),
+      client.getFile({
+        ...repository,
+        path: workflowPath,
+        ref: pullRequest.headSha!,
+      }),
+    ]);
     const definition =
       evidence.type === "DELETE" ? baseDefinition : headDefinition;
     const definitionArtifacts = evidence.artifacts.filter(
@@ -208,15 +233,6 @@ async function hasMatchingDefinitionMeaning(
     );
     const workflowArtifacts = evidence.artifacts.filter(
       (artifact) => artifact.kind === "WORKFLOW",
-    );
-    const artifactPaths = evidence.artifacts
-      .filter((artifact) => artifact.kind === "ARTIFACT")
-      .map((artifact) => artifact.path);
-    const allowedArtifactPaths = new Set(
-      [
-        baseDefinition?.execution?.artifactPath,
-        headDefinition?.execution?.artifactPath,
-      ].filter((path): path is string => Boolean(path)),
     );
     const uniqueArtifactKeys = new Set(
       evidence.artifacts.map(
@@ -231,15 +247,173 @@ async function hasMatchingDefinitionMeaning(
       uniqueArtifactKeys.size === evidence.artifacts.length &&
       definition.batchId === evidence.batchId &&
       definitionArtifacts[0]?.path === definitionPath &&
-      definition.workflow.path === getBatchWorkflowPath(evidence.batchId) &&
-      workflowArtifacts[0]?.path === definition.workflow.path &&
-      artifactPaths.every((path) => allowedArtifactPaths.has(path)) &&
+      definition.workflow.path === workflowPath &&
+      workflowArtifacts[0]?.path === workflowPath &&
+      hasCanonicalArtifactEnvelope({
+        artifacts: evidence.artifacts,
+        baseDefinition,
+        batchId: evidence.batchId,
+        headDefinition,
+        type: evidence.type,
+      }) &&
+      hasCanonicalWorkflow({
+        headDefinition,
+        headWorkflow,
+        type: evidence.type,
+      }) &&
+      hasCanonicalWorkflowTransition({
+        baseWorkflow,
+        headWorkflow,
+        type: evidence.type,
+      }) &&
       (evidence.type === "DELETE" ||
         definition.governedChangeId === evidence.governedChangeId)
     );
   } catch {
     return false;
   }
+}
+
+function hasCanonicalWorkflow({
+  headDefinition,
+  headWorkflow,
+  type,
+}: {
+  headDefinition: ReturnType<typeof parseBatchDefinitionYaml> | null;
+  headWorkflow: GitHubFile | null;
+  type: GovernedChangeRequestEvidence["type"];
+}): boolean {
+  if (type === "DELETE") return true;
+
+  return Boolean(
+    headDefinition?.gateRequired &&
+    headWorkflow &&
+    new TextDecoder().decode(fileBytes(headWorkflow)) ===
+      buildBatchWorkflowYaml(headDefinition),
+  );
+}
+
+function hasCanonicalWorkflowTransition({
+  baseWorkflow,
+  headWorkflow,
+  type,
+}: {
+  baseWorkflow: GitHubFile | null;
+  headWorkflow: GitHubFile | null;
+  type: GovernedChangeRequestEvidence["type"];
+}): boolean {
+  if (type === "REGISTER") return !baseWorkflow && Boolean(headWorkflow);
+  if (type === "CHANGE") return Boolean(baseWorkflow && headWorkflow);
+  return Boolean(baseWorkflow && !headWorkflow);
+}
+
+function hasCanonicalArtifactEnvelope({
+  artifacts,
+  baseDefinition,
+  batchId,
+  headDefinition,
+  type,
+}: {
+  artifacts: GovernedChangeArtifact[];
+  baseDefinition: ReturnType<typeof parseBatchDefinitionYaml> | null;
+  batchId: string;
+  headDefinition: ReturnType<typeof parseBatchDefinitionYaml> | null;
+  type: GovernedChangeRequestEvidence["type"];
+}): boolean {
+  const artifactFiles = artifacts.filter(
+    (artifact) => artifact.kind === "ARTIFACT",
+  );
+  const baseArtifactPath = baseDefinition?.execution?.artifactPath;
+  const headArtifactPath = headDefinition?.execution?.artifactPath;
+  const baseArtifact = findArtifact(artifactFiles, baseArtifactPath);
+  const headArtifact = findArtifact(artifactFiles, headArtifactPath);
+
+  if (type === "DELETE") {
+    return (
+      !headArtifactPath &&
+      artifactFiles.length === (baseArtifactPath ? 1 : 0) &&
+      Boolean(
+        !baseArtifactPath ||
+        (baseArtifact?.beforeDigest !== null &&
+          baseArtifact?.afterDigest === null),
+      )
+    );
+  }
+
+  if (
+    headArtifactPath &&
+    !isCanonicalOrRetainedArtifactPath({
+      baseArtifactPath,
+      batchId,
+      headArtifactPath,
+    })
+  ) {
+    return false;
+  }
+
+  if (!baseArtifactPath && !headArtifactPath) return artifactFiles.length === 0;
+  if (!baseArtifactPath && headArtifactPath) {
+    return (
+      artifactFiles.length === 1 &&
+      headArtifact?.beforeDigest === null &&
+      headArtifact?.afterDigest !== null
+    );
+  }
+  if (baseArtifactPath && !headArtifactPath) {
+    return (
+      artifactFiles.length === 1 &&
+      baseArtifact?.beforeDigest !== null &&
+      baseArtifact?.afterDigest === null
+    );
+  }
+  if (baseArtifactPath === headArtifactPath) {
+    return (
+      artifactFiles.length === 1 &&
+      baseArtifact?.beforeDigest !== null &&
+      baseArtifact?.afterDigest !== null
+    );
+  }
+
+  return (
+    artifactFiles.length === 2 &&
+    baseArtifact?.beforeDigest !== null &&
+    baseArtifact?.afterDigest === null &&
+    headArtifact?.beforeDigest === null &&
+    headArtifact?.afterDigest !== null
+  );
+}
+
+function findArtifact(
+  artifacts: GovernedChangeArtifact[],
+  path: string | undefined,
+): GovernedChangeArtifact | undefined {
+  return path
+    ? artifacts.find((artifact) => artifact.path === path)
+    : undefined;
+}
+
+function isCanonicalOrRetainedArtifactPath({
+  baseArtifactPath,
+  batchId,
+  headArtifactPath,
+}: {
+  baseArtifactPath: string | undefined;
+  batchId: string;
+  headArtifactPath: string;
+}): boolean {
+  return (
+    headArtifactPath === baseArtifactPath ||
+    isCanonicalBatchArtifactPath(batchId, headArtifactPath)
+  );
+}
+
+function isCanonicalBatchArtifactPath(batchId: string, path: string): boolean {
+  const prefix = `.batch-governance/batches/${batchId}/artifacts/`;
+
+  if (!path.startsWith(prefix)) return false;
+
+  const fileName = path.slice(prefix.length);
+  return Boolean(fileName) && getBatchArtifactPath(batchId, fileName) === path;
 }
 
 function hasMatchingArtifactDigests(
@@ -335,12 +509,22 @@ function hasMatchingBatchMeaning(
   if (!definition || !workflow) return false;
   if (definition.path !== getBatchDefinitionPath(evidence.batchId))
     return false;
+  if (workflow.path !== getBatchWorkflowPath(evidence.batchId)) return false;
 
   return evidence.type === "REGISTER"
-    ? definition.beforeDigest === null && definition.afterDigest !== null
+    ? definition.beforeDigest === null &&
+        definition.afterDigest !== null &&
+        workflow.beforeDigest === null &&
+        workflow.afterDigest !== null
     : evidence.type === "DELETE"
-      ? definition.beforeDigest !== null && definition.afterDigest === null
-      : definition.beforeDigest !== null && definition.afterDigest !== null;
+      ? definition.beforeDigest !== null &&
+        definition.afterDigest === null &&
+        workflow.beforeDigest !== null &&
+        workflow.afterDigest === null
+      : definition.beforeDigest !== null &&
+        definition.afterDigest !== null &&
+        workflow.beforeDigest !== null &&
+        workflow.afterDigest !== null;
 }
 
 function digestFile(file: GitHubFile): Promise<string> {

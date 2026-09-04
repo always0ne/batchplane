@@ -15,6 +15,7 @@ import {
 import { getCronPreview } from "./cron-preview";
 
 export function BatchChangeFormRegions({
+  batchIdReadOnly = false,
   existingArtifact,
   onAddSchedule,
   onArtifactChange,
@@ -25,6 +26,7 @@ export function BatchChangeFormRegions({
   scheduleDrafts,
   values,
 }: {
+  batchIdReadOnly?: boolean;
   existingArtifact?: { fileName: string; locator: string };
   onAddSchedule: () => void;
   onArtifactChange: (file?: File) => Promise<void>;
@@ -45,6 +47,7 @@ export function BatchChangeFormRegions({
         </h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <TextField
+            disabled={batchIdReadOnly}
             label={t("form.batchId")}
             onChange={(value) => onValueChange("batchId", value)}
             placeholder={t("form.placeholders.batchId")}

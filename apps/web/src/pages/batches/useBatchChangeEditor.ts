@@ -1,7 +1,9 @@
 import type { BatchSchedule } from "@batchplane/domain";
-import type {
-  BatchChangeDraft,
-  GovernedChangePreview,
+import {
+  isWorkspaceNotConnectedError,
+  type BatchChangeBlocker,
+  type BatchChangeDraft,
+  type GovernedChangePreview,
 } from "@batchplane/ui-client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -17,7 +19,7 @@ import {
   type UploadedArtifact,
 } from "./batch-change-form";
 
-type LoadState = "loading" | "ready" | "error";
+type LoadState = "loading" | "ready" | "error" | "workspace-not-connected";
 type PreviewState =
   | { type: "idle" }
   | { type: "loading" }
@@ -36,6 +38,7 @@ export function useBatchChangeEditor({
   const scheduleSequence = useRef(0);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState("");
+  const [blocker, setBlocker] = useState<BatchChangeBlocker | null>(null);
   const [values, setValues] = useState<BatchChangeFormValues>(
     defaultBatchChangeFormValues,
   );
@@ -59,6 +62,7 @@ export function useBatchChangeEditor({
         governedChangeId,
         mode,
         scheduleDrafts,
+        targetBatchId: mode === "create" ? undefined : targetBatchId,
         values,
       }),
     [
@@ -66,6 +70,7 @@ export function useBatchChangeEditor({
       governedChangeId,
       mode,
       scheduleDrafts,
+      targetBatchId,
       uploadedArtifact,
       values,
     ],
@@ -83,8 +88,20 @@ export function useBatchChangeEditor({
       setPreviewState({ type: "idle" });
       setSubmissionState("idle");
       setSubmissionError("");
+      setBlocker(null);
 
       try {
+        if (mode !== "create" && targetBatchId) {
+          const pending = await client.getBatchChangeBlocker({
+            batchId: targetBatchId,
+          });
+          if (pending) {
+            if (!isCurrent) return;
+            setBlocker(pending);
+            setLoadState("ready");
+            return;
+          }
+        }
         const loadedDraft = await client.loadBatchChangeDraft({
           ...(targetBatchId ? { batchId: targetBatchId } : {}),
           mode,
@@ -99,6 +116,10 @@ export function useBatchChangeEditor({
         setLoadState("ready");
       } catch (error) {
         if (!isCurrent) return;
+        if (isWorkspaceNotConnectedError(error)) {
+          setLoadState("workspace-not-connected");
+          return;
+        }
         setLoadError(messageFrom(error));
         setLoadState("error");
       }
@@ -191,8 +212,7 @@ export function useBatchChangeEditor({
   }, []);
   const submit = useCallback(async () => {
     if (missingFields.length > 0 || previewState.type !== "ready") return null;
-    if (previewState.preview.files.every((file) => file.status === "UNCHANGED"))
-      return null;
+    if (!previewState.preview.hasEffectiveChanges) return null;
 
     setSubmissionState("submitting");
     setSubmissionError("");
@@ -209,6 +229,7 @@ export function useBatchChangeEditor({
 
   return {
     addSchedule,
+    blocker,
     draft,
     existingArtifact,
     loadError,

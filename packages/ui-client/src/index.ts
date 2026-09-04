@@ -3,6 +3,7 @@ export * from "./governed-changes.js";
 
 import type {
   BatchChangeDraft,
+  BatchChangeBlocker,
   CreateGovernedChangeResult,
   GovernedChangeDetail,
   GovernedChangePreview,
@@ -15,6 +16,9 @@ export type BatchPlaneClient = {
     batchId?: string;
     mode: "create" | "change" | "delete";
   }): Promise<BatchChangeDraft>;
+  getBatchChangeBlocker(input: {
+    batchId: string;
+  }): Promise<BatchChangeBlocker | null>;
   previewBatchChange(input: BatchChangeDraft): Promise<GovernedChangePreview>;
   createBatchChangeRequest(
     input: BatchChangeDraft,
@@ -33,3 +37,18 @@ export type BatchPlaneClient = {
     requestLocator: string;
   }): Promise<GovernedChangeDetail>;
 };
+
+export class WorkspaceNotConnectedError extends Error {
+  readonly code = "WORKSPACE_NOT_CONNECTED";
+
+  constructor() {
+    super("Connect a Workspace before requesting a governed change.");
+    this.name = "WorkspaceNotConnectedError";
+  }
+}
+
+export function isWorkspaceNotConnectedError(
+  error: unknown,
+): error is WorkspaceNotConnectedError {
+  return error instanceof WorkspaceNotConnectedError;
+}

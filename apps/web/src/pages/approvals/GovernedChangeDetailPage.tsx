@@ -33,6 +33,22 @@ export function GovernedChangeDetailPage() {
     );
   }
 
+  if (change.detailState.type === "workspace-not-connected") {
+    return (
+      <EmptyState
+        action={
+          <Link
+            className="font-semibold text-bp-control underline"
+            to="/lite/setup"
+          >
+            {t("actions.openSetup")}
+          </Link>
+        }
+        message={t("registrationDetail.states.noSession")}
+      />
+    );
+  }
+
   if (change.detailState.type === "error") {
     return (
       <ErrorState

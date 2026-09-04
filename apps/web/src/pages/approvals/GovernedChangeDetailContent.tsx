@@ -21,7 +21,7 @@ export function GovernedChangeDetailContent({
 }) {
   return (
     <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         <ChangeSummary detail={detail} />
         <ChangeEvidence detail={detail} />
       </div>
@@ -166,11 +166,11 @@ function DecisionActions({
 }) {
   const { t } = useTranslation("approvals");
   const [rejectionReason, setRejectionReason] = useState("");
-  const isOpen = detail.reviewState === "OPEN";
   const canApprove = detail.canApprove || detail.canApplyApprovedChange;
-  const showApprove = isOpen || detail.canApplyApprovedChange;
-  const showReject = isOpen;
-  const showWithdraw = isOpen && detail.canWithdraw;
+  const showApprove =
+    detail.reviewState === "OPEN" || detail.canApplyApprovedChange;
+  const showReject = detail.canReject;
+  const showWithdraw = detail.canWithdraw;
   const unavailableReason = actionUnavailableReason(detail, t);
 
   async function reject() {
@@ -271,7 +271,7 @@ function actionUnavailableReason(
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-slate-50 px-3 py-2">
+    <div className="min-w-0 rounded-md bg-slate-50 px-3 py-2">
       <dt className="text-xs font-semibold uppercase text-bp-muted">{label}</dt>
       <dd className="mt-1 break-all font-mono text-xs text-bp-graphite">
         {value || "-"}

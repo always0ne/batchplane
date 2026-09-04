@@ -61,6 +61,7 @@ export function toBatchChangeDraft({
   governedChangeId,
   mode,
   scheduleDrafts,
+  targetBatchId,
   values,
 }: {
   artifact?: UploadedArtifact;
@@ -68,6 +69,7 @@ export function toBatchChangeDraft({
   governedChangeId: string;
   mode: BatchChangeDraft["mode"];
   scheduleDrafts: ScheduleDraft[];
+  targetBatchId?: string;
   values: BatchChangeFormValues;
 }): BatchChangeDraft {
   return {
@@ -81,6 +83,7 @@ export function toBatchChangeDraft({
     schedules: scheduleDrafts
       .filter((schedule) => schedule.status === "active")
       .map((schedule) => normalizeSchedule(schedule.values)),
+    ...(targetBatchId ? { targetBatchId } : {}),
   };
 }
 

@@ -7,6 +7,7 @@ import {
   getBatchDefinitionPath,
   getBatchWorkflowPath,
 } from "../registration/registration-model";
+import { isRegistrationApprovalRequest } from "./approval-model";
 
 export type BatchRegistrationRequestType = "REGISTER" | "CHANGE" | "DELETE";
 
@@ -125,6 +126,7 @@ export function parseRegistrationApprovalDecision(
     }
 
     if (
+      !comment.body.includes("## BatchPlane Governed Change Decision") &&
       !comment.body.includes("## BatchPlane Governed Change Approval") &&
       !comment.body.includes("## BatchPlane Registration Approval")
     ) {
@@ -156,17 +158,30 @@ export function deriveRegistrationReviewState(
     return "MERGED";
   }
 
-  if (decision?.decision === "REJECTED") {
-    return "REJECTED";
-  }
-
   if (pullRequest.state === "open") {
     return decision?.decision === "APPROVED"
       ? "APPROVED_PENDING_MERGE"
       : "OPEN";
   }
 
+  if (decision?.decision === "REJECTED") {
+    return "REJECTED";
+  }
+
   return "CLOSED";
+}
+
+export function isOpenRegistrationReview(
+  pullRequest: RepositoryPullRequest,
+  comments: RepositoryIssueComment[],
+): boolean {
+  return (
+    isRegistrationApprovalRequest(pullRequest) &&
+    deriveRegistrationReviewState(
+      pullRequest,
+      parseRegistrationApprovalDecision(comments),
+    ) === "OPEN"
+  );
 }
 
 function parseBatchRegistrationRequestType(

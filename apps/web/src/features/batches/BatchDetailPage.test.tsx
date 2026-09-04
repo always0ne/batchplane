@@ -98,14 +98,22 @@ describe("BatchDetailPage", () => {
       screen.getByRole("button", { name: "Request change" }),
     ).toBeDisabled();
     expect(
+      screen.getByRole("button", { name: "Request delete" }),
+    ).toBeDisabled();
+    expect(
       screen.getByText(
         "Resolve pending governed work before creating another change request.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Execution request #101")).toBeInTheDocument();
+    expect(screen.getAllByText("Execution request #101")).toHaveLength(1);
     expect(
-      screen.getByRole("link", { name: "Open execution request" }),
-    ).toHaveAttribute("href", "/execution-requests/101");
+      screen.getAllByRole("link", { name: "Open execution request" }),
+    ).toHaveLength(1);
+    for (const link of screen.getAllByRole("link", {
+      name: "Open execution request",
+    })) {
+      expect(link).toHaveAttribute("href", "/execution-requests/101");
+    }
   });
 
   it("allows change requests when the prior execution request is dispatch failed", async () => {
@@ -127,7 +135,7 @@ describe("BatchDetailPage", () => {
   });
 
   it("renders an empty state when the batch is missing", async () => {
-    writeRuntimeFixtureSelection("approval-pending");
+    writeRuntimeFixtureSelection("happy-path");
 
     renderBatchDetailPage("/batches/missing.batch");
 
@@ -140,7 +148,7 @@ describe("BatchDetailPage", () => {
   });
 
   it("creates a governed delete request from batch detail", async () => {
-    writeRuntimeFixtureSelection("approval-pending");
+    writeRuntimeFixtureSelection("happy-path");
 
     renderBatchDetailPage("/batches/payment.daily-close");
 
