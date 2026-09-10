@@ -51,8 +51,7 @@ For the approved routing correction, use React Router's route tree, layout
 routes and `Outlet`, with `createBrowserRouter` and `RouterProvider`. Preserve
 product-client injection, existing URLs, Pages basename/redirect restoration,
 locale behavior, and fixture remount boundaries. This decision does not migrate
-page queries to loaders or commands to router actions. The App composition
-inventory below describes the current extraction until that correction lands.
+page queries to loaders or commands to router actions.
 
 Official React Router references for the current v6 integration:
 
@@ -141,15 +140,16 @@ table is not a reason to perform a cosmetic mass move.
 
 ### Application Composition
 
-`app/App.tsx` composes `AppShell` and `AppRoutes` and owns the development fixture
-selection shared by the selector and the route-content remount boundary.
-`AppShell` owns the existing responsive frame; `AppNavigation` owns menu groups
+`app/router.tsx` declares the static route tree. `app/RootLayout.tsx` renders an
+`Outlet` and owns development fixture selection and the route-content
+remount boundary. `AppNavigation` owns menu groups
 and active links. `LanguageSelector` owns locale selection and persistence, and
 `RuntimeFixtureSwitcher` owns the development-only selector presentation.
 The not-found route screen lives under `pages/not-found`.
 
-Keep the client provider and BrowserRouter lifetime in `main.tsx` unchanged by
-this extraction. Changing a fixture remounts the route content, not the shell;
+`main.tsx` restores the Pages redirect before creating the browser router once
+and rendering `RouterProvider` inside the stable client provider. Importing route
+definitions does not create browser history. Changing a fixture remounts the route content, not the layout;
 changing language does not reset page state. The route table retains legacy
 schedule redirects and their encoded query and hash. This composition cleanup
 does not count the remaining legacy route Pages as migrated.

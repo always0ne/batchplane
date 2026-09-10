@@ -1,26 +1,29 @@
 import { GitBranch } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState } from "react";
+import { Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import type { RuntimeFixtureId } from "../runtime/runtime-fixtures";
+import {
+  readRuntimeFixtureSelection,
+  type RuntimeFixtureId,
+  writeRuntimeFixtureSelection,
+} from "../runtime/runtime-fixtures";
 import { AppNavigation } from "./AppNavigation";
 import { LanguageSelector } from "./LanguageSelector";
 import { RuntimeFixtureSwitcher } from "./RuntimeFixtureSwitcher";
 
 const compactMarkSrc = `${import.meta.env.BASE_URL}assets/batchplane-compact-mark.svg`;
 
-type AppShellProps = {
-  children: ReactNode;
-  onRuntimeFixtureChange: (fixtureId: RuntimeFixtureId) => void;
-  runtimeFixture: RuntimeFixtureId;
-};
-
-export function AppShell({
-  children,
-  onRuntimeFixtureChange,
-  runtimeFixture,
-}: AppShellProps) {
+export function RootLayout() {
+  const [runtimeFixture, setRuntimeFixture] = useState(() =>
+    readRuntimeFixtureSelection(),
+  );
   const { t } = useTranslation(["common", "navigation"]);
+
+  function changeRuntimeFixture(fixtureId: RuntimeFixtureId) {
+    writeRuntimeFixtureSelection(fixtureId);
+    setRuntimeFixture(fixtureId);
+  }
 
   return (
     <div className="min-h-screen bg-bp-surface">
@@ -59,7 +62,7 @@ export function AppShell({
             <div className="flex flex-wrap items-center gap-3">
               <RuntimeFixtureSwitcher
                 fixtureId={runtimeFixture}
-                onChange={onRuntimeFixtureChange}
+                onChange={changeRuntimeFixture}
               />
               <LanguageSelector />
             </div>
@@ -72,7 +75,7 @@ export function AppShell({
           </nav>
         </header>
         <div className="p-4 sm:p-5" key={runtimeFixture}>
-          {children}
+          <Outlet />
         </div>
       </main>
     </div>
