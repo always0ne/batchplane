@@ -32,6 +32,7 @@ import {
   createGitHubLiteClient,
   getBatchDefinitionPath,
   hasAuthoritativeGovernedChangeRequest,
+  parseExecutionGateResult,
   parseBatchDefinitionYaml as parseGovernedBatchDefinitionYaml,
   parseGovernedChangeRequestEvidence,
   type GitHubIssue,
@@ -607,6 +608,7 @@ export function createGitHubLiteRuntime(
         const [jobs, requests, workflow] = await Promise.all([
           client.listWorkflowRunJobs({
             ...repositoryRef,
+            runAttempt: run.runAttempt,
             runId: numericRunId,
           }),
           loadExecutionApprovalRequests(client, repositoryRef),
@@ -617,6 +619,12 @@ export function createGitHubLiteRuntime(
           requests,
           workflow?.path,
         );
+        const gateDecision = await loadGateDecisionForRun({
+          client,
+          jobs,
+          repositoryRef,
+          run,
+        });
 
         const failureFollowUpsByIssue =
           await projectFailureFollowUpsForRequests({
@@ -631,6 +639,7 @@ export function createGitHubLiteRuntime(
 
         return toExecutionRun(run, {
           failureFollowUps,
+          gateDecision,
           jobs,
           request,
           workflow,
@@ -688,6 +697,12 @@ export function createGitHubLiteRuntime(
 
           return { request, run, workflow };
         });
+        const gateDecisionsByRunId = await loadGateDecisionsForList({
+          client,
+          jobsByRunId,
+          repositoryRef,
+          runs,
+        });
         const failureFollowUpsByIssue =
           await projectFailureFollowUpsForRequests({
             client,
@@ -704,6 +719,7 @@ export function createGitHubLiteRuntime(
               failureFollowUps: request
                 ? failureFollowUpsByIssue.get(request.issue.number)
                 : undefined,
+              gateDecision: gateDecisionsByRunId.get(run.id),
               jobs: jobsByRunId.get(run.id),
               request,
               workflow,
@@ -1576,6 +1592,7 @@ async function loadWorkflowRunJobsForList({
     runs.filter(shouldLoadJobsForRunList).map(async (run) => {
       const jobs = await client.listWorkflowRunJobs({
         ...repositoryRef,
+        runAttempt: run.runAttempt,
         runId: run.id,
       });
 
@@ -1588,6 +1605,123 @@ async function loadWorkflowRunJobsForList({
 
 function shouldLoadJobsForRunList(run: GitHubWorkflowRun): boolean {
   return run.status === "completed" && run.conclusion !== "success";
+}
+
+async function loadGateDecisionsForList({
+  client,
+  jobsByRunId,
+  repositoryRef,
+  runs,
+}: {
+  client: GitHubLiteClient;
+  jobsByRunId: Map<number, GitHubWorkflowJob[]>;
+  repositoryRef: RuntimeRepositoryRef;
+  runs: GitHubWorkflowRun[];
+}): Promise<Map<number, GateDecision>> {
+  const decisions = await Promise.all(
+    runs.map(async (run) => {
+      const jobs = jobsByRunId.get(run.id) ?? [];
+
+      if (!shouldLoadGateDecisionForList(run, jobs)) {
+        return undefined;
+      }
+
+      const gateDecision = await loadGateDecisionForRun({
+        client,
+        jobs,
+        repositoryRef,
+        run,
+      });
+
+      return gateDecision ? ([run.id, gateDecision] as const) : undefined;
+    }),
+  );
+
+  return new Map(
+    decisions.filter(
+      (decision): decision is readonly [number, GateDecision] =>
+        decision !== undefined,
+    ),
+  );
+}
+
+async function loadGateDecisionForRun({
+  client,
+  jobs,
+  repositoryRef,
+  run,
+}: {
+  client: GitHubLiteClient;
+  jobs: GitHubWorkflowJob[];
+  repositoryRef: RuntimeRepositoryRef;
+  run: GitHubWorkflowRun;
+}): Promise<GateDecision | undefined> {
+  const gateJob = jobs.find(isGateWorkflowJob);
+  const gateStep = gateJob?.steps?.find(
+    (step) => step.name === "Verify approved execution evidence",
+  );
+
+  if (!gateJob || !gateStep) {
+    return undefined;
+  }
+
+  try {
+    const log = await client.getWorkflowJobLog({
+      ...repositoryRef,
+      jobId: gateJob.id,
+    });
+    const result = parseExecutionGateResult({
+      content: log.content,
+      expected: {
+        gateJobName: gateJob.name,
+        gateStep: {
+          ...gateStep,
+          nextStepStartedAt: findNextStepStartedAt(gateJob.steps, gateStep),
+        },
+        repository: `${repositoryRef.owner}/${repositoryRef.repo}`,
+        runAttempt: run.runAttempt,
+        runId: run.id,
+      },
+    });
+
+    if (!result) {
+      return undefined;
+    }
+
+    return {
+      allowed: result.allowed,
+      decidedAt: gateJob.completedAt ?? run.updatedAt ?? run.startedAt ?? "",
+      message: result.message,
+      ...(result.reasonCode ? { reasonCode: result.reasonCode } : {}),
+    };
+  } catch {
+    // A missing, expired, or unreadable log cannot create a Gate decision.
+    return undefined;
+  }
+}
+
+function shouldLoadGateDecisionForList(
+  run: GitHubWorkflowRun,
+  jobs: GitHubWorkflowJob[],
+): boolean {
+  return (
+    run.status === "completed" &&
+    run.conclusion === "failure" &&
+    jobs.some(isGateWorkflowJob)
+  );
+}
+
+function findNextStepStartedAt(
+  steps: GitHubWorkflowJob["steps"] | undefined,
+  gateStep: { name: string; number: number },
+): string | undefined {
+  return steps?.find(
+    (step) => step.number > gateStep.number && step.name !== "Complete job",
+  )?.startedAt;
+}
+
+function isGateWorkflowJob(job: Pick<GitHubWorkflowJob, "name">): boolean {
+  return job.name === "BatchPlane Gate";
 }
 
 function findExecutionRequestForRun(
@@ -1875,19 +2009,18 @@ function toExecutionRun(
   run: GitHubWorkflowRun,
   {
     failureFollowUps = [],
+    gateDecision,
     jobs = [],
     request,
     workflow,
   }: {
     failureFollowUps?: FailureFollowUp[];
+    gateDecision?: GateDecision;
     jobs?: GitHubWorkflowJob[];
     request?: ExecutionRequestForRun;
     workflow?: { name: string; path: string };
   } = {},
 ): ExecutionRun {
-  const gateDecision = request?.gateDecision
-    ? toGateDecision(request.gateDecision)
-    : undefined;
   const mappedJobs = jobs.map(toExecutionRunJob);
   const inferredBatchId = parseBatchIdFromRun(run, workflow?.path);
 
@@ -1906,7 +2039,7 @@ function toExecutionRun(
     runAttempt: run.runAttempt,
     runId: String(run.id),
     ...(run.startedAt ? { startedAt: run.startedAt } : {}),
-    status: toExecutionRunStatus(run, gateDecision, mappedJobs),
+    status: toExecutionRunStatus(run, gateDecision),
     workflowName: workflow?.name ?? run.name,
     workflowPath: workflow?.path ?? run.workflowPath,
     workflowRunId: String(run.id),
@@ -2031,29 +2164,11 @@ function toExecutionRunJobLog(log: GitHubWorkflowJobLog): ExecutionRunJobLog {
   };
 }
 
-function toGateDecision(
-  gateDecision: ExecutionRequestForRun["gateDecision"],
-): GateDecision | undefined {
-  if (!gateDecision) {
-    return undefined;
-  }
-
-  return {
-    allowed: gateDecision.allowed,
-    decidedAt: gateDecision.createdAt,
-    message: gateDecision.allowed
-      ? "Gate allowed execution."
-      : "Gate blocked execution.",
-    reasonCode: gateDecision.reasonCode,
-  };
-}
-
 function toExecutionRunStatus(
   run: Pick<GitHubWorkflowRun | GitHubWorkflowJob, "conclusion" | "status">,
   gateDecision?: GateDecision,
-  jobs: ExecutionRunJob[] = [],
 ): ExecutionRunStatus {
-  if (gateDecision?.allowed === false || hasBlockedGateJob(jobs)) {
+  if (gateDecision?.allowed === false) {
     return "BLOCKED";
   }
 
@@ -2078,21 +2193,6 @@ function toExecutionRunStatus(
     default:
       return "RUNNING";
   }
-}
-
-function hasBlockedGateJob(jobs: ExecutionRunJob[]): boolean {
-  const gateJobFailed = jobs.some(
-    (job) => isGateJob(job) && job.status === "FAILED",
-  );
-  const businessJobFailed = jobs.some(
-    (job) => !isGateJob(job) && job.status === "FAILED",
-  );
-
-  return gateJobFailed && !businessJobFailed;
-}
-
-function isGateJob(job: ExecutionRunJob): boolean {
-  return job.name.toLowerCase().includes("gate");
 }
 
 function parseRequestIdFromRun(run: GitHubWorkflowRun): string | undefined {

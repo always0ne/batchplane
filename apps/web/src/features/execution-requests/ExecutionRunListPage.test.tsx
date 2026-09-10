@@ -191,6 +191,64 @@ describe("ExecutionRunListPage", () => {
     expect(screen.getAllByText("Gate blocked").length).toBeGreaterThan(0);
   });
 
+  it("keeps unknown Gate verification out of business-failure follow-up filters", async () => {
+    renderPage({
+      createRuntime: () =>
+        ({
+          executions: {
+            listExecutionRuns: async () => [
+              {
+                batchId: "payment.daily-close",
+                requestId: "",
+                runId: "209",
+                status: "FAILED",
+                workflowRunId: "209",
+                workflowRunUrl:
+                  "https://github.com/always0ne/batch/actions/runs/209",
+              },
+            ],
+          },
+        }) as unknown as BatchPlaneRuntimePorts,
+      initialPath: "/failures",
+      readSession: () => session,
+      view: "failures",
+    });
+
+    expect(
+      await screen.findByText(
+        "No failed or Gate-blocked workflow runs match this filter.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open run" })).toBeNull();
+  });
+
+  it("uses a compact unknown-verification badge with one explanatory outcome", async () => {
+    renderPage({
+      createRuntime: () =>
+        ({
+          executions: {
+            listExecutionRuns: async () => [
+              {
+                batchId: "payment.daily-close",
+                requestId: "",
+                runId: "208",
+                status: "FAILED",
+                workflowRunId: "208",
+              },
+            ],
+          },
+        }) as unknown as BatchPlaneRuntimePorts,
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByText("Gate verification unknown"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("The run failed, but Gate verification is unknown."),
+    ).toHaveLength(1);
+  });
+
   it("shows an empty state when no runtime session is available", async () => {
     renderPage({ readSession: () => null });
 

@@ -37,6 +37,7 @@
     "BLOCKED": "Gate 차단",
     "CANCELED": "취소됨",
     "FAILED": "업무 실패",
+    "GATE_VERIFICATION_UNKNOWN": "Gate 판정 확인 불가",
     "QUEUED": "대기 중",
     "RUNNING": "실행 중",
     "SUCCEEDED": "성공"
@@ -52,6 +53,7 @@
     "businessFailure": "Gate 통과 후 배치 명령이 실패했습니다.",
     "canceled": "Workflow run이 취소되었거나 건너뛰어졌습니다.",
     "gateBlocked": "배치 명령 전에 Gate가 차단했습니다.",
+    "gateVerificationUnknown": "실행은 실패했지만 Gate 검증 상태를 알 수 없습니다.",
     "inProgress": "진행 중",
     "succeeded": "Workflow run이 정상 완료되었습니다.",
     "unknown": "알 수 없음",

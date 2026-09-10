@@ -37,6 +37,7 @@
     "BLOCKED": "Gate blocked",
     "CANCELED": "Canceled",
     "FAILED": "Business failed",
+    "GATE_VERIFICATION_UNKNOWN": "Gate verification unknown",
     "QUEUED": "Queued",
     "RUNNING": "Running",
     "SUCCEEDED": "Succeeded"
@@ -52,6 +53,7 @@
     "businessFailure": "Batch command failed after Gate allowed the run.",
     "canceled": "The workflow run was canceled or skipped.",
     "gateBlocked": "Gate blocked before the batch command.",
+    "gateVerificationUnknown": "The run failed, but Gate verification is unknown.",
     "inProgress": "In progress",
     "succeeded": "The workflow run completed successfully.",
     "unknown": "Unknown",

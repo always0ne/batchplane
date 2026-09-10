@@ -539,6 +539,7 @@ async function runGateFromEnv(env = process.env) {
   const result = await verifyLiteAuthorization(input);
   writeGateOutputs(result, env);
   writeGateSummary(result, input, env);
+  writeGateLogRecord(result, input, env);
   if (result.result === "DENY") {
     console.error(`BatchPlane Gate denied execution: ${result.reasonCode}`);
     console.error(result.message);
@@ -1134,6 +1135,28 @@ function writeGateSummary(result, input, env) {
   ];
   appendFileSync(summaryPath, `${lines.join("\n")}
 `, "utf8");
+}
+function writeGateLogRecord(result, input, env) {
+  const runId = env.GITHUB_RUN_ID?.trim();
+  const repository = input.repository?.trim();
+  const job = env.GITHUB_JOB?.trim();
+  if (!runId || !repository || !job) {
+    return;
+  }
+  console.log(
+    `BATCHPLANE_GATE_RESULT ${JSON.stringify({
+      gateJob: job,
+      gateJobName: "BatchPlane Gate",
+      gateStep: "Verify approved execution evidence",
+      message: result.message,
+      repository,
+      result: result.result,
+      runAttempt: input.runAttempt ?? 1,
+      runId,
+      version: 1,
+      ...result.reasonCode ? { reasonCode: result.reasonCode } : {}
+    })}`
+  );
 }
 function escapeOutputValue(value) {
   return value.replace(/\r/g, "%0D").replace(/\n/g, "%0A");

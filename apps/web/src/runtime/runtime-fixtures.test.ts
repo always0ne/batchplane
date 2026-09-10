@@ -89,6 +89,38 @@ describe("runtime fixtures", () => {
       }),
     ]);
   });
+
+  it("provides a requestless, run-scoped Gate DENY fixture", async () => {
+    writeRuntimeFixtureSelection("requestless-gate-deny");
+
+    const runs = await createBatchPlaneRuntime(
+      readRuntimeSessionOrThrow(),
+    ).executions.listExecutionRuns({ limit: 20 });
+
+    expect(runs).toEqual([
+      expect.objectContaining({
+        gateDecision: expect.objectContaining({ allowed: false }),
+        requestId: "",
+        status: "BLOCKED",
+      }),
+    ]);
+  });
+
+  it("provides a requestless unknown-verification fixture without a business failure", async () => {
+    writeRuntimeFixtureSelection("gate-verification-unknown");
+
+    const runs = await createBatchPlaneRuntime(
+      readRuntimeSessionOrThrow(),
+    ).executions.listExecutionRuns({ limit: 20 });
+
+    expect(runs).toEqual([
+      expect.objectContaining({
+        requestId: "",
+        status: "FAILED",
+      }),
+    ]);
+    expect(runs[0]?.gateDecision).toBeUndefined();
+  });
 });
 
 function readRuntimeSessionOrThrow() {

@@ -576,12 +576,17 @@ describe("Gate action runtime", () => {
 
   it("sets failing exit code and writes outputs when Gate denies execution", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const outputPath = `/tmp/batchplane-gate-output-${Date.now()}.txt`;
     const summaryPath = `/tmp/batchplane-gate-summary-${Date.now()}.md`;
 
     await expect(
       runGateFromEnv({
         GITHUB_OUTPUT: outputPath,
+        GITHUB_JOB: "batchplane-gate",
+        GITHUB_REPOSITORY: "always0ne/batch",
+        GITHUB_RUN_ID: "200",
+        GITHUB_RUN_ATTEMPT: "1",
         GITHUB_STEP_SUMMARY: summaryPath,
         "INPUT_BATCH-ID": batchId,
         INPUT_MODE: "lite",
@@ -595,6 +600,14 @@ describe("Gate action runtime", () => {
     expect(readFileSync(outputPath, "utf8")).toContain("result=DENY");
     expect(readFileSync(summaryPath, "utf8")).toContain(
       "## BatchPlane Gate Result",
+    );
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'BATCHPLANE_GATE_RESULT {"gateJob":"batchplane-gate"',
+      ),
+    );
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"result":"DENY"'),
     );
   });
 });

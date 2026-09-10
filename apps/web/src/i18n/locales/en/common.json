@@ -13,7 +13,9 @@
       "approval-pending": "Approval pending",
       "business-failed": "Business failed",
       "dispatch-failed": "Dispatch failed",
-      "gate-blocked": "Gate blocked"
+      "gate-blocked": "Gate blocked",
+      "requestless-gate-deny": "Requestless Gate deny",
+      "gate-verification-unknown": "Gate verification unknown"
     }
   },
   "actions": {

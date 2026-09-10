@@ -29,6 +29,8 @@ export const runtimeFixtureIds = [
   "business-failed",
   "dispatch-failed",
   "gate-blocked",
+  "requestless-gate-deny",
+  "gate-verification-unknown",
 ] as const;
 
 export type RuntimeFixtureId = (typeof runtimeFixtureIds)[number];
@@ -49,6 +51,8 @@ const fixtureScenarioStates = {
   "business-failed": "business-failed",
   "dispatch-failed": "failed",
   "gate-blocked": "gate-blocked",
+  "requestless-gate-deny": "gate-blocked",
+  "gate-verification-unknown": "gate-blocked",
   "happy-path": "dispatched",
 } satisfies Record<
   Exclude<RuntimeFixtureId, "live">,
@@ -146,6 +150,22 @@ export function createRuntimeFixtureMockState(
   const requestIds = new Set(
     executionScenarios.map((scenario) => scenario.requestId),
   );
+  const requestlessRunFixture =
+    fixtureId === "requestless-gate-deny" ||
+    fixtureId === "gate-verification-unknown";
+  const workflowRuns = requestlessRunFixture
+    ? state.workflowRuns
+        .filter((workflowRun) => requestIds.has(workflowRun.requestId ?? ""))
+        .map((workflowRun) => ({
+          ...workflowRun,
+          displayTitle: `BatchPlane ${workflowRun.batchId ?? workflowRun.name}`,
+          requestId: undefined,
+        }))
+    : state.workflowRuns.filter(
+        (workflowRun) =>
+          workflowRun.requestId !== undefined &&
+          requestIds.has(workflowRun.requestId),
+      );
 
   return {
     ...state,
@@ -165,16 +185,16 @@ export function createRuntimeFixtureMockState(
         sha: "mock-workspace-policy-sha",
       },
     ],
-    issueComments: state.issueComments.filter((comment) =>
-      issueNumbers.has(comment.issueNumber),
-    ),
-    issues: state.issues.filter((issue) => issueNumbers.has(issue.number)),
+    issueComments: requestlessRunFixture
+      ? []
+      : state.issueComments.filter((comment) =>
+          issueNumbers.has(comment.issueNumber),
+        ),
+    issues: requestlessRunFixture
+      ? []
+      : state.issues.filter((issue) => issueNumbers.has(issue.number)),
     pullRequests: [],
-    workflowRuns: state.workflowRuns.filter(
-      (workflowRun) =>
-        workflowRun.requestId !== undefined &&
-        requestIds.has(workflowRun.requestId),
-    ),
+    workflowRuns,
   };
 }
 
@@ -189,6 +209,21 @@ function getRuntimeFixtureClient(
   activeMockClient = createMockGitHubLiteClient(
     createRuntimeFixtureMockState(fixtureId),
   );
+
+  if (fixtureId === "gate-verification-unknown") {
+    const getWorkflowJobLog =
+      activeMockClient.getWorkflowJobLog.bind(activeMockClient);
+
+    activeMockClient.getWorkflowJobLog = async (params) => {
+      const log = await getWorkflowJobLog(params);
+
+      return {
+        ...log,
+        content:
+          "2026-05-14T01:07:05.000Z BATCHPLANE_GATE_RESULT {unreadable-record",
+      };
+    };
+  }
 
   return activeMockClient;
 }

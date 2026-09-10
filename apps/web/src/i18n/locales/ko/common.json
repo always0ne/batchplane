@@ -13,7 +13,9 @@
       "approval-pending": "승인 대기",
       "business-failed": "업무 실패",
       "dispatch-failed": "Dispatch 실패",
-      "gate-blocked": "Gate 차단"
+      "gate-blocked": "Gate 차단",
+      "requestless-gate-deny": "요청 없는 Gate 거부",
+      "gate-verification-unknown": "Gate 검증 알 수 없음"
     }
   },
   "actions": {
