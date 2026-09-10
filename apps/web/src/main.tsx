@@ -1,8 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { RouterProvider } from "react-router-dom";
 
-import { App } from "./app/App";
+import { createAppRouter } from "./app/router";
 import { BatchPlaneClientContext } from "./client/batch-plane-client-context";
 import "./i18n/i18n";
 import { createRuntimeBatchPlaneClient } from "./runtime/runtime-batch-plane-client";
@@ -14,13 +14,12 @@ restoreGitHubPagesRedirect();
 const browserBaseName =
   import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL;
 const batchPlaneClient = createRuntimeBatchPlaneClient();
+const router = createAppRouter(browserBaseName);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <BatchPlaneClientContext.Provider value={batchPlaneClient}>
-      <BrowserRouter basename={browserBaseName}>
-        <App />
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </BatchPlaneClientContext.Provider>
   </React.StrictMode>,
 );
