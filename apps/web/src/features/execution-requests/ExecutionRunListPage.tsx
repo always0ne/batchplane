@@ -215,7 +215,7 @@ function LoadedExecutionRunList({
   );
   const activeRuns = runs.filter(isActiveRun);
   const followUpRuns = runs.filter(isFollowUpRun);
-  const businessFailedRuns = runs.filter((run) => run.status === "FAILED");
+  const businessFailedRuns = runs.filter(isVerifiedBusinessFailure);
   const blockedRuns = runs.filter((run) => run.status === "BLOCKED");
   const explainedRuns = businessFailedRuns.filter(
     (run) => (run.failureFollowUps ?? []).length > 0,
@@ -360,7 +360,7 @@ function ExecutionRunRow({
   view: ExecutionRunListView;
 }) {
   const { i18n, t } = useTranslation(namespace);
-  const display = getRunStatusDisplay(run.status);
+  const display = getRunStatusDisplay(run);
   const Icon = display.icon;
   const runDetailPath =
     view === "failures"
@@ -381,7 +381,7 @@ function ExecutionRunRow({
             className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold ${display.className}`}
           >
             <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-            {t(`status.${run.status}`)}
+            {getRunStatusLabel(run, t)}
           </span>
           <Link
             className="font-semibold text-bp-graphite hover:text-bp-control"
@@ -393,7 +393,7 @@ function ExecutionRunRow({
         <p className="text-sm font-semibold text-bp-muted">
           {getRunOutcomeText(run, t)}
         </p>
-        {view === "failures" && run.status === "FAILED" ? (
+        {view === "failures" && isVerifiedBusinessFailure(run) ? (
           <p className="w-fit rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-800">
             {t(`values.${failureFollowUpStatusKey}`)}
           </p>
@@ -418,7 +418,7 @@ function ExecutionRunRow({
         </dl>
       </div>
       <div className="flex flex-wrap items-start gap-2 xl:justify-end">
-        {view === "failures" && run.status === "FAILED" ? (
+        {view === "failures" && isVerifiedBusinessFailure(run) ? (
           <Link
             className="inline-flex items-center whitespace-nowrap rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white"
             to={followUpPath}
@@ -442,7 +442,7 @@ function ExecutionRunRow({
         <Link
           className={[
             "inline-flex items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold",
-            view === "failures" && run.status === "FAILED"
+            view === "failures" && isVerifiedBusinessFailure(run)
               ? "border border-slate-300 bg-white text-bp-graphite"
               : "bg-bp-control text-white",
           ].join(" ")}
@@ -511,14 +511,18 @@ function matchesFilter(run: ExecutionRun, filter: ExecutionRunFilter): boolean {
   }
 
   if (filter === "failed") {
-    return run.status === "FAILED";
+    return isVerifiedBusinessFailure(run);
   }
 
   return run.status === "SUCCEEDED";
 }
 
 function isFollowUpRun(run: ExecutionRun): boolean {
-  return run.status === "FAILED" || run.status === "BLOCKED";
+  return run.status === "BLOCKED" || isVerifiedBusinessFailure(run);
+}
+
+function isVerifiedBusinessFailure(run: ExecutionRun): boolean {
+  return run.status === "FAILED" && run.gateDecision?.allowed === true;
 }
 
 function isActiveRun(run: ExecutionRun): boolean {
@@ -562,7 +566,9 @@ function getRunOutcomeText(
   }
 
   if (run.status === "FAILED") {
-    return t("values.businessFailure");
+    return run.gateDecision?.allowed === true
+      ? t("values.businessFailure")
+      : t("values.gateVerificationUnknown");
   }
 
   if (run.status === "SUCCEEDED") {
@@ -580,11 +586,18 @@ function getRunOutcomeText(
   return t("values.unknown");
 }
 
-function getRunStatusDisplay(status: ExecutionRun["status"]): {
+function getRunStatusDisplay(run: ExecutionRun): {
   className: string;
   icon: LucideIcon;
 } {
-  switch (status) {
+  if (run.status === "FAILED" && !isVerifiedBusinessFailure(run)) {
+    return {
+      className: "bg-slate-100 text-slate-700",
+      icon: CircleOff,
+    };
+  }
+
+  switch (run.status) {
     case "BLOCKED":
       return {
         className: "bg-orange-50 text-orange-800",
@@ -612,6 +625,15 @@ function getRunStatusDisplay(status: ExecutionRun["status"]): {
         icon: CheckCircle2,
       };
   }
+}
+
+function getRunStatusLabel(
+  run: ExecutionRun,
+  t: (key: string) => string,
+): string {
+  return run.status === "FAILED" && !isVerifiedBusinessFailure(run)
+    ? t("status.GATE_VERIFICATION_UNKNOWN")
+    : t(`status.${run.status}`);
 }
 
 function readExecutionRunFilter(

@@ -320,7 +320,7 @@ export function ExecutionRunDetailPage({
           <GateOutcomePanel run={run} />
           <BusinessOutcomePanel run={run} />
         </aside>
-        {run.status === "FAILED" ? (
+        {run.status === "FAILED" && run.gateDecision?.allowed === true ? (
           <div className="xl:col-span-2">
             <FailureFollowUpPanel
               onReview={reviewFailureFollowUp}
@@ -725,7 +725,12 @@ function RunSummaryPanel({ run }: { run: ExecutionRun }) {
             {run.workflowName || t("runDetail.values.unknownWorkflow")}
           </h2>
         </div>
-        <RunStatusBadge status={run.status} />
+        <RunStatusBadge
+          gateVerificationUnknown={
+            run.status === "FAILED" && run.gateDecision?.allowed !== true
+          }
+          status={run.status}
+        />
       </div>
       <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
         <DetailFact label={t("runDetail.fields.runId")} value={run.runId} />
@@ -769,8 +774,7 @@ function RunSummaryPanel({ run }: { run: ExecutionRun }) {
 function GateOutcomePanel({ run }: { run: ExecutionRun }) {
   const { t } = useTranslation("executionRequests");
   const blocked = run.status === "BLOCKED";
-  const allowed =
-    run.gateDecision?.allowed === true || hasSuccessfulGateJob(run);
+  const allowed = run.gateDecision?.allowed === true;
   const tone = blocked ? "blocked" : allowed ? "allowed" : "unknown";
   const Icon =
     tone === "blocked" ? XCircle : tone === "allowed" ? ShieldCheck : Loader2;
@@ -836,7 +840,8 @@ function GateOutcomePanel({ run }: { run: ExecutionRun }) {
 
 function BusinessOutcomePanel({ run }: { run: ExecutionRun }) {
   const { t } = useTranslation("executionRequests");
-  const businessFailed = run.status === "FAILED";
+  const businessFailed =
+    run.status === "FAILED" && run.gateDecision?.allowed === true;
   const blocked = run.status === "BLOCKED";
   const succeeded = run.status === "SUCCEEDED";
   const inFlight = run.status === "QUEUED" || run.status === "RUNNING";
@@ -873,9 +878,11 @@ function BusinessOutcomePanel({ run }: { run: ExecutionRun }) {
           ? t("runDetail.business.notReached")
           : businessFailed
             ? t("runDetail.business.failed")
-            : t("runDetail.business.current", {
-                status: t(`runDetail.status.${run.status}`),
-              })}
+            : run.status === "FAILED"
+              ? t("runDetail.business.verificationUnknown")
+              : t("runDetail.business.current", {
+                  status: t(`runDetail.status.${run.status}`),
+                })}
       </p>
     </article>
   );
@@ -1300,16 +1307,21 @@ function formatBytes(sizeBytes: number): string {
 }
 
 function RunStatusBadge({
+  gateVerificationUnknown = false,
   status,
   variant = "run",
 }: {
+  gateVerificationUnknown?: boolean;
   status: ExecutionRun["status"];
   variant?: "job" | "run";
 }) {
   const { t } = useTranslation("executionRequests");
-  const palette = getRunStatusPalette(status);
-  const labelKey =
-    variant === "job"
+  const palette = gateVerificationUnknown
+    ? "bg-slate-100 text-slate-700"
+    : getRunStatusPalette(status);
+  const labelKey = gateVerificationUnknown
+    ? "runDetail.status.GATE_VERIFICATION_UNKNOWN"
+    : variant === "job"
       ? `runDetail.jobStatus.${status}`
       : `runDetail.status.${status}`;
 
@@ -1340,14 +1352,8 @@ function getJobKind(job: ExecutionRunJobItem): ExecutionRunJobKind {
   return isGateJob(job) ? "gate" : "business";
 }
 
-function hasSuccessfulGateJob(run: ExecutionRun): boolean {
-  return Boolean(
-    run.jobs?.some((job) => isGateJob(job) && job.status === "SUCCEEDED"),
-  );
-}
-
 function isGateJob(job: Pick<ExecutionRunJobItem, "name">): boolean {
-  return job.name.toLowerCase().includes("gate");
+  return job.name === "BatchPlane Gate";
 }
 
 function formatExecutionRunDetailError(

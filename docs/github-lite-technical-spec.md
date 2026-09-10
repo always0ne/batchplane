@@ -520,7 +520,8 @@ maps it into `ExecutionRun`:
 - when workflow lists are used for execution contexts, exclude workflows whose
   YAML does not declare `workflow_dispatch`
 - read a specific workflow run by run ID
-- read the workflow run jobs for Gate and business-job conclusions
+- read the workflow run jobs for the run's reported attempt, including Gate and
+  business-job conclusions and Gate step timestamps
 - correlate runs to BatchPlane requests using the workflow run name/title,
   request ID, Batch ID, workflow path, and execution request evidence
 
@@ -535,8 +536,16 @@ by the Lite UI even without a server-side database.
 
 Run status mapping must distinguish control failure from business failure:
 
-- Gate job failure before the batch job runs maps to `BLOCKED`.
-- Gate success plus downstream batch job failure maps to `FAILED`.
+- A run is `BLOCKED` only when the actual Gate job log contains exactly one
+  structured `DENY` result that matches the repository, run ID, run attempt,
+  actual Gate job name, and the observed `Verify approved execution evidence`
+  step time window.
+- A structured matching `ALLOW` plus downstream batch job failure maps to
+  `FAILED`.
+- Missing, unreadable, truncated, malformed, ambiguous, or mismatched Gate-log
+  evidence leaves Gate verification unknown. A failed Gate job without matching
+  `DENY` evidence is not presented as an authorization rejection or business
+  failure.
 - Completed successful jobs map to `SUCCEEDED`.
 - In-progress GitHub run states map to `QUEUED` or `RUNNING`.
 - Canceled/skipped runs map to `CANCELED` unless Gate evidence proves a
@@ -557,6 +566,19 @@ the explicit `BatchPlane batch command` runner group emitted inside the
 generated `Run batch` step and offers an explicit full-log mode for
 checkout/setup troubleshooting. Older workflows without the explicit group may
 fall back to the generated `Run batch` step.
+
+Gate records its result in the existing Gate job log for both `ALLOW` and
+`DENY`; Lite does not add a write job, Issue evidence, artifact, cache, or
+database. The adapter fetches the specific Gate job log for run detail and only
+the actual Gate job log for each failed run that has that job, including a
+successful Gate followed by business failure, to classify recent non-success
+list rows. It never
+trusts matching text in business logs or the latest Gate marker on an execution
+request Issue. The adapter can bind a record to the GitHub-provided Gate job and
+its observed step time window, but GitHub's jobs API does not authenticate a
+workflow that has been changed to emit arbitrary output from that same step.
+Until approved-revision SHA and workflow-attestation work exists, that threat is
+outside this bounded packet and unverifiable evidence remains unknown.
 
 Failure follow-up is separate from approval. Business-failed runs must be able
 to collect an explanation record with explanation text, action taken, owner,
@@ -683,6 +705,10 @@ the same dispatcher-plus-Gate path used by manual requests.
 ## R2 Boundary
 
 R2-A governs request creation, verified change review, and adapter-owned
-repository mutation. Gate enforcement of an approved revision at runtime and
-bypass occurrence enforcement are R2-B work and are not implemented by this
-revision.
+repository mutation. This bounded R2-B packet adds run-scoped Gate-log result
+projection only. Approved-revision SHA verification/remediation, workflow
+attestation, bypass occurrence enforcement, R4 protocol redesign, app-routing
+refactoring, and R5 migration are not implemented by this revision. GitHub
+runs and job logs have GitHub-controlled retention and edit/deletion controls;
+they are repository-backed operational evidence, not a permanent immutable
+audit store or proof against Gate removal.

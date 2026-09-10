@@ -208,7 +208,7 @@ export type ExecutionRunStatus =
 
 export type GateDecision = {
   allowed: boolean;
-  reasonCode: string;
+  reasonCode?: string;
   message: string;
   decidedAt: string;
 };

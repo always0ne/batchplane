@@ -120,6 +120,7 @@
       "current": "Business execution status: {{status}}.",
       "failed": "The batch command or business job failed after Gate allowed the run.",
       "notReached": "The batch command did not run because Gate blocked execution.",
+      "verificationUnknown": "The workflow failed, but Gate verification is unknown. BatchPlane cannot classify this as a business failure.",
       "title": "Business execution"
     },
     "followUp": {
@@ -184,7 +185,7 @@
       "allowedMessage": "Gate allowed this run before the batch command.",
       "blockedMessage": "Gate blocked this run before the batch command. Treat this separately from business failure.",
       "blockedTitle": "Gate blocked",
-      "noEvidence": "Gate job evidence is not available yet.",
+      "noEvidence": "Gate verification is unknown because structured Gate evidence is unavailable or does not match this run.",
       "title": "Gate control"
     },
     "jobs": {
@@ -236,6 +237,7 @@
       "BLOCKED": "Gate blocked",
       "CANCELED": "Canceled",
       "FAILED": "Business failed",
+      "GATE_VERIFICATION_UNKNOWN": "Gate verification unknown",
       "QUEUED": "Queued",
       "RUNNING": "Running",
       "SUCCEEDED": "Succeeded"

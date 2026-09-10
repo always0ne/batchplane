@@ -2,6 +2,7 @@ export * from "./governed-change-evidence.js";
 export * from "./governed-change-client.js";
 export * from "./governed-change-verifier.js";
 export * from "./batch-definition-codec.js";
+export * from "./execution-gate-result.js";
 
 export type RepoRef = {
   owner: string;
@@ -156,6 +157,16 @@ export type GitHubWorkflowJob = {
   startedAt?: string;
   completedAt?: string;
   url?: string;
+  steps?: GitHubWorkflowJobStep[];
+};
+
+export type GitHubWorkflowJobStep = {
+  name: string;
+  number: number;
+  status: GitHubWorkflowRunStatus;
+  conclusion: GitHubWorkflowRunConclusion;
+  startedAt?: string;
+  completedAt?: string;
 };
 
 export type GitHubWorkflowJobLog = {
@@ -318,6 +329,11 @@ export type ListWorkflowRunsParams = RepoRef & {
   workflowId?: number | string;
 };
 
+export type ListWorkflowRunJobsParams = RepoRef & {
+  runId: number;
+  runAttempt?: number;
+};
+
 export type ListWorkflowsParams = RepoRef & {
   dispatchableOnly?: boolean;
 };
@@ -380,7 +396,7 @@ export type GitHubLiteClient = {
     params: RepoRef & { runId: number },
   ): Promise<GitHubWorkflowRun | null>;
   listWorkflowRunJobs(
-    params: RepoRef & { runId: number },
+    params: ListWorkflowRunJobsParams,
   ): Promise<GitHubWorkflowJob[]>;
   getWorkflowJobLog(
     params: GetWorkflowJobLogParams,
@@ -618,6 +634,14 @@ type GitHubWorkflowJobResponse = {
   started_at?: string | null;
   completed_at?: string | null;
   html_url?: string | null;
+  steps?: Array<{
+    name?: string | null;
+    number?: number | null;
+    status?: string | null;
+    conclusion?: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
+  }> | null;
 };
 
 type GitHubWorkflowJobsResponse = {
@@ -1219,12 +1243,15 @@ export function createGitHubLiteClient({
       return run ? mapWorkflowRunResponse(run) : null;
     },
 
-    async listWorkflowRunJobs({ owner, repo, runId }) {
-      const jobs = await request<GitHubWorkflowJobsResponse>(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo,
-        )}/actions/runs/${runId}/jobs`,
-      );
+    async listWorkflowRunJobs({ owner, repo, runAttempt, runId }) {
+      const jobsPath = runAttempt
+        ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+            repo,
+          )}/actions/runs/${runId}/attempts/${runAttempt}/jobs`
+        : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+            repo,
+          )}/actions/runs/${runId}/jobs`;
+      const jobs = await request<GitHubWorkflowJobsResponse>(jobsPath);
 
       return (jobs?.jobs ?? []).map(mapWorkflowJobResponse);
     },
@@ -2095,11 +2122,18 @@ export function createMockGitHubLiteClient(
     async getWorkflowJobLog(params) {
       assertMockRepository(state, params);
 
-      const job = state.workflowRuns
-        .flatMap((run) => buildMockWorkflowRunJobs(state, run.id))
-        .find((candidate) => candidate.id === params.jobId);
+      const run = state.workflowRuns.find((candidate) =>
+        buildMockWorkflowRunJobs(state, candidate.id).some(
+          (job) => job.id === params.jobId,
+        ),
+      );
+      const job = run
+        ? buildMockWorkflowRunJobs(state, run.id).find(
+            (candidate) => candidate.id === params.jobId,
+          )
+        : undefined;
 
-      if (!job) {
+      if (!run || !job) {
         throw new GitHubLiteApiError(
           `GitHub workflow job not found: ${params.jobId}`,
           "not-found",
@@ -2107,7 +2141,7 @@ export function createMockGitHubLiteClient(
         );
       }
 
-      const content = buildMockWorkflowJobLog(job);
+      const content = buildMockWorkflowJobLog(state.repository, run, job);
       const truncated = truncateTextByBytes(
         content,
         params.maxBytes ?? 200_000,
@@ -2731,6 +2765,18 @@ function mapWorkflowJobResponse(
     name: job.name,
     ...(job.started_at ? { startedAt: job.started_at } : {}),
     status: mapWorkflowRunStatus(job.status),
+    ...(job.steps
+      ? {
+          steps: job.steps.map((step, index) => ({
+            conclusion: mapWorkflowRunConclusion(step.conclusion),
+            ...(step.completed_at ? { completedAt: step.completed_at } : {}),
+            name: step.name?.trim() || `Step ${index + 1}`,
+            number: step.number ?? index + 1,
+            ...(step.started_at ? { startedAt: step.started_at } : {}),
+            status: mapWorkflowRunStatus(step.status),
+          })),
+        }
+      : {}),
     ...(job.html_url ? { url: job.html_url } : {}),
   };
 }
@@ -3534,6 +3580,19 @@ function buildMockWorkflowRunJobs(
       name: "BatchPlane Gate",
       startedAt: run.startedAt,
       status: run.status === "queued" ? "queued" : "completed",
+      steps:
+        run.status === "queued"
+          ? []
+          : [
+              {
+                completedAt: "2026-05-14T01:08:00.000Z",
+                conclusion: gateBlocked ? "failure" : "success",
+                name: "Verify approved execution evidence",
+                number: 1,
+                startedAt: "2026-05-14T01:07:00.000Z",
+                status: "completed",
+              },
+            ],
       url: `${state.repository.url}/actions/runs/${runId}/job/${runId * 10 + 1}`,
     },
     {
@@ -3563,7 +3622,11 @@ function buildMockWorkflowRunJobs(
   ];
 }
 
-function buildMockWorkflowJobLog(job: GitHubWorkflowJob): string {
+function buildMockWorkflowJobLog(
+  repository: GitHubRepository,
+  run: GitHubWorkflowRun,
+  job: GitHubWorkflowJob,
+): string {
   const conclusion = job.conclusion ?? "in_progress";
   const gateJob = job.name.toLowerCase().includes("gate");
 
@@ -3591,6 +3654,23 @@ function buildMockWorkflowJobLog(job: GitHubWorkflowJob): string {
     `2026-05-14T01:07:02.000Z Status ${job.status}`,
     `2026-05-14T01:07:03.000Z Conclusion ${conclusion}`,
     "2026-05-14T01:07:04.000Z BatchPlane Gate evidence verified.",
+    `2026-05-14T01:07:05.000Z BATCHPLANE_GATE_RESULT ${JSON.stringify({
+      gateJob: "batchplane-gate",
+      gateJobName: "BatchPlane Gate",
+      gateStep: "Verify approved execution evidence",
+      message:
+        gateJob && conclusion === "failure"
+          ? "GitHub Actions reruns are not authorized by BatchPlane."
+          : "Execution request evidence is present.",
+      repository: `${repository.owner}/${repository.repo}`,
+      result: gateJob && conclusion === "failure" ? "DENY" : "ALLOW",
+      runAttempt: run.runAttempt,
+      runId: String(run.id),
+      version: 1,
+      ...(gateJob && conclusion === "failure"
+        ? { reasonCode: "RERUN_NOT_AUTHORIZED" }
+        : {}),
+    })}`,
     `2026-05-14T01:09:00.000Z ##[endgroup]${job.name}`,
     "",
   ].join("\n");

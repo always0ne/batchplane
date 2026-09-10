@@ -321,11 +321,45 @@ describe("ExecutionRunDetailPage", () => {
       await screen.findByRole("heading", { name: "Execution run detail" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Gate job evidence is not available yet."),
+      screen.getByText(
+        "Gate verification is unknown because structured Gate evidence is unavailable or does not match this run.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Business execution status: Running."),
     ).toBeInTheDocument();
+  });
+
+  it("uses an unknown-verification summary badge instead of business failure", async () => {
+    renderDetail({
+      createRuntime: () =>
+        ({
+          executions: {
+            getExecutionRun: async () => ({
+              batchId: "payment.daily-close",
+              jobs: [],
+              requestId: "",
+              runId: "208",
+              status: "FAILED",
+              workflowRunId: "208",
+              workflowRunUrl:
+                "https://github.com/always0ne/batch/actions/runs/208",
+            }),
+          },
+        }) as unknown as BatchPlaneRuntimePorts,
+      readSession: () => session,
+      runId: 208,
+    });
+
+    expect(
+      await screen.findByText("Gate verification unknown"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The workflow failed, but Gate verification is unknown. BatchPlane cannot classify this as a business failure.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Business failed")).not.toBeInTheDocument();
   });
 
   it("shows an actionable permission message when Actions evidence is forbidden", async () => {

@@ -35,6 +35,7 @@
     "BLOCKED": "Gate blocked",
     "CANCELED": "Canceled",
     "FAILED": "Business failed",
+    "GATE_VERIFICATION_UNKNOWN": "Gate verification unknown",
     "QUEUED": "Queued",
     "RUNNING": "Running",
     "SUCCEEDED": "Succeeded"
@@ -52,6 +53,7 @@
     "explanationNeeded": "Explanation needed",
     "explanationRecorded": "Explanation submitted",
     "gateBlocked": "Gate stopped before the batch command ran.",
+    "gateVerificationUnknown": "The run failed, but Gate verification is unknown.",
     "inProgress": "In progress",
     "reviewApproved": "Manager approved",
     "reviewAwaiting": "Review pending",

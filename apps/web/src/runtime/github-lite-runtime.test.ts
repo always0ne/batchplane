@@ -1168,7 +1168,7 @@ describe("createGitHubLiteRuntime", () => {
         });
       }
 
-      if (url.endsWith("/actions/runs/200/jobs")) {
+      if (url.endsWith("/actions/runs/200/attempts/2/jobs")) {
         return Response.json({
           jobs: [
             {
@@ -1176,6 +1176,25 @@ describe("createGitHubLiteRuntime", () => {
               name: "BatchPlane Gate",
               status: "completed",
               conclusion: "failure",
+              completed_at: "2026-05-28T11:16:43Z",
+              steps: [
+                {
+                  completed_at: "2026-05-28T11:16:43Z",
+                  conclusion: "failure",
+                  name: "Verify approved execution evidence",
+                  number: 1,
+                  started_at: "2026-05-28T11:16:00Z",
+                  status: "completed",
+                },
+                {
+                  completed_at: "2026-05-28T11:16:43Z",
+                  conclusion: "success",
+                  name: "Complete job",
+                  number: 2,
+                  started_at: "2026-05-28T11:16:43Z",
+                  status: "completed",
+                },
+              ],
             },
             {
               id: 301,
@@ -1185,6 +1204,26 @@ describe("createGitHubLiteRuntime", () => {
             },
           ],
         });
+      }
+
+      if (url.endsWith("/actions/jobs/300/logs")) {
+        return new Response(
+          `2026-05-28T11:16:43.0328931Z BATCHPLANE_GATE_RESULT ${JSON.stringify(
+            {
+              gateJob: "batchplane-gate",
+              gateJobName: "BatchPlane Gate",
+              gateStep: "Verify approved execution evidence",
+              message:
+                "GitHub Actions reruns are not authorized by BatchPlane.",
+              reasonCode: "RERUN_NOT_AUTHORIZED",
+              repository: "always0ne/batch",
+              result: "DENY",
+              runAttempt: 2,
+              runId: "200",
+              version: 1,
+            },
+          )}`,
+        );
       }
 
       if (url.endsWith("/actions/workflows/101")) {
@@ -1269,6 +1308,60 @@ describe("createGitHubLiteRuntime", () => {
         workflowRunUrl: "https://github.com/always0ne/batch/actions/runs/200",
       }),
     );
+  });
+
+  it("ignores a Gate marker that appears only in the business job log", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteRuntime(session, { client });
+    const run = state.workflowRuns.find(
+      (candidate) =>
+        candidate.conclusion === "failure" && candidate.runAttempt === 1,
+    );
+
+    if (!run) {
+      throw new Error("Expected a business failed workflow run fixture.");
+    }
+
+    const gateJobId = run.id * 10 + 1;
+    const logJobIds: number[] = [];
+    client.getWorkflowJobLog = async ({ jobId }) => {
+      logJobIds.push(jobId);
+
+      return {
+        content:
+          jobId === gateJobId
+            ? "2026-05-14T01:07:05.000Z Gate completed without a result record."
+            : `2026-05-14T01:08:05.000Z BATCHPLANE_GATE_RESULT ${JSON.stringify(
+                {
+                  gateJob: "batchplane-gate",
+                  gateJobName: "BatchPlane Gate",
+                  gateStep: "Verify approved execution evidence",
+                  message: "Forged business log marker.",
+                  repository: "always0ne/batch",
+                  result: "ALLOW",
+                  runAttempt: run.runAttempt,
+                  runId: String(run.id),
+                  version: 1,
+                },
+              )}`,
+        jobId,
+        sizeBytes: 0,
+        truncated: false,
+      };
+    };
+
+    const projectedRun = await runtime.executions.getExecutionRun({
+      runId: String(run.id),
+    });
+
+    if (!projectedRun) {
+      throw new Error("Expected the workflow run to remain navigable.");
+    }
+
+    expect(logJobIds).toEqual([gateJobId]);
+    expect(projectedRun.gateDecision).toBeUndefined();
+    expect(projectedRun.status).toBe("FAILED");
   });
 
   it("records failure follow-up evidence on the correlated execution request", async () => {
@@ -2462,7 +2555,7 @@ describe("createGitHubLiteRuntime", () => {
         });
       }
 
-      if (url.endsWith("/actions/runs/201/jobs")) {
+      if (url.endsWith("/actions/runs/201/attempts/1/jobs")) {
         return Response.json({
           jobs: [
             {
