@@ -22,6 +22,25 @@ file is the enforcement checklist.
   tests when they cannot validate the change. UI work also requires browser
   review at desktop and mobile widths in English and Korean.
 
+## Official Patterns Are Mandatory
+
+- Follow React's official guidance and the official recommended patterns of
+  each library used. This is a required implementation and review criterion,
+  not an optional style preference.
+- Before designing or changing an integration, check the installed version and
+  its official documentation. Distinguish recommendations from supported
+  alternatives and examples; do not invent an official folder or naming rule.
+- Use the library's established APIs and composition model before introducing
+  project-specific wrappers or abstractions for the same responsibility.
+- When several official patterns are supported, choose the simplest one that
+  fits the approved product requirements and explain meaningful tradeoffs.
+  A newer pattern alone does not authorize upgrades or a framework migration.
+- Deviations require a concrete constraint, comparison with the official
+  approach, and explicit user approval before implementation. Include the
+  relevant official reference and decision in the design or PR.
+- Worker instructions and final review must enforce this rule. Passing tests,
+  shorter files, or fewer lines do not establish architectural acceptance.
+
 ## Product And Runtime Boundaries
 
 - Lite and Main must share the same React product UI source and product

@@ -22,6 +22,43 @@ Primary React references:
 - [Passing Data Deeply with Context](https://react.dev/learn/passing-data-deeply-with-context)
 - [Keeping Components Pure](https://react.dev/learn/keeping-components-pure)
 
+## Official Patterns First
+
+Following React's official guidance and each adopted library's official
+recommended patterns is mandatory. Contributors should be able to recognize
+the library's normal usage without first learning a project-specific substitute.
+This requirement applies to implementation, delegated worker instructions, and
+final review, not only to initial architecture planning.
+
+Before changing a library integration, identify the installed version and read
+the applicable official documentation. Separate a documented recommendation
+from one supported alternative or an illustrative example. Official guidance
+does not necessarily prescribe filenames or one universal directory structure.
+
+Prefer the library's own APIs and composition model for responsibilities it
+already owns. Do not add wrappers merely to shorten files or demonstrate
+separation. If multiple official approaches are supported, select the simplest
+one that meets current requirements and explain material tradeoffs. Do not use
+this rule to introduce unapproved upgrades, frameworks, loaders, caches, or
+other unrelated features.
+
+A departure requires a demonstrated project constraint, a comparison with the
+official approach, and user approval before implementation. Record the official
+reference and reasoning in the design or PR. Tests establish behavior, but do
+not replace this architecture review.
+
+For the approved routing correction, use React Router's route tree, layout
+routes and `Outlet`, with `createBrowserRouter` and `RouterProvider`. Preserve
+product-client injection, existing URLs, Pages basename/redirect restoration,
+locale behavior, and fixture remount boundaries. This decision does not migrate
+page queries to loaders or commands to router actions. The App composition
+inventory below describes the current extraction until that correction lands.
+
+Official React Router references for the current v6 integration:
+
+- [Layout routes](https://reactrouter.com/6.30.1/route/route#layout-routes)
+- [createBrowserRouter](https://reactrouter.com/6.30.1/routers/create-browser-router)
+
 ## Product Principle
 
 The user journey is more important than an isolated screen or folder. A change
@@ -345,6 +382,9 @@ Batch list is the first proof surface.
 
 ## Pull Request Checklist
 
+- [ ] React and library integration patterns follow applicable official
+      guidance; references and meaningful choices are stated, and any departure
+      was approved before implementation.
 - [ ] The approved vertical scope and explicit non-goals are stated.
 - [ ] Route screens live in `pages`; reusable user actions live in `features`.
 - [ ] Page-only Hooks and components are co-located with their Page.
