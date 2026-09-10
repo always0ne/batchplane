@@ -1,12 +1,17 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { useState } from "react";
+import { MemoryRouter, useLocation } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import type { BatchChangeDraft, BatchPlaneClient } from "@batchplane/ui-client";
 import { BatchPlaneClientContext } from "../client/batch-plane-client-context";
 import "../i18n/i18n";
+import { i18next } from "../i18n/i18n";
+import { localeStorageKey } from "../i18n/locale-detector";
+import type { RuntimeFixtureId } from "../runtime/runtime-fixtures";
+import { AppShell } from "./AppShell";
 
 const disconnectedClient = {
   approveGovernedChange: async () => {
@@ -60,8 +65,15 @@ const disconnectedClient = {
 } satisfies BatchPlaneClient;
 
 describe("App", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     sessionStorage.clear();
+    localStorage.clear();
+    await i18next.changeLanguage("en");
+    vi.unstubAllEnvs();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it.each([
@@ -88,30 +100,36 @@ describe("App", () => {
     expect(screen.getByText("BatchPlane")).toBeInTheDocument();
   });
 
-  it("redirects the root route to the dashboard", async () => {
+  it("redirects the root route to the exact dashboard path", async () => {
     renderApp(
       <MemoryRouter initialEntries={["/"]}>
         <App />
+        <LocationProbe />
       </MemoryRouter>,
     );
 
     expect(
       await screen.findByRole("heading", { name: "Dashboard" }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("/dashboard");
   });
 
-  it("redirects a legacy schedule deep link into the batch change form", async () => {
+  it("redirects legacy schedule deep links with the exact encoded change target", async () => {
     renderApp(
       <MemoryRouter
-        initialEntries={["/batches/payment.daily-close/schedules/new"]}
+        initialEntries={["/batches/payment%2Fdaily%20close/schedules/new"]}
       >
         <App />
+        <LocationProbe />
       </MemoryRouter>,
     );
 
     expect(
       await screen.findByRole("heading", { name: "Change request" }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/batches/new?change=payment%2Fdaily%20close#schedules",
+    );
   });
 
   it("renders the execution run detail route with the development fixture", async () => {
@@ -166,6 +184,63 @@ describe("App", () => {
     expect(screen.getByRole("option", { name: "Gate blocked" })).toHaveValue(
       "gate-blocked",
     );
+  });
+
+  it("hides the development runtime fixture switcher in production", async () => {
+    vi.stubEnv("DEV", false);
+
+    renderApp(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Fixture")).not.toBeInTheDocument();
+  });
+
+  it("persists the selected locale and updates the rendered labels", async () => {
+    renderApp(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    fireEvent.change(screen.getByLabelText("Language"), {
+      target: { value: "ko" },
+    });
+
+    expect(localStorage.getItem(localeStorageKey)).toBe("ko");
+    expect(
+      await screen.findByRole("heading", { name: "대시보드" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("언어")).toHaveValue("ko");
+  });
+
+  it("remounts only the route content when the fixture changes", () => {
+    renderApp(
+      <MemoryRouter>
+        <FixtureRemountHarness />
+      </MemoryRouter>,
+    );
+
+    const fixtureSelector = screen.getByLabelText("Fixture");
+    const initialPageInstance = screen.getByTestId("page-instance").textContent;
+
+    fireEvent.change(fixtureSelector, { target: { value: "live" } });
+    expect(screen.getByTestId("page-instance")).toHaveTextContent(
+      initialPageInstance ?? "",
+    );
+    expect(screen.getByLabelText("Fixture")).toBe(fixtureSelector);
+
+    fireEvent.change(fixtureSelector, { target: { value: "happy-path" } });
+    expect(screen.getByTestId("page-instance")).not.toHaveTextContent(
+      initialPageInstance ?? "",
+    );
+    expect(screen.getByLabelText("Fixture")).toBe(fixtureSelector);
   });
 
   it("groups navigation by product area and keeps the active request route visible", async () => {
@@ -234,4 +309,38 @@ function setViewportSize(width: number, height: number) {
     value: height,
   });
   window.dispatchEvent(new Event("resize"));
+}
+
+function LocationProbe() {
+  const location = useLocation();
+
+  return (
+    <output data-testid="location">
+      {location.pathname}
+      {location.search}
+      {location.hash}
+    </output>
+  );
+}
+
+function FixtureRemountHarness() {
+  const [runtimeFixture, setRuntimeFixture] =
+    useState<RuntimeFixtureId>("live");
+
+  return (
+    <AppShell
+      runtimeFixture={runtimeFixture}
+      onRuntimeFixtureChange={setRuntimeFixture}
+    >
+      <FixturePageInstance />
+    </AppShell>
+  );
+}
+
+let nextPageInstance = 0;
+
+function FixturePageInstance() {
+  const [instance] = useState(() => ++nextPageInstance);
+
+  return <output data-testid="page-instance">{instance}</output>;
 }

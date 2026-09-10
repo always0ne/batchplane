@@ -158,6 +158,14 @@ follow-up update`. An assigned `OPEN` or `INVESTIGATING` record may appear as
 
 ## PR Checklist
 
+App-shell refactors preserve the grouped desktop and horizontally scrollable
+mobile navigation, active links, route destinations and legacy redirects.
+Language changes retain current page state. Development fixture changes remount
+only route content; their selector stays hidden in production. Compare the
+same routes before and after extraction in English and Korean at desktop and
+390px widths. Structural cleanup is not a visual redesign or a migration of
+every route Page.
+
 For every UI screen PR:
 
 - State where the screen sits in the operator journey.

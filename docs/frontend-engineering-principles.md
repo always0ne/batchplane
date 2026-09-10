@@ -102,6 +102,21 @@ Update this inventory in the same pull request that migrates, removes, or
 reconnects one of these Pages. Migrations remain vertical and reviewable; this
 table is not a reason to perform a cosmetic mass move.
 
+### Application Composition
+
+`app/App.tsx` composes `AppShell` and `AppRoutes` and owns the development fixture
+selection shared by the selector and the route-content remount boundary.
+`AppShell` owns the existing responsive frame; `AppNavigation` owns menu groups
+and active links. `LanguageSelector` owns locale selection and persistence, and
+`RuntimeFixtureSwitcher` owns the development-only selector presentation.
+The not-found route screen lives under `pages/not-found`.
+
+Keep the client provider and BrowserRouter lifetime in `main.tsx` unchanged by
+this extraction. Changing a fixture remounts the route content, not the shell;
+changing language does not reset page state. The route table retains legacy
+schedule redirects and their encoded query and hash. This composition cleanup
+does not count the remaining legacy route Pages as migrated.
+
 ## Page Contract
 
 A Page is a route boundary. It may:
