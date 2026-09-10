@@ -17,44 +17,35 @@ type DetailState =
 
 export function useGovernedChangeDetail(requestLocator: string) {
   const client = useBatchPlaneClient();
-  const requestVersion = useCurrentRequestVersion(client, requestLocator);
+  const requestVersion = useRef(0);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [detailState, setDetailState] = useState<DetailState>({
     type: "loading",
   });
   const [runningAction, setRunningAction] = useState<GovernedChangeAction>();
   const [actionError, setActionError] = useState("");
 
-  const refresh = useCallback(async () => {
-    const version = requestVersion.current.version;
-    await loadDetail({
-      client,
-      isCurrent: () => requestVersion.current.version === version,
-      requestLocator,
-      setActionError,
-      setDetailState,
-    });
-  }, [client, requestLocator, requestVersion]);
-
   useEffect(() => {
-    const version = requestVersion.current.version;
+    const version = requestVersion.current + 1;
+    requestVersion.current = version;
     setRunningAction(undefined);
     void loadDetail({
       client,
-      isCurrent: () => requestVersion.current.version === version,
+      isCurrent: () => requestVersion.current === version,
       requestLocator,
       setActionError,
       setDetailState,
     });
     return () => {
-      if (requestVersion.current.version === version) {
-        requestVersion.current.version += 1;
+      if (requestVersion.current === version) {
+        requestVersion.current += 1;
       }
     };
-  }, [client, requestLocator, requestVersion]);
+  }, [client, refreshVersion, requestLocator]);
 
   const applyAction = useCallback(
     async (action: GovernedChangeAction, rejectionReason = "") => {
-      const version = requestVersion.current.version;
+      const version = requestVersion.current;
       setRunningAction(action);
       setActionError("");
       try {
@@ -67,42 +58,25 @@ export function useGovernedChangeDetail(requestLocator: string) {
                   requestLocator,
                 })
               : await client.withdrawGovernedChange({ requestLocator });
-        if (requestVersion.current.version !== version) return false;
+        if (requestVersion.current !== version) return false;
         setDetailState({ detail, type: "loaded" });
         return true;
       } catch (error) {
-        if (requestVersion.current.version !== version) return false;
+        if (requestVersion.current !== version) return false;
         setActionError(messageFrom(error));
         return false;
       } finally {
-        if (requestVersion.current.version === version)
-          setRunningAction(undefined);
+        if (requestVersion.current === version) setRunningAction(undefined);
       }
     },
-    [client, requestLocator, requestVersion],
+    [client, requestLocator],
   );
 
+  const refresh = useCallback(() => {
+    setRefreshVersion((currentVersion) => currentVersion + 1);
+  }, []);
+
   return { actionError, applyAction, detailState, refresh, runningAction };
-}
-
-function useCurrentRequestVersion(
-  client: ReturnType<typeof useBatchPlaneClient>,
-  requestLocator: string,
-) {
-  const current = useRef({ client, requestLocator, version: 0 });
-
-  if (
-    current.current.client !== client ||
-    current.current.requestLocator !== requestLocator
-  ) {
-    current.current = {
-      client,
-      requestLocator,
-      version: current.current.version + 1,
-    };
-  }
-
-  return current;
 }
 
 async function loadDetail({

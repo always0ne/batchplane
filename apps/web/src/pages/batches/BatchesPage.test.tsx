@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { BatchListItem, BatchPlaneClient } from "@batchplane/ui-client";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import "../../i18n/i18n";
+import { i18next } from "../../i18n/i18n";
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import { BatchesPage } from "./BatchesPage";
 
@@ -30,7 +31,8 @@ const activeBatch: BatchListItem = {
 describe("BatchesPage", () => {
   let client: BatchPlaneClient;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18next.changeLanguage("en");
     client = createClient({ batches: [activeBatch] });
   });
 
@@ -88,6 +90,28 @@ describe("BatchesPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Batch list unavailable",
     );
+  });
+
+  it("translates an adapter-projected error without refetching on locale change", async () => {
+    const listBatches = vi.fn().mockResolvedValue({
+      error: { type: "authentication-required" },
+      type: "error",
+    });
+    client = { listBatches } as unknown as BatchPlaneClient;
+
+    renderPage(client);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "GitHub authentication failed. Check the token value and sign in again.",
+    );
+    await act(async () => {
+      await i18next.changeLanguage("ko");
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "GitHub 인증에 실패했습니다. 토큰 값과 로그인 상태를 확인하세요.",
+    );
+    expect(listBatches).toHaveBeenCalledTimes(1);
   });
 
   it("renders executable and blocked batch rows with clear actions", async () => {

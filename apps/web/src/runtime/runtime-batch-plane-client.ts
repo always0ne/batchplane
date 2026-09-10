@@ -1,10 +1,8 @@
 import {
   WorkspaceNotConnectedError,
   type BatchPlaneClient,
-  type BatchListItem,
-  type BatchControl,
 } from "@batchplane/ui-client";
-import type { BatchDefinition } from "@batchplane/domain";
+import { createGitHubLiteBatchReadClient } from "@batchplane/github-lite";
 import {
   createBatchPlaneRuntime,
   createRuntimeBatchRevisionClient,
@@ -33,81 +31,11 @@ export function createRuntimeBatchPlaneClient({
         return { type: "workspace-not-connected" };
       }
 
-      const runtime = createRuntime(session);
-      const repository = await runtime.settings.getRepository();
-      const batches = await runtime.batches.listBatchDefinitions({
-        ref: repository.defaultBranch,
-      });
-      const revisionClient = createBatchRevisionClient(session);
-      const governedChangeClient = createGovernedChangeClient(session);
-      const listItems = await Promise.all(
-        batches.map(async (batch) =>
-          toBatchListItem(
-            batch,
-            toBatchControl(
-              await revisionClient.verifyApprovedBatchRevision({
-                batchId: batch.batchId,
-              }),
-              await governedChangeClient.getBatchRemediationCapability({
-                batchId: batch.batchId,
-              }),
-            ),
-          ),
-        ),
-      );
-
-      return {
-        batches: listItems,
-        sourceRevision: repository.defaultBranch,
-        type: "loaded",
-      };
+      return createBatchReadClient(session).listBatches();
     },
     async getBatchDetail({ batchId }) {
       const session = requireSession(readSession());
-      const runtime = createRuntime(session);
-      const repository = await runtime.settings.getRepository();
-      const [batches, revisionClient] = await Promise.all([
-        runtime.batches.listBatchDefinitions({ ref: repository.defaultBranch }),
-        Promise.resolve(createBatchRevisionClient(session)),
-      ]);
-      const recentExecutionRequests =
-        await revisionClient.listRecentExecutionRequestSummaries({ batchId });
-      const batch = batches.find((candidate) => candidate.batchId === batchId);
-
-      if (batch) {
-        const control = toBatchControl(
-          await revisionClient.verifyApprovedBatchRevision({
-            batchId,
-          }),
-          await createGovernedChangeClient(
-            session,
-          ).getBatchRemediationCapability({
-            batchId,
-          }),
-        );
-        return {
-          batch,
-          control,
-          defaultBranch: repository.defaultBranch,
-          recentExecutionRequests,
-          type: "active" as const,
-        };
-      }
-
-      const archive = await runtime.batches.getDeletedBatchArchive({
-        batchId,
-        ref: repository.defaultBranch,
-      });
-      if (archive) {
-        return {
-          archive,
-          defaultBranch: repository.defaultBranch,
-          recentExecutionRequests,
-          type: "deleted" as const,
-        };
-      }
-
-      return { batchId, type: "not-found" as const };
+      return createBatchReadClient(session).getBatchDetail({ batchId });
     },
     async requestBatchRemediation(input) {
       const session = requireSession(readSession());
@@ -164,6 +92,16 @@ export function createRuntimeBatchPlaneClient({
       return createGovernedChangeClient(session).withdrawGovernedChange(input);
     },
   };
+
+  function createBatchReadClient(
+    session: NonNullable<ReturnType<typeof readRuntimeSession>>,
+  ) {
+    return createGitHubLiteBatchReadClient({
+      governedChangeClient: createGovernedChangeClient(session),
+      revisionClient: createBatchRevisionClient(session),
+      runtime: createRuntime(session),
+    });
+  }
 }
 
 function requireSession(session: ReturnType<typeof readRuntimeSession>) {
@@ -172,51 +110,4 @@ function requireSession(session: ReturnType<typeof readRuntimeSession>) {
   }
 
   return session;
-}
-
-function toBatchListItem(
-  batch: BatchDefinition,
-  control: BatchControl,
-): BatchListItem {
-  return {
-    batchId: batch.batchId,
-    control,
-    criticality: batch.criticality,
-    environment: batch.environment,
-    gateRequired: batch.gateRequired,
-    hasExecutableCommand: Boolean(batch.execution?.command.trim()),
-    name: batch.name,
-    owner: batch.owner,
-    status: batch.status,
-  };
-}
-
-function toBatchControl(
-  result: Awaited<
-    ReturnType<
-      ReturnType<
-        typeof createRuntimeBatchRevisionClient
-      >["verifyApprovedBatchRevision"]
-    >
-  >,
-  remediation: Awaited<
-    ReturnType<BatchPlaneClient["getBatchRemediationCapability"]>
-  >,
-): BatchControl {
-  if (result.controlStatus === "VERIFIED") {
-    return {
-      approvedRevision: {
-        ...result.approvedRevision,
-        verifiedSha: result.verifiedSha,
-      },
-      remediation,
-      status: "VERIFIED",
-    };
-  }
-
-  return {
-    disabledReason: result.reasonCode,
-    remediation,
-    status: result.controlStatus,
-  };
 }

@@ -1,10 +1,17 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   WorkspaceNotConnectedError,
   type BatchPlaneClient,
   type GovernedChangeDetail,
 } from "@batchplane/ui-client";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
@@ -184,6 +191,60 @@ describe("GovernedChangeDetailPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Workspace 정책")).toBeInTheDocument();
     await i18next.changeLanguage("en");
+  });
+
+  it("keeps the latest same-request refresh result through StrictMode cleanup", async () => {
+    const firstMount = deferred<GovernedChangeDetail>();
+    const activeMount = deferred<GovernedChangeDetail>();
+    const refresh = deferred<GovernedChangeDetail>();
+    const getGovernedChange = vi
+      .fn()
+      .mockReturnValueOnce(firstMount.promise)
+      .mockReturnValueOnce(activeMount.promise)
+      .mockReturnValueOnce(refresh.promise);
+
+    render(
+      <StrictMode>
+        <BatchPlaneClientContext.Provider
+          value={createClient({ getGovernedChange })}
+        >
+          <MemoryRouter initialEntries={["/approvals/registration/42"]}>
+            <Routes>
+              <Route
+                path="/approvals/registration/:requestLocator"
+                element={<GovernedChangeDetailPage />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </BatchPlaneClientContext.Provider>
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(getGovernedChange).toHaveBeenCalledTimes(2));
+    activeMount.resolve({ ...detail(), batchId: "active-batch" });
+    expect(
+      await screen.findByRole("heading", {
+        name: "Change request: active-batch",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(getGovernedChange).toHaveBeenCalledTimes(3));
+    refresh.resolve({ ...detail(), batchId: "refreshed-batch" });
+    expect(
+      await screen.findByRole("heading", {
+        name: "Change request: refreshed-batch",
+      }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      firstMount.resolve({ ...detail(), batchId: "stale-batch" });
+    });
+    expect(
+      screen.getByRole("heading", {
+        name: "Change request: refreshed-batch",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("ignores a stale detail load after navigating to another request", async () => {

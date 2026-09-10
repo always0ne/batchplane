@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   WorkspaceNotConnectedError,
   type BatchChangeDraft,
@@ -125,7 +131,9 @@ describe("BatchRegistrationPage", () => {
   });
 
   it("loads Korean registration essentials through the same client contract", async () => {
-    await i18next.changeLanguage("ko");
+    await act(async () => {
+      await i18next.changeLanguage("ko");
+    });
 
     renderPage(createClient());
 
@@ -134,6 +142,45 @@ describe("BatchRegistrationPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("스케줄")).toBeInTheDocument();
     expect(screen.getByText("배치 명령 전 Gate 필수 적용")).toBeInTheDocument();
+  });
+
+  it("resets the loaded editor for a new client but preserves form state for a locale change", async () => {
+    const firstClient = createClient({
+      loadBatchChangeDraft: vi.fn().mockResolvedValue({
+        ...newBatchDraft,
+        batch: { ...newBatchDraft.batch, name: "First draft" },
+      }),
+    });
+    const secondClient = createClient({
+      loadBatchChangeDraft: vi.fn().mockResolvedValue({
+        ...newBatchDraft,
+        batch: { ...newBatchDraft.batch, name: "Replacement draft" },
+      }),
+    });
+    const page = renderPage(firstClient);
+
+    expect(await screen.findByDisplayValue("First draft")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Unsaved edit" },
+    });
+
+    page.rerender(pageTree(secondClient));
+    expect(
+      await screen.findByDisplayValue("Replacement draft"),
+    ).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Unsaved edit")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Locale-preserved edit" },
+    });
+    await i18next.changeLanguage("ko");
+
+    expect(
+      screen.getByDisplayValue("Locale-preserved edit"),
+    ).toBeInTheDocument();
+    await act(async () => {
+      await i18next.changeLanguage("en");
+    });
   });
 
   it("keeps custom multi-label runners in the governed change draft", async () => {
@@ -320,7 +367,11 @@ describe("BatchRegistrationPage", () => {
 });
 
 function renderPage(client: BatchPlaneClient, path = "/batches/new") {
-  render(
+  return render(pageTree(client, path));
+}
+
+function pageTree(client: BatchPlaneClient, path = "/batches/new") {
+  return (
     <BatchPlaneClientContext.Provider value={client}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
@@ -331,7 +382,7 @@ function renderPage(client: BatchPlaneClient, path = "/batches/new") {
           />
         </Routes>
       </MemoryRouter>
-    </BatchPlaneClientContext.Provider>,
+    </BatchPlaneClientContext.Provider>
   );
 }
 

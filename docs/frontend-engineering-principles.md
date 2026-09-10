@@ -138,6 +138,38 @@ Update this inventory in the same pull request that migrates, removes, or
 reconnects one of these Pages. Migrations remain vertical and reviewable; this
 table is not a reason to perform a cosmetic mass move.
 
+### R1/R2 Structural Completion
+
+Migrated Pages remain subject to the same readability and official-pattern
+criteria as new Pages. A short Page delegating all unrelated work to one large
+Hook is not the intended end state.
+
+- Governed-change detail tracks committed request lifetime in Effects and event
+  handlers, never by mutating refs during render. Switching the request/client,
+  unmounting, and StrictMode cleanup must discard obsolete async results.
+- The Batch editor separates loading an editing session, local field/schedule
+  changes, preview synchronization, and submission. These are page-local
+  responsibilities, not a generic lifecycle or form framework.
+- Batch list queries keep language-neutral error state. Render chooses the
+  localized message; changing language must not issue another inventory query.
+  Provider error interpretation belongs to the adapter, not the Page Hook.
+- Batch detail renders adapter-projected schedule execution expressions, for
+  active definitions and verified deleted archives alike. UI does not regenerate
+  a GitHub cron expression or import a legacy workflow generator.
+- Runtime connects session/fixture dependencies. Touched list/detail use-case
+  orchestration belongs in the Lite adapter; this is not permission to move all
+  remaining legacy runtime code in one change.
+
+The completion checks preserve existing routes, values, request decisions,
+control states and user-facing journeys. They do not authorize a YAML parser
+replacement, package resolver migration, new query library, or R3 migration.
+
+Version-appropriate references:
+
+- [React 18 useRef caveats](https://18.react.dev/reference/react/useRef#caveats)
+- [React 18 custom Hooks](https://18.react.dev/learn/reusing-logic-with-custom-hooks)
+- [React 18 unnecessary Effects](https://18.react.dev/learn/you-might-not-need-an-effect)
+
 ### Application Composition
 
 `app/router.tsx` declares the static route tree. `app/RootLayout.tsx` renders an
