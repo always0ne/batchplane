@@ -4,6 +4,8 @@ import {
   type CanonicalValue,
 } from "@batchplane/digest";
 
+export * from "./governed-change.js";
+
 export const batchPlaneApiVersion = "batchplane.io/v1";
 export const legacyBatchPlaneApiVersion = "batchtrail.io/v1";
 export const supportedBatchPlaneApiVersions = [
@@ -60,7 +62,47 @@ export type BatchDefinition = {
   };
   labels?: string[];
   schedules?: BatchSchedule[];
+  governedChangeId?: string;
 };
+
+export type DeletedBatchArchiveSourceRequest = {
+  locator: string;
+  number?: number;
+  url: string;
+};
+
+export type DeletedBatchArchiveUnavailableReason =
+  | "LEGACY_OR_MALFORMED_EVIDENCE"
+  | "REQUEST_EVIDENCE_MISMATCH"
+  | "REQUEST_EVIDENCE_UNVERIFIED"
+  | "BASE_REVISION_UNAVAILABLE"
+  | "BATCH_DEFINITION_NOT_FOUND"
+  | "BATCH_DEFINITION_DIGEST_MISMATCH"
+  | "BATCH_DEFINITION_MALFORMED";
+
+export type DeletedBatchArchiveResult =
+  | {
+      batch: BatchDefinition;
+      sourceRequest: DeletedBatchArchiveSourceRequest;
+      status: "VERIFIED";
+    }
+  | {
+      sourceRequest: DeletedBatchArchiveSourceRequest;
+      status: "UNAVAILABLE";
+      unavailableReason: DeletedBatchArchiveUnavailableReason;
+    };
+
+/**
+ * Batch IDs are repository path segments and Git reference components. They
+ * intentionally permit the established dot and hyphen names, but never path
+ * separators, traversal markers, whitespace, or ref-special characters.
+ */
+export function isCanonicalBatchId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[A-Za-z0-9](?:[A-Za-z0-9]|[.-](?=[A-Za-z0-9]))*$/.test(value)
+  );
+}
 
 export type GitHubRepositoryRole = "admin" | "maintain" | "write" | "triage";
 
@@ -128,16 +170,6 @@ export type ScheduleOccurrenceRef = {
   scheduledAt: string;
   definitionPath: string;
   definitionCommitSha: string;
-};
-
-export type ScheduleDefinition = {
-  scheduleId: string;
-  batchId: string;
-  name: string;
-  cron: string;
-  timezone: string;
-  enabled: boolean;
-  definitionPath: string;
 };
 
 export type ExecutionRequest = {
@@ -403,22 +435,9 @@ export type RegistrationArtifactInput = {
   encoding?: "utf-8" | "base64";
 };
 
-export type RegistrationScheduleDefinitionInput = {
-  path: string;
-  yaml: string;
-};
-
-export type RegistrationScheduleDeletionInput = {
-  path: string;
-};
-
 export type RegistrationTargetStatus = {
   batchDefinitionExists: boolean;
   workflowExists: boolean;
-};
-
-export type ScheduleDefinitionTargetStatus = {
-  scheduleDefinitionExists: boolean;
 };
 
 export type GovernedChangeFilePreviewStatus =
@@ -451,8 +470,6 @@ export type CreateRegistrationPullRequestInput = {
   batchDefinitionYaml: string;
   body: string;
   branch: string;
-  scheduleDeletions?: RegistrationScheduleDeletionInput[];
-  scheduleDefinitions?: RegistrationScheduleDefinitionInput[];
   title: string;
   workflowPath: string;
   workflowYaml: string;
@@ -468,31 +485,12 @@ export type CreateBatchDeletionPullRequestInput = {
   workflowPath: string;
 };
 
-export type CreateScheduleDefinitionPullRequestInput = {
-  baseBranch: string;
-  body: string;
-  branch: string;
-  scheduleDefinitionPath: string;
-  scheduleDefinitionYaml: string;
-  title: string;
-};
-
 export type BatchPort = {
+  getDeletedBatchArchive(params: {
+    batchId: string;
+    ref?: string;
+  }): Promise<DeletedBatchArchiveResult | null>;
   listBatchDefinitions(params: { ref: string }): Promise<BatchDefinition[]>;
-};
-
-export type SchedulePort = {
-  listScheduleDefinitions(params: {
-    ref: string;
-    batchId?: string;
-  }): Promise<ScheduleDefinition[]>;
-  checkScheduleDefinitionTarget(params: {
-    baseBranch: string;
-    scheduleDefinitionPath: string;
-  }): Promise<ScheduleDefinitionTargetStatus>;
-  createScheduleDefinitionPullRequest(
-    params: CreateScheduleDefinitionPullRequestInput,
-  ): Promise<RepositoryPullRequest>;
 };
 
 export type RegistrationPort = {
@@ -610,7 +608,6 @@ export type BatchPlaneRuntimePorts = {
   batches: BatchPort;
   executions: ExecutionPort;
   registration: RegistrationPort;
-  schedules: SchedulePort;
   settings: SettingsPort;
 };
 
@@ -623,7 +620,6 @@ export type BatchGovernanceConfigFile = {
   spec: {
     configPath: ".batch-governance" | string;
     batchesPath: ".batch-governance/batches" | string;
-    schedulesPath: ".batch-governance/schedules" | string;
     dispatcherWorkflowPath:
       | ".github/workflows/batchplane-dispatcher.yml"
       | string;
@@ -635,6 +631,7 @@ export type BatchDefinitionFile = {
   apiVersion: BatchPlaneApiVersion;
   kind: "BatchDefinition";
   metadata: {
+    governedChangeId?: string;
     id: string;
     name: string;
     labels?: string[];
@@ -688,21 +685,6 @@ export type WorkspacePolicyFile = {
     id: string;
   };
   spec: WorkspacePolicy;
-};
-
-export type ScheduleDefinitionFile = {
-  apiVersion: BatchPlaneApiVersion;
-  kind: "ScheduleDefinition";
-  metadata: {
-    id: string;
-    batchId: string;
-    name: string;
-  };
-  spec: {
-    cron: string;
-    timezone: string;
-    enabled: boolean;
-  };
 };
 
 export type ExecutionRequestPayload = {
@@ -1065,7 +1047,6 @@ export type GitHubLiteRepositoryFile =
   | ApprovalPolicyFile
   | RoleMappingFile
   | WorkspacePolicyFile
-  | ScheduleDefinitionFile
   | ExecutionRequestPayload;
 
 export type ValidationSeverity = "error" | "warning";
@@ -1101,7 +1082,7 @@ export function validateBatchDefinition(
     return diagnostics;
   }
 
-  requireString(record, "batchId", diagnostics);
+  requireCanonicalBatchId(record.batchId, diagnostics);
   requireString(record, "name", diagnostics);
   requireString(record, "owner", diagnostics);
   requireString(record, "domain", diagnostics);
@@ -1262,78 +1243,6 @@ export function validateApprovalPolicyFile(
   }
 
   return { diagnostics: [], ok: true, value: file as ApprovalPolicyFile };
-}
-
-export function validateScheduleDefinition(
-  definition: unknown,
-): FieldValidationDiagnostic[] {
-  const diagnostics: FieldValidationDiagnostic[] = [];
-  const record = requireRecord(definition, "$", diagnostics);
-
-  if (!record) {
-    return diagnostics;
-  }
-
-  requireString(record, "scheduleId", diagnostics);
-  requireString(record, "batchId", diagnostics);
-  requireString(record, "name", diagnostics);
-  requireString(record, "cron", diagnostics);
-  requireString(record, "timezone", diagnostics);
-  requireBoolean(record, "enabled", diagnostics);
-
-  return diagnostics;
-}
-
-export function validateScheduleDefinitionFile(
-  file: unknown,
-): ValidationResult<ScheduleDefinitionFile> {
-  const diagnostics: FieldValidationDiagnostic[] = [];
-  const record = requireRecord(file, "$", diagnostics);
-
-  if (!record) {
-    return { diagnostics, ok: false };
-  }
-
-  validateBatchPlaneApiVersion(record.apiVersion, diagnostics);
-  validateExactValue(record.kind, "kind", "ScheduleDefinition", diagnostics);
-
-  const metadata = requireRecord(record.metadata, "metadata", diagnostics);
-  const spec = requireRecord(record.spec, "spec", diagnostics);
-
-  if (metadata) {
-    requireString(metadata, "id", diagnostics, "metadata.id");
-    requireString(metadata, "batchId", diagnostics, "metadata.batchId");
-    requireString(metadata, "name", diagnostics, "metadata.name");
-  }
-
-  if (metadata && spec) {
-    diagnostics.push(
-      ...validateScheduleDefinition({
-        batchId: metadata.batchId,
-        cron: spec.cron,
-        enabled: spec.enabled,
-        name: metadata.name,
-        scheduleId: metadata.id,
-        timezone: spec.timezone,
-      }).map((diagnostic) => ({
-        ...diagnostic,
-        field:
-          diagnostic.field === "scheduleId"
-            ? "metadata.id"
-            : diagnostic.field === "batchId"
-              ? "metadata.batchId"
-              : diagnostic.field === "name"
-                ? "metadata.name"
-                : `spec.${diagnostic.field}`,
-      })),
-    );
-  }
-
-  if (diagnostics.length > 0) {
-    return { diagnostics, ok: false };
-  }
-
-  return { diagnostics: [], ok: true, value: file as ScheduleDefinitionFile };
 }
 
 export function normalizeWorkspacePolicy(
@@ -1795,6 +1704,25 @@ function requireString(
   });
 
   return undefined;
+}
+
+function requireCanonicalBatchId(
+  value: unknown,
+  diagnostics: FieldValidationDiagnostic[],
+): void {
+  if (isCanonicalBatchId(value)) {
+    return;
+  }
+
+  diagnostics.push({
+    code: value === undefined || value === "" ? "required" : "invalid_batch_id",
+    field: "batchId",
+    message:
+      value === undefined || value === ""
+        ? "batchId is required."
+        : "batchId must be a canonical repository-safe Batch ID.",
+    severity: "error",
+  });
 }
 
 function requireBoolean(

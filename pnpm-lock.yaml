@@ -127,9 +127,22 @@ importers:
 
   packages/github-lite:
     dependencies:
+      "@batchplane/digest":
+        specifier: workspace:*
+        version: link:../digest
       "@batchplane/domain":
         specifier: workspace:*
         version: link:../domain
+      "@batchplane/ui-client":
+        specifier: workspace:*
+        version: link:../ui-client
+      cron-parser:
+        specifier: ^5.5.0
+        version: 5.5.0
+    devDependencies:
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
   packages/ui-client:
     dependencies:

@@ -1,6 +1,7 @@
 import type {
   BatchPlaneRuntimePorts,
   ExecutionRun,
+  RepositoryIssueComment,
   RepositoryPullRequest,
 } from "@batchplane/domain";
 import {
@@ -16,10 +17,10 @@ import { Link } from "react-router-dom";
 
 import {
   getGovernedChangeRequestKind,
-  isRegistrationApprovalRequest,
   parseExecutionRequestDetail,
   type ExecutionApprovalRequest,
 } from "../approvals/approval-model";
+import { isOpenRegistrationReview } from "../approvals/registration-approval-model";
 import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
   createBatchPlaneRuntime,
@@ -95,13 +96,10 @@ export function MyWorkPage({
           runtime.approvals.listExecutionRequestIssues({ state: "all" }),
           runtime.executions.listExecutionRuns({ limit: 100 }),
         ]);
-        const issueComments = await Promise.all(
-          issues.map((issue) =>
-            runtime.approvals.listExecutionRequestComments({
-              issueNumber: issue.number,
-            }),
-          ),
-        );
+        const [issueComments, pullRequestComments] = await Promise.all([
+          loadRequestComments(runtime, issues),
+          loadRequestComments(runtime, pullRequests),
+        ]);
         const executionRequests = issues
           .map((issue, index) =>
             parseExecutionRequestDetail(issue, issueComments[index] ?? []),
@@ -116,6 +114,7 @@ export function MyWorkPage({
             items: createMyWorkItems({
               executionRequests,
               login: user.login,
+              pullRequestComments,
               pullRequests,
               runs,
             }),
@@ -154,6 +153,19 @@ export function MyWorkPage({
       </div>
       <MyWorkContent state={state} />
     </section>
+  );
+}
+
+async function loadRequestComments(
+  runtime: BatchPlaneRuntimePorts,
+  requests: Array<{ number: number }>,
+) {
+  return Promise.all(
+    requests.map((request) =>
+      runtime.approvals.listExecutionRequestComments({
+        issueNumber: request.number,
+      }),
+    ),
   );
 }
 
@@ -354,11 +366,13 @@ const workKinds: MyWorkItemKind[] = [
 function createMyWorkItems({
   executionRequests,
   login,
+  pullRequestComments,
   pullRequests,
   runs,
 }: {
   executionRequests: ExecutionApprovalRequest[];
   login: string;
+  pullRequestComments: RepositoryIssueComment[][];
   pullRequests: RepositoryPullRequest[];
   runs: ExecutionRun[];
 }): MyWorkItem[] {
@@ -367,8 +381,12 @@ function createMyWorkItems({
   );
 
   return [
-    ...pullRequests.flatMap((pullRequest) =>
-      toRegistrationWorkItems(pullRequest, login),
+    ...pullRequests.flatMap((pullRequest, index) =>
+      toRegistrationWorkItems(
+        pullRequest,
+        pullRequestComments[index] ?? [],
+        login,
+      ),
     ),
     ...executionRequests.flatMap((request) =>
       toExecutionRequestWorkItems(request, login),
@@ -385,6 +403,7 @@ function createMyWorkItems({
 
 function toRegistrationWorkItems(
   pullRequest: RepositoryPullRequest,
+  comments: RepositoryIssueComment[],
   login: string,
 ): MyWorkItem[] {
   const requestKind = getGovernedChangeRequestKind(pullRequest);
@@ -394,7 +413,7 @@ function toRegistrationWorkItems(
   }
 
   const mine = pullRequest.author === login;
-  const openReview = isRegistrationApprovalRequest(pullRequest) && !mine;
+  const openReview = isOpenRegistrationReview(pullRequest, comments) && !mine;
   const mineDescriptionKey =
     requestKind === "schedule" ? "scheduleMine" : "registrationMine";
   const reviewDescriptionKey =

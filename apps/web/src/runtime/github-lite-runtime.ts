@@ -2,6 +2,9 @@ import type {
   AuditTimelineItem,
   BatchDefinition,
   BatchPlaneRuntimePorts,
+  DeletedBatchArchiveResult,
+  DeletedBatchArchiveSourceRequest,
+  DeletedBatchArchiveUnavailableReason,
   ExecutionRun,
   ExecutionRunJob,
   ExecutionRunJobLog,
@@ -21,13 +24,19 @@ import type {
 import {
   defaultWorkspacePolicy,
   formatYamlDiagnostics,
+  isCanonicalBatchId,
   parseYamlDocument,
   validateWorkspacePolicyFile,
 } from "@batchplane/domain";
 import {
   createGitHubLiteClient,
+  getBatchDefinitionPath,
+  hasAuthoritativeGovernedChangeRequest,
+  parseBatchDefinitionYaml as parseGovernedBatchDefinitionYaml,
+  parseGovernedChangeRequestEvidence,
   type GitHubIssue,
   type GitHubIssueComment,
+  type GitHubFile,
   type GitHubLiteClient,
   type GitHubLiteClientOptions,
   type GitHubPullRequest,
@@ -36,6 +45,7 @@ import {
   type GitHubWorkflowJobLog,
   type GitHubWorkflowRun,
 } from "@batchplane/github-lite";
+import { sha256BytesHex } from "@batchplane/digest";
 
 import { parseExecutionRequestDetail } from "../features/approvals/approval-model";
 import {
@@ -43,7 +53,6 @@ import {
   parseRegistrationApprovalDecision,
   parseRegistrationRequestSummary,
 } from "../features/approvals/registration-approval-model";
-import { parseBatchDefinitionYaml } from "../features/registration/registration-model";
 import type { GitHubSession } from "../features/lite-setup/github-session";
 import {
   checkLiteInstallationStatus,
@@ -62,7 +71,6 @@ import {
   parseFailureFollowUps,
   parseFailureFollowUpReviews,
 } from "../features/execution-requests/failure-follow-up-model";
-import { loadScheduleDefinitions } from "../features/schedules/schedule-repository";
 
 export type GitHubLiteRuntimeOptions = {
   client?: GitHubLiteClient;
@@ -290,6 +298,18 @@ export function createGitHubLiteRuntime(
     },
 
     batches: {
+      async getDeletedBatchArchive({ batchId, ref }) {
+        const baseBranch =
+          ref ?? (await client.getRepository(repositoryRef)).defaultBranch;
+
+        return loadDeletedBatchArchive({
+          batchId,
+          baseBranch,
+          client,
+          repository: repositoryRef,
+        });
+      },
+
       async listBatchDefinitions({ ref }) {
         const entries = await client.getDirectory({
           ...repositoryRef,
@@ -310,7 +330,7 @@ export function createGitHubLiteRuntime(
               ref,
             });
 
-            return file ? parseBatchDefinitionYaml(file.content) : null;
+            return file ? parseGovernedBatchDefinitionYaml(file.content) : null;
           }),
         );
 
@@ -891,66 +911,6 @@ export function createGitHubLiteRuntime(
       },
     },
 
-    schedules: {
-      async listScheduleDefinitions({ batchId, ref }) {
-        return loadScheduleDefinitions({
-          batchId,
-          client,
-          ref,
-          repository: repositoryRef,
-        });
-      },
-
-      async checkScheduleDefinitionTarget({
-        baseBranch,
-        scheduleDefinitionPath,
-      }) {
-        const file = await client.getFile({
-          ...repositoryRef,
-          path: scheduleDefinitionPath,
-          ref: baseBranch,
-        });
-
-        return {
-          scheduleDefinitionExists: Boolean(file),
-        };
-      },
-
-      async createScheduleDefinitionPullRequest({
-        baseBranch,
-        body,
-        branch,
-        scheduleDefinitionPath,
-        scheduleDefinitionYaml,
-        title,
-      }) {
-        const baseSha = await client.getBranchHeadSha({
-          ...repositoryRef,
-          branch: baseBranch,
-        });
-
-        await client.createBranch({ ...repositoryRef, branch, sha: baseSha });
-        await putRepositoryFile({
-          branch,
-          client,
-          content: scheduleDefinitionYaml,
-          message: title,
-          path: scheduleDefinitionPath,
-          repositoryRef,
-        });
-
-        const pullRequest = await client.createPullRequest({
-          ...repositoryRef,
-          base: baseBranch,
-          body,
-          head: branch,
-          title,
-        });
-
-        return toRepositoryPullRequest(pullRequest);
-      },
-    },
-
     settings: {
       async checkInstallationStatus({ ref }) {
         return checkLiteInstallationStatus({
@@ -1088,6 +1048,219 @@ function parseWorkspacePolicyFile(content: string): WorkspacePolicy {
   }
 
   return validated.value.spec;
+}
+
+async function loadDeletedBatchArchive({
+  baseBranch,
+  batchId,
+  client,
+  repository,
+}: {
+  baseBranch: string;
+  batchId: string;
+  client: GitHubLiteClient;
+  repository: { owner: string; repo: string };
+}): Promise<DeletedBatchArchiveResult | null> {
+  if (!isCanonicalBatchId(batchId)) {
+    return null;
+  }
+
+  const pullRequests = await client.listPullRequests({
+    ...repository,
+    base: baseBranch,
+    state: "closed",
+  });
+  const candidate = pullRequests
+    .filter((pullRequest) => pullRequest.merged)
+    .filter((pullRequest) => isDeleteArchiveCandidate(pullRequest, batchId))
+    .sort((left, right) => right.number - left.number)[0];
+
+  return candidate
+    ? inspectDeletedBatchRequest({
+        batchId,
+        client,
+        pullRequest: candidate,
+        repository,
+      })
+    : null;
+}
+
+function isDeleteArchiveCandidate(
+  pullRequest: GitHubPullRequest,
+  batchId: string,
+): boolean {
+  const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+
+  if (evidence?.type === "DELETE" && evidence.batchId === batchId) {
+    return true;
+  }
+
+  const normalizedBatchId = batchId.toLowerCase();
+  const branchPrefixes = ["batchplane/delete/", "batchtrail/delete/"].map(
+    (prefix) => `${prefix}${normalizedBatchId}-`,
+  );
+
+  return (
+    branchPrefixes.some((prefix) =>
+      pullRequest.head.toLowerCase().startsWith(prefix),
+    ) ||
+    pullRequest.title.trim().toLowerCase() ===
+      `delete batch ${normalizedBatchId}`
+  );
+}
+
+async function inspectDeletedBatchRequest({
+  batchId,
+  client,
+  pullRequest,
+  repository,
+}: {
+  batchId: string;
+  client: GitHubLiteClient;
+  pullRequest: GitHubPullRequest;
+  repository: { owner: string; repo: string };
+}): Promise<DeletedBatchArchiveResult> {
+  const sourceRequest = toDeletedArchiveSourceRequest(pullRequest);
+  const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+
+  if (!evidence) {
+    return createUnavailableDeletedBatchArchive(
+      sourceRequest,
+      "LEGACY_OR_MALFORMED_EVIDENCE",
+    );
+  }
+
+  const definitionPath = getBatchDefinitionPath(batchId);
+  const definitionArtifact = evidence.artifacts.find(
+    (artifact) => artifact.kind === "BATCH_DEFINITION",
+  );
+  const workflowArtifact = evidence.artifacts.find(
+    (artifact) => artifact.kind === "WORKFLOW",
+  );
+
+  if (
+    evidence.type !== "DELETE" ||
+    evidence.batchId !== batchId ||
+    definitionArtifact?.path !== definitionPath ||
+    definitionArtifact.beforeDigest === null ||
+    definitionArtifact.afterDigest !== null ||
+    !workflowArtifact
+  ) {
+    return createUnavailableDeletedBatchArchive(
+      sourceRequest,
+      "REQUEST_EVIDENCE_MISMATCH",
+    );
+  }
+
+  let baseFile: GitHubFile | null;
+
+  try {
+    baseFile = await client.getFile({
+      ...repository,
+      path: definitionPath,
+      ref: evidence.baseRevisionSha,
+    });
+  } catch {
+    return createUnavailableDeletedBatchArchive(
+      sourceRequest,
+      "BASE_REVISION_UNAVAILABLE",
+    );
+  }
+
+  if (!baseFile) {
+    return createUnavailableDeletedBatchArchive(
+      sourceRequest,
+      "BATCH_DEFINITION_NOT_FOUND",
+    );
+  }
+
+  if ((await digestGitHubFile(baseFile)) !== definitionArtifact.beforeDigest) {
+    return createUnavailableDeletedBatchArchive(
+      sourceRequest,
+      "BATCH_DEFINITION_DIGEST_MISMATCH",
+    );
+  }
+
+  let batch: BatchDefinition;
+
+  try {
+    batch = parseGovernedBatchDefinitionYaml(baseFile.content);
+  } catch {
+    return createUnavailableDeletedBatchArchive(
+      sourceRequest,
+      "BATCH_DEFINITION_MALFORMED",
+    );
+  }
+
+  if (
+    batch.batchId !== batchId ||
+    batch.workflow.path !== workflowArtifact.path
+  ) {
+    return createUnavailableDeletedBatchArchive(
+      sourceRequest,
+      "BATCH_DEFINITION_MALFORMED",
+    );
+  }
+
+  let requestIsVerified = false;
+
+  try {
+    requestIsVerified = await hasAuthoritativeGovernedChangeRequest(
+      client,
+      repository,
+      pullRequest,
+      evidence,
+    );
+  } catch {
+    return createUnavailableDeletedBatchArchive(
+      sourceRequest,
+      "REQUEST_EVIDENCE_UNVERIFIED",
+    );
+  }
+
+  return requestIsVerified
+    ? { batch, sourceRequest, status: "VERIFIED" }
+    : createUnavailableDeletedBatchArchive(
+        sourceRequest,
+        "REQUEST_EVIDENCE_UNVERIFIED",
+      );
+}
+
+function toDeletedArchiveSourceRequest(
+  pullRequest: GitHubPullRequest,
+): DeletedBatchArchiveSourceRequest {
+  return {
+    locator: String(pullRequest.number),
+    number: pullRequest.number,
+    url: pullRequest.url,
+  };
+}
+
+function createUnavailableDeletedBatchArchive(
+  sourceRequest: DeletedBatchArchiveSourceRequest,
+  unavailableReason: DeletedBatchArchiveUnavailableReason,
+): DeletedBatchArchiveResult {
+  return {
+    sourceRequest,
+    status: "UNAVAILABLE",
+    unavailableReason,
+  };
+}
+
+async function digestGitHubFile(file: GitHubFile): Promise<string> {
+  return sha256BytesHex(getGitHubFileBytes(file));
+}
+
+function getGitHubFileBytes(
+  file: Pick<GitHubFile, "content" | "contentBase64">,
+): Uint8Array {
+  if (file.contentBase64 !== undefined) {
+    return Uint8Array.from(atob(file.contentBase64), (character) =>
+      character.charCodeAt(0),
+    );
+  }
+
+  return new TextEncoder().encode(file.content);
 }
 
 function toRepositoryIssue(issue: GitHubIssue): RepositoryIssue {

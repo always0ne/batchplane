@@ -32,7 +32,9 @@ describe("change request guard", () => {
       issueComments: [],
       issues: [],
       pullRequestComments: [[registrationRejectionComment]],
-      pullRequests: [governedChangePullRequest()],
+      pullRequests: [
+        governedChangePullRequest({ merged: false, state: "closed" }),
+      ],
     });
 
     expect(blockers).toEqual([]);
@@ -89,7 +91,9 @@ describe("change request guard", () => {
   });
 });
 
-function governedChangePullRequest(): RepositoryPullRequest {
+function governedChangePullRequest(
+  overrides: Partial<RepositoryPullRequest> = {},
+): RepositoryPullRequest {
   return {
     author: "developer",
     base: "main",
@@ -113,6 +117,7 @@ function governedChangePullRequest(): RepositoryPullRequest {
     state: "open",
     title: "Change batch payment.daily-close",
     url: "https://github.com/always0ne/batch/pull/12",
+    ...overrides,
   };
 }
 

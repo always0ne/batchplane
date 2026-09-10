@@ -8,10 +8,10 @@ Every screen PR should check its scope against this baseline before review.
 Lite must read as one connected operational flow:
 
 1. Connect a Workspace backed by a GitHub repository.
-2. Install Lite through a setup pull request.
-3. Register a batch through a pull request that includes the batch definition,
-   generated workflow, and optional execution artifact.
-4. Review and approve registration changes in the approvals inbox.
+2. Install Lite through a setup request.
+3. Register a batch through a governed change request that includes the batch
+   definition, generated workflow, and optional execution artifact.
+4. Review and decide registration changes in the approvals inbox.
 5. Request execution for an active, Gate-protected batch.
 6. Review execution context and approve or reject the request.
 7. Let the dispatcher invoke the governed workflow.
@@ -24,10 +24,10 @@ Lite must read as one connected operational flow:
   are older than the current BatchPlane template, the screen must show the
   affected workflow paths and provide a pull-request action to update them.
 - Registration shows what will be controlled, what will run, where it will run,
-  and which files the pull request will create.
+  and which governed files the request will change.
 - Approvals shows only work that can still be approved or rejected.
-- Registration approval detail shows PR metadata, review state, governance
-  checklist, and YAML change summary before merge/reject.
+- Registration/change detail shows request status, external source metadata,
+  governance checklist, and YAML change summary before an internal decision.
 - Execution request detail shows the full judgment record for one request:
   request status, requester, batch context, workflow/ref, runner, command,
   digest, canonical payload, approval evidence, dispatcher evidence, and Gate
@@ -140,8 +140,9 @@ follow-up update`. An assigned `OPEN` or `INVESTIGATING` record may appear as
 
 ## GitHub Delegation UX Rules
 
-- Creating a pull request or issue should route the user to the related
-  BatchPlane work queue immediately.
+- Creating a governed request or execution Issue should route the user to the
+  returned internal BatchPlane detail immediately. The GitHub Lite adapter owns
+  the repository branch, file, and pull-request mechanics for governed changes.
 - The UI should acknowledge that GitHub issue, pull request, and actions
   visibility can lag briefly after creation.
 - Browser UI must not imply it directly dispatches governed workflows.

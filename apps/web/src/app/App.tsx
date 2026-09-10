@@ -11,17 +11,12 @@ import {
   Settings,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import {
-  NavLink,
-  Navigate,
-  Route,
-  Routes,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { BatchesPage } from "../pages/batches/BatchesPage";
+import { BatchRegistrationPage } from "../pages/batches/BatchRegistrationPage";
+import { GovernedChangeDetailPage } from "../pages/approvals/GovernedChangeDetailPage";
 import { BatchDetailPage } from "../features/batches/BatchDetailPage";
 import { ExecutionRequestDetailPage } from "../features/execution-requests/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../features/execution-requests/ExecutionRequestPage";
@@ -29,11 +24,9 @@ import { ExecutionRunDetailPage } from "../features/execution-requests/Execution
 import { ExecutionRunListPage } from "../features/execution-requests/ExecutionRunListPage";
 import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { AuditPage } from "../features/audit/AuditPage";
-import { RegistrationApprovalDetailPage } from "../features/approvals/RegistrationApprovalDetailPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
 import { MyWorkPage } from "../features/my-work/MyWorkPage";
-import { BatchRegistrationPage } from "../features/registration/BatchRegistrationPage";
 import { WorkspaceRequestsPage } from "../features/requests/WorkspaceRequestsPage";
 import {
   localeLabels,
@@ -194,11 +187,11 @@ export function App() {
             <Route path="/my-work" element={<MyWorkPage />} />
             <Route path="/batches" element={<BatchesPage />} />
             <Route path="/batches/new" element={<BatchRegistrationPage />} />
-            <Route path="/batches/:batchId" element={<BatchDetailPage />} />
             <Route
               path="/batches/:batchId/schedules/new"
-              element={<ScheduleManagementRedirect />}
+              element={<ScheduleChangeRedirect />}
             />
+            <Route path="/batches/:batchId" element={<BatchDetailPage />} />
             <Route
               path="/batches/:batchId/execution-requests/new"
               element={<ExecutionRequestPage />}
@@ -219,8 +212,8 @@ export function App() {
             <Route path="/requests" element={<WorkspaceRequestsPage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
             <Route
-              path="/approvals/registration/:pullNumber"
-              element={<RegistrationApprovalDetailPage />}
+              path="/approvals/registration/:requestLocator"
+              element={<GovernedChangeDetailPage />}
             />
             <Route path="/audit" element={<AuditPage />} />
             <Route path="/lite/setup" element={<LiteSetupPage />} />
@@ -232,19 +225,14 @@ export function App() {
   );
 }
 
-function ScheduleManagementRedirect() {
+function ScheduleChangeRedirect() {
   const { batchId = "" } = useParams();
-  const [searchParams] = useSearchParams();
-  const changeTarget = searchParams.get("change")?.trim();
-  const decodedBatchId = decodeURIComponent(batchId);
-  const target = new URLSearchParams({ change: decodedBatchId });
-
-  if (changeTarget) {
-    target.set("schedule", changeTarget);
-  }
 
   return (
-    <Navigate replace to={`/batches/new?${target.toString()}#schedules`} />
+    <Navigate
+      replace
+      to={`/batches/new?change=${encodeURIComponent(batchId)}#schedules`}
+    />
   );
 }
 

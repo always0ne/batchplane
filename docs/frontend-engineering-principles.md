@@ -74,23 +74,23 @@ the target structure above. PR #198 establishes the Batch list as the first
 completed vertical slice; the remaining `*Page.tsx` files under `features` are
 legacy placement, not examples for new work.
 
-| Surface                         | Current Page                                                 | Status                                                                                                      |
-| ------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Batch list                      | `pages/batches/BatchesPage.tsx`                              | Migrated; first reference slice                                                                             |
-| Dashboard                       | `features/dashboard/DashboardPage.tsx`                       | Legacy route Page; migration pending                                                                        |
-| My Work                         | `features/my-work/MyWorkPage.tsx`                            | Legacy route Page; migration pending                                                                        |
-| Batch registration and change   | `features/registration/BatchRegistrationPage.tsx`            | Legacy route Page; migration pending                                                                        |
-| Batch detail                    | `features/batches/BatchDetailPage.tsx`                       | Legacy route Page; migration pending                                                                        |
-| Execution request creation      | `features/execution-requests/ExecutionRequestPage.tsx`       | Legacy route Page; migration pending                                                                        |
-| Execution request detail        | `features/execution-requests/ExecutionRequestDetailPage.tsx` | Legacy route Page; migration pending                                                                        |
-| Execution run list and failures | `features/execution-requests/ExecutionRunListPage.tsx`       | Legacy route Page; migration pending                                                                        |
-| Execution run detail            | `features/execution-requests/ExecutionRunDetailPage.tsx`     | Legacy route Page; migration pending                                                                        |
-| Workspace requests              | `features/requests/WorkspaceRequestsPage.tsx`                | Legacy route Page; migration pending                                                                        |
-| Approvals                       | `features/approvals/ApprovalsPage.tsx`                       | Legacy route Page; migration pending                                                                        |
-| Registration approval detail    | `features/approvals/RegistrationApprovalDetailPage.tsx`      | Legacy route Page; migration pending                                                                        |
-| Audit                           | `features/audit/AuditPage.tsx`                               | Legacy route Page; migration pending                                                                        |
-| Workspace connection and setup  | `features/lite-setup/LiteSetupPage.tsx`                      | Legacy route Page; migration pending                                                                        |
-| Standalone schedule definition  | `features/schedules/ScheduleDefinitionPage.tsx`              | Legacy Page module not connected to the current App router; evaluate removal or reuse in the schedule slice |
+| Surface                         | Current Page                                                 | Status                                                                                             |
+| ------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Batch list                      | `pages/batches/BatchesPage.tsx`                              | Migrated; first reference slice                                                                    |
+| Dashboard                       | `features/dashboard/DashboardPage.tsx`                       | Legacy route Page; migration pending                                                               |
+| My Work                         | `features/my-work/MyWorkPage.tsx`                            | Legacy route Page; migration pending                                                               |
+| Batch registration and change   | `pages/batches/BatchRegistrationPage.tsx`                    | Migrated route page; further R2-A split keeps form, schedule, review, and command state page-local |
+| Batch detail                    | `features/batches/BatchDetailPage.tsx`                       | Legacy route Page; migration pending                                                               |
+| Execution request creation      | `features/execution-requests/ExecutionRequestPage.tsx`       | Legacy route Page; migration pending                                                               |
+| Execution request detail        | `features/execution-requests/ExecutionRequestDetailPage.tsx` | Legacy route Page; migration pending                                                               |
+| Execution run list and failures | `features/execution-requests/ExecutionRunListPage.tsx`       | Legacy route Page; migration pending                                                               |
+| Execution run detail            | `features/execution-requests/ExecutionRunDetailPage.tsx`     | Legacy route Page; migration pending                                                               |
+| Workspace requests              | `features/requests/WorkspaceRequestsPage.tsx`                | Legacy route Page; migration pending                                                               |
+| Approvals                       | `features/approvals/ApprovalsPage.tsx`                       | Legacy route Page; migration pending                                                               |
+| Governed change approval detail | `pages/approvals/GovernedChangeDetailPage.tsx`               | Migrated route page; provider-neutral governed-change client only                                  |
+| Audit                           | `features/audit/AuditPage.tsx`                               | Legacy route Page; migration pending                                                               |
+| Workspace connection and setup  | `features/lite-setup/LiteSetupPage.tsx`                      | Legacy route Page; migration pending                                                               |
+| Standalone schedule definition  | None                                                         | Removed; schedules are edited inside the governed Batch form and the deep link redirects there     |
 
 New route screens must start under `pages`; the legacy paths above do not
 authorize adding another Page to `features`. A migration is complete only when

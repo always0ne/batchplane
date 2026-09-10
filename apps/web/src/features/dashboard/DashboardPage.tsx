@@ -23,10 +23,8 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  isRegistrationApprovalRequest,
-  parseExecutionApprovalRequest,
-} from "../approvals/approval-model";
+import { parseExecutionApprovalRequest } from "../approvals/approval-model";
+import { isOpenRegistrationReview } from "../approvals/registration-approval-model";
 import type { GitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../ui/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
@@ -117,13 +115,11 @@ export function DashboardPage({
           runtime.audit.listAuditTimeline({ limit: 5 }),
         ]);
 
-        const executionIssueComments = await Promise.all(
-          executionIssues.map((issue) =>
-            runtime.approvals.listExecutionRequestComments({
-              issueNumber: issue.number,
-            }),
-          ),
-        );
+        const [executionIssueComments, registrationRequestComments] =
+          await Promise.all([
+            loadRequestComments(runtime, executionIssues),
+            loadRequestComments(runtime, registrationRequests),
+          ]);
 
         if (ignoreResult) {
           return;
@@ -136,7 +132,11 @@ export function DashboardPage({
           ),
         );
         const pendingRegistrationRequests = registrationRequests.filter(
-          isRegistrationApprovalRequest,
+          (pullRequest, index) =>
+            isOpenRegistrationReview(
+              pullRequest,
+              registrationRequestComments[index] ?? [],
+            ),
         );
 
         setState({
@@ -179,6 +179,19 @@ export function DashboardPage({
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
       <DashboardContent state={state} />
     </section>
+  );
+}
+
+async function loadRequestComments(
+  runtime: BatchPlaneRuntimePorts,
+  requests: Array<{ number: number }>,
+) {
+  return Promise.all(
+    requests.map((request) =>
+      runtime.approvals.listExecutionRequestComments({
+        issueNumber: request.number,
+      }),
+    ),
   );
 }
 

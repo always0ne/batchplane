@@ -10,7 +10,6 @@ import type {
   BatchStatus,
   Criticality,
   RunnerLabel,
-  ScheduleDefinition,
   YamlValue,
 } from "@batchplane/domain";
 
@@ -37,6 +36,7 @@ export type RegistrationRequestMode = "create" | "change" | "delete";
 
 export type BatchDefinitionOptions = {
   artifactPath?: string | null;
+  governedChangeId?: string;
   schedules?: BatchSchedule[];
 };
 
@@ -104,6 +104,9 @@ export function toBatchDefinition(
       ref: values.workflowRef.trim(),
     },
     gateRequired: true,
+    ...(options.governedChangeId
+      ? { governedChangeId: options.governedChangeId }
+      : {}),
     execution: {
       artifactPath: options.artifactPath?.trim() || undefined,
       command,
@@ -160,6 +163,7 @@ export function serializeBatchDefinitionYaml(
     apiVersion: "batchplane.io/v1",
     kind: "BatchDefinition",
     metadata: {
+      governedChangeId: definition.governedChangeId,
       id: definition.batchId,
       name: definition.name,
     },
@@ -323,6 +327,7 @@ export function parseBatchDefinitionYaml(yaml: string): BatchDefinition {
 
   return {
     batchId: readYamlString(metadata, "id"),
+    governedChangeId: readYamlString(metadata, "governedChangeId") || undefined,
     name: readYamlString(metadata, "name"),
     owner: readYamlString(spec, "owner"),
     domain: readYamlString(spec, "domain"),
@@ -401,8 +406,8 @@ export function buildRegistrationPullRequestTitle(
 export function buildRegistrationPullRequestBody(
   definition: BatchDefinition,
   mode: RegistrationRequestMode = "create",
-  schedules: ScheduleDefinition[] = [],
-  deletedSchedules: ScheduleDefinition[] = [],
+  schedules: BatchSchedule[] = [],
+  deletedSchedules: BatchSchedule[] = [],
 ) {
   const execution = definition.execution;
   const requestType = getRegistrationRequestType(mode);
@@ -460,10 +465,8 @@ export function buildRegistrationPullRequestBody(
           "",
           ...definitionSchedules.flatMap((schedule, index) => [
             `#### Schedule ${index + 1}`,
-            `- Batch ID: \`${schedule.batchId}\``,
             `- Schedule ID: \`${schedule.scheduleId}\``,
             `- Name: ${schedule.name}`,
-            `- Batch definition: \`${schedule.definitionPath}\``,
             `- Cron: \`${schedule.cron}\``,
             `- Timezone: \`${schedule.timezone}\``,
             `- Generated scheduler cron: \`${formatGeneratedScheduleCrons(schedule)}\``,
@@ -479,10 +482,8 @@ export function buildRegistrationPullRequestBody(
           "",
           ...deletionSchedules.flatMap((schedule, index) => [
             `#### Deleted schedule ${index + 1}`,
-            `- Batch ID: \`${schedule.batchId}\``,
             `- Schedule ID: \`${schedule.scheduleId}\``,
             `- Name: ${schedule.name}`,
-            `- Batch definition: \`${schedule.definitionPath}\``,
             `- Cron: \`${schedule.cron}\``,
             `- Timezone: \`${schedule.timezone}\``,
             `- Generated scheduler cron: \`${formatGeneratedScheduleCrons(schedule)}\``,

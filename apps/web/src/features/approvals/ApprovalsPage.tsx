@@ -22,10 +22,10 @@ import {
   buildExecutionRejectionComment,
   allowsSelfApproval,
   type ExecutionApprovalRequest,
-  isRegistrationApprovalRequest,
   parseExecutionApprovalRequest,
 } from "./approval-model";
 import { ExecutionApprovalActions } from "./ExecutionApprovalActions";
+import { isOpenRegistrationReview } from "./registration-approval-model";
 
 type ApprovalPageState =
   | { type: "loading" }
@@ -93,13 +93,10 @@ export function ApprovalsPage({
           }),
           runtime.approvals.listExecutionRequestIssues(),
         ]);
-        const issueComments = await Promise.all(
-          issues.map((issue) =>
-            runtime.approvals.listExecutionRequestComments({
-              issueNumber: issue.number,
-            }),
-          ),
-        );
+        const [issueComments, pullRequestComments] = await Promise.all([
+          loadRequestComments(runtime, issues),
+          loadRequestComments(runtime, pullRequests),
+        ]);
 
         if (!ignoreResult) {
           const listedExecutionRequests = issues
@@ -111,7 +108,11 @@ export function ApprovalsPage({
                 request !== null,
             );
           const listedRegistrationRequests = pullRequests.filter(
-            isRegistrationApprovalRequest,
+            (pullRequest, index) =>
+              isOpenRegistrationReview(
+                pullRequest,
+                pullRequestComments[index] ?? [],
+              ),
           );
 
           setState({
@@ -271,6 +272,19 @@ export function ApprovalsPage({
         state={state}
       />
     </section>
+  );
+}
+
+async function loadRequestComments(
+  runtime: BatchPlaneRuntimePorts,
+  requests: Array<{ number: number }>,
+) {
+  return Promise.all(
+    requests.map((request) =>
+      runtime.approvals.listExecutionRequestComments({
+        issueNumber: request.number,
+      }),
+    ),
   );
 }
 

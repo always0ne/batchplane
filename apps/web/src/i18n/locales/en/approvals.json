@@ -27,6 +27,7 @@
     "gate": "Gate",
     "generatedSchedulerCron": "Scheduler cron",
     "head": "Requested version",
+    "targetRevisionDigest": "Target revision digest",
     "reason": "Reason",
     "requestType": "Request type",
     "requestDigest": "Request digest",
@@ -77,26 +78,32 @@
     "githubLagHint": "Newly created requests open in their detail page immediately. This inbox shows requests waiting for action.",
     "loading": "Loading approval requests...",
     "noSession": "Connect a Workspace before reviewing approvals.",
-    "registrationReviewHint": "Open change detail to review checklist and decide merge or rejection."
+    "registrationReviewHint": "Open change detail to review the checklist and record a decision."
   },
   "registrationDetail": {
     "title": "Governed change detail",
+    "summaryTitle": "Change summary",
     "subtitle": "Change request #{{pullNumber}}",
     "actions": {
       "actionFailed": "Failed to update registration approval.",
       "approve": "Approve and apply change",
+      "applyApproved": "Apply approved change",
       "backToApprovals": "Back to approvals",
       "closedTitle": "Change review completed",
       "note": "Approving applies this governed change to the Workspace evidence.",
       "openBatchDetail": "Open batch detail",
-      "title": "Approval action"
+      "title": "Approval action",
+      "withdraw": "Withdraw request",
+      "evidenceUnavailable": "This request has no authoritative evidence and cannot be approved.",
+      "policyOrRoleRequired": "Your Workspace policy or role does not allow this action.",
+      "rejectionReasonRequired": "Enter a rejection reason before rejecting."
     },
     "states": {
       "error": "Failed to load change approval detail.",
       "githubLagHint": "Created governed changes can be reviewed here immediately.",
       "loading": "Loading change approval detail...",
       "noSession": "Connect a Workspace before reviewing governed changes.",
-      "notFound": "Governed change request #{{pullNumber}} was not found in this Workspace."
+      "notFound": "Governed change request #{{requestLocator}} was not found in this Workspace."
     },
     "checklist": {
       "title": "Governance checklist",
@@ -121,13 +128,42 @@
       "decision": "Decision",
       "actor": "Actor",
       "decidedAt": "Decided at",
-      "noEvidence": "No BatchPlane review evidence comment is recorded yet.",
+      "source": "Decision source",
+      "noEvidence": "No BatchPlane review decision is recorded yet.",
+      "recreateRequired": "This request cannot be approved. Withdraw it and create a new change request from the current Batch definition.",
+      "decisions": {
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected",
+        "WITHDRAWN": "Withdrawn"
+      },
+      "sources": {
+        "USER": "User approval",
+        "WORKSPACE_POLICY": "Workspace policy"
+      },
       "states": {
         "OPEN": "Waiting for review",
         "APPROVED_PENDING_MERGE": "Approved, apply pending",
         "MERGED": "Applied",
         "REJECTED": "Rejected",
-        "CLOSED": "Closed"
+        "CLOSED": "Closed",
+        "WITHDRAWN": "Withdrawn",
+        "REAPPROVAL_REQUIRED": "Reapproval required",
+        "LEGACY_UNAPPROVABLE": "Legacy request cannot be approved here"
+      }
+    },
+    "changeTitle": "{{type}} request: {{batchId}}",
+    "preview": {
+      "title": "Change evidence",
+      "subtitle": "Review the authoritative configuration evidence recorded for this change request.",
+      "showDiff": "Show diff",
+      "emptyFile": "No file content",
+      "binaryDigest": "Content digest",
+      "evidenceUnavailable": "Authoritative file evidence is unavailable for this request. Only the file path metadata can be shown.",
+      "status": {
+        "ADDED": "Added",
+        "MODIFIED": "Modified",
+        "DELETED": "Deleted",
+        "UNCHANGED": "Unchanged"
       }
     },
     "fileSummary": {

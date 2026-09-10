@@ -14,7 +14,7 @@ describe("useBatchList", () => {
       .fn()
       .mockReturnValueOnce(firstResponse.promise)
       .mockReturnValueOnce(secondResponse.promise);
-    const client: BatchPlaneClient = { listBatches };
+    const client = { listBatches } as unknown as BatchPlaneClient;
     const { result } = renderHook(
       () => useBatchList("Unable to load batches."),
       {

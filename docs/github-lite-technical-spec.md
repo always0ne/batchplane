@@ -26,9 +26,10 @@ must not persist placeholder paths such as `new-batch.yml`.
 ## Installation Flow
 
 GitHub Lite is installed into a target repository by a setup pull request. The
-browser UI creates the setup branch and pull request; a repository maintainer
-reviews and merges it through GitHub. BatchPlane execution control starts after
-that installation PR is merged.
+setup product operation delegates branch and pull-request mechanics to the
+GitHub Lite adapter; a repository maintainer reviews and applies the setup
+request through GitHub. BatchPlane execution control starts after that setup
+request is applied.
 
 The setup flow checks these required files on the default branch:
 
@@ -286,6 +287,21 @@ not merely display metadata.
 
 ## Approval Comment Contract
 
+Governed-change decision comments are auditable repository evidence, not an
+authorization token. Apply and merge reload the current
+`.batch-governance/workspace.yml` and role mapping, and re-authorize the actor
+under the current approval mode. A recorded `authorizationRevisionSha` preserves
+the historical decision context but cannot restore a removed role or bypass a
+tightened self-approval rule.
+
+At decision time, the verifier reconstructs the generated workflow from the
+verified head BatchDefinition and compares exact workflow content. REGISTER,
+CHANGE, and DELETE must respectively produce definition/workflow transitions
+`null -> digest`, `digest -> digest`, and `digest -> null`. Optional artifacts
+are restricted to the retained opaque base path or a canonical
+`.batch-governance/batches/{batchId}/artifacts/` path; no other repository file
+can enter the governed artifact set.
+
 Execution approval comments must start with the dispatcher command:
 
 ```text
@@ -414,8 +430,8 @@ The dispatcher writes state evidence as Issue labels and comments:
 
 ## Registration Approval Detail Contract
 
-The registration approval detail screen reads registration pull requests from
-the approvals queue and shows governed file change summaries.
+The registration/change detail screen reads governed change requests from the
+approvals queue and shows governed file change summaries.
 
 For each governed path (batch definition, workflow, optional execution file),
 the UI compares:
@@ -429,26 +445,37 @@ delete request.
 
 The screen must include:
 
-- pull request metadata and link
+- external source metadata and link
 - review state (open, approved pending merge, merged, rejected, closed)
 - governance checklist
 - file status summary and head revision preview
 - refresh action
 
 Delete requests use the same registration approval detail contract with request
-type `DELETE`. The browser creates a branch from the target base branch, deletes
-the batch definition and generated workflow, deletes the optional execution
-artifact when present, and opens a pull request. If either the batch definition
-or workflow is missing on the base branch, the browser must block the delete
+type `DELETE`. Registration, change, and delete pages call `BatchPlaneClient`
+product operations; the GitHub Lite adapter creates the branch, applies the
+governed file set, and opens the pull request. If either the batch definition
+or workflow is missing on the base branch, the adapter must block the delete
 request instead of creating a partial deletion request.
 
 When a batch definition is no longer present on the default branch, the batch
 detail route may recover a deleted batch archive by searching merged governed
-change pull requests for a `DELETE` request matching the Batch ID. The archive is
-read from the delete request body and must preserve enough fields to render the
-deleted batch profile, workflow, runner, command, schedules, and source request.
-Execution request Issues and workflow runs remain independent evidence and must
-still be queryable by Batch ID.
+change pull requests for the latest `DELETE` request matching the Batch ID.
+The adapter must parse the v2 request evidence, read
+`.batch-governance/batches/{batchId}.yml` at the evidence
+`baseRevisionSha`, and compare the file digest with that artifact's
+`beforeDigest`. Only a matching BatchDefinition may be returned as a verified
+archive. The verified archive preserves the batch profile, workflow, runner,
+command, embedded schedules, and source request locator.
+
+The GitHub pull-request body is a display summary only and is never an archive
+source of truth.
+Malformed or edited evidence, a missing base revision/file, or a digest
+mismatch returns an explicit archive-evidence-unavailable result without
+displaying inferred batch fields. Legacy delete requests without verifiable v2
+evidence are also unavailable under this contract. Execution request Issues
+and workflow runs remain independent evidence and must still be queryable by
+Batch ID.
 
 Duplicate approval comments for the same request ID, Batch ID, and request
 digest must not create a second `workflow_dispatch` call once `DISPATCHING` or
@@ -457,15 +484,32 @@ digest must not create a second `workflow_dispatch` call once `DISPATCHING` or
 ## Mutation Handoff And GitHub Lag
 
 GitHub Lite treats mutation responses as authoritative immediate handoff
-evidence. After the browser creates a registration PR or execution request
-Issue, it stores the returned PR/Issue in `sessionStorage` and routes the user
-to the approvals inbox. The approvals inbox merges this stored handoff with
-GitHub list results, deduplicating by Issue or PR number.
+evidence. Registration, change, and deletion route directly to the returned
+internal governed-change detail. The legacy execution-request flow may retain
+its returned Issue in `sessionStorage` until the approvals inbox observes the
+Issue from GitHub list APIs.
 
-The handoff entry is pruned when the corresponding GitHub list API returns the
-same PR/Issue, or when the user completes an approval or rejection action. This
-keeps the UI deterministic during GitHub API propagation without treating the
-browser as the source of governance truth.
+The execution-request handoff entry is pruned when the corresponding GitHub
+list API returns the same Issue, or when the user completes an approval or
+rejection action. This keeps the legacy execution flow deterministic during
+GitHub API propagation without treating the browser as the source of governance
+truth.
+
+For a governed `CHANGE`, a new `governedChangeId` is an audit revision marker,
+not an effective product change by itself. `BatchPlaneClient.previewBatchChange`
+returns `hasEffectiveChanges` for both the submit state and adapter mutation
+guard. The exact YAML preview may still show the marker byte difference, but the
+adapter must not create a branch or request when no batch behavior, definition,
+schedule, workflow, or artifact changes.
+
+Pending control is a batch-wide guard. An open governed request in `OPEN` or
+`APPROVED_PENDING_MERGE` blocks another registration, change, or delete request
+for that Batch. An execution request in `REQUESTED`, `APPROVED`, or
+`DISPATCHING` also blocks it; `DISPATCH_FAILED`, `DISPATCHED`, `GATE_BLOCKED`,
+and `REJECTED` do not. GitHub Lite performs the check before request creation,
+but the browser-side check and creation are not atomic across browsers. This
+revision adds no lock or controller; trusted cross-client coordination belongs
+to future Main/R2-B work.
 
 ## Execution Run Detail Contract
 
@@ -586,7 +630,8 @@ an execution request records approval evidence but does not execute the batch.
 
 ## Schedule Occurrence Contract
 
-Schedules are approved by PR and stored inside the owning batch definition:
+Schedules are stored only in `BatchDefinition.spec.schedules` and approved as
+part of the governed Batch revision:
 
 ```text
 .batch-governance/batches/{batchId}.yml
@@ -617,6 +662,9 @@ Scheduled request payloads extend manual requests:
 `scheduledAt` is part of the digest. A previous occurrence approval cannot be
 reused for a later occurrence.
 
+`definitionPath` and `definitionCommitSha` identify the approved owning
+BatchDefinition path and revision for the scheduled occurrence.
+
 The scheduler may inspect the latest request for:
 
 - duplicate request prevention
@@ -627,7 +675,14 @@ The scheduler may inspect the latest request for:
 The scheduler must not use the latest request as authorization for a new
 occurrence.
 
-Scheduled occurrences do not enter the human approval inbox. The approved batch
-definition is the approval source of truth; each occurrence writes delegated
-approval evidence and then dispatches through the same dispatcher-plus-Gate
-path used by manual requests.
+Scheduled occurrences do not enter the human approval inbox. The approved Batch
+revision, including its embedded schedule, is the approval source of truth;
+each occurrence writes delegated approval evidence and then dispatches through
+the same dispatcher-plus-Gate path used by manual requests.
+
+## R2 Boundary
+
+R2-A governs request creation, verified change review, and adapter-owned
+repository mutation. Gate enforcement of an approved revision at runtime and
+bypass occurrence enforcement are R2-B work and are not implemented by this
+revision.

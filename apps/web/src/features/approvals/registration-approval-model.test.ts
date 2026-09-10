@@ -8,6 +8,7 @@ import type {
 import {
   deriveRegistrationFilePaths,
   deriveRegistrationReviewState,
+  isOpenRegistrationReview,
   parseRegistrationApprovalDecision,
   parseRegistrationRequestSummary,
 } from "./registration-approval-model";
@@ -45,7 +46,6 @@ const pullRequest: RepositoryPullRequest = {
     "- Batch ID: `payment.daily-close`",
     "- Schedule ID: `payment.daily-close-daily`",
     "- Name: Daily settlement window",
-    "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
     "- Cron: `0 5 * * *`",
     "- Timezone: `Asia/Seoul`",
     "- Generated scheduler cron: `0 20 * * *`",
@@ -57,7 +57,6 @@ const pullRequest: RepositoryPullRequest = {
     "- Batch ID: `payment.daily-close`",
     "- Schedule ID: `payment.daily-close-nightly`",
     "- Name: Nightly settlement fallback",
-    "- Schedule definition: `.batch-governance/schedules/payment.daily-close-nightly.yml`",
     "- Cron: `0 30 1 * * *`",
     "- Timezone: `Asia/Seoul`",
     "- Generated scheduler cron: `0 21 * * *`",
@@ -82,11 +81,8 @@ describe("registration approval model", () => {
         {
           batchId: "payment.daily-close",
           cron: "0 30 1 * * *",
-          definitionPath:
-            ".batch-governance/schedules/payment.daily-close-nightly.yml",
           enabled: false,
           generatedSchedulerCron: "0 21 * * *",
-          kind: "schedule",
           name: "Nightly settlement fallback",
           scheduleId: "payment.daily-close-nightly",
           timezone: "Asia/Seoul",
@@ -106,11 +102,8 @@ describe("registration approval model", () => {
         {
           batchId: "payment.daily-close",
           cron: "0 5 * * *",
-          definitionPath:
-            ".batch-governance/schedules/payment.daily-close-daily.yml",
           enabled: true,
           generatedSchedulerCron: "0 20 * * *",
-          kind: "schedule",
           name: "Daily settlement window",
           scheduleId: "payment.daily-close-daily",
           timezone: "Asia/Seoul",
@@ -127,47 +120,6 @@ describe("registration approval model", () => {
       ".batch-governance/batches/payment.daily-close.yml",
       ".github/workflows/payment.daily-close.yml",
       ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
-      ".batch-governance/schedules/payment.daily-close-daily.yml",
-      ".batch-governance/schedules/payment.daily-close-nightly.yml",
-    ]);
-  });
-
-  it("parses schedule request evidence and derived file paths", () => {
-    const schedulePullRequest: RepositoryPullRequest = {
-      ...pullRequest,
-      body: [
-        "## BatchPlane Schedule Registration",
-        "",
-        "- Request type: REGISTER",
-        "- Target kind: SCHEDULE",
-        "- Batch ID: `payment.daily-close`",
-        "- Schedule ID: `payment.daily-close-daily`",
-        "- Name: Daily settlement window",
-        "- Schedule definition: `.batch-governance/schedules/payment.daily-close-daily.yml`",
-        "- Cron: `0 5 * * *`",
-        "- Timezone: `Asia/Seoul`",
-        "- Generated scheduler cron: `0 20 * * *`",
-        "- Enabled: true",
-      ].join("\n"),
-      head: "batchplane/schedule/register/payment.daily-close-daily-20260514010203",
-      title: "Register schedule payment.daily-close-daily",
-    };
-    const summary = parseRegistrationRequestSummary(schedulePullRequest);
-
-    expect(summary).toEqual({
-      batchId: "payment.daily-close",
-      cron: "0 5 * * *",
-      definitionPath:
-        ".batch-governance/schedules/payment.daily-close-daily.yml",
-      enabled: true,
-      generatedSchedulerCron: "0 20 * * *",
-      kind: "schedule",
-      name: "Daily settlement window",
-      scheduleId: "payment.daily-close-daily",
-      timezone: "Asia/Seoul",
-    });
-    expect(deriveRegistrationFilePaths(summary)).toEqual([
-      ".batch-governance/schedules/payment.daily-close-daily.yml",
     ]);
   });
 
@@ -278,5 +230,26 @@ describe("registration approval model", () => {
     expect(
       deriveRegistrationReviewState({ ...pullRequest, merged: true }, null),
     ).toBe("MERGED");
+    expect(isOpenRegistrationReview(pullRequest, comments)).toBe(false);
+    const approvedComment = comments[0];
+    if (!approvedComment) throw new Error("Expected approval comment.");
+    const rejectedDecision = parseRegistrationApprovalDecision([
+      {
+        ...approvedComment,
+        body: approvedComment.body.replace("APPROVED", "REJECTED"),
+      },
+    ]);
+    expect(deriveRegistrationReviewState(pullRequest, rejectedDecision)).toBe(
+      "OPEN",
+    );
+    expect(
+      isOpenRegistrationReview(pullRequest, [
+        {
+          ...approvedComment,
+          body: approvedComment.body.replace("APPROVED", "REJECTED"),
+        },
+      ]),
+    ).toBe(true);
+    expect(isOpenRegistrationReview(pullRequest, [])).toBe(true);
   });
 });

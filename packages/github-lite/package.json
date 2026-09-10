@@ -13,6 +13,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@batchplane/domain": "workspace:*"
+    "@batchplane/digest": "workspace:*",
+    "@batchplane/domain": "workspace:*",
+    "@batchplane/ui-client": "workspace:*",
+    "cron-parser": "^5.5.0"
+  },
+  "devDependencies": {
+    "yaml": "^2.9.0"
   }
 }

@@ -58,8 +58,9 @@ describe("createGitHubLiteClient", () => {
         path: "batchtrail.yml",
       }),
     ).resolves.toEqual({
-      path: "batchtrail.yml",
       content: "name: nightly\n",
+      contentBase64: "bmFtZTogbmlnaHRseQo=",
+      path: "batchtrail.yml",
       sha: "file-sha",
     });
   });
@@ -89,6 +90,32 @@ describe("createGitHubLiteClient", () => {
         path: ".batch-governance/batches/payment.daily-close.yml",
         sha: "file-sha",
         type: "file",
+      },
+    ]);
+  });
+
+  it("maps GitHub rename metadata for governed file verification", async () => {
+    const fetcher: typeof fetch = async () =>
+      Response.json([
+        {
+          filename: "artifacts/new.jar",
+          previous_filename: "artifacts/old.jar",
+          status: "renamed",
+        },
+      ]);
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.listPullRequestFiles({
+        owner: "always0ne",
+        pullNumber: 42,
+        repo: "batchplane",
+      }),
+    ).resolves.toEqual([
+      {
+        path: "artifacts/new.jar",
+        previousPath: "artifacts/old.jar",
+        status: "renamed",
       },
     ]);
   });
@@ -195,7 +222,7 @@ describe("createGitHubLiteClient", () => {
       requests.push({ input, init });
       return Response.json({
         content: {
-          path: ".batch-governance/schedules/demo-nightly.yml",
+          path: ".batch-governance/batches/demo/artifacts/nightly.bin",
           sha: "deleted-file-sha",
         },
       });
@@ -206,17 +233,17 @@ describe("createGitHubLiteClient", () => {
       client.deleteFile({
         owner: "always0ne",
         repo: "batchplane",
-        path: ".batch-governance/schedules/demo-nightly.yml",
+        path: ".batch-governance/batches/demo/artifacts/nightly.bin",
         branch: "batchplane/change/demo",
         message: "Change batch demo",
         sha: "existing-file-sha",
       }),
     ).resolves.toEqual({
-      path: ".batch-governance/schedules/demo-nightly.yml",
+      path: ".batch-governance/batches/demo/artifacts/nightly.bin",
     });
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchplane/contents/.batch-governance/schedules/demo-nightly.yml",
+      "https://api.github.com/repos/always0ne/batchplane/contents/.batch-governance/batches/demo/artifacts/nightly.bin",
     );
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       branch: "batchplane/change/demo",
@@ -303,6 +330,30 @@ describe("createGitHubLiteClient", () => {
     );
   });
 
+  it("preserves the authoritative pull request head SHA", async () => {
+    const fetcher: typeof fetch = async () =>
+      Response.json({
+        number: 12,
+        title: "Register batch demo",
+        html_url: "https://github.com/always0ne/batchplane/pull/12",
+        body: "body",
+        state: "open",
+        merged: false,
+        user: { login: "always0ne" },
+        head: { ref: "batchplane/register/demo", sha: "head-sha" },
+        base: { ref: "main" },
+      });
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.getPullRequest({
+        owner: "always0ne",
+        repo: "batchplane",
+        pullNumber: 12,
+      }),
+    ).resolves.toMatchObject({ headSha: "head-sha" });
+  });
+
   it("lists pull requests with filters", async () => {
     const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
       [];
@@ -382,6 +433,32 @@ describe("createGitHubLiteClient", () => {
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       commit_title: "Register batch demo (#12)",
       merge_method: "squash",
+    });
+  });
+
+  it("sends the expected head SHA when applying a governed change", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        merged: true,
+        message: "Pull Request successfully merged",
+        sha: "merge-sha",
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await client.mergePullRequest({
+      owner: "always0ne",
+      repo: "batchplane",
+      pullNumber: 12,
+      expectedHeadSha: "head-sha",
+    });
+
+    expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
+      merge_method: "squash",
+      sha: "head-sha",
     });
   });
 
@@ -687,6 +764,37 @@ describe("createGitHubLiteClient", () => {
     expect(requests[0]?.input.toString()).toBe(
       "https://api.github.com/repos/always0ne/batchplane/issues/34/events",
     );
+  });
+
+  it("preserves issue comment update time for immutable evidence checks", async () => {
+    const fetcher: typeof fetch = async () =>
+      Response.json([
+        {
+          id: 7,
+          body: "approval evidence",
+          user: { login: "approver" },
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:01:00.000Z",
+        },
+      ]);
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.listIssueComments({
+        owner: "always0ne",
+        repo: "batchplane",
+        issueNumber: 12,
+      }),
+    ).resolves.toEqual([
+      {
+        author: "approver",
+        body: "approval evidence",
+        createdAt: "2026-09-01T00:00:00.000Z",
+        id: 7,
+        issueNumber: 12,
+        updatedAt: "2026-09-01T00:01:00.000Z",
+      },
+    ]);
   });
 
   it("reads workflow runs and job summaries", async () => {

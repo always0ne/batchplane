@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type { BatchDefinition } from "@batchplane/domain";
+import { createTargetRevisionDigest } from "@batchplane/domain";
+import { sha256BytesHex } from "@batchplane/digest";
 import {
+  buildGovernedChangeRequestBody,
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
+  serializeBatchDefinitionYaml,
+  type GitHubLiteMockState,
 } from "@batchplane/github-lite";
 
 import {
@@ -19,6 +25,159 @@ const session = {
   repo: "batch",
   token: "ghp_test",
 };
+
+type DeletedArchiveFixtureOptions = {
+  body?: string;
+  definitionContent?: string;
+  evidenceDefinitionContent?: string;
+  modifyEvidence?: (body: string) => string;
+  omitDefinition?: boolean;
+};
+
+async function createDeletedArchiveState(
+  options: DeletedArchiveFixtureOptions = {},
+): Promise<GitHubLiteMockState> {
+  const state = createGitHubLiteMockState();
+  const batchId = "payment.daily-close";
+  const definitionPath = `.batch-governance/batches/${batchId}.yml`;
+  const workflowPath = `.github/workflows/${batchId}.yml`;
+  const baseBranch = "archive-base";
+  const headBranch = "archive-delete";
+  const baseRevisionSha = "archive-base-sha";
+  const headRevisionSha = "archive-head-sha";
+  const workflowFile = state.files.find(
+    (file) => file.branch === "main" && file.path === workflowPath,
+  );
+  const roleMappingFile = state.files.find(
+    (file) =>
+      file.branch === "main" &&
+      file.path === ".batch-governance/policies/role-mapping.yml",
+  );
+
+  if (!workflowFile || !roleMappingFile) {
+    throw new Error("The default mock state is missing archive fixture files.");
+  }
+
+  const batchDefinition: BatchDefinition = {
+    batchId,
+    criticality: "HIGH",
+    domain: "payments",
+    environment: "PROD",
+    execution: {
+      command: "echo mock batch",
+      runsOn: "ubuntu-latest",
+    },
+    gateRequired: true,
+    name: "Daily Close",
+    owner: "ops-team",
+    schedules: [
+      {
+        cron: "0 5 * * *",
+        enabled: true,
+        name: "Daily settlement window",
+        scheduleId: `${batchId}-daily`,
+        timezone: "Asia/Seoul",
+      },
+    ],
+    status: "ACTIVE",
+    workflow: {
+      path: workflowPath,
+      ref: "main",
+    },
+  };
+  const defaultDefinitionContent =
+    serializeBatchDefinitionYaml(batchDefinition);
+  const definitionContent =
+    options.definitionContent ?? defaultDefinitionContent;
+  const evidenceDefinitionContent =
+    options.evidenceDefinitionContent ?? defaultDefinitionContent;
+  const artifacts = [
+    {
+      afterDigest: null,
+      beforeDigest: await sha256BytesHex(
+        new TextEncoder().encode(evidenceDefinitionContent),
+      ),
+      kind: "BATCH_DEFINITION" as const,
+      path: definitionPath,
+    },
+    {
+      afterDigest: null,
+      beforeDigest: await sha256BytesHex(
+        new TextEncoder().encode(workflowFile.content),
+      ),
+      kind: "WORKFLOW" as const,
+      path: workflowPath,
+    },
+  ];
+  const evidence = {
+    artifacts,
+    baseRevisionSha,
+    batchId,
+    governedChangeId: "bgc-delete-payment-daily-close-1",
+    headRevisionSha,
+    repository: "always0ne/batch",
+    requester: "developer",
+    requestedAt: "2026-09-04T00:00:00.000Z",
+    targetRevisionDigest: await createTargetRevisionDigest(artifacts),
+    type: "DELETE" as const,
+    version: "batchplane.io/governed-change/v2" as const,
+    workspace: "always0ne/batch",
+  };
+  const requestBody = buildGovernedChangeRequestBody(evidence);
+  const body =
+    options.body ?? options.modifyEvidence?.(requestBody) ?? requestBody;
+
+  state.branches = {
+    ...state.branches,
+    [baseBranch]: baseRevisionSha,
+    [headBranch]: headRevisionSha,
+  };
+  state.files = [
+    ...state.files,
+    {
+      branch: baseBranch,
+      content: definitionContent,
+      path: definitionPath,
+      sha: "archive-base-definition-sha",
+    },
+    {
+      branch: baseBranch,
+      content: workflowFile.content,
+      path: workflowPath,
+      sha: "archive-base-workflow-sha",
+    },
+    {
+      branch: baseBranch,
+      content: roleMappingFile.content,
+      path: roleMappingFile.path,
+      sha: "archive-base-role-mapping-sha",
+    },
+  ].filter((file) => !(options.omitDefinition && file.path === definitionPath));
+  state.pullRequests = [
+    {
+      author: "developer",
+      base: "main",
+      baseSha: baseRevisionSha,
+      body,
+      createdAt: evidence.requestedAt,
+      head: `batchplane/delete/${batchId}-20260904000000-delete-1`,
+      headSha: headRevisionSha,
+      merged: true,
+      number: 40,
+      state: "closed",
+      title: `Delete batch ${batchId}`,
+      url: "https://github.com/always0ne/batch/pull/40",
+    },
+  ];
+  state.pullRequestFiles = {
+    40: [
+      { path: definitionPath, status: "removed" },
+      { path: workflowPath, status: "removed" },
+    ],
+  };
+
+  return state;
+}
 
 describe("createGitHubLiteRuntime", () => {
   it("loads batch definitions through the BatchPort", async () => {
@@ -85,24 +244,288 @@ describe("createGitHubLiteRuntime", () => {
     ]);
   });
 
-  it("loads schedule definitions through the SchedulePort", async () => {
-    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
-    const runtime = createGitHubLiteRuntime(session, { client });
+  it("returns a verified deleted archive from the request base revision", async () => {
+    const state = await createDeletedArchiveState();
+    const runtime = createGitHubLiteRuntime(session, {
+      client: createMockGitHubLiteClient(state),
+    });
 
-    await expect(
-      runtime.schedules.listScheduleDefinitions({
-        batchId: "payment.daily-close",
-        ref: "main",
-      }),
-    ).resolves.toEqual([
+    const result = await runtime.batches.getDeletedBatchArchive({
+      batchId: "payment.daily-close",
+    });
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(result.status).toBe("VERIFIED");
+
+    if (result.status !== "VERIFIED") return;
+
+    expect(result.sourceRequest).toEqual({
+      locator: "40",
+      number: 40,
+      url: "https://github.com/always0ne/batch/pull/40",
+    });
+    expect(result.batch).toEqual(
       expect.objectContaining({
         batchId: "payment.daily-close",
-        cron: "0 5 * * *",
-        enabled: true,
-        scheduleId: "payment.daily-close-daily",
-        timezone: "Asia/Seoul",
+        execution: expect.objectContaining({ command: "echo mock batch" }),
+        name: "Daily Close",
+        schedules: expect.arrayContaining([
+          expect.objectContaining({
+            scheduleId: "payment.daily-close-daily",
+          }),
+        ]),
       }),
-    ]);
+    );
+  });
+
+  it("returns unavailable for legacy or malformed archive evidence", async () => {
+    const state = await createDeletedArchiveState({
+      body: [
+        "## BatchPlane Deletion",
+        "",
+        "- Batch ID: `payment.daily-close`",
+        "- Name: `Forged from an old PR body`",
+      ].join("\n"),
+    });
+    const runtime = createGitHubLiteRuntime(session, {
+      client: createMockGitHubLiteClient(state),
+    });
+
+    const result = await runtime.batches.getDeletedBatchArchive({
+      batchId: "payment.daily-close",
+    });
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(result).toEqual({
+      sourceRequest: {
+        locator: "40",
+        number: 40,
+        url: "https://github.com/always0ne/batch/pull/40",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "LEGACY_OR_MALFORMED_EVIDENCE",
+    });
+    expect(result).not.toHaveProperty("batch");
+  });
+
+  it("returns unavailable when governed evidence does not describe a delete", async () => {
+    const state = await createDeletedArchiveState({
+      modifyEvidence: (body) =>
+        body.replace('"type":"DELETE"', '"type":"CHANGE"'),
+    });
+    const runtime = createGitHubLiteRuntime(session, {
+      client: createMockGitHubLiteClient(state),
+    });
+
+    const result = await runtime.batches.getDeletedBatchArchive({
+      batchId: "payment.daily-close",
+    });
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(result).toEqual({
+      sourceRequest: {
+        locator: "40",
+        number: 40,
+        url: "https://github.com/always0ne/batch/pull/40",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "REQUEST_EVIDENCE_MISMATCH",
+    });
+    expect(result).not.toHaveProperty("batch");
+  });
+
+  it("returns unavailable when the deletion base definition is missing", async () => {
+    const state = await createDeletedArchiveState({ omitDefinition: true });
+    const runtime = createGitHubLiteRuntime(session, {
+      client: createMockGitHubLiteClient(state),
+    });
+
+    const result = await runtime.batches.getDeletedBatchArchive({
+      batchId: "payment.daily-close",
+    });
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(result).toEqual({
+      sourceRequest: {
+        locator: "40",
+        number: 40,
+        url: "https://github.com/always0ne/batch/pull/40",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "BATCH_DEFINITION_NOT_FOUND",
+    });
+    expect(result).not.toHaveProperty("batch");
+  });
+
+  it("returns unavailable when the deletion base revision cannot be loaded", async () => {
+    const state = await createDeletedArchiveState();
+    delete state.branches["archive-base"];
+    const runtime = createGitHubLiteRuntime(session, {
+      client: createMockGitHubLiteClient(state),
+    });
+
+    const result = await runtime.batches.getDeletedBatchArchive({
+      batchId: "payment.daily-close",
+    });
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(result).toEqual({
+      sourceRequest: {
+        locator: "40",
+        number: 40,
+        url: "https://github.com/always0ne/batch/pull/40",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "BASE_REVISION_UNAVAILABLE",
+    });
+    expect(result).not.toHaveProperty("batch");
+  });
+
+  it("returns unavailable when the archived base definition is malformed", async () => {
+    const malformedDefinition = "apiVersion: [\n";
+    const state = await createDeletedArchiveState({
+      definitionContent: malformedDefinition,
+      evidenceDefinitionContent: malformedDefinition,
+    });
+    const runtime = createGitHubLiteRuntime(session, {
+      client: createMockGitHubLiteClient(state),
+    });
+
+    const result = await runtime.batches.getDeletedBatchArchive({
+      batchId: "payment.daily-close",
+    });
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(result).toEqual({
+      sourceRequest: {
+        locator: "40",
+        number: 40,
+        url: "https://github.com/always0ne/batch/pull/40",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "BATCH_DEFINITION_MALFORMED",
+    });
+    expect(result).not.toHaveProperty("batch");
+  });
+
+  it("returns unavailable when the base definition digest differs from evidence", async () => {
+    const state = await createDeletedArchiveState({
+      definitionContent: `${serializeBatchDefinitionYaml({
+        batchId: "payment.daily-close",
+        criticality: "HIGH",
+        domain: "payments",
+        environment: "PROD",
+        execution: {
+          command: "echo changed batch",
+          runsOn: "ubuntu-latest",
+        },
+        gateRequired: true,
+        name: "Daily Close",
+        owner: "ops-team",
+        status: "ACTIVE",
+        workflow: {
+          path: ".github/workflows/payment.daily-close.yml",
+          ref: "main",
+        },
+      })}`,
+    });
+    const runtime = createGitHubLiteRuntime(session, {
+      client: createMockGitHubLiteClient(state),
+    });
+
+    const result = await runtime.batches.getDeletedBatchArchive({
+      batchId: "payment.daily-close",
+    });
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(result).toEqual({
+      sourceRequest: {
+        locator: "40",
+        number: 40,
+        url: "https://github.com/always0ne/batch/pull/40",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "BATCH_DEFINITION_DIGEST_MISMATCH",
+    });
+    expect(result).not.toHaveProperty("batch");
+  });
+
+  it("returns unavailable when authoritative request verification fails", async () => {
+    const state = await createDeletedArchiveState();
+    state.repositoryPermissions = state.repositoryPermissions.filter(
+      (permission) => permission.username !== "developer",
+    );
+    const runtime = createGitHubLiteRuntime(session, {
+      client: createMockGitHubLiteClient(state),
+    });
+
+    const result = await runtime.batches.getDeletedBatchArchive({
+      batchId: "payment.daily-close",
+    });
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(result).toEqual({
+      sourceRequest: {
+        locator: "40",
+        number: 40,
+        url: "https://github.com/always0ne/batch/pull/40",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "REQUEST_EVIDENCE_UNVERIFIED",
+    });
+    expect(result).not.toHaveProperty("batch");
+  });
+
+  it("uses the newest merged delete request as the archive source", async () => {
+    const state = await createDeletedArchiveState();
+    const newestRequest = {
+      ...state.pullRequests[0]!,
+      body: "Legacy delete request body",
+      head: "batchplane/delete/payment.daily-close-20260904000001-delete-2",
+      number: 41,
+      title: "Delete batch payment.daily-close",
+      url: "https://github.com/always0ne/batch/pull/41",
+    };
+
+    state.pullRequests = [state.pullRequests[0]!, newestRequest];
+    state.pullRequestFiles[41] = [];
+
+    const runtime = createGitHubLiteRuntime(session, {
+      client: createMockGitHubLiteClient(state),
+    });
+
+    const result = await runtime.batches.getDeletedBatchArchive({
+      batchId: "payment.daily-close",
+    });
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(result).toEqual({
+      sourceRequest: {
+        locator: "41",
+        number: 41,
+        url: "https://github.com/always0ne/batch/pull/41",
+      },
+      status: "UNAVAILABLE",
+      unavailableReason: "LEGACY_OR_MALFORMED_EVIDENCE",
+    });
   });
 
   it("previews governed file changes against the base branch", async () => {
@@ -422,108 +845,6 @@ describe("createGitHubLiteRuntime", () => {
     );
   });
 
-  it("updates existing schedule definitions with file SHAs during change-mode PR creation", async () => {
-    const requests: Array<{ body: unknown; method: string; url: string }> = [];
-    const branch =
-      "batchplane/schedule/change/payment.daily-close-daily-20260514010203";
-    const fetcher: typeof fetch = async (input, init) => {
-      const url = input.toString();
-      const method = init?.method ?? "GET";
-      const body = init?.body ? JSON.parse(init.body.toString()) : null;
-      const parsedUrl = new URL(url);
-
-      requests.push({ body, method, url });
-
-      if (url.endsWith("/git/ref/heads/main")) {
-        return Response.json({
-          object: { sha: "mock-main-sha", type: "commit", url: "" },
-          ref: "refs/heads/main",
-        });
-      }
-
-      if (url.endsWith("/git/refs") && method === "POST") {
-        return Response.json({
-          object: { sha: "mock-main-sha", type: "commit", url: "" },
-          ref: `refs/heads/${branch}`,
-        });
-      }
-
-      if (
-        parsedUrl.pathname ===
-          "/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-daily.yml" &&
-        parsedUrl.searchParams.get("ref") === branch
-      ) {
-        return Response.json({
-          content: btoa('metadata:\n  id: "payment.daily-close-daily"\n'),
-          encoding: "base64",
-          path: ".batch-governance/schedules/payment.daily-close-daily.yml",
-          sha: "existing-schedule-sha",
-        });
-      }
-
-      if (
-        url.endsWith(
-          "/contents/.batch-governance/schedules/payment.daily-close-daily.yml",
-        ) &&
-        method === "PUT"
-      ) {
-        return Response.json({
-          content: {
-            path: ".batch-governance/schedules/payment.daily-close-daily.yml",
-            sha: "updated-schedule-sha",
-          },
-        });
-      }
-
-      if (url.endsWith("/pulls") && method === "POST") {
-        return Response.json({
-          base: { ref: "main" },
-          body: "body",
-          head: { ref: branch },
-          html_url: "https://github.com/always0ne/batch/pull/14",
-          number: 14,
-          state: "open",
-          title: "Change schedule payment.daily-close-daily",
-          user: { login: "maintainer" },
-        });
-      }
-
-      return Response.json({ message: "Not Found" }, { status: 404 });
-    };
-    const runtime = createGitHubLiteRuntime(session, { fetcher });
-
-    await expect(
-      runtime.schedules.createScheduleDefinitionPullRequest({
-        baseBranch: "main",
-        body: "body",
-        branch,
-        scheduleDefinitionPath:
-          ".batch-governance/schedules/payment.daily-close-daily.yml",
-        scheduleDefinitionYaml:
-          'metadata:\n  id: "payment.daily-close-daily"\n',
-        title: "Change schedule payment.daily-close-daily",
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        number: 14,
-        title: "Change schedule payment.daily-close-daily",
-      }),
-    );
-
-    expect(requests).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          body: expect.objectContaining({
-            branch,
-            sha: "existing-schedule-sha",
-          }),
-          method: "PUT",
-          url: "https://api.github.com/repos/always0ne/batch/contents/.batch-governance/schedules/payment.daily-close-daily.yml",
-        }),
-      ]),
-    );
-  });
-
   it("approves registration requests through the ApprovalPort", async () => {
     const requests: Array<{ body: unknown; method: string; url: string }> = [];
     const fetcher: typeof fetch = async (input, init) => {
@@ -603,6 +924,7 @@ describe("createGitHubLiteRuntime", () => {
         createdAt: "2026-05-14T01:05:00.000Z",
         id: 1011,
         issueNumber: 101,
+        updatedAt: "2026-05-14T01:05:00.000Z",
       },
     ]);
   });
@@ -675,6 +997,7 @@ describe("createGitHubLiteRuntime", () => {
       createdAt: "",
       id: 1,
       issueNumber: 101,
+      updatedAt: "",
     });
     expect(requests).toEqual([
       expect.objectContaining({

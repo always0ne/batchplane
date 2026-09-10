@@ -430,10 +430,7 @@ function toGovernedChangeRequestItem(
       status,
       target: formatRegistrationTarget(summary),
       title: pullRequest.title,
-      typeLabelKey:
-        summary.kind === "schedule"
-          ? "scheduleChange"
-          : `batch${capitalizeLower(summary.requestType)}`,
+      typeLabelKey: `batch${capitalizeLower(summary.requestType)}`,
       updatedAt: pullRequest.updatedAt ?? pullRequest.createdAt ?? "",
     },
   ];
@@ -480,9 +477,7 @@ function safeParseRegistrationSummary(
 }
 
 function formatRegistrationTarget(summary: RegistrationRequestBodySummary) {
-  return summary.kind === "schedule"
-    ? [summary.batchId, summary.scheduleId].filter(Boolean).join(" / ")
-    : summary.batchId;
+  return summary.batchId;
 }
 
 function formatExecutionTarget(request: ExecutionApprovalRequest) {
