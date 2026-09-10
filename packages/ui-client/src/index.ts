@@ -1,4 +1,5 @@
 export * from "./batches.js";
+export * from "./batch-details.js";
 export * from "./governed-changes.js";
 
 import type {
@@ -9,9 +10,21 @@ import type {
   GovernedChangePreview,
 } from "./governed-changes.js";
 import type { BatchListResult } from "./batches.js";
+import type {
+  BatchDetailResult,
+  BatchRemediationCapability,
+  RequestBatchRemediationInput,
+} from "./batch-details.js";
 
 export type BatchPlaneClient = {
   listBatches(): Promise<BatchListResult>;
+  getBatchDetail(input: { batchId: string }): Promise<BatchDetailResult>;
+  requestBatchRemediation(
+    input: RequestBatchRemediationInput,
+  ): Promise<CreateGovernedChangeResult>;
+  getBatchRemediationCapability(input: {
+    batchId: string;
+  }): Promise<BatchRemediationCapability>;
   loadBatchChangeDraft(input: {
     batchId?: string;
     mode: "create" | "change" | "delete";

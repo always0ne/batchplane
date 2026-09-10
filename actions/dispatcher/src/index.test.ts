@@ -13,12 +13,22 @@ import {
   buildDispatchedCommentBody,
   buildExecutionApprovalCommentBody,
   buildExecutionIssueBody,
+  sharedGovernedChangeId,
   sharedRequestDigest as requestDigest,
   sharedRequestId as requestId,
+  sharedTargetRevisionDigest,
 } from "../../../test/fixtures/execution-evidence";
 const issueBody = buildExecutionIssueBody();
 const approvalCommentBody = buildExecutionApprovalCommentBody();
 const dispatchedCommentBody = buildDispatchedCommentBody();
+const verifyApprovedBatchRevision = async () => ({
+  approvedRevision: {
+    governedChangeId: sharedGovernedChangeId,
+    targetRevisionDigest: sharedTargetRevisionDigest,
+  },
+  controlStatus: "VERIFIED" as const,
+  verifiedSha: "approved-merge-sha",
+});
 
 describe("dispatcher verification", () => {
   it("keeps the legacy slash command parser", () => {
@@ -46,6 +56,10 @@ describe("dispatcher verification", () => {
 
   it("parses execution request evidence", () => {
     expect(parseExecutionRequestEvidence(issueBody)).toEqual({
+      approvedBatchRevision: {
+        governedChangeId: sharedGovernedChangeId,
+        targetRevisionDigest: sharedTargetRevisionDigest,
+      },
       batchId: "payment.daily-close",
       expiresAt: "2026-05-09T02:02:03.000Z",
       requestDigest,
@@ -104,6 +118,10 @@ describe("dispatcher verification", () => {
         workflowRef: "main",
       },
       request: {
+        approvedBatchRevision: {
+          governedChangeId: sharedGovernedChangeId,
+          targetRevisionDigest: sharedTargetRevisionDigest,
+        },
         batchId: "payment.daily-close",
         expiresAt: "2026-05-09T02:02:03.000Z",
         requestDigest,
@@ -223,6 +241,7 @@ describe("dispatcher verification", () => {
         now: new Date("2026-05-09T01:30:03.000Z"),
         owner: "always0ne",
         repo: "batch",
+        verifyBatchRevision: verifyApprovedBatchRevision,
       }),
     ).resolves.toMatchObject({ status: "dispatched" });
 
@@ -301,6 +320,7 @@ describe("dispatcher verification", () => {
         now: new Date("2026-05-09T01:30:03.000Z"),
         owner: "always0ne",
         repo: "batch",
+        verifyBatchRevision: verifyApprovedBatchRevision,
       }),
     ).resolves.toMatchObject({
       reasonCode: "IGNORED_COMMENT",
@@ -357,6 +377,7 @@ describe("dispatcher verification", () => {
         now: new Date("2026-05-09T01:30:03.000Z"),
         owner: "always0ne",
         repo: "batch",
+        verifyBatchRevision: verifyApprovedBatchRevision,
       }),
     ).resolves.toMatchObject({
       reasonCode: "DISPATCH_ALREADY_HANDLED",
@@ -429,6 +450,7 @@ describe("dispatcher verification", () => {
         now: new Date("2026-05-09T01:30:03.000Z"),
         owner: "always0ne",
         repo: "batch",
+        verifyBatchRevision: verifyApprovedBatchRevision,
       }),
     ).resolves.toMatchObject({
       reasonCode: "WORKFLOW_DISPATCH_FAILED",
@@ -499,6 +521,7 @@ describe("dispatcher verification", () => {
         now: new Date("2026-05-09T01:30:03.000Z"),
         owner: "always0ne",
         repo: "batch",
+        verifyBatchRevision: verifyApprovedBatchRevision,
       }),
     ).resolves.toMatchObject({
       reasonCode: "REQUEST_NOT_REQUESTED",
@@ -613,6 +636,7 @@ describe("dispatcher verification", () => {
         now: new Date("2026-05-09T01:30:03.000Z"),
         owner: "always0ne",
         repo: "batch",
+        verifyBatchRevision: verifyApprovedBatchRevision,
       }),
     ).resolves.toMatchObject({
       status: "dispatched",
@@ -677,6 +701,7 @@ describe("dispatcher verification", () => {
         now: new Date("2026-05-09T01:30:03.000Z"),
         owner: "always0ne",
         repo: "batch",
+        verifyBatchRevision: verifyApprovedBatchRevision,
       }),
     ).resolves.toMatchObject({
       reasonCode: "RETRY_DISPATCH_NOT_ALLOWED",

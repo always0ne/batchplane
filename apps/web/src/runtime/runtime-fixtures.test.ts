@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   createBatchPlaneRuntime,
+  createRuntimeBatchRevisionClient,
+  createRuntimeGovernedChangeClient,
   createRuntimeFixtureMockState,
   legacyRuntimeFixtureStorageKey,
   readRuntimeFixtureSelection,
@@ -42,6 +44,39 @@ describe("runtime fixtures", () => {
       owner: "always0ne",
       repo: "batch",
       token: "fixture-token",
+    });
+  });
+
+  it("builds the verified Batch control fixture through a separately approved governed change", async () => {
+    writeRuntimeFixtureSelection("batch-control-verified");
+
+    await expect(
+      createRuntimeBatchRevisionClient(
+        readRuntimeSessionOrThrow(),
+      ).verifyApprovedBatchRevision({ batchId: "payment.daily-close" }),
+    ).resolves.toMatchObject({
+      controlStatus: "VERIFIED",
+      verifiedSha: expect.stringMatching(/^[0-9a-f]{40}$/u),
+    });
+  });
+
+  it("provides a clean bypass fixture with review and restoration remediation available", async () => {
+    writeRuntimeFixtureSelection("batch-control-bypassed-clean");
+    const session = readRuntimeSessionOrThrow();
+    const governedChanges = createRuntimeGovernedChangeClient(session);
+
+    await expect(
+      createRuntimeBatchRevisionClient(session).verifyApprovedBatchRevision({
+        batchId: "payment.daily-close",
+      }),
+    ).resolves.toMatchObject({ controlStatus: "BYPASSED" });
+    await expect(
+      governedChanges.getBatchRemediationCapability({
+        batchId: "payment.daily-close",
+      }),
+    ).resolves.toEqual({
+      availableKinds: ["REVIEW_CURRENT", "RESTORE_LAST_APPROVED"],
+      canRequest: true,
     });
   });
 

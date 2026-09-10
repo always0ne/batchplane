@@ -12,6 +12,8 @@ export type BatchChangeDraft = {
     bytes: Uint8Array;
     fileName: string;
   };
+  /** Internal remediation intent; not editable in ordinary Batch forms. */
+  removeExistingArtifact?: boolean;
   batch: {
     existingArtifact?: {
       fileName: string;
@@ -31,6 +33,7 @@ export type BatchChangeDraft = {
   };
   governedChangeId?: string;
   mode: "create" | "change" | "delete";
+  remediation?: "REVIEW_CURRENT" | "RESTORE_LAST_APPROVED";
   schedules: BatchSchedule[];
   /** Immutable identity supplied by the change route, never user-editable. */
   targetBatchId?: string;

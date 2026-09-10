@@ -13,6 +13,7 @@ import type {
   FailureFollowUpReviewCapability,
   FailureFollowUpReviewDecision,
   GateDecision,
+  ApprovedBatchRevision,
   GovernedChangeFilePreviewStatus,
   RepositoryFile,
   RepositoryIssue,
@@ -35,6 +36,7 @@ import {
   parseExecutionGateResult,
   parseBatchDefinitionYaml as parseGovernedBatchDefinitionYaml,
   parseGovernedChangeRequestEvidence,
+  verifyApprovedBatchRevision,
   type GitHubIssue,
   type GitHubIssueComment,
   type GitHubFile,
@@ -579,6 +581,25 @@ export function createGitHubLiteRuntime(
       },
 
       async createExecutionRequest({ body, labels, title }) {
+        const requestRevision = readExecutionRequestRevisionBinding(body);
+        const requestBatchId = readExecutionRequestBatchId(body);
+
+        if (!requestRevision || !requestBatchId) {
+          throw new Error(
+            "Execution request is missing approved Batch revision evidence.",
+          );
+        }
+
+        const verification = await verifyApprovedBatchRevision({
+          batchId: requestBatchId,
+          client,
+          expectedRevision: requestRevision,
+          repository: repositoryRef,
+        });
+        if (verification.controlStatus !== "VERIFIED") {
+          throw new Error(verification.reasonCode);
+        }
+
         const issue = await client.createIssue({
           ...repositoryRef,
           body,
@@ -587,6 +608,25 @@ export function createGitHubLiteRuntime(
         });
 
         return toRepositoryIssue(issue);
+      },
+
+      async getApprovedBatchRevision({
+        batchId,
+      }): Promise<ApprovedBatchRevision> {
+        const verification = await verifyApprovedBatchRevision({
+          batchId,
+          client,
+          repository: repositoryRef,
+        });
+
+        if (verification.controlStatus !== "VERIFIED") {
+          throw new Error(verification.reasonCode);
+        }
+
+        return {
+          ...verification.approvedRevision,
+          verifiedSha: verification.verifiedSha,
+        };
       },
 
       async getExecutionRun({ runId }) {
@@ -1294,6 +1334,45 @@ type RuntimeRepositoryRef = {
 type ExecutionRequestForRun = NonNullable<
   ReturnType<typeof parseExecutionRequestDetail>
 >;
+
+function readExecutionRequestRevisionBinding(body: string): {
+  governedChangeId: string;
+  targetRevisionDigest: string;
+} | null {
+  const match = /### Canonical payload\s*```json\s*([\s\S]*?)\s*```/u.exec(
+    body,
+  );
+
+  if (!match?.[1]) return null;
+  try {
+    const payload = JSON.parse(match[1]) as {
+      spec?: {
+        approvedBatchRevision?: {
+          governedChangeId?: string;
+          targetRevisionDigest?: string;
+        };
+      };
+    };
+    const revision = payload.spec?.approvedBatchRevision;
+
+    return revision?.governedChangeId &&
+      revision.targetRevisionDigest?.startsWith("sha256:")
+      ? {
+          governedChangeId: revision.governedChangeId,
+          targetRevisionDigest: revision.targetRevisionDigest,
+        }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function readExecutionRequestBatchId(body: string): string | null {
+  const marker =
+    /<!--\s*batchplane:execution-request[\s\S]*?^batchId=(.+)$/mu.exec(body);
+
+  return marker?.[1]?.trim() || null;
+}
 
 function toRegistrationAuditItems(
   pullRequest: RepositoryPullRequest,

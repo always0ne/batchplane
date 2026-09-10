@@ -3,6 +3,9 @@ export * from "./governed-change-client.js";
 export * from "./governed-change-verifier.js";
 export * from "./batch-definition-codec.js";
 export * from "./execution-gate-result.js";
+export * from "./approved-batch-revision.js";
+export * from "./batch-revision-client.js";
+export * from "./execution-request-summaries.js";
 
 export type RepoRef = {
   owner: string;
@@ -64,6 +67,10 @@ export type GitHubPullRequest = {
   createdAt?: string;
   updatedAt?: string;
   merged: boolean;
+  /** GitHub's immutable merge commit. It may differ from the approved head. */
+  mergeSha?: string;
+  /** GitHub's immutable merge timestamp for merged pull requests. */
+  mergedAt?: string;
 };
 
 export type GitHubPullRequestFileStatus =
@@ -551,6 +558,7 @@ type GitHubPullRequestResponse = {
   created_at?: string;
   updated_at?: string;
   merged?: boolean;
+  merge_commit_sha?: string | null;
   merged_at?: string | null;
   user: {
     login: string;
@@ -2183,11 +2191,44 @@ export function createMockGitHubLiteClient(
 
       pullRequest.merged = true;
       pullRequest.state = "closed";
+      pullRequest.mergeSha = String(params.pullNumber).padStart(40, "0");
+      pullRequest.mergedAt = new Date().toISOString();
+
+      const baseSnapshotSha = pullRequest.baseSha;
+      if (baseSnapshotSha) {
+        state.files.push(
+          ...state.files
+            .filter((file) => file.branch === pullRequest.base)
+            .map((file) => ({ ...file, branch: baseSnapshotSha })),
+        );
+        state.branches[baseSnapshotSha] = baseSnapshotSha;
+      }
+      const headFiles = state.files.filter(
+        (file) => file.branch === pullRequest.head,
+      );
+      state.files = state.files.filter(
+        (file) =>
+          file.branch !== pullRequest.base ||
+          !headFiles.some((headFile) => headFile.path === file.path),
+      );
+      state.files.push(
+        ...headFiles.map((file) => ({ ...file, branch: pullRequest.base })),
+      );
+      state.branches[pullRequest.base] = pullRequest.mergeSha;
+      // A merge SHA is an immutable content address, not an alias for the
+      // later-moving default branch. Historical revision verification and
+      // restoration both need to read the merged snapshot by that SHA.
+      state.files.push(
+        ...state.files
+          .filter((file) => file.branch === pullRequest.base)
+          .map((file) => ({ ...file, branch: pullRequest.mergeSha! })),
+      );
+      state.branches[pullRequest.mergeSha] = pullRequest.mergeSha;
 
       return {
         merged: true,
         message: "Pull Request successfully merged",
-        sha: `mock-merge-sha-${params.pullNumber}`,
+        sha: pullRequest.mergeSha,
       };
     },
 
@@ -2710,6 +2751,10 @@ function mapPullRequestResponse(
     ...(pullRequest.created_at ? { createdAt: pullRequest.created_at } : {}),
     ...(pullRequest.updated_at ? { updatedAt: pullRequest.updated_at } : {}),
     merged: pullRequest.merged ?? Boolean(pullRequest.merged_at),
+    ...(pullRequest.merge_commit_sha
+      ? { mergeSha: pullRequest.merge_commit_sha }
+      : {}),
+    ...(pullRequest.merged_at ? { mergedAt: pullRequest.merged_at } : {}),
   };
 }
 

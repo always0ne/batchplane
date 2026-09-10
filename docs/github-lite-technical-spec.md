@@ -705,10 +705,35 @@ the same dispatcher-plus-Gate path used by manual requests.
 ## R2 Boundary
 
 R2-A governs request creation, verified change review, and adapter-owned
-repository mutation. This bounded R2-B packet adds run-scoped Gate-log result
-projection only. Approved-revision SHA verification/remediation, workflow
-attestation, bypass occurrence enforcement, R4 protocol redesign, app-routing
-refactoring, and R5 migration are not implemented by this revision. GitHub
-runs and job logs have GitHub-controlled retention and edit/deletion controls;
-they are repository-backed operational evidence, not a permanent immutable
-audit store or proof against Gate removal.
+repository mutation. R2-B additionally binds every new execution request to
+the approved Batch `governedChangeId` and target revision digest. Manual
+creation, scheduled occurrence creation, dispatcher mutation, and Gate each
+revalidate that binding against the newest applicable merged governed Batch
+change. The check compares the registered definition, workflow, and artifact
+only; unrelated Batch and README changes do not invalidate a revision.
+
+Gate emits the verified merged commit SHA. The generated business job starts
+only when that output is nonempty and checks out exactly that SHA. Gate also
+compares the workflow source SHA in the execution context to the registered
+approved artifacts. A failed or unavailable GitHub API read blocks execution:
+an unavailable API is an unknown control result, not invented bypass evidence.
+
+An unapproved current revision is remediated through a new governed change to
+review the current revision or restore the newest verifiably approved revision.
+Creating that request does not unlock execution; ordinary role, self-approval,
+and auto-approval policy still apply. Auto approval never silently repairs a
+detected bypass. The remediation request evidence links the change to its
+remediation kind, while existing execution run/attempt evidence records a
+blocked execution.
+
+Repository protection is a required trust boundary: repository administrators
+can replace or remove the Gate/action workflow, and Gate alone cannot prevent
+that. GitHub runs, logs, Issues, comments, and pull requests retain their
+normal GitHub-controlled retention and edit/deletion behavior. BatchPlane does
+not add a separate immutable incident store or writer. Consequently, an
+unauthorized edit followed by exact restoration cannot be made a permanent
+sticky incident solely from this protocol; only the retained execution/attempt
+and remediation-change evidence can show it.
+
+R4 occurrence protocol redesign and R5 broad application migration remain out
+of scope for R2-B.

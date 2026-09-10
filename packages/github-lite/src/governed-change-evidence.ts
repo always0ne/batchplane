@@ -182,6 +182,9 @@ function isGovernedChangeRequestEvidence(
     isNonBlankString(evidence.repository) &&
     isNonBlankString(evidence.requester) &&
     isNonBlankString(evidence.requestedAt) &&
+    (evidence.remediation === undefined ||
+      evidence.remediation === "REVIEW_CURRENT" ||
+      evidence.remediation === "RESTORE_LAST_APPROVED") &&
     isNonBlankString(evidence.targetRevisionDigest) &&
     isChangeType(evidence.type) &&
     isNonBlankString(evidence.workspace) &&

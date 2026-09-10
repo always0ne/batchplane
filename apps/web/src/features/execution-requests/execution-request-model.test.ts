@@ -57,6 +57,11 @@ describe("execution request model", () => {
 
   it("builds an auditable GitHub issue body", async () => {
     const issue = await buildExecutionRequestIssue({
+      approvedBatchRevision: {
+        governedChangeId: "bgc-20260509-payment.daily-close-approved",
+        targetRevisionDigest:
+          "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      },
       batch,
       expiresAt: new Date("2026-05-09T02:02:03.000Z"),
       parameters: [
@@ -105,6 +110,11 @@ describe("execution request model", () => {
 
   it("builds delegated scheduled execution issues", async () => {
     const issue = await buildExecutionRequestIssue({
+      approvedBatchRevision: {
+        governedChangeId: "bgc-20260509-payment.daily-close-approved",
+        targetRevisionDigest:
+          "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      },
       batch: {
         ...batch,
         schedules: [

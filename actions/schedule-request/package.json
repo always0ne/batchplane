@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "@batchplane/domain": "workspace:*",
+    "@batchplane/github-lite": "workspace:*",
     "cron-parser": "^5.5.0"
   },
   "scripts": {

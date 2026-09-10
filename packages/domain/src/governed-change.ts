@@ -26,6 +26,7 @@ export type GovernedChangeRequestEvidence = {
   repository: string;
   requester: string;
   requestedAt: string;
+  remediation?: "REVIEW_CURRENT" | "RESTORE_LAST_APPROVED";
   targetRevisionDigest: string;
   type: GovernedChangeType;
   version: typeof governedChangeEvidenceVersion;
@@ -154,6 +155,7 @@ function toRequestDigestPayload(
     repository: evidence.repository,
     requester: evidence.requester,
     requestedAt: evidence.requestedAt,
+    ...(evidence.remediation ? { remediation: evidence.remediation } : {}),
     targetRevisionDigest: evidence.targetRevisionDigest,
     type: evidence.type,
     version: evidence.version,

@@ -1,4 +1,5 @@
 import type { BatchStatus, Criticality } from "@batchplane/domain";
+import type { BatchControl } from "./batch-details.js";
 
 export type BatchListItem = {
   batchId: string;
@@ -9,6 +10,7 @@ export type BatchListItem = {
   name: string;
   owner: string;
   status: BatchStatus;
+  control: BatchControl;
 };
 
 export type BatchListResult =

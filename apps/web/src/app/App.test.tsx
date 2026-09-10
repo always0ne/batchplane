@@ -15,6 +15,14 @@ const disconnectedClient = {
   createBatchChangeRequest: async () => {
     throw new Error("Workspace is not connected.");
   },
+  getBatchDetail: async ({ batchId }) => ({
+    batchId,
+    type: "not-found" as const,
+  }),
+  getBatchRemediationCapability: async () => ({
+    availableKinds: [],
+    canRequest: false,
+  }),
   getGovernedChange: async () => null,
   listBatches: async () => ({ type: "workspace-not-connected" as const }),
   loadBatchChangeDraft: async (): Promise<BatchChangeDraft> => ({
@@ -40,6 +48,9 @@ const disconnectedClient = {
     hasEffectiveChanges: false,
     targetRevisionDigest: "sha256:test",
   }),
+  requestBatchRemediation: async () => {
+    throw new Error("Workspace is not connected.");
+  },
   rejectGovernedChange: async () => {
     throw new Error("Workspace is not connected.");
   },

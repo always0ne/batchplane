@@ -55,7 +55,7 @@ describe("runtime BatchPlane client", () => {
       readSession,
     });
 
-    await expect(client.listBatches()).resolves.toEqual({
+    await expect(client.listBatches()).resolves.toMatchObject({
       batches: [
         {
           batchId: "payment.daily-close",

@@ -45,7 +45,12 @@ export function prepareGovernedChange(
   });
   const batchPath = getBatchDefinitionPath(batch.batchId);
   const type = toGovernedChangeType(draft.mode);
-  const title = `${toTitleVerb(draft.mode)} batch ${batch.batchId}`;
+  const title =
+    draft.remediation === "REVIEW_CURRENT"
+      ? `Review current batch revision ${batch.batchId}`
+      : draft.remediation === "RESTORE_LAST_APPROVED"
+        ? `Restore approved batch revision ${batch.batchId}`
+        : `${toTitleVerb(draft.mode)} batch ${batch.batchId}`;
 
   if (type === "DELETE") {
     return {
@@ -95,6 +100,7 @@ export function prepareGovernedChange(
       ...prepareArtifactFiles({
         currentArtifactPath,
         nextArtifactPath,
+        removeExistingArtifact: draft.removeExistingArtifact,
         uploadedArtifact: draft.artifact,
       }),
     ],
@@ -419,6 +425,7 @@ function resolveArtifactPath(
   draft: BatchChangeDraft,
   currentArtifactPath: string | undefined,
 ): string | undefined {
+  if (draft.removeExistingArtifact) return undefined;
   if (!draft.artifact) return currentArtifactPath;
 
   // Existing locators are opaque repository paths. A same-name replacement
@@ -436,13 +443,19 @@ function resolveArtifactPath(
 function prepareArtifactFiles({
   currentArtifactPath,
   nextArtifactPath,
+  removeExistingArtifact,
   uploadedArtifact,
 }: {
   currentArtifactPath?: string;
   nextArtifactPath?: string;
+  removeExistingArtifact?: boolean;
   uploadedArtifact: BatchChangeDraft["artifact"];
 }): PreparedGovernedFile[] {
-  if (!nextArtifactPath) return [];
+  if (!nextArtifactPath) {
+    return currentArtifactPath && removeExistingArtifact
+      ? [{ bytes: null, kind: "ARTIFACT", path: currentArtifactPath }]
+      : [];
+  }
   if (!uploadedArtifact) {
     return [{ bytes: undefined, kind: "ARTIFACT", path: nextArtifactPath }];
   }

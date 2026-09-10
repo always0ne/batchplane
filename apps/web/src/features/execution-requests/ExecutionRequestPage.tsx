@@ -57,6 +57,10 @@ type PageState =
   | {
       type: "loaded";
       batch: BatchDefinition;
+      approvedBatchRevision: {
+        governedChangeId: string;
+        targetRevisionDigest: string;
+      };
       login: string;
       session: GitHubSession;
       workspacePolicy: WorkspacePolicy;
@@ -155,9 +159,15 @@ export function ExecutionRequestPage({
           return;
         }
 
+        const approvedBatchRevision =
+          await runtime.executions.getApprovedBatchRevision({
+            batchId: batch.batchId,
+          });
+
         setState({
           type: "loaded",
           batch,
+          approvedBatchRevision,
           login: user.login,
           session,
           workspacePolicy,
@@ -220,6 +230,7 @@ export function ExecutionRequestPage({
 
       try {
         const issue = await buildExecutionRequestIssue({
+          approvedBatchRevision: state.approvedBatchRevision,
           batch: state.batch,
           expiresAt: addHours(
             draft.requestedAt,

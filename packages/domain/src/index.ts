@@ -179,10 +179,20 @@ export type ExecutionRequest = {
   requestedAt: string;
   expiresAt: string;
   requestDigest: string;
+  approvedBatchRevision: {
+    governedChangeId: string;
+    targetRevisionDigest: string;
+  };
   status: ExecutionRequestStatus;
   reason?: string;
   triggerType?: ExecutionTriggerType;
   schedule?: ScheduleOccurrenceRef;
+};
+
+export type ApprovedBatchRevision = {
+  governedChangeId: string;
+  targetRevisionDigest: string;
+  verifiedSha: string;
 };
 
 export type ApprovalDecisionValue = "APPROVED" | "REJECTED";
@@ -529,6 +539,9 @@ export type ExecutionPort = {
     labels: string[];
     title: string;
   }): Promise<RepositoryIssue>;
+  getApprovedBatchRevision(params: {
+    batchId: string;
+  }): Promise<ApprovedBatchRevision>;
   getExecutionRun(params: { runId: string }): Promise<ExecutionRun | null>;
   getExecutionRunJobLog(params: { jobId: string }): Promise<ExecutionRunJobLog>;
   listExecutionRuns(params?: {
@@ -718,6 +731,11 @@ export type ExecutionRequestPayload = {
     execution?: NonNullable<BatchDefinition["execution"]> & {
       gateRequired: boolean;
     };
+    /** Bound into the request digest so older requests cannot run a newer Batch. */
+    approvedBatchRevision: {
+      governedChangeId: string;
+      targetRevisionDigest: string;
+    };
     workflow: WorkflowTarget;
     schedule?: ScheduleOccurrenceRef;
   };
@@ -743,6 +761,10 @@ export type ExecutionApprovalCommentType =
   | "WORKSPACE_AUTO_APPROVED";
 
 export type BuildExecutionRequestIssueParams = {
+  approvedBatchRevision: {
+    governedChangeId: string;
+    targetRevisionDigest: string;
+  };
   batch: BatchDefinition;
   expiresAt: Date;
   parameters?: ExecutionRequestParameterInput[];
@@ -767,6 +789,7 @@ export type BuildExecutionApprovalCommentParams = {
 };
 
 export async function buildExecutionRequestIssue({
+  approvedBatchRevision,
   batch,
   expiresAt,
   parameters = [],
@@ -778,6 +801,15 @@ export async function buildExecutionRequestIssue({
   triggerType = "MANUAL",
   workflowRef,
 }: BuildExecutionRequestIssueParams): Promise<ExecutionRequestIssue> {
+  if (
+    !approvedBatchRevision.governedChangeId.trim() ||
+    !approvedBatchRevision.targetRevisionDigest.startsWith("sha256:")
+  ) {
+    throw new Error(
+      "Execution requests require an approved governed Batch revision binding.",
+    );
+  }
+
   const effectiveRequestId =
     requestId ??
     (triggerType === "SCHEDULE" && schedule
@@ -799,6 +831,10 @@ export async function buildExecutionRequestIssue({
       requestId: effectiveRequestId,
     },
     spec: {
+      approvedBatchRevision: {
+        governedChangeId: approvedBatchRevision.governedChangeId.trim(),
+        targetRevisionDigest: approvedBatchRevision.targetRevisionDigest.trim(),
+      },
       batch: {
         criticality: batch.criticality,
         domain: batch.domain,
@@ -833,6 +869,7 @@ export async function buildExecutionRequestIssue({
     payload as unknown as CanonicalValue,
   );
   const request: ExecutionRequest = {
+    approvedBatchRevision: payload.spec.approvedBatchRevision,
     batchId: batch.batchId,
     expiresAt: expiresAtIso,
     requestDigest,
@@ -951,6 +988,8 @@ function buildExecutionRequestBody({
     `- Requested at: ${request.requestedAt}`,
     `- Expires at: ${request.expiresAt}`,
     `- Trigger type: \`${request.triggerType ?? "MANUAL"}\``,
+    `- Approved Batch change: \`${request.approvedBatchRevision.governedChangeId}\``,
+    `- Approved Batch digest: \`${request.approvedBatchRevision.targetRevisionDigest}\``,
     ...(request.schedule
       ? [
           `- Schedule ID: \`${request.schedule.scheduleId}\``,

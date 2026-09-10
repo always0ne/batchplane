@@ -68,7 +68,7 @@ function BatchListTable({ batches }: { batches: BatchListItem[] }) {
               {t("table.criticality")}
             </th>
             <th className="px-4 py-3 font-semibold">{t("table.status")}</th>
-            <th className="px-4 py-3 font-semibold">{t("table.gate")}</th>
+            <th className="px-4 py-3 font-semibold">{t("table.control")}</th>
             <th className="px-4 py-3 font-semibold">{t("table.actions")}</th>
           </tr>
         </thead>
@@ -114,7 +114,30 @@ function BatchListRow({ batch }: { batch: BatchListItem }) {
       </td>
       <td className="px-4 py-4 text-sm text-bp-graphite">{batch.status}</td>
       <td className="px-4 py-4 text-sm text-bp-graphite">
-        {batch.gateRequired ? t("values.required") : t("values.gateMissing")}
+        <div className="space-y-1">
+          <p
+            title={
+              batch.gateRequired
+                ? t("detail.gate.required")
+                : t("detail.gate.nonCompliant")
+            }
+          >
+            {batch.gateRequired
+              ? t("values.required")
+              : t("values.gateMissing")}
+          </p>
+          <p
+            className={[
+              "text-xs font-semibold",
+              batch.control.status === "VERIFIED"
+                ? "text-emerald-700"
+                : "text-amber-800",
+            ].join(" ")}
+            title={getControlStatusReason(batch, t)}
+          >
+            {t(`control.status.${batch.control.status.toLowerCase()}`)}
+          </p>
+        </div>
       </td>
       <td className="px-4 py-4 text-sm text-bp-graphite">
         <div className="flex flex-wrap items-center gap-2">
@@ -154,4 +177,17 @@ function BatchListRow({ batch }: { batch: BatchListItem }) {
       </td>
     </tr>
   );
+}
+
+function getControlStatusReason(
+  batch: BatchListItem,
+  t: (key: string) => string,
+): string | undefined {
+  if (batch.control.status === "VERIFIED") {
+    return t("control.verifiedReason");
+  }
+
+  return batch.control.disabledReason === "UNAPPROVED_BATCH_REVISION"
+    ? t("execution.errors.controlBypassed")
+    : t("execution.errors.controlUnknown");
 }

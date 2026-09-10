@@ -25,7 +25,9 @@
       "gateRequired": "BatchPlane Gate는 필수입니다. 이 배치 정의는 미준수 상태이므로 실행 요청할 수 없습니다.",
       "inactive": "비활성 배치는 실행 요청할 수 없습니다.",
       "missingCommand": "배치 정의에 배치 명령이 기록되어 있지 않습니다.",
-      "requestInProgress": "다른 실행 요청을 생성하는 중입니다."
+      "requestInProgress": "다른 실행 요청을 생성하는 중입니다.",
+      "controlBypassed": "활성 배치 리비전이 승인되지 않아 수동 실행이 차단되었습니다. 먼저 명시적인 복구 요청을 만드세요.",
+      "controlUnknown": "승인된 배치 리비전 근거를 확인할 수 없어 수동 실행이 차단되었습니다. 페이지를 새로고침하고 Workspace 연결 및 권한을 확인하세요."
     },
     "result": {
       "created": "실행 요청 {{requestId}}가 생성되었습니다."
@@ -45,6 +47,7 @@
     "batchId": "Batch ID",
     "criticality": "중요도",
     "gate": "Gate",
+    "control": "통제",
     "name": "이름",
     "owner": "소유자",
     "environment": "환경",
@@ -54,6 +57,14 @@
     "gateMissing": "미준수",
     "none": "없음",
     "required": "필수"
+  },
+  "control": {
+    "status": {
+      "verified": "리비전 확인됨",
+      "bypassed": "리비전 우회됨",
+      "unknown": "리비전 확인 불가"
+    },
+    "verifiedReason": "활성 배치 리비전이 승인된 변경 증적과 일치합니다."
   },
   "detail": {
     "title": "배치 상세",
@@ -70,6 +81,18 @@
       "reason": "사유",
       "defaultReason": "BatchPlane Lite에서 수동 실행 요청.",
       "unavailable": "이 배치는 실행 요청할 수 없습니다."
+    },
+    "control": {
+      "title": "통제",
+      "reason": "사유",
+      "approvedChange": "승인된 변경",
+      "verifiedRevision": "확인된 리비전",
+      "remediation": "복구 요청",
+      "remediationDescription": "통제된 변경 요청을 만듭니다. 승인과 적용은 별도의 단계로 남습니다.",
+      "reviewCurrent": "현재 리비전 검토",
+      "restoreLastApproved": "마지막 승인 리비전 복원",
+      "requesting": "요청 생성 중...",
+      "requestFailed": "복구 요청을 만들지 못했습니다."
     },
     "requests": {
       "title": "요청"
@@ -103,6 +126,8 @@
     "change": {
       "title": "변경 요청",
       "description": "이 배치 정의와 생성 Workflow에 대한 통제된 변경 요청을 생성합니다.",
+      "loading": "처리 중인 통제 작업을 확인하는 중입니다...",
+      "loadError": "처리 중인 통제 작업을 확인하지 못했습니다.",
       "blocked": "다른 통제 작업이 처리 중이므로 새 변경 요청을 생성할 수 없습니다.",
       "blockedByPr": "통제 변경 요청 #{{number}}",
       "blockedByIssue": "실행 요청 #{{number}}",

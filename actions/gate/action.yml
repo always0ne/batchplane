@@ -7,6 +7,8 @@ outputs:
     description: Machine-readable denial reason code
   message:
     description: Human-readable decision message
+  verified_sha:
+    description: Immutable merged Batch revision verified by Gate
 inputs:
   mode:
     required: true

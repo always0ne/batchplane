@@ -91,6 +91,15 @@ describe("GitHub workflow generation", () => {
     const workflow = buildBatchWorkflowYaml(definition);
 
     expect(workflow).toContain("uses: always0ne/batchplane/actions/gate@main");
+    expect(workflow).toContain(
+      "if: github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''",
+    );
+    expect(workflow).toContain(
+      "ref: ${{ needs.batchplane-gate.outputs.verified_sha }}",
+    );
+    expect(workflow).toContain(
+      "GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    );
     expect(workflow.indexOf("batchplane-gate:")).toBeLessThan(
       workflow.indexOf("run-batch:"),
     );
