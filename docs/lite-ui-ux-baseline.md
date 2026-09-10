@@ -39,6 +39,11 @@ Lite must read as one connected operational flow:
   definition has been deleted through a governed delete request, the same route
   must render a deleted batch archive instead of a dead not-found screen, and it
   must keep recent execution evidence reachable for audit review.
+- Batch list and detail show the adapter-projected revision-control state. Manual
+  execution is unavailable for `BYPASSED` and `UNKNOWN` control with the compact
+  reason on the disabled action. Detail shows only adapter-authorized remediation
+  actions and sends the resulting governed change to its internal detail route;
+  it never treats request creation as an automatic unlock.
 - Failure, run detail, my work, and audit screens are post-approval follow-up
   surfaces. They must not be collapsed into the approvals inbox.
 - My Work is the current user's work queue. It should compactly group approval

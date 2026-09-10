@@ -9,6 +9,14 @@ export function getExecutionRequestBlockReason({
   isRequestInProgress: boolean;
   t: (key: string) => string;
 }): string | null {
+  if (batch.control.status === "BYPASSED") {
+    return t("execution.errors.controlBypassed");
+  }
+
+  if (batch.control.status === "UNKNOWN") {
+    return t("execution.errors.controlUnknown");
+  }
+
   if (batch.status !== "ACTIVE") {
     return t("execution.errors.inactive");
   }

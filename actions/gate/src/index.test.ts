@@ -11,8 +11,10 @@ import {
   buildExecutionApprovalCommentBody,
   buildExecutionIssueBody,
   sharedBatchId as batchId,
+  sharedGovernedChangeId,
   sharedRequestDigest as requestDigest,
   sharedRequestId as requestId,
+  sharedTargetRevisionDigest,
 } from "../../../test/fixtures/execution-evidence";
 import {
   parseExecutionApprovalEvidence,
@@ -20,6 +22,18 @@ import {
 } from "../../dispatcher/src";
 import type { WorkspaceApprovalMode } from "./gate-schema";
 const workflowPath = ".github/workflows/payment.daily-close.yml";
+const verifiedSha = "a".repeat(40);
+
+async function verifyApprovedRevision() {
+  return {
+    approvedRevision: {
+      governedChangeId: sharedGovernedChangeId,
+      targetRevisionDigest: sharedTargetRevisionDigest,
+    },
+    controlStatus: "VERIFIED" as const,
+    verifiedSha,
+  };
+}
 
 describe("Gate action runtime", () => {
   afterEach(() => {
@@ -113,26 +127,80 @@ describe("Gate action runtime", () => {
 
   it("verifies matching GitHub request, batch policy, and approval evidence", async () => {
     await expect(
-      verifyLiteAuthorization({
-        actor: "github-actions[bot]",
-        approvalRef: requestId,
-        approvalSource: "issue",
-        batchId,
-        configPath: ".batch-governance",
-        fetcher: createGateFetchMock(),
-        githubToken: "ghs_test",
-        mode: "lite",
-        repository: "always0ne/batch",
-        requestDigest,
-        requestId,
-        runAttempt: 1,
-      }),
+      verifyLiteAuthorization(
+        {
+          actor: "github-actions[bot]",
+          approvalRef: requestId,
+          approvalSource: "issue",
+          batchId,
+          configPath: ".batch-governance",
+          fetcher: createGateFetchMock(),
+          githubToken: "ghs_test",
+          mode: "lite",
+          repository: "always0ne/batch",
+          requestDigest,
+          requestId,
+          runAttempt: 1,
+          workflowSha: verifiedSha,
+        },
+        verifyApprovedRevision,
+      ),
     ).resolves.toEqual({
       message:
         "Execution request, approval evidence, and batch policy are verified.",
       result: "ALLOW",
+      verifiedSha,
     });
   });
+
+  it("denies an otherwise authorized run when the workflow source SHA is missing", async () => {
+    const verifyBatchRevision = vi.fn(verifyApprovedRevision);
+    const input = authorizedGateInput({ workflowSha: undefined });
+
+    await expect(
+      verifyLiteAuthorization(input, verifyBatchRevision),
+    ).resolves.toMatchObject({
+      reasonCode: "WORKFLOW_SOURCE_SHA_REQUIRED",
+      result: "DENY",
+    });
+    expect(verifyBatchRevision).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      result: {
+        controlStatus: "BYPASSED" as const,
+        reasonCode: "UNAPPROVED_BATCH_REVISION" as const,
+      },
+    },
+    {
+      result: {
+        controlStatus: "UNKNOWN" as const,
+        reasonCode: "APPROVED_BATCH_REVISION_UNAVAILABLE" as const,
+      },
+    },
+  ])(
+    "denies $result.controlStatus revision verification",
+    async ({ result }) => {
+      const verifyBatchRevision = vi.fn().mockResolvedValue(result);
+
+      await expect(
+        verifyLiteAuthorization(authorizedGateInput(), verifyBatchRevision),
+      ).resolves.toMatchObject({
+        reasonCode: result.reasonCode,
+        result: "DENY",
+      });
+      expect(verifyBatchRevision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          executionWorkflowSha: verifiedSha,
+          expectedRevision: {
+            governedChangeId: sharedGovernedChangeId,
+            targetRevisionDigest: sharedTargetRevisionDigest,
+          },
+        }),
+      );
+    },
+  );
 
   it("keeps digest evidence aligned across UI issue body, dispatcher parser, and Gate verifier", async () => {
     const issueBodyFromFixture = buildExecutionIssueBody({
@@ -157,55 +225,64 @@ describe("Gate action runtime", () => {
     expect(parsedApproval?.requestDigest).toBe(requestDigest);
 
     await expect(
-      verifyLiteAuthorization({
-        actor: "github-actions[bot]",
-        approvalRef: requestId,
-        approvalSource: "issue",
-        batchId,
-        configPath: ".batch-governance",
-        fetcher: createGateFetchMock({
-          comments: [
-            {
-              body: approvalBodyFromFixture,
-              created_at: "2026-05-13T01:03:03.000Z",
-              updated_at: "2026-05-13T01:03:03.000Z",
-              user: { login: "maintainer" },
-            },
-          ],
-          requestIssueBody: issueBodyFromFixture,
-        }),
-        githubToken: "ghs_test",
-        mode: "lite",
-        repository: "always0ne/batch",
-        requestDigest,
-        requestId,
-        runAttempt: 1,
-      }),
+      verifyLiteAuthorization(
+        {
+          actor: "github-actions[bot]",
+          approvalRef: requestId,
+          approvalSource: "issue",
+          batchId,
+          configPath: ".batch-governance",
+          fetcher: createGateFetchMock({
+            comments: [
+              {
+                body: approvalBodyFromFixture,
+                created_at: "2026-05-13T01:03:03.000Z",
+                updated_at: "2026-05-13T01:03:03.000Z",
+                user: { login: "maintainer" },
+              },
+            ],
+            requestIssueBody: issueBodyFromFixture,
+          }),
+          githubToken: "ghs_test",
+          mode: "lite",
+          repository: "always0ne/batch",
+          requestDigest,
+          requestId,
+          runAttempt: 1,
+          workflowSha: verifiedSha,
+        },
+        verifyApprovedRevision,
+      ),
     ).resolves.toEqual({
       message:
         "Execution request, approval evidence, and batch policy are verified.",
       result: "ALLOW",
+      verifiedSha,
     });
   });
 
   it("denies self-approval when Workspace policy is missing or strict", async () => {
     await expect(
-      verifyLiteAuthorization({
-        actor: "github-actions[bot]",
-        approvalRef: requestId,
-        approvalSource: "issue",
-        batchId,
-        configPath: ".batch-governance",
-        fetcher: createGateFetchMock({
-          comments: [buildApprovalComment({ approver: "developer" })],
-        }),
-        githubToken: "ghs_test",
-        mode: "lite",
-        repository: "always0ne/batch",
-        requestDigest,
-        requestId,
-        runAttempt: 1,
-      }),
+      verifyLiteAuthorization(
+        {
+          actor: "github-actions[bot]",
+          approvalRef: requestId,
+          approvalSource: "issue",
+          batchId,
+          configPath: ".batch-governance",
+          fetcher: createGateFetchMock({
+            comments: [buildApprovalComment({ approver: "developer" })],
+          }),
+          githubToken: "ghs_test",
+          mode: "lite",
+          repository: "always0ne/batch",
+          requestDigest,
+          requestId,
+          runAttempt: 1,
+          workflowSha: verifiedSha,
+        },
+        verifyApprovedRevision,
+      ),
     ).resolves.toEqual({
       message: "Requester and approver must be different users.",
       reasonCode: "SELF_APPROVAL_NOT_ALLOWED",
@@ -215,118 +292,138 @@ describe("Gate action runtime", () => {
 
   it("allows self-approval only when Workspace policy explicitly allows it", async () => {
     await expect(
-      verifyLiteAuthorization({
-        actor: "github-actions[bot]",
-        approvalRef: requestId,
-        approvalSource: "issue",
-        batchId,
-        configPath: ".batch-governance",
-        fetcher: createGateFetchMock({
-          approverRepositoryRoles: ["write"],
-          comments: [buildApprovalComment({ approver: "developer" })],
-          includeWorkspacePolicy: true,
-          workspaceApprovalMode: "SELF_APPROVAL_ALLOWED",
-        }),
-        githubToken: "ghs_test",
-        mode: "lite",
-        repository: "always0ne/batch",
-        requestDigest,
-        requestId,
-        runAttempt: 1,
-      }),
+      verifyLiteAuthorization(
+        {
+          actor: "github-actions[bot]",
+          approvalRef: requestId,
+          approvalSource: "issue",
+          batchId,
+          configPath: ".batch-governance",
+          fetcher: createGateFetchMock({
+            approverRepositoryRoles: ["write"],
+            comments: [buildApprovalComment({ approver: "developer" })],
+            includeWorkspacePolicy: true,
+            workspaceApprovalMode: "SELF_APPROVAL_ALLOWED",
+          }),
+          githubToken: "ghs_test",
+          mode: "lite",
+          repository: "always0ne/batch",
+          requestDigest,
+          requestId,
+          runAttempt: 1,
+          workflowSha: verifiedSha,
+        },
+        verifyApprovedRevision,
+      ),
     ).resolves.toEqual({
       message:
         "Execution request, approval evidence, and batch policy are verified.",
       result: "ALLOW",
+      verifiedSha,
     });
   });
 
   it("allows explicit Workspace self-approval without role mapping", async () => {
     await expect(
-      verifyLiteAuthorization({
-        actor: "github-actions[bot]",
-        approvalRef: requestId,
-        approvalSource: "issue",
-        batchId,
-        configPath: ".batch-governance",
-        fetcher: createGateFetchMock({
-          comments: [buildApprovalComment({ approver: "developer" })],
-          includeRoleMapping: false,
-          includeWorkspacePolicy: true,
-          workspaceApprovalMode: "SELF_APPROVAL_ALLOWED",
-        }),
-        githubToken: "ghs_test",
-        mode: "lite",
-        repository: "always0ne/batch",
-        requestDigest,
-        requestId,
-        runAttempt: 1,
-      }),
+      verifyLiteAuthorization(
+        {
+          actor: "github-actions[bot]",
+          approvalRef: requestId,
+          approvalSource: "issue",
+          batchId,
+          configPath: ".batch-governance",
+          fetcher: createGateFetchMock({
+            comments: [buildApprovalComment({ approver: "developer" })],
+            includeRoleMapping: false,
+            includeWorkspacePolicy: true,
+            workspaceApprovalMode: "SELF_APPROVAL_ALLOWED",
+          }),
+          githubToken: "ghs_test",
+          mode: "lite",
+          repository: "always0ne/batch",
+          requestDigest,
+          requestId,
+          runAttempt: 1,
+          workflowSha: verifiedSha,
+        },
+        verifyApprovedRevision,
+      ),
     ).resolves.toEqual({
       message:
         "Execution request, approval evidence, and batch policy are verified.",
       result: "ALLOW",
+      verifiedSha,
     });
   });
 
   it("treats AUTO_APPROVE as including manual self-approval permission", async () => {
     await expect(
-      verifyLiteAuthorization({
-        actor: "github-actions[bot]",
-        approvalRef: requestId,
-        approvalSource: "issue",
-        batchId,
-        configPath: ".batch-governance",
-        fetcher: createGateFetchMock({
-          comments: [buildApprovalComment({ approver: "developer" })],
-          includeRoleMapping: false,
-          includeWorkspacePolicy: true,
-          workspaceApprovalMode: "AUTO_APPROVE",
-        }),
-        githubToken: "ghs_test",
-        mode: "lite",
-        repository: "always0ne/batch",
-        requestDigest,
-        requestId,
-        runAttempt: 1,
-      }),
+      verifyLiteAuthorization(
+        {
+          actor: "github-actions[bot]",
+          approvalRef: requestId,
+          approvalSource: "issue",
+          batchId,
+          configPath: ".batch-governance",
+          fetcher: createGateFetchMock({
+            comments: [buildApprovalComment({ approver: "developer" })],
+            includeRoleMapping: false,
+            includeWorkspacePolicy: true,
+            workspaceApprovalMode: "AUTO_APPROVE",
+          }),
+          githubToken: "ghs_test",
+          mode: "lite",
+          repository: "always0ne/batch",
+          requestDigest,
+          requestId,
+          runAttempt: 1,
+          workflowSha: verifiedSha,
+        },
+        verifyApprovedRevision,
+      ),
     ).resolves.toEqual({
       message:
         "Execution request, approval evidence, and batch policy are verified.",
       result: "ALLOW",
+      verifiedSha,
     });
   });
 
   it("allows Workspace auto-approval only when policy explicitly enables it", async () => {
     await expect(
-      verifyLiteAuthorization({
-        actor: "github-actions[bot]",
-        approvalRef: requestId,
-        approvalSource: "issue",
-        batchId,
-        configPath: ".batch-governance",
-        fetcher: createGateFetchMock({
-          comments: [
-            buildApprovalComment({
-              approvalType: "WORKSPACE_AUTO_APPROVED",
-              approver: "developer",
-            }),
-          ],
-          includeRoleMapping: false,
-          includeWorkspacePolicy: true,
-          workspaceApprovalMode: "AUTO_APPROVE",
-        }),
-        githubToken: "ghs_test",
-        mode: "lite",
-        repository: "always0ne/batch",
-        requestDigest,
-        requestId,
-        runAttempt: 1,
-      }),
+      verifyLiteAuthorization(
+        {
+          actor: "github-actions[bot]",
+          approvalRef: requestId,
+          approvalSource: "issue",
+          batchId,
+          configPath: ".batch-governance",
+          fetcher: createGateFetchMock({
+            comments: [
+              buildApprovalComment({
+                approvalType: "WORKSPACE_AUTO_APPROVED",
+                approver: "developer",
+              }),
+            ],
+            includeRoleMapping: false,
+            includeWorkspacePolicy: true,
+            workspaceApprovalMode: "AUTO_APPROVE",
+          }),
+          githubToken: "ghs_test",
+          mode: "lite",
+          repository: "always0ne/batch",
+          requestDigest,
+          requestId,
+          runAttempt: 1,
+          workflowSha: verifiedSha,
+        },
+        verifyApprovedRevision,
+      ),
     ).resolves.toEqual({
       message:
         "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
       result: "ALLOW",
+      verifiedSha,
     });
   });
 
@@ -637,6 +734,10 @@ function buildRequestIssueBody({
         kind: "ExecutionRequest",
         metadata: { batchId, requestId },
         spec: {
+          approvedBatchRevision: {
+            governedChangeId: sharedGovernedChangeId,
+            targetRevisionDigest: sharedTargetRevisionDigest,
+          },
           requestedBy: "developer",
           workflow: {
             path: workflowPath,
@@ -656,6 +757,27 @@ function buildRequestIssueBody({
     `status=${status}`,
     "-->",
   ].join("\n");
+}
+
+function authorizedGateInput(options: { workflowSha?: string } = {}) {
+  const workflowSha =
+    "workflowSha" in options ? options.workflowSha : verifiedSha;
+
+  return {
+    actor: "github-actions[bot]",
+    approvalRef: requestId,
+    approvalSource: "issue",
+    batchId,
+    configPath: ".batch-governance",
+    fetcher: createGateFetchMock(),
+    githubToken: "ghs_test",
+    mode: "lite",
+    repository: "always0ne/batch",
+    requestDigest,
+    requestId,
+    runAttempt: 1,
+    ...(workflowSha ? { workflowSha } : {}),
+  };
 }
 
 function buildApprovalComment({
@@ -819,6 +941,14 @@ function createGateFetchMock({
           title: "Run batch payment.daily-close",
         },
       ]);
+    }
+
+    if (
+      url.endsWith(
+        "/repos/always0ne/batch/issues?state=all&per_page=100&page=2",
+      )
+    ) {
+      return Response.json([]);
     }
 
     if (

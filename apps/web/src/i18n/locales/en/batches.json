@@ -25,7 +25,9 @@
       "gateRequired": "BatchPlane Gate is mandatory. This batch definition is non-compliant and cannot be requested for execution.",
       "inactive": "Inactive batches cannot be requested for execution.",
       "missingCommand": "The batch command is not recorded in the batch definition.",
-      "requestInProgress": "Another execution request is being created."
+      "requestInProgress": "Another execution request is being created.",
+      "controlBypassed": "Manual execution is blocked because the active batch revision has not been approved. Create an explicit remediation request first.",
+      "controlUnknown": "Manual execution is blocked because approved batch revision evidence is unavailable. Refresh the page and verify the Workspace connection and permissions."
     },
     "result": {
       "created": "Execution request {{requestId}} was created."
@@ -45,6 +47,7 @@
     "batchId": "Batch ID",
     "criticality": "Criticality",
     "gate": "Gate",
+    "control": "Control",
     "name": "Name",
     "owner": "Owner",
     "environment": "Environment",
@@ -54,6 +57,14 @@
     "gateMissing": "Non-compliant",
     "none": "None",
     "required": "Required"
+  },
+  "control": {
+    "status": {
+      "verified": "Revision verified",
+      "bypassed": "Revision bypassed",
+      "unknown": "Revision unavailable"
+    },
+    "verifiedReason": "The active batch revision matches approved change evidence."
   },
   "detail": {
     "title": "Batch detail",
@@ -70,6 +81,18 @@
       "reason": "Reason",
       "defaultReason": "Manual request from BatchPlane Lite.",
       "unavailable": "Execution request is unavailable for this batch."
+    },
+    "control": {
+      "title": "Control",
+      "reason": "Reason",
+      "approvedChange": "Approved change",
+      "verifiedRevision": "Verified revision",
+      "remediation": "Remediation",
+      "remediationDescription": "Create a governed change request; approval and application remain separate.",
+      "reviewCurrent": "Review current revision",
+      "restoreLastApproved": "Restore last approved revision",
+      "requesting": "Creating request...",
+      "requestFailed": "Failed to create remediation request."
     },
     "requests": {
       "title": "Requests"
@@ -103,6 +126,8 @@
     "change": {
       "title": "Change request",
       "description": "Create a governed change request for this batch definition and generated workflow.",
+      "loading": "Checking pending governed work...",
+      "loadError": "Failed to check pending governed work.",
       "blocked": "Resolve pending governed work before creating another change request.",
       "blockedByPr": "Governed change request #{{number}}",
       "blockedByIssue": "Execution request #{{number}}",

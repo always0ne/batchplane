@@ -68,6 +68,18 @@ const batchYaml = serializeYamlDocument({
   },
 });
 
+const approvedBatchRevision = {
+  governedChangeId: "bgc-20260602-payment.daily-close-approved",
+  targetRevisionDigest:
+    "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+};
+
+const verifyApprovedBatchRevision = async () => ({
+  approvedRevision: approvedBatchRevision,
+  controlStatus: "VERIFIED" as const,
+  verifiedSha: "approved-merge-sha",
+});
+
 describe("schedule request action", () => {
   it("ships a self-contained dist bundle for runtime dependencies", () => {
     const dist = readFileSync(
@@ -153,6 +165,7 @@ describe("schedule request action", () => {
       scheduleId: "payment.daily-close-daily",
       sha: "abc123",
       timezone: "Asia/Seoul",
+      verifyBatchRevision: verifyApprovedBatchRevision,
     });
 
     expect(result.status).toBe("created");
@@ -167,6 +180,7 @@ describe("schedule request action", () => {
 
   it("reuses existing scheduled request approval when the occurrence already exists", async () => {
     const existingIssue = await buildExecutionRequestIssue({
+      approvedBatchRevision,
       batch: batchDefinition,
       expiresAt: new Date("2026-06-03T05:01:00.000Z"),
       requestedAt: new Date("2026-06-02T05:01:00.000Z"),
@@ -260,6 +274,7 @@ describe("schedule request action", () => {
       scheduleId: "payment.daily-close-daily",
       sha: "abc123",
       timezone: "Asia/Seoul",
+      verifyBatchRevision: verifyApprovedBatchRevision,
     });
 
     expect(result.status).toBe("reused");
@@ -270,6 +285,7 @@ describe("schedule request action", () => {
 
   it("does not redispatch when the occurrence is already dispatching or dispatched", async () => {
     const existingIssue = await buildExecutionRequestIssue({
+      approvedBatchRevision,
       batch: batchDefinition,
       expiresAt: new Date("2026-06-03T05:01:00.000Z"),
       requestedAt: new Date("2026-06-02T05:01:00.000Z"),
@@ -357,6 +373,7 @@ describe("schedule request action", () => {
       scheduleId: "payment.daily-close-daily",
       sha: "abc123",
       timezone: "Asia/Seoul",
+      verifyBatchRevision: verifyApprovedBatchRevision,
     });
 
     expect(result.status).toBe("already-dispatched");

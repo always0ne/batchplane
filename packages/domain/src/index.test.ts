@@ -96,6 +96,11 @@ const workspacePolicy: WorkspacePolicy = {
 describe("domain model contracts", () => {
   it("exports core batch, approval, execution, and audit contracts", () => {
     const request: ExecutionRequest = {
+      approvedBatchRevision: {
+        governedChangeId: "bgc-20260513-payment.daily-close-approved",
+        targetRevisionDigest:
+          "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      },
       batchId: batchDefinition.batchId,
       expiresAt: "2026-05-13T02:00:00.000Z",
       requestDigest:
@@ -221,6 +226,11 @@ describe("domain model contracts", () => {
         requestId: "btr-20260513010000-payment.daily-close-abcdef12",
       },
       spec: {
+        approvedBatchRevision: {
+          governedChangeId: "bgc-20260513-payment.daily-close-approved",
+          targetRevisionDigest:
+            "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        },
         batch: {
           criticality: batchDefinition.criticality,
           domain: batchDefinition.domain,
@@ -307,6 +317,12 @@ describe("domain model contracts", () => {
         listBatchDefinitions: async () => [batchDefinition],
       },
       executions: {
+        getApprovedBatchRevision: async () => ({
+          governedChangeId: "bgc-20260513-payment.daily-close-approved",
+          targetRevisionDigest:
+            "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+          verifiedSha: "abc123",
+        }),
         createFailureFollowUp: async () => ({
           actionTaken: "Restarted after upstream correction.",
           author: "operator",
@@ -501,6 +517,11 @@ describe("execution request builders", () => {
 
   it("builds a scheduled execution request with delegated evidence fields", async () => {
     const issue = await buildExecutionRequestIssue({
+      approvedBatchRevision: {
+        governedChangeId: "bgc-20260513-payment.daily-close-approved",
+        targetRevisionDigest:
+          "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      },
       batch: executableBatch,
       expiresAt: addHours(new Date("2026-05-13T05:01:00.000Z"), 24),
       requestedAt: new Date("2026-05-13T05:01:00.000Z"),

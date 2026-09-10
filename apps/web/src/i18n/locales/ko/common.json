@@ -8,6 +8,10 @@
     "label": "Fixture",
     "description": "개발 환경에서만 사용하는 runtime fixture 선택기입니다.",
     "options": {
+      "batch-control-verified": "배치 통제 확인됨",
+      "batch-control-bypassed": "배치 통제 우회됨",
+      "batch-control-bypassed-clean": "우회 복구",
+      "batch-control-unknown": "배치 통제 확인 불가",
       "live": "실제 GitHub",
       "happy-path": "정상 흐름",
       "approval-pending": "승인 대기",

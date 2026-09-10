@@ -69,6 +69,15 @@ function createLoadedResult(name: string): BatchListResult {
     batches: [
       {
         batchId: "payment.daily-close",
+        control: {
+          approvedRevision: {
+            governedChangeId: "bgc-20260910-payment.daily-close-approved",
+            targetRevisionDigest: "sha256:approved",
+            verifiedSha: "abc123",
+          },
+          remediation: { availableKinds: [], canRequest: false },
+          status: "VERIFIED",
+        },
         criticality: "HIGH",
         environment: "PROD",
         gateRequired: true,

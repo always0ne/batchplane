@@ -8,6 +8,7 @@ import "../../i18n/i18n";
 import { i18next } from "../../i18n/i18n";
 import {
   createRuntimeFixtureMockState,
+  prepareRuntimeFixtureClient,
   writeRuntimeFixtureSelection,
 } from "../../runtime/runtime-fixtures";
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
@@ -104,6 +105,7 @@ describe("ExecutionRequestPage", () => {
       sha: "workspace-policy-auto-approve-sha",
     });
     const client = createMockGitHubLiteClient(state);
+    await prepareRuntimeFixtureClient(client, "happy-path");
     const runtime = createGitHubLiteRuntime(session, { client });
 
     renderExecutionRequestPage({
@@ -164,6 +166,7 @@ describe("ExecutionRequestPage", () => {
       sha: "workspace-policy-auto-approve-sha",
     });
     const client = createMockGitHubLiteClient(state);
+    await prepareRuntimeFixtureClient(client, "happy-path");
     const runtime = createGitHubLiteRuntime(session, { client });
 
     renderExecutionRequestPage({

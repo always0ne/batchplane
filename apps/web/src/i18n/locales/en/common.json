@@ -8,6 +8,10 @@
     "label": "Fixture",
     "description": "Development-only runtime fixture selector.",
     "options": {
+      "batch-control-verified": "Batch control verified",
+      "batch-control-bypassed": "Batch control bypassed",
+      "batch-control-bypassed-clean": "Bypass recovery",
+      "batch-control-unknown": "Batch control unavailable",
       "live": "Live GitHub",
       "happy-path": "Happy path",
       "approval-pending": "Approval pending",

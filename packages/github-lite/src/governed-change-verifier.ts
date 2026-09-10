@@ -29,6 +29,7 @@ export async function hasAuthoritativeGovernedChangeRequest(
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
   evidence: GovernedChangeRequestEvidence | null,
+  options: { propagateRequesterRoleReadFailure?: boolean } = {},
 ): Promise<boolean> {
   const workspace = await client.getRepository(repository);
   if (
@@ -62,7 +63,8 @@ export async function hasAuthoritativeGovernedChangeRequest(
     );
 
     if (!authorHasRequesterRole) return false;
-  } catch {
+  } catch (error) {
+    if (options.propagateRequesterRoleReadFailure) throw error;
     return false;
   }
 

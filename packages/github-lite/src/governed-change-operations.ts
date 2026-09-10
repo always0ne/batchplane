@@ -47,6 +47,10 @@ import {
   hasAuthoritativeGovernedChangeRequest,
   hasChangedGovernedChangeBase,
 } from "./governed-change-verifier.js";
+import {
+  loadLastApprovedBatchRevision,
+  verifyApprovedBatchRevision,
+} from "./approved-batch-revision.js";
 import { loadGovernedChangeDetail } from "./governed-change-projection.js";
 
 export function createGovernedChangeOperations(
@@ -63,9 +67,12 @@ export function createGovernedChangeOperations(
     createBatchChangeRequest: (draft) =>
       createBatchChangeRequest(context, draft),
     getBatchChangeBlocker: (input) => getBatchChangeBlocker(context, input),
+    getBatchRemediationCapability: (input) =>
+      getBatchRemediationCapability(context, input),
     getGovernedChange: (input) => getGovernedChange(context, input),
     loadBatchChangeDraft: (input) => loadBatchChangeDraft(context, input),
     previewBatchChange: (draft) => previewBatchChange(context, draft),
+    requestBatchRemediation: (input) => requestBatchRemediation(context, input),
     rejectGovernedChange: (input) => rejectGovernedChange(context, input),
     withdrawGovernedChange: (input) => withdrawGovernedChange(context, input),
   };
@@ -78,8 +85,10 @@ type GovernedChangeOperations = Required<
     | "createBatchChangeRequest"
     | "getGovernedChange"
     | "getBatchChangeBlocker"
+    | "getBatchRemediationCapability"
     | "loadBatchChangeDraft"
     | "previewBatchChange"
+    | "requestBatchRemediation"
     | "rejectGovernedChange"
     | "withdrawGovernedChange"
   >
@@ -130,6 +139,46 @@ async function getBatchChangeBlocker(
     repository,
     assertCanonicalBatchId(batchId),
   );
+}
+
+async function getBatchRemediationCapability(
+  context: GovernedChangeOperationsContext,
+  { batchId }: Parameters<BatchPlaneClient["getBatchRemediationCapability"]>[0],
+) {
+  assertCanonicalBatchId(batchId);
+
+  try {
+    const control = await verifyApprovedBatchRevision({
+      batchId,
+      client: context.client,
+      repository: context.repository,
+    });
+    if (control.controlStatus !== "BYPASSED") {
+      return { availableKinds: [], canRequest: false };
+    }
+    if (
+      await findPendingBatchControl(context.client, context.repository, batchId)
+    ) {
+      return { availableKinds: [], canRequest: false };
+    }
+    await loadGovernedChangeCreation(context);
+    const historical = await loadLastApprovedBatchRevision({
+      batchId,
+      client: context.client,
+      repository: context.repository,
+    });
+    return {
+      availableKinds: [
+        "REVIEW_CURRENT" as const,
+        ...(historical.status === "VERIFIED"
+          ? ["RESTORE_LAST_APPROVED" as const]
+          : []),
+      ],
+      canRequest: true,
+    };
+  } catch {
+    return { availableKinds: [], canRequest: false };
+  }
 }
 
 async function previewBatchChange(
@@ -186,6 +235,74 @@ async function createBatchChangeRequest(
   );
 
   return finishCreatedGovernedChange(context, creation, pullRequest);
+}
+
+async function requestBatchRemediation(
+  context: GovernedChangeOperationsContext,
+  input: Parameters<BatchPlaneClient["requestBatchRemediation"]>[0],
+): Promise<CreateGovernedChangeResult> {
+  assertCanonicalBatchId(input.batchId);
+  const control = await verifyApprovedBatchRevision({
+    batchId: input.batchId,
+    client: context.client,
+    repository: context.repository,
+  });
+  if (control.controlStatus !== "BYPASSED") {
+    throw new Error(
+      "Batch remediation requires an observed unapproved Batch revision.",
+    );
+  }
+
+  if (input.kind === "REVIEW_CURRENT") {
+    const draft = await loadBatchChangeDraft(context, {
+      batchId: input.batchId,
+      mode: "change",
+    });
+
+    return createBatchChangeRequest(context, {
+      ...draft,
+      remediation: input.kind,
+    });
+  }
+
+  const historical = await loadLastApprovedBatchRevision({
+    batchId: input.batchId,
+    client: context.client,
+    repository: context.repository,
+  });
+  if (historical.status !== "VERIFIED") {
+    throw new Error(
+      historical.status === "UNKNOWN"
+        ? "The last approved Batch revision could not be recovered."
+        : "No verified historical Batch revision is available to restore.",
+    );
+  }
+
+  const current = await loadExistingBatchDefinition(
+    context.repository,
+    context.client,
+    input.batchId,
+  );
+  const historicalDraft = toBatchChangeDraft(historical.batch);
+  const currentDraft = current ? toBatchChangeDraft(current) : undefined;
+
+  return createBatchChangeRequest(context, {
+    ...(historical.artifact ? { artifact: historical.artifact } : {}),
+    batch: {
+      ...historicalDraft,
+      ...(currentDraft?.existingArtifact
+        ? { existingArtifact: currentDraft.existingArtifact }
+        : {}),
+    },
+    governedChangeId: createGovernedChangeId(input.batchId),
+    mode: current ? "change" : "create",
+    remediation: "RESTORE_LAST_APPROVED",
+    ...(current && !historical.artifact && currentDraft?.existingArtifact
+      ? { removeExistingArtifact: true }
+      : {}),
+    schedules: historical.batch.schedules ?? [],
+    ...(current ? { targetBatchId: input.batchId } : {}),
+  });
 }
 
 async function getGovernedChange(
@@ -380,7 +497,7 @@ async function prepareNewGovernedChange(
     prepared.files,
   );
 
-  if (!hasEffectivePreparedChange(previewFiles)) {
+  if (!hasEffectivePreparedChange(previewFiles) && !draft.remediation) {
     throw new Error("The proposed governed change does not modify any file.");
   }
 
@@ -447,6 +564,7 @@ async function openGovernedChangePullRequest(
     repository: `${repository.owner}/${repository.repo}`,
     requester: creation.actor.login,
     requestedAt: requirePullRequestCreatedAt(createdPullRequest),
+    ...(draft.remediation ? { remediation: draft.remediation } : {}),
     targetRevisionDigest,
     type: prepared.type,
     version: "batchplane.io/governed-change/v2",
@@ -1080,6 +1198,7 @@ async function applyWorkspaceAutoApproval({
   const evidence = parseGovernedChangeRequestEvidence(
     refreshedPullRequest.body,
   );
+
   const actor = await client.getCurrentUser();
   const { authorizationRevisionSha, policy, roleMapping } =
     await loadCurrentWorkspaceAuthorization(client, repository);

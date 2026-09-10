@@ -303,8 +303,13 @@ function createClient(
   return {
     approveGovernedChange: async () => detail(),
     createBatchChangeRequest: async () => ({ request: detail() }),
+    getBatchDetail: async ({ batchId }) => ({ batchId, type: "not-found" }),
     getGovernedChange: async () => detail(),
     getBatchChangeBlocker: async () => null,
+    getBatchRemediationCapability: async () => ({
+      availableKinds: [],
+      canRequest: false,
+    }),
     listBatches: async () => ({
       batches: [],
       sourceRevision: "main",
@@ -318,6 +323,7 @@ function createClient(
       hasEffectiveChanges: false,
       targetRevisionDigest: "sha256:test",
     }),
+    requestBatchRemediation: async () => ({ request: detail() }),
     rejectGovernedChange: async () => detail(),
     withdrawGovernedChange: async () => detail(),
     ...overrides,

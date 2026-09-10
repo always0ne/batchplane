@@ -1,4 +1,8 @@
 import { appendFileSync } from "node:fs";
+import {
+  createGitHubLiteClient,
+  verifyApprovedBatchRevision,
+} from "@batchplane/github-lite";
 
 import {
   parseYamlDocument,
@@ -28,13 +32,17 @@ export type GateInput = {
   expectedDispatcherActor?: string;
   apiBaseUrl?: string;
   fetcher?: typeof fetch;
+  workflowSha?: string;
 };
 
 export type GateResult = {
   result: "ALLOW" | "DENY";
   reasonCode?: string;
   message: string;
+  verifiedSha?: string;
 };
+
+type BatchRevisionVerifier = typeof verifyApprovedBatchRevision;
 
 type GateRepositoryRef = {
   owner: string;
@@ -108,6 +116,7 @@ export function verifyLiteInput(input: GateInput): GateResult {
 
 export async function verifyLiteAuthorization(
   input: GateInput,
+  verifyBatchRevision: BatchRevisionVerifier = verifyApprovedBatchRevision,
 ): Promise<GateResult> {
   const inputResult = verifyLiteInput(input);
 
@@ -251,6 +260,8 @@ export async function verifyLiteAuthorization(
     );
   }
 
+  let successMessage: string;
+
   if (evidence.approval.approvalType === "SCHEDULE_DELEGATED") {
     if (
       evidence.request.triggerType !== "SCHEDULE" ||
@@ -269,77 +280,107 @@ export async function verifyLiteAuthorization(
       );
     }
 
-    return {
-      result: "ALLOW",
-      message:
-        "Scheduled execution request, delegated approval evidence, and batch policy are verified.",
-    };
-  }
+    successMessage =
+      "Scheduled execution request, delegated approval evidence, and batch policy are verified.";
+  } else {
+    let workspaceApprovalMode: WorkspaceApprovalMode;
 
-  let workspaceApprovalMode: WorkspaceApprovalMode;
-
-  try {
-    workspaceApprovalMode = await readWorkspaceApprovalMode({
-      client,
-      configPath: input.configPath,
-      ref: evidence.request.workflowRef || input.ref,
-    });
-  } catch (error) {
-    return deny(
-      "WORKSPACE_POLICY_LOOKUP_FAILED",
-      `Workspace policy lookup failed: ${toErrorMessage(error)}`,
-    );
-  }
-
-  if (evidence.approval.approvalType === "WORKSPACE_AUTO_APPROVED") {
-    if (workspaceApprovalMode !== "AUTO_APPROVE") {
+    try {
+      workspaceApprovalMode = await readWorkspaceApprovalMode({
+        client,
+        configPath: input.configPath,
+        ref: evidence.request.workflowRef || input.ref,
+      });
+    } catch (error) {
       return deny(
-        "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
-        "Workspace auto-approval evidence requires AUTO_APPROVE policy mode.",
+        "WORKSPACE_POLICY_LOOKUP_FAILED",
+        `Workspace policy lookup failed: ${toErrorMessage(error)}`,
       );
     }
 
-    return {
-      result: "ALLOW",
-      message:
-        "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
-    };
+    if (evidence.approval.approvalType === "WORKSPACE_AUTO_APPROVED") {
+      if (workspaceApprovalMode !== "AUTO_APPROVE") {
+        return deny(
+          "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
+          "Workspace auto-approval evidence requires AUTO_APPROVE policy mode.",
+        );
+      }
+
+      successMessage =
+        "Execution request, Workspace auto-approval evidence, and batch policy are verified.";
+    } else {
+      if (
+        evidence.approval.approver === evidence.request.requestedBy &&
+        !allowsSelfApproval(workspaceApprovalMode)
+      ) {
+        return deny(
+          "SELF_APPROVAL_NOT_ALLOWED",
+          "Requester and approver must be different users.",
+        );
+      }
+
+      const selfApprovalAllowedWithoutRoleMapping =
+        evidence.approval.approver === evidence.request.requestedBy &&
+        allowsSelfApproval(workspaceApprovalMode);
+      const approverAuthorized = await verifyApproverAuthorization({
+        allowMissingRoleMapping: selfApprovalAllowedWithoutRoleMapping,
+        approver: evidence.approval.approver,
+        client,
+        configPath: input.configPath,
+        ref: evidence.request.workflowRef || input.ref,
+        repository,
+      });
+
+      if (!approverAuthorized.allowed) {
+        return deny(
+          "APPROVER_NOT_AUTHORIZED",
+          approverAuthorized.message ||
+            `Approver @${evidence.approval.approver} is not authorized.`,
+        );
+      }
+
+      successMessage =
+        "Execution request, approval evidence, and batch policy are verified.";
+    }
   }
 
-  if (
-    evidence.approval.approver === evidence.request.requestedBy &&
-    !allowsSelfApproval(workspaceApprovalMode)
-  ) {
+  if (!input.workflowSha) {
     return deny(
-      "SELF_APPROVAL_NOT_ALLOWED",
-      "Requester and approver must be different users.",
+      "WORKFLOW_SOURCE_SHA_REQUIRED",
+      "The immutable workflow source SHA is required to verify registered Batch artifacts.",
     );
   }
 
-  const selfApprovalAllowedWithoutRoleMapping =
-    evidence.approval.approver === evidence.request.requestedBy &&
-    allowsSelfApproval(workspaceApprovalMode);
-  const approverAuthorized = await verifyApproverAuthorization({
-    allowMissingRoleMapping: selfApprovalAllowedWithoutRoleMapping,
-    approver: evidence.approval.approver,
-    client,
-    configPath: input.configPath,
-    ref: evidence.request.workflowRef || input.ref,
+  const revisionValidation = await verifyBatchRevision({
+    batchId: input.batchId,
+    client: createGitHubLiteClient({
+      apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
+      fetcher: input.fetcher ?? fetch,
+      token: input.githubToken,
+    }),
+    executionWorkflowSha: input.workflowSha,
+    expectedRevision: evidence.request.approvedBatchRevision,
     repository,
   });
-
-  if (!approverAuthorized.allowed) {
+  if (revisionValidation.controlStatus !== "VERIFIED") {
     return deny(
-      "APPROVER_NOT_AUTHORIZED",
-      approverAuthorized.message ||
-        `Approver @${evidence.approval.approver} is not authorized.`,
+      revisionValidation.reasonCode,
+      revisionValidation.controlStatus === "UNKNOWN"
+        ? "Approved Batch revision could not be verified."
+        : "Batch revision does not match the latest approved governed change.",
+    );
+  }
+  if (!isCommitSha(revisionValidation.verifiedSha)) {
+    return deny(
+      "VERIFIED_SHA_INVALID",
+      "Approved Batch revision did not resolve to an immutable commit SHA.",
     );
   }
 
   return {
     result: "ALLOW",
-    message:
-      "Execution request, approval evidence, and batch policy are verified.",
+    verifiedSha: revisionValidation.verifiedSha,
+    message: successMessage,
   };
 }
 
@@ -364,6 +405,7 @@ export function readGateInputFromEnv(
     expectedDispatcherActor:
       readOptionalActionInput(env, "dispatcher-actor") ?? "github-actions[bot]",
     apiBaseUrl: env.GITHUB_API_URL,
+    workflowSha: env.GITHUB_WORKFLOW_SHA,
   };
 }
 
@@ -412,12 +454,20 @@ function readRunAttempt(env: Record<string, string | undefined>): number {
   return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
+function isCommitSha(value: string): boolean {
+  return /^[0-9a-f]{40}$/iu.test(value);
+}
+
 type GateEvidence = {
   request: ExecutionRequestEvidence | null;
   approval: ExecutionApprovalEvidence | null;
 };
 
 type ExecutionRequestEvidence = {
+  approvedBatchRevision: {
+    governedChangeId: string;
+    targetRevisionDigest: string;
+  };
   batchId: string;
   requestedBy: string;
   requestDigest: string;
@@ -999,6 +1049,7 @@ function parseExecutionRequestEvidence(
     readMarkdownField(issueBody, "Request digest");
   const status = marker.get("status") ?? readMarkdownField(issueBody, "Status");
   const payload = parseCanonicalPayload(issueBody);
+  const approvedBatchRevision = readApprovedBatchRevision(payload);
   const workflow = readWorkflowTarget(payload);
   const requestedBy =
     readMarkdownField(issueBody, "Requested by").replace(/^@/, "") ||
@@ -1006,11 +1057,18 @@ function parseExecutionRequestEvidence(
   const scheduleId = readScheduleId(payload);
   const triggerType = readTriggerType(payload);
 
-  if (!requestId || !batchId || !requestDigest || !status) {
+  if (
+    !requestId ||
+    !batchId ||
+    !requestDigest ||
+    !status ||
+    !approvedBatchRevision
+  ) {
     return null;
   }
 
   return {
+    approvedBatchRevision,
     batchId,
     ...(scheduleId ? { scheduleId } : {}),
     requestedBy,
@@ -1021,6 +1079,29 @@ function parseExecutionRequestEvidence(
     workflowPath: workflow.path,
     workflowRef: workflow.ref,
   };
+}
+
+function readApprovedBatchRevision(payload: unknown): {
+  governedChangeId: string;
+  targetRevisionDigest: string;
+} | null {
+  if (!payload || typeof payload !== "object") return null;
+  const spec = (payload as { spec?: unknown }).spec;
+  if (!spec || typeof spec !== "object") return null;
+  const revision = (spec as { approvedBatchRevision?: unknown })
+    .approvedBatchRevision;
+  if (!revision || typeof revision !== "object") return null;
+  const governedChangeId = (revision as { governedChangeId?: unknown })
+    .governedChangeId;
+  const targetRevisionDigest = (revision as { targetRevisionDigest?: unknown })
+    .targetRevisionDigest;
+
+  return typeof governedChangeId === "string" &&
+    typeof targetRevisionDigest === "string" &&
+    governedChangeId.trim() &&
+    targetRevisionDigest.startsWith("sha256:")
+    ? { governedChangeId, targetRevisionDigest }
+    : null;
 }
 
 function parseExecutionApprovalEvidence(
@@ -1266,6 +1347,7 @@ function writeGateOutputs(
       `result=${result.result}`,
       `reason_code=${result.reasonCode ?? ""}`,
       `message=${escapeOutputValue(result.message)}`,
+      `verified_sha=${result.verifiedSha ?? ""}`,
     ].join("\n") + "\n",
     "utf8",
   );

@@ -359,7 +359,12 @@ function createClient(
   return {
     approveGovernedChange: async () => requestDetail(),
     createBatchChangeRequest: async () => ({ request: requestResult("42") }),
+    getBatchDetail: async ({ batchId }) => ({ batchId, type: "not-found" }),
     getBatchChangeBlocker: async () => null,
+    getBatchRemediationCapability: async () => ({
+      availableKinds: [],
+      canRequest: false,
+    }),
     getGovernedChange: async () => requestDetail(),
     listBatches: async () => ({
       batches: [],
@@ -368,6 +373,7 @@ function createClient(
     }),
     loadBatchChangeDraft: async () => newBatchDraft,
     previewBatchChange: async () => preview(),
+    requestBatchRemediation: async () => ({ request: requestResult("42") }),
     rejectGovernedChange: async () => requestDetail(),
     withdrawGovernedChange: async () => requestDetail(),
     ...overrides,

@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { BatchesPage } from "../pages/batches/BatchesPage";
 import { BatchRegistrationPage } from "../pages/batches/BatchRegistrationPage";
 import { GovernedChangeDetailPage } from "../pages/approvals/GovernedChangeDetailPage";
-import { BatchDetailPage } from "../features/batches/BatchDetailPage";
+import { BatchDetailPage } from "../pages/batches/BatchDetailPage";
 import { ExecutionRequestDetailPage } from "../features/execution-requests/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../features/execution-requests/ExecutionRequestPage";
 import { ExecutionRunDetailPage } from "../features/execution-requests/ExecutionRunDetailPage";

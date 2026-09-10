@@ -1,6 +1,7 @@
 import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
   createGitHubLiteGovernedChangeClient,
+  createGitHubLiteBatchRevisionClient,
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
   type GitHubLiteMockExecutionState,
@@ -23,6 +24,10 @@ export const runtimeFixtureStorageKey = "batchplane.dev.runtimeFixture";
 export const legacyRuntimeFixtureStorageKey = "batchtrail.dev.runtimeFixture";
 
 export const runtimeFixtureIds = [
+  "batch-control-bypassed",
+  "batch-control-bypassed-clean",
+  "batch-control-unknown",
+  "batch-control-verified",
   "live",
   "happy-path",
   "approval-pending",
@@ -47,6 +52,10 @@ const mockRuntimeSession: GitHubSession = {
 };
 
 const fixtureScenarioStates = {
+  "batch-control-bypassed": "requested",
+  "batch-control-bypassed-clean": "requested",
+  "batch-control-unknown": "requested",
+  "batch-control-verified": "requested",
   "approval-pending": "requested",
   "business-failed": "business-failed",
   "dispatch-failed": "failed",
@@ -61,6 +70,10 @@ const fixtureScenarioStates = {
 
 let activeFixtureId: RuntimeFixtureId | null = null;
 let activeMockClient: MockGitHubLiteClient | null = null;
+const approvedRevisionFixtureSetup = new Map<
+  Exclude<RuntimeFixtureId, "live">,
+  Promise<void>
+>();
 
 export function isRuntimeFixtureSwitcherEnabled(): boolean {
   return import.meta.env.DEV;
@@ -91,6 +104,7 @@ export function writeRuntimeFixtureSelection(
   storage.setItem(runtimeFixtureStorageKey, fixtureId);
   activeFixtureId = null;
   activeMockClient = null;
+  approvedRevisionFixtureSetup.clear();
 }
 
 export function readRuntimeSession(): GitHubSession | null {
@@ -108,9 +122,20 @@ export function createBatchPlaneRuntime(
     return createGitHubLiteRuntime(session);
   }
 
-  return createGitHubLiteRuntime(mockRuntimeSession, {
+  const runtime = createGitHubLiteRuntime(mockRuntimeSession, {
     client: getRuntimeFixtureClient(fixtureId),
   });
+
+  return {
+    ...runtime,
+    executions: {
+      ...runtime.executions,
+      async getApprovedBatchRevision(input) {
+        await ensureApprovedRevisionFixture(fixtureId);
+        return runtime.executions.getApprovedBatchRevision(input);
+      },
+    },
+  };
 }
 
 export function createRuntimeGovernedChangeClient(
@@ -121,19 +146,148 @@ export function createRuntimeGovernedChangeClient(
   | "createBatchChangeRequest"
   | "getGovernedChange"
   | "getBatchChangeBlocker"
+  | "getBatchRemediationCapability"
   | "loadBatchChangeDraft"
   | "previewBatchChange"
+  | "requestBatchRemediation"
   | "rejectGovernedChange"
   | "withdrawGovernedChange"
 > {
   const fixtureId = readRuntimeFixtureSelection();
 
-  return fixtureId === "live"
-    ? createGitHubLiteGovernedChangeClient(session)
-    : createGitHubLiteGovernedChangeClient(
-        mockRuntimeSession,
-        getRuntimeFixtureClient(fixtureId),
-      );
+  if (fixtureId === "live")
+    return createGitHubLiteGovernedChangeClient(session);
+
+  const client = createGitHubLiteGovernedChangeClient(
+    mockRuntimeSession,
+    getRuntimeFixtureClient(fixtureId),
+  );
+
+  return {
+    ...client,
+    async getBatchRemediationCapability(input) {
+      await ensureApprovedRevisionFixture(fixtureId);
+      return client.getBatchRemediationCapability(input);
+    },
+    async requestBatchRemediation(input) {
+      await ensureApprovedRevisionFixture(fixtureId);
+      return client.requestBatchRemediation(input);
+    },
+  };
+}
+
+/**
+ * Batch control reads must follow the same selected fixture client as runtime
+ * and governed-change operations. This keeps browser fixtures offline.
+ */
+export function createRuntimeBatchRevisionClient(session: GitHubSession) {
+  const fixtureId = readRuntimeFixtureSelection();
+
+  if (fixtureId === "live") {
+    return createGitHubLiteBatchRevisionClient(session);
+  }
+
+  const client = createGitHubLiteBatchRevisionClient(
+    mockRuntimeSession,
+    getRuntimeFixtureClient(fixtureId),
+  );
+
+  return {
+    ...client,
+    async verifyApprovedBatchRevision(
+      input: Parameters<typeof client.verifyApprovedBatchRevision>[0],
+    ) {
+      await ensureApprovedRevisionFixture(fixtureId);
+
+      if (fixtureId === "batch-control-unknown") {
+        return {
+          controlStatus: "UNKNOWN" as const,
+          reasonCode: "APPROVED_BATCH_REVISION_UNAVAILABLE" as const,
+        };
+      }
+
+      return client.verifyApprovedBatchRevision(input);
+    },
+  };
+}
+
+async function ensureApprovedRevisionFixture(
+  fixtureId: Exclude<RuntimeFixtureId, "live">,
+): Promise<void> {
+  if (
+    fixtureId !== "batch-control-verified" &&
+    fixtureId !== "batch-control-bypassed-clean" &&
+    fixtureId !== "happy-path"
+  ) {
+    return;
+  }
+
+  let setup = approvedRevisionFixtureSetup.get(fixtureId);
+
+  if (!setup) {
+    const client = getRuntimeFixtureClient(fixtureId);
+    setup = prepareRuntimeFixtureClient(client, fixtureId);
+    approvedRevisionFixtureSetup.set(fixtureId, setup);
+  }
+
+  await setup;
+}
+
+/** Prepares the same offline approved revision used by browser fixtures. */
+export async function prepareRuntimeFixtureClient(
+  client: MockGitHubLiteClient,
+  fixtureId: Exclude<RuntimeFixtureId, "live">,
+): Promise<void> {
+  if (
+    fixtureId !== "batch-control-verified" &&
+    fixtureId !== "batch-control-bypassed-clean" &&
+    fixtureId !== "happy-path"
+  ) {
+    return;
+  }
+
+  const governedChanges = createGitHubLiteGovernedChangeClient(
+    mockRuntimeSession,
+    client,
+  );
+  // The baseline's open execution Issue exercises list/run fixtures, but it
+  // must not block this distinct approved-revision setup.
+  client.state.executionScenarios = [];
+  client.state.issueComments = [];
+  client.state.issues = [];
+  const fixtureActor = client.state.currentUser.login;
+  client.state.currentUser.login = "developer";
+  const draft = await governedChanges.loadBatchChangeDraft({
+    batchId: "payment.daily-close",
+    mode: "change",
+  });
+  const created = await governedChanges.createBatchChangeRequest(draft);
+
+  if (created.request.reviewState !== "MERGED") {
+    client.state.currentUser.login = "maintainer";
+    await governedChanges.approveGovernedChange({
+      requestLocator: created.request.requestLocator,
+    });
+  }
+  client.state.currentUser.login = fixtureActor;
+
+  if (fixtureId === "batch-control-bypassed-clean") {
+    const definitionPath = ".batch-governance/batches/payment.daily-close.yml";
+    const definition = await client.getFile({
+      ...mockRuntimeSession,
+      path: definitionPath,
+      ref: "main",
+    });
+    if (!definition) throw new Error("Expected Batch definition fixture.");
+    await client.putFile({
+      ...mockRuntimeSession,
+      branch: "main",
+      content: `${definition.content}\n# fixture: unauthorized current revision\n`,
+      message: "Fixture unauthorized Batch revision",
+      path: definitionPath,
+      sha: definition.sha,
+    });
+  }
 }
 
 export function createRuntimeFixtureMockState(

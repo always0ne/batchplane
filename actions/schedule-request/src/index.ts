@@ -13,6 +13,11 @@ import {
   type BatchDefinitionFile,
   validateBatchDefinitionFile,
 } from "@batchplane/domain";
+import {
+  createGitHubLiteClient,
+  verifyApprovedBatchRevision,
+  type ApprovedBatchRevisionResult,
+} from "@batchplane/github-lite";
 
 export type ScheduleRequestInput = {
   apiBaseUrl?: string;
@@ -27,6 +32,10 @@ export type ScheduleRequestInput = {
   scheduleId: string;
   sha: string;
   timezone: string;
+  verifyBatchRevision?: (input: {
+    batchId: string;
+    executionWorkflowSha: string;
+  }) => Promise<ApprovedBatchRevisionResult>;
 };
 
 export type ScheduleRequestResult = {
@@ -85,6 +94,15 @@ export async function createOrReuseScheduledExecutionRequest(
   }
 
   const batch = parseBatchDefinition(batchFile.content, definitionPath);
+  const revision = await resolveApprovedBatchRevision(input, batch.batchId);
+
+  if (revision.controlStatus !== "VERIFIED") {
+    throw new Error(
+      revision.controlStatus === "UNKNOWN"
+        ? "APPROVED_BATCH_REVISION_UNAVAILABLE: approved Batch revision could not be verified."
+        : "UNAPPROVED_BATCH_REVISION: Batch revision does not match the latest approved governed change.",
+    );
+  }
   const schedule = (batch.schedules ?? []).find(
     (candidate) => candidate.scheduleId === input.scheduleId,
   );
@@ -126,7 +144,14 @@ export async function createOrReuseScheduledExecutionRequest(
   if (existingIssue) {
     const existingRequest = parseExecutionRequest(existingIssue.body);
 
-    if (!existingRequest || existingRequest.requestId !== requestId) {
+    if (
+      !existingRequest ||
+      existingRequest.requestId !== requestId ||
+      existingRequest.approvedBatchRevision.governedChangeId !==
+        revision.approvedRevision.governedChangeId ||
+      existingRequest.approvedBatchRevision.targetRevisionDigest !==
+        revision.approvedRevision.targetRevisionDigest
+    ) {
       throw new Error(
         `Scheduled execution request evidence is invalid for ${requestId}.`,
       );
@@ -188,6 +213,7 @@ export async function createOrReuseScheduledExecutionRequest(
 
   await client.ensureLabels(requestLabels);
   const issue = await buildExecutionRequestIssue({
+    approvedBatchRevision: revision.approvedRevision,
     batch,
     expiresAt: addHours(input.now ?? new Date(), 24),
     reason: "Scheduled occurrence generated from approved BatchPlane schedule.",
@@ -558,17 +584,69 @@ function parseExecutionRequest(issueBody: string) {
     readMarkdownField(issueBody, "Requested by").replace(/^@/, "") ||
     payload?.spec?.requestedBy ||
     "";
+  const approvedBatchRevision = readApprovedBatchRevision(payload);
 
-  if (!requestId || !batchId || !requestDigest) {
+  if (!requestId || !batchId || !requestDigest || !approvedBatchRevision) {
     return null;
   }
 
   return {
+    approvedBatchRevision,
     batchId,
     requestDigest,
     requestedBy,
     requestId,
   };
+}
+
+async function resolveApprovedBatchRevision(
+  input: ScheduleRequestInput,
+  batchId: string,
+): Promise<ApprovedBatchRevisionResult> {
+  if (input.verifyBatchRevision) {
+    return input.verifyBatchRevision({
+      batchId,
+      executionWorkflowSha: input.sha,
+    });
+  }
+
+  const { owner, repo } = parseRepository(input.repository);
+
+  return verifyApprovedBatchRevision({
+    batchId,
+    client: createGitHubLiteClient({
+      apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
+      fetcher: input.fetcher ?? fetch,
+      token: input.githubToken,
+    }),
+    executionWorkflowSha: input.sha,
+    repository: { owner, repo },
+  });
+}
+
+function readApprovedBatchRevision(payload: unknown): {
+  governedChangeId: string;
+  targetRevisionDigest: string;
+} | null {
+  if (!payload || typeof payload !== "object") return null;
+  const spec = (payload as { spec?: unknown }).spec;
+  const revision =
+    spec && typeof spec === "object"
+      ? (spec as { approvedBatchRevision?: unknown }).approvedBatchRevision
+      : null;
+
+  if (!revision || typeof revision !== "object") return null;
+  const governedChangeId = (revision as { governedChangeId?: unknown })
+    .governedChangeId;
+  const targetRevisionDigest = (revision as { targetRevisionDigest?: unknown })
+    .targetRevisionDigest;
+
+  return typeof governedChangeId === "string" &&
+    governedChangeId.trim() &&
+    typeof targetRevisionDigest === "string" &&
+    targetRevisionDigest.startsWith("sha256:")
+    ? { governedChangeId, targetRevisionDigest }
+    : null;
 }
 
 function findLatestApprovalComment(

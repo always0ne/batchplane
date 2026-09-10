@@ -1,6 +1,16 @@
+import {
+  createGitHubLiteClient,
+  verifyApprovedBatchRevision,
+  type ApprovedBatchRevisionResult,
+} from "@batchplane/github-lite";
+
 export type DispatcherCommand = "approve" | "retry-dispatch" | "ignore";
 
 export type ExecutionRequestEvidence = {
+  approvedBatchRevision: {
+    governedChangeId: string;
+    targetRevisionDigest: string;
+  };
   batchId: string;
   expiresAt: string;
   requestDigest: string;
@@ -53,6 +63,10 @@ export type DispatcherRunInput = {
   now?: Date;
   owner: string;
   repo: string;
+  verifyBatchRevision?: (input: {
+    batchId: string;
+    expectedRevision: ExecutionRequestEvidence["approvedBatchRevision"];
+  }) => Promise<ApprovedBatchRevisionResult>;
 };
 
 export type DispatcherRunResult =
@@ -134,6 +148,7 @@ export async function dispatchApprovedExecutionRequest({
   now = new Date(),
   owner,
   repo,
+  verifyBatchRevision,
 }: DispatcherRunInput): Promise<DispatcherRunResult> {
   const client = createDispatcherGitHubClient({
     apiBaseUrl,
@@ -195,6 +210,40 @@ export async function dispatchApprovedExecutionRequest({
     return {
       message: verification.message,
       reasonCode: verification.reasonCode,
+      status: "failed",
+    };
+  }
+
+  const revision = await resolveApprovedBatchRevision({
+    apiBaseUrl,
+    batchId: verification.request.batchId,
+    expectedRevision: verification.request.approvedBatchRevision,
+    fetcher,
+    githubToken,
+    owner,
+    repo,
+    verifyBatchRevision,
+  });
+
+  if (revision.controlStatus !== "VERIFIED") {
+    const reasonCode = revision.reasonCode;
+    const message =
+      revision.controlStatus === "UNKNOWN"
+        ? "Approved Batch revision could not be verified before workflow dispatch."
+        : "Batch revision does not match the latest approved governed change.";
+    await client.createIssueComment(
+      issueNumber,
+      buildDispatchFailureComment(
+        message,
+        reasonCode,
+        verification.dispatchPlan,
+      ),
+    );
+
+    return {
+      dispatchPlan: verification.dispatchPlan,
+      message,
+      reasonCode,
       status: "failed",
     };
   }
@@ -406,12 +455,20 @@ export function parseExecutionRequestEvidence(
   const status = marker.get("status") ?? readMarkdownField(issueBody, "Status");
   const payload = parseCanonicalPayload(issueBody);
   const workflow = readWorkflowTarget(payload);
+  const approvedBatchRevision = readApprovedBatchRevision(payload);
 
-  if (!requestId || !batchId || !requestDigest || !status) {
+  if (
+    !requestId ||
+    !batchId ||
+    !requestDigest ||
+    !status ||
+    !approvedBatchRevision
+  ) {
     return null;
   }
 
   return {
+    approvedBatchRevision,
     batchId,
     expiresAt: readMarkdownField(issueBody, "Expires at"),
     requestDigest,
@@ -423,6 +480,61 @@ export function parseExecutionRequestEvidence(
     workflowPath: workflow.path,
     workflowRef: workflow.ref,
   };
+}
+
+async function resolveApprovedBatchRevision({
+  apiBaseUrl,
+  batchId,
+  expectedRevision,
+  fetcher,
+  githubToken,
+  owner,
+  repo,
+  verifyBatchRevision,
+}: {
+  apiBaseUrl: string;
+  batchId: string;
+  expectedRevision: ExecutionRequestEvidence["approvedBatchRevision"];
+  fetcher: typeof fetch;
+  githubToken: string;
+  owner: string;
+  repo: string;
+  verifyBatchRevision?: DispatcherRunInput["verifyBatchRevision"];
+}): Promise<ApprovedBatchRevisionResult> {
+  if (verifyBatchRevision) {
+    return verifyBatchRevision({ batchId, expectedRevision });
+  }
+
+  return verifyApprovedBatchRevision({
+    batchId,
+    client: createGitHubLiteClient({ apiBaseUrl, fetcher, token: githubToken }),
+    expectedRevision,
+    repository: { owner, repo },
+  });
+}
+
+function readApprovedBatchRevision(
+  payload: unknown,
+): ExecutionRequestEvidence["approvedBatchRevision"] | null {
+  if (!payload || typeof payload !== "object") return null;
+  const spec = (payload as { spec?: unknown }).spec;
+  const revision =
+    spec && typeof spec === "object"
+      ? (spec as { approvedBatchRevision?: unknown }).approvedBatchRevision
+      : null;
+
+  if (!revision || typeof revision !== "object") return null;
+  const governedChangeId = (revision as { governedChangeId?: unknown })
+    .governedChangeId;
+  const targetRevisionDigest = (revision as { targetRevisionDigest?: unknown })
+    .targetRevisionDigest;
+
+  return typeof governedChangeId === "string" &&
+    governedChangeId.trim() &&
+    typeof targetRevisionDigest === "string" &&
+    targetRevisionDigest.startsWith("sha256:")
+    ? { governedChangeId, targetRevisionDigest }
+    : null;
 }
 
 export function parseExecutionApprovalEvidence(
