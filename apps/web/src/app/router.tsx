@@ -4,20 +4,20 @@ import {
   type RouteObject,
 } from "react-router-dom";
 
-import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { AuditPage } from "../features/audit/AuditPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
-import { ExecutionRequestDetailPage } from "../features/execution-requests/ExecutionRequestDetailPage";
-import { ExecutionRequestPage } from "../features/execution-requests/ExecutionRequestPage";
 import { ExecutionRunDetailPage } from "../features/execution-requests/ExecutionRunDetailPage";
 import { ExecutionRunListPage } from "../features/execution-requests/ExecutionRunListPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
-import { MyWorkPage } from "../features/my-work/MyWorkPage";
-import { WorkspaceRequestsPage } from "../features/requests/WorkspaceRequestsPage";
 import { BatchDetailPage } from "../pages/batches/BatchDetailPage";
 import { BatchRegistrationPage } from "../pages/batches/BatchRegistrationPage";
 import { BatchesPage } from "../pages/batches/BatchesPage";
+import { ApprovalsPage } from "../pages/approvals/ApprovalsPage";
+import { ExecutionRequestDetailPage } from "../pages/execution-requests/ExecutionRequestDetailPage";
+import { ExecutionRequestPage } from "../pages/execution-requests/ExecutionRequestPage";
+import { MyWorkPage } from "../pages/my-work/MyWorkPage";
 import { NotFoundPage } from "../pages/not-found/NotFoundPage";
+import { WorkspaceRequestsPage } from "../pages/requests/WorkspaceRequestsPage";
 import { GovernedChangeDetailPage } from "../pages/approvals/GovernedChangeDetailPage";
 import { RootLayout } from "./RootLayout";
 import { ScheduleChangeRedirect } from "./ScheduleChangeRedirect";
@@ -58,7 +58,7 @@ export const appRoutes: RouteObject[] = [
       },
       {
         id: "execution-request-detail",
-        path: "execution-requests/:issueNumber",
+        path: "execution-requests/:requestLocator",
         element: <ExecutionRequestDetailPage />,
       },
       {

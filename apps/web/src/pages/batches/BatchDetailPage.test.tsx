@@ -328,6 +328,15 @@ function createClient(
     rejectGovernedChange: unsupported,
     requestBatchRemediation: async () => governedChangeResult("1"),
     withdrawGovernedChange: unsupported,
+    loadExecutionRequestDraft: unsupported,
+    previewExecutionRequest: unsupported,
+    createExecutionRequest: unsupported,
+    getExecutionRequest: unsupported,
+    approveExecutionRequest: unsupported,
+    rejectExecutionRequest: unsupported,
+    listApprovalRequests: unsupported,
+    listWorkspaceRequests: unsupported,
+    getMyWork: unsupported,
     ...overrides,
   } satisfies BatchPlaneClient;
 }

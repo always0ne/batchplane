@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export function ExecutionApprovalActions({
+  approveDisabled = false,
   approveDisabledReason = "",
   approveLabel,
   disabled,
@@ -10,8 +11,10 @@ export function ExecutionApprovalActions({
   isRejecting,
   onApprove,
   onReject,
+  rejectDisabled = false,
   rejectLabel,
 }: {
+  approveDisabled?: boolean;
   approveDisabledReason?: string;
   approveLabel: string;
   disabled: boolean;
@@ -19,20 +22,23 @@ export function ExecutionApprovalActions({
   isRejecting: boolean;
   onApprove: () => void;
   onReject: (reason: string) => void;
+  rejectDisabled?: boolean;
   rejectLabel: string;
 }) {
   const { t } = useTranslation("approvals");
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const approveDisabled = disabled || Boolean(approveDisabledReason);
-  const rejectDisabled = disabled || rejectReason.trim().length === 0;
+  const approveActionDisabled =
+    disabled || approveDisabled || Boolean(approveDisabledReason);
+  const rejectActionDisabled =
+    disabled || rejectDisabled || rejectReason.trim().length === 0;
 
   return (
     <div className="mt-5 space-y-3">
       <div className="flex flex-wrap gap-3">
         <button
           className="inline-flex items-center gap-2 rounded-md bg-bp-control px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-          disabled={approveDisabled}
+          disabled={approveActionDisabled}
           onClick={onApprove}
           title={approveDisabledReason || undefined}
           type="button"
@@ -46,7 +52,7 @@ export function ExecutionApprovalActions({
         </button>
         <button
           className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
-          disabled={disabled}
+          disabled={disabled || rejectDisabled}
           onClick={() => setRejectOpen((current) => !current)}
           type="button"
         >
@@ -79,7 +85,7 @@ export function ExecutionApprovalActions({
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               className="inline-flex items-center gap-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-              disabled={rejectDisabled}
+              disabled={rejectActionDisabled}
               onClick={() => onReject(rejectReason.trim())}
               type="button"
             >

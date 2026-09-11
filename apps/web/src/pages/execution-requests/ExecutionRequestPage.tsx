@@ -1,9 +1,7 @@
 import type {
-  BatchDefinition,
-  BatchPlaneRuntimePorts,
-  RepositoryIssue,
-  WorkspacePolicy,
-} from "@batchplane/domain";
+  ExecutionRequestDraft,
+  ExecutionRequestParameter,
+} from "@batchplane/ui-client";
 import {
   AlertCircle,
   CheckCircle2,
@@ -17,57 +15,19 @@ import {
   type ChangeEvent,
   type FormEvent,
   type ReactNode,
-  useEffect,
   useMemo,
   useState,
 } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import type { GitHubSession } from "../lite-setup/github-session";
 import { PageHeader } from "../../ui/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
-import {
-  createBatchPlaneRuntime,
-  readRuntimeSession,
-} from "../../runtime/runtime-fixtures";
-import { formatRuntimeError } from "../../runtime/runtime-errors";
-import {
-  addHours,
-  buildExecutionApprovalComment,
-  buildExecutionRequestIssue,
-  createExecutionRequestId,
-  type ExecutionRequestIssue,
-  type ExecutionRequestParameterInput,
-} from "./execution-request-model";
-import {
-  isAutoApprovalEnabled,
-  parseExecutionRequestDetail,
-} from "../approvals/approval-model";
+import { useExecutionRequestDraft } from "./useExecutionRequestDraft";
+import { useExecutionRequestPreview } from "./useExecutionRequestPreview";
+import { useExecutionRequestSubmission } from "./useExecutionRequestSubmission";
 
-type ExecutionRequestPageProps = {
-  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
-  readSession?: () => GitHubSession | null;
-};
-
-type PageState =
-  | { type: "loading" }
-  | { type: "no-session" }
-  | { type: "not-found"; batchId: string }
-  | {
-      type: "loaded";
-      batch: BatchDefinition;
-      approvedBatchRevision: {
-        governedChangeId: string;
-        targetRevisionDigest: string;
-      };
-      login: string;
-      session: GitHubSession;
-      workspacePolicy: WorkspacePolicy;
-    }
-  | { type: "error"; message: string };
-
-type ParameterRow = ExecutionRequestParameterInput & {
+type ParameterRow = ExecutionRequestParameter & {
   id: string;
 };
 
@@ -78,272 +38,19 @@ type FormValues = {
   workflowRef: string;
 };
 
-type RequestDraft = {
-  batchId: string;
-  requestId: string;
-  requestedAt: Date;
-};
-
-type PreviewState =
-  | { type: "idle" }
-  | { type: "loading" }
-  | { type: "ready"; issue: ExecutionRequestIssue }
-  | { type: "error"; message: string };
-
-type SubmitState =
-  | { type: "idle" }
-  | { type: "submitting" }
-  | { type: "success"; issue: RepositoryIssue }
-  | { type: "error"; message: string };
-
 const expiryOptions = ["1", "4", "8", "24"] as const;
 
-export function ExecutionRequestPage({
-  createRuntime = createBatchPlaneRuntime,
-  readSession = readRuntimeSession,
-}: ExecutionRequestPageProps = {}) {
+export function ExecutionRequestPage() {
   const { batchId = "" } = useParams();
   const decodedBatchId = decodeURIComponent(batchId);
   const { t } = useTranslation("executionRequests");
-  const navigate = useNavigate();
-  const [state, setState] = useState<PageState>({ type: "loading" });
-  const [draft, setDraft] = useState<RequestDraft | null>(null);
-  const [formValues, setFormValues] = useState<FormValues>({
-    expiresInHours: "1",
-    parameters: [],
-    reason: t("form.defaultReason"),
-    workflowRef: "main",
-  });
-  const [previewState, setPreviewState] = useState<PreviewState>({
-    type: "idle",
-  });
-  const [submitState, setSubmitState] = useState<SubmitState>({
-    type: "idle",
-  });
+  const draftState = useExecutionRequestDraft(decodedBatchId);
 
-  useEffect(() => {
-    let ignoreResult = false;
-
-    async function loadBatch() {
-      const session = readSession();
-
-      if (!session) {
-        setState({ type: "no-session" });
-        return;
-      }
-
-      setState({ type: "loading" });
-
-      try {
-        const runtime = createRuntime(session);
-        const repository = await runtime.settings.getRepository();
-        const [batches, user, workspacePolicy] = await Promise.all([
-          runtime.batches.listBatchDefinitions({
-            ref: repository.defaultBranch,
-          }),
-          runtime.settings.getCurrentUser(),
-          runtime.settings.getWorkspacePolicy({
-            ref: repository.defaultBranch,
-          }),
-        ]);
-        const batch = batches.find(
-          (candidate) => candidate.batchId === decodedBatchId,
-        );
-
-        if (ignoreResult) {
-          return;
-        }
-
-        if (!batch) {
-          setState({ type: "not-found", batchId: decodedBatchId });
-          return;
-        }
-
-        const approvedBatchRevision =
-          await runtime.executions.getApprovedBatchRevision({
-            batchId: batch.batchId,
-          });
-
-        setState({
-          type: "loaded",
-          batch,
-          approvedBatchRevision,
-          login: user.login,
-          session,
-          workspacePolicy,
-        });
-      } catch (error) {
-        if (!ignoreResult) {
-          setState({
-            type: "error",
-            message: formatRuntimeError(error, t("states.error")),
-          });
-        }
-      }
-    }
-
-    void loadBatch();
-
-    return () => {
-      ignoreResult = true;
-    };
-  }, [createRuntime, decodedBatchId, readSession, t]);
-
-  useEffect(() => {
-    if (state.type !== "loaded" || draft?.batchId === state.batch.batchId) {
-      return;
-    }
-
-    const requestedAt = new Date();
-    setDraft({
-      batchId: state.batch.batchId,
-      requestedAt,
-      requestId: createExecutionRequestId(state.batch.batchId, requestedAt),
-    });
-    setFormValues({
-      expiresInHours: "1",
-      parameters: [],
-      reason: t("form.defaultReason"),
-      workflowRef: state.batch.workflow.ref,
-    });
-    setSubmitState({ type: "idle" });
-  }, [draft?.batchId, state, t]);
-
-  const validationErrors = useMemo(
-    () =>
-      state.type === "loaded"
-        ? validateRequest(formValues, state.batch, t)
-        : validateForm(formValues, t),
-    [formValues, state, t],
-  );
-
-  useEffect(() => {
-    let ignoreResult = false;
-
-    async function updatePreview() {
-      if (state.type !== "loaded" || !draft || validationErrors.length > 0) {
-        setPreviewState({ type: "idle" });
-        return;
-      }
-
-      setPreviewState({ type: "loading" });
-
-      try {
-        const issue = await buildExecutionRequestIssue({
-          approvedBatchRevision: state.approvedBatchRevision,
-          batch: state.batch,
-          expiresAt: addHours(
-            draft.requestedAt,
-            Number(formValues.expiresInHours),
-          ),
-          parameters: formValues.parameters,
-          reason: formValues.reason,
-          requestedAt: draft.requestedAt,
-          requestedBy: state.login,
-          requestId: draft.requestId,
-          workflowRef: formValues.workflowRef,
-        });
-
-        if (!ignoreResult) {
-          setPreviewState({ type: "ready", issue });
-        }
-      } catch (error) {
-        if (!ignoreResult) {
-          setPreviewState({
-            type: "error",
-            message: formatRuntimeError(error, t("states.previewError")),
-          });
-        }
-      }
-    }
-
-    void updatePreview();
-
-    return () => {
-      ignoreResult = true;
-    };
-  }, [draft, formValues, state, t, validationErrors]);
-
-  async function submitExecutionRequest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (state.type !== "loaded" || previewState.type !== "ready") {
-      setSubmitState({ type: "error", message: t("states.completeForm") });
-      return;
-    }
-
-    setSubmitState({ type: "submitting" });
-
-    try {
-      const runtime = createRuntime(state.session);
-      const issue = await runtime.executions.createExecutionRequest({
-        body: previewState.issue.body,
-        labels: previewState.issue.labels,
-        title: previewState.issue.title,
-      });
-
-      let navigationState:
-        | {
-            executionApprovalRecorded: {
-              actor: string;
-              decidedAt: string;
-              issueNumber: number;
-              requestId: string;
-            };
-          }
-        | undefined;
-
-      if (isAutoApprovalEnabled(state.workspacePolicy)) {
-        const approvedAt = new Date();
-
-        const approvalComment = await runtime.approvals.approveExecution({
-          body: buildExecutionApprovalComment({
-            approvalMode: state.workspacePolicy.approval.mode,
-            approvalType: "WORKSPACE_AUTO_APPROVED",
-            approvedAt,
-            approver: state.login,
-            request: previewState.issue.request,
-          }),
-          issueNumber: issue.number,
-        });
-        const approvedRequest = parseExecutionRequestDetail(issue, [
-          approvalComment,
-        ]);
-
-        if (
-          approvedRequest?.status !== "APPROVED" ||
-          !approvedRequest.approvalDecision
-        ) {
-          throw new Error(t("states.autoApprovalEvidenceMissing"));
-        }
-
-        navigationState = {
-          executionApprovalRecorded: {
-            actor: approvedRequest.approvalDecision.actor,
-            decidedAt: approvedRequest.approvalDecision.decidedAt,
-            issueNumber: issue.number,
-            requestId: approvedRequest.requestId,
-          },
-        };
-      }
-
-      setSubmitState({ type: "success", issue });
-      navigate(`/execution-requests/${issue.number}`, {
-        state: navigationState,
-      });
-    } catch (error) {
-      setSubmitState({
-        type: "error",
-        message: formatRuntimeError(error, t("states.submitError")),
-      });
-    }
-  }
-
-  if (state.type === "loading") {
+  if (draftState.type === "loading") {
     return <LoadingState message={t("states.loading")} />;
   }
 
-  if (state.type === "no-session") {
+  if (draftState.type === "workspace-not-connected") {
     return (
       <EmptyState
         action={
@@ -359,7 +66,7 @@ export function ExecutionRequestPage({
     );
   }
 
-  if (state.type === "not-found") {
+  if (draftState.type === "not-found") {
     return (
       <EmptyState
         action={
@@ -370,17 +77,92 @@ export function ExecutionRequestPage({
             {t("actions.backToBatches")}
           </Link>
         }
-        message={t("states.notFound", { batchId: state.batchId })}
+        message={t("states.notFound", { batchId: decodedBatchId })}
       />
     );
   }
 
-  if (state.type === "error") {
-    return <ErrorState message={state.message} />;
+  if (draftState.type === "error") {
+    return <ErrorState message={draftState.message || t("states.error")} />;
   }
 
-  if (!draft || draft.batchId !== state.batch.batchId) {
-    return <LoadingState message={t("states.loading")} />;
+  return (
+    <ExecutionRequestFormSession
+      key={draftState.draft.requestId}
+      draft={draftState.draft}
+    />
+  );
+}
+
+function ExecutionRequestFormSession({
+  draft,
+}: {
+  draft: ExecutionRequestDraft;
+}) {
+  const { t } = useTranslation("executionRequests");
+  const navigate = useNavigate();
+  const [formValues, setFormValues] = useState<FormValues>({
+    expiresInHours: "1",
+    parameters: [],
+    reason: t("form.defaultReason"),
+    workflowRef: draft.batch.workflowRef,
+  });
+  const validationErrors = useMemo(
+    () => [
+      ...draft.creationCapability.unavailableReasons.map((reason) =>
+        t(`validation.readiness.${reason}`),
+      ),
+      ...validateForm(formValues, t),
+    ],
+    [draft.creationCapability.unavailableReasons, formValues, t],
+  );
+  const input = useMemo(
+    () => ({
+      draft,
+      expiresAt: addHours(draft.requestedAt, Number(formValues.expiresInHours)),
+      parameters: formValues.parameters.map(({ name, sensitive, value }) => ({
+        name,
+        sensitive,
+        value,
+      })),
+      reason: formValues.reason,
+      workflowRef: formValues.workflowRef,
+    }),
+    [draft, formValues],
+  );
+  const previewState = useExecutionRequestPreview({
+    input,
+    isReady:
+      draft.creationCapability.canCreate && validationErrors.length === 0,
+  });
+  const { state: submitState, submit } = useExecutionRequestSubmission(
+    draft.requestId,
+  );
+
+  async function submitExecutionRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (previewState.type !== "ready") return;
+    const result = await submit(input);
+    if (!result) return;
+    navigate(
+      `/execution-requests/${encodeURIComponent(result.request.requestLocator)}`,
+      {
+        state: {
+          createdExecutionRequest: result.request,
+          ...(result.postCreateError
+            ? {
+                executionRequestPostCreateError: {
+                  code: result.postCreateError.code,
+                  requestDigest: result.request.evidence.requestDigest,
+                  requestId: result.request.requestId,
+                  requestLocator: result.request.requestLocator,
+                },
+              }
+            : {}),
+        },
+      },
+    );
   }
 
   const canSubmit =
@@ -390,14 +172,14 @@ export function ExecutionRequestPage({
     <section>
       <PageHeader
         title={t("title")}
-        subtitle={t("subtitle", { batchId: state.batch.batchId })}
+        subtitle={t("subtitle", { batchId: draft.batch.batchId })}
       />
       <form
-        className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]"
+        className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]"
         onSubmit={(event) => void submitExecutionRequest(event)}
       >
-        <div className="space-y-4">
-          <BatchRequestContext batch={state.batch} />
+        <div className="min-w-0 space-y-4">
+          <BatchRequestContext batch={draft.batch} />
           <RequestForm
             formValues={formValues}
             onChange={setFormValues}
@@ -406,28 +188,32 @@ export function ExecutionRequestPage({
           />
         </div>
         <RequestReviewPanel
-          batch={state.batch}
+          batch={draft.batch}
           canSubmit={canSubmit}
           previewState={previewState}
           submitState={submitState}
-          workspacePolicy={state.workspacePolicy}
+          workspaceApprovalMode={draft.workspaceApprovalMode}
         />
       </form>
     </section>
   );
 }
 
-function BatchRequestContext({ batch }: { batch: BatchDefinition }) {
+function BatchRequestContext({
+  batch,
+}: {
+  batch: ExecutionRequestDraft["batch"];
+}) {
   const { t } = useTranslation("executionRequests");
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-bp-graphite">
             {batch.name}
           </h2>
-          <p className="mt-1 font-mono text-sm text-bp-muted">
+          <p className="mt-1 break-all font-mono text-sm text-bp-muted">
             {batch.batchId}
           </p>
         </div>
@@ -440,7 +226,7 @@ function BatchRequestContext({ batch }: { batch: BatchDefinition }) {
         <Fact label={t("context.owner")} value={batch.owner} />
         <Fact label={t("context.domain")} value={batch.domain} />
         <Fact label={t("context.environment")} value={batch.environment} />
-        <Fact label={t("context.workflowPath")} value={batch.workflow.path} />
+        <Fact label={t("context.workflowPath")} value={batch.workflowPath} />
         <Fact
           label={t("context.runsOn")}
           value={formatRunnerLabel(batch.execution?.runsOn ?? "")}
@@ -462,7 +248,7 @@ function RequestForm({
 }: {
   formValues: FormValues;
   onChange: (values: FormValues) => void;
-  submitState: SubmitState;
+  submitState: ReturnType<typeof useExecutionRequestSubmission>["state"];
   validationErrors: string[];
 }) {
   const { t } = useTranslation("executionRequests");
@@ -514,7 +300,7 @@ function RequestForm({
   }
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-bp-graphite">
         {t("form.title")}
       </h2>
@@ -645,21 +431,21 @@ function RequestReviewPanel({
   canSubmit,
   previewState,
   submitState,
-  workspacePolicy,
+  workspaceApprovalMode,
 }: {
-  batch: BatchDefinition;
+  batch: ExecutionRequestDraft["batch"];
   canSubmit: boolean;
-  previewState: PreviewState;
-  submitState: SubmitState;
-  workspacePolicy: WorkspacePolicy;
+  previewState: ReturnType<typeof useExecutionRequestPreview>;
+  submitState: ReturnType<typeof useExecutionRequestSubmission>["state"];
+  workspaceApprovalMode: ExecutionRequestDraft["workspaceApprovalMode"];
 }) {
   const { t } = useTranslation("executionRequests");
-  const previewIssue =
-    previewState.type === "ready" ? previewState.issue : null;
+  const previewRequest =
+    previewState.type === "ready" ? previewState.preview.request : null;
 
   return (
-    <aside className="space-y-4">
-      <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <aside className="min-w-0 space-y-4">
+      <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-bp-graphite">
           {t("review.title")}
         </h2>
@@ -669,25 +455,24 @@ function RequestReviewPanel({
         </div>
 
         <dl className="mt-5 space-y-3 text-sm">
-          <ReviewFact
-            label={t("review.workflow")}
-            value={batch.workflow.path}
-          />
+          <ReviewFact label={t("review.workflow")} value={batch.workflowPath} />
           <ReviewFact
             label={t("review.runner")}
             value={formatRunnerLabel(batch.execution?.runsOn ?? "")}
           />
           <ReviewFact
             label={t("review.requestId")}
-            value={previewIssue?.request.requestId ?? t("review.pending")}
+            value={previewRequest?.requestId ?? t("review.pending")}
           />
           <ReviewFact
             label={t("review.expiresAt")}
-            value={previewIssue?.request.expiresAt ?? t("review.pending")}
+            value={previewRequest?.expiresAt ?? t("review.pending")}
           />
           <ReviewFact
             label={t("review.digest")}
-            value={previewIssue?.request.requestDigest ?? t("review.pending")}
+            value={
+              previewRequest?.evidence.requestDigest ?? t("review.pending")
+            }
           />
         </dl>
 
@@ -697,7 +482,7 @@ function RequestReviewPanel({
             text={t("review.commandReady")}
           />
           <CheckItem
-            ready={previewIssue !== null}
+            ready={previewRequest !== null}
             text={t("review.digestReady")}
           />
           <CheckItem ready text={t("review.noDispatch")} />
@@ -707,7 +492,7 @@ function RequestReviewPanel({
           {t("review.nextStep")}
         </p>
 
-        {isAutoApprovalEnabled(workspacePolicy) ? (
+        {workspaceApprovalMode === "AUTO_APPROVE" ? (
           <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
             {t("review.autoApproval")}
           </p>
@@ -727,7 +512,7 @@ function RequestReviewPanel({
         </button>
       </article>
 
-      <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-bp-graphite">
           {t("payload.title")}
         </h2>
@@ -739,12 +524,12 @@ function RequestReviewPanel({
         ) : null}
         {previewState.type === "error" ? (
           <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
-            {previewState.message}
+            {previewState.message || t("states.previewError")}
           </p>
         ) : null}
-        {previewIssue ? (
-          <pre className="mt-4 max-h-96 overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
-            <code>{JSON.stringify(previewIssue.payload, null, 2)}</code>
+        {previewRequest?.evidence.canonicalPayload ? (
+          <pre className="mt-4 max-h-96 max-w-full overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
+            <code>{previewRequest.evidence.canonicalPayload}</code>
           </pre>
         ) : null}
         {previewState.type === "idle" ? (
@@ -818,21 +603,17 @@ function CheckItem({ ready, text }: { ready: boolean; text: string }) {
   );
 }
 
-function SubmitMessage({ state }: { state: SubmitState }) {
+function SubmitMessage({
+  state,
+}: {
+  state: ReturnType<typeof useExecutionRequestSubmission>["state"];
+}) {
   const { t } = useTranslation("executionRequests");
-
-  if (state.type === "success") {
-    return (
-      <p className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-        {t("states.created")}
-      </p>
-    );
-  }
 
   if (state.type === "error") {
     return (
       <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
-        {state.message}
+        {state.message || t("states.submitError")}
       </p>
     );
   }
@@ -870,32 +651,17 @@ function validateForm(
   return errors;
 }
 
-function validateRequest(
-  values: FormValues,
-  batch: BatchDefinition,
-  t: (key: string) => string,
-): string[] {
-  const errors = validateForm(values, t);
-
-  if (batch.status !== "ACTIVE") {
-    errors.push(t("validation.inactive"));
-  }
-
-  if (!batch.gateRequired) {
-    errors.push(t("validation.gateRequired"));
-  }
-
-  if (!batch.execution?.command.trim()) {
-    errors.push(t("validation.missingCommand"));
-  }
-
-  return errors;
-}
-
 function formatRunnerLabel(
-  runsOn: NonNullable<BatchDefinition["execution"]>["runsOn"] | "",
+  runsOn:
+    | NonNullable<ExecutionRequestDraft["batch"]["execution"]>["runsOn"]
+    | "",
 ) {
   return Array.isArray(runsOn) ? runsOn.join(", ") : runsOn || "-";
+}
+
+function addHours(requestedAt: string, hours: number): string {
+  const requestedAtTime = new Date(requestedAt).getTime();
+  return new Date(requestedAtTime + hours * 60 * 60 * 1000).toISOString();
 }
 
 function createParameterRowId(): string {

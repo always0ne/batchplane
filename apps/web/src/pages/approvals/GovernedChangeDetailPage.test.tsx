@@ -376,6 +376,15 @@ function createClient(
       sourceRevision: "main",
       type: "loaded",
     }),
+    loadExecutionRequestDraft: unsupported,
+    previewExecutionRequest: unsupported,
+    createExecutionRequest: unsupported,
+    getExecutionRequest: unsupported,
+    approveExecutionRequest: unsupported,
+    rejectExecutionRequest: unsupported,
+    listApprovalRequests: unsupported,
+    listWorkspaceRequests: unsupported,
+    getMyWork: unsupported,
     loadBatchChangeDraft: async () => {
       throw new Error("not used");
     },
@@ -389,6 +398,12 @@ function createClient(
     withdrawGovernedChange: async () => detail(),
     ...overrides,
   };
+}
+
+async function unsupported(): Promise<never> {
+  throw new Error(
+    "This client method is not used by the governed change test.",
+  );
 }
 
 function detail(): GovernedChangeDetail {

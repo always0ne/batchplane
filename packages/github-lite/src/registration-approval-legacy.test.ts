@@ -11,7 +11,7 @@ import {
   isOpenRegistrationReview,
   parseRegistrationApprovalDecision,
   parseRegistrationRequestSummary,
-} from "./registration-approval-model";
+} from "./registration-approval-legacy";
 
 const pullRequest: RepositoryPullRequest = {
   author: "developer",
@@ -120,6 +120,23 @@ describe("registration approval model", () => {
       ".batch-governance/batches/payment.daily-close.yml",
       ".github/workflows/payment.daily-close.yml",
       ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
+    ]);
+  });
+
+  it("preserves legacy malformed-evidence path fallback without using canonical validation", () => {
+    const legacyPullRequest: RepositoryPullRequest = {
+      ...pullRequest,
+      body: "",
+      title: "Change batch Payment Daily Close",
+    };
+    const summary = parseRegistrationRequestSummary(legacyPullRequest);
+
+    expect(summary.workflowPath).toBe(
+      ".github/workflows/payment-daily-close.yml",
+    );
+    expect(deriveRegistrationFilePaths(summary)).toEqual([
+      ".batch-governance/batches/Payment Daily Close.yml",
+      ".github/workflows/payment-daily-close.yml",
     ]);
   });
 

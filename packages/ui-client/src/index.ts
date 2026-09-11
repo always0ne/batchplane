@@ -1,6 +1,8 @@
 export * from "./batches.js";
 export * from "./batch-details.js";
+export * from "./execution-requests.js";
 export * from "./governed-changes.js";
+export * from "./request-inventory.js";
 
 import type {
   BatchChangeDraft,
@@ -9,6 +11,18 @@ import type {
   GovernedChangeDetail,
   GovernedChangePreview,
 } from "./governed-changes.js";
+import type {
+  CreateExecutionRequestResult,
+  ExecutionRequest,
+  ExecutionRequestDraftResult,
+  ExecutionRequestInput,
+  ExecutionRequestPreview,
+} from "./execution-requests.js";
+import type {
+  ApprovalRequestInventory,
+  MyWorkInventory,
+  WorkspaceRequestInventory,
+} from "./request-inventory.js";
 import type { BatchListResult } from "./batches.js";
 import type {
   BatchDetailResult,
@@ -49,6 +63,28 @@ export type BatchPlaneClient = {
   withdrawGovernedChange(input: {
     requestLocator: string;
   }): Promise<GovernedChangeDetail>;
+  loadExecutionRequestDraft(input: {
+    batchId: string;
+  }): Promise<ExecutionRequestDraftResult>;
+  previewExecutionRequest(
+    input: ExecutionRequestInput,
+  ): Promise<ExecutionRequestPreview>;
+  createExecutionRequest(
+    input: ExecutionRequestInput,
+  ): Promise<CreateExecutionRequestResult>;
+  getExecutionRequest(input: {
+    requestLocator: string;
+  }): Promise<ExecutionRequest | null>;
+  approveExecutionRequest(input: {
+    requestLocator: string;
+  }): Promise<ExecutionRequest>;
+  rejectExecutionRequest(input: {
+    reason: string;
+    requestLocator: string;
+  }): Promise<ExecutionRequest>;
+  listApprovalRequests(): Promise<ApprovalRequestInventory>;
+  listWorkspaceRequests(): Promise<WorkspaceRequestInventory>;
+  getMyWork(): Promise<MyWorkInventory>;
 };
 
 export class WorkspaceNotConnectedError extends Error {

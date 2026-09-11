@@ -2,7 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { BatchChangeDraft, BatchPlaneClient } from "@batchplane/ui-client";
+import {
+  WorkspaceNotConnectedError,
+  type BatchChangeDraft,
+  type BatchPlaneClient,
+} from "@batchplane/ui-client";
 import { BatchPlaneClientContext } from "../client/batch-plane-client-context";
 import "../i18n/i18n";
 import { i18next } from "../i18n/i18n";
@@ -60,6 +64,33 @@ const disconnectedClient = {
     hasEffectiveChanges: false,
     targetRevisionDigest: "sha256:test",
   }),
+  loadExecutionRequestDraft: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  previewExecutionRequest: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  createExecutionRequest: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  getExecutionRequest: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  approveExecutionRequest: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  rejectExecutionRequest: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  listApprovalRequests: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  listWorkspaceRequests: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  getMyWork: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
   requestBatchRemediation: async () => {
     throw new Error("Workspace is not connected.");
   },

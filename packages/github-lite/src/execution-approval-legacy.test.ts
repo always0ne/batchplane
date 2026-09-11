@@ -17,7 +17,7 @@ import {
   isRegistrationApprovalRequest,
   parseExecutionApprovalRequest,
   parseExecutionRequestDetail,
-} from "./approval-model";
+} from "./execution-approval-legacy";
 
 const pullRequest: RepositoryPullRequest = {
   number: 12,

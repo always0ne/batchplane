@@ -23,8 +23,8 @@
       "approve": "실행 승인",
       "backToApprovals": "승인함으로",
       "closedTitle": "승인 작업 없음",
-      "note": "승인은 Issue comment 증적으로 기록됩니다. 브라우저는 Workflow를 직접 dispatch하지 않습니다.",
-      "openIssue": "Issue 열기",
+      "note": "승인은 요청 증적으로 기록됩니다. 브라우저는 Workflow를 직접 dispatch하지 않습니다.",
+      "openSourceRequest": "원본 요청 열기",
       "openRunDetail": "Run 상세 보기",
       "refresh": "새로고침",
       "reject": "반려",
@@ -50,7 +50,7 @@
       "command": "배치 명령",
       "environment": "환경",
       "expiresAt": "만료 시각",
-      "issueState": "Issue 상태",
+      "issueState": "원본 요청 상태",
       "reason": "사유",
       "repository": "Workspace",
       "requestDigest": "Request digest",
@@ -81,7 +81,9 @@
       "error": "실행 요청 상세를 불러오지 못했습니다.",
       "loading": "실행 요청 상세를 불러오는 중...",
       "noSession": "실행 요청을 검토하려면 Workspace를 먼저 연결하세요.",
-      "notFound": "실행 요청 Issue #{{issueNumber}}를 찾을 수 없습니다."
+      "notFound": "실행 요청 {{requestLocator}}를 찾을 수 없습니다.",
+      "pending": "요청은 기록되었으며 후속 상태 반영을 기다리고 있습니다.",
+      "unavailable": "최신 상태를 확인하지 못했습니다. 마지막으로 확인한 처리 결과를 표시합니다."
     },
     "status": {
       "APPROVED": "승인 기록됨",
@@ -263,7 +265,7 @@
     "name": "이름",
     "remove": "파라미터 삭제",
     "sensitive": "민감값",
-    "sensitiveHint": "민감 파라미터 값은 GitHub Issue에 기록하지 않습니다. 감사 비교용 value digest만 저장합니다.",
+    "sensitiveHint": "민감 파라미터 값은 원본 요청에 기록하지 않습니다. 감사 비교용 value digest만 저장합니다.",
     "title": "파라미터",
     "value": "값"
   },
@@ -274,13 +276,13 @@
   },
   "review": {
     "commandReady": "배치 명령이 요청 payload에 포함됩니다.",
-    "autoApproval": "Workspace 정책에 따라 Issue 생성 후 이 요청은 자동 승인됩니다. BatchPlane은 승인 증적만 기록하고 workflow_dispatch는 dispatcher가 수행합니다.",
+    "autoApproval": "Workspace 정책에 따라 생성 후 이 요청은 자동 승인됩니다. BatchPlane은 승인 증적만 기록하고 dispatcher가 통제된 workflow dispatch를 수행합니다.",
     "digest": "Request digest",
-    "digestReady": "Request digest가 Issue marker에 기록됩니다.",
+    "digestReady": "Request digest가 요청 증적에 기록됩니다.",
     "expiresAt": "만료 시각",
     "gateRequired": "BatchPlane Gate는 배치 명령 전에 반드시 실행됩니다.",
     "nextStep": "생성 후 BatchPlane은 실행요청 상세로 바로 이동합니다.",
-    "noDispatch": "Issue 생성만으로 Workflow를 실행하지 않습니다.",
+    "noDispatch": "요청 생성만으로 Workflow를 실행하지 않습니다.",
     "pending": "대기 중",
     "requestId": "Request ID",
     "runner": "실행 환경",
@@ -288,7 +290,7 @@
     "workflow": "Workflow"
   },
   "states": {
-    "completeForm": "Issue 생성 전에 요청 내용을 완료해주세요.",
+    "completeForm": "요청을 생성하기 전에 요청 내용을 완료해주세요.",
     "created": "실행 요청이 생성되었습니다.",
     "error": "실행 요청 화면을 불러오지 못했습니다.",
     "loading": "실행 요청 화면을 불러오는 중...",
@@ -299,6 +301,11 @@
     "submitError": "실행 요청을 생성하지 못했습니다."
   },
   "validation": {
+    "readiness": {
+      "BATCH_INACTIVE": "비활성 배치는 실행 요청할 수 없습니다.",
+      "EXECUTION_COMMAND_UNAVAILABLE": "배치 정의에 배치 명령이 기록되어 있지 않습니다.",
+      "GATE_NOT_REQUIRED": "BatchPlane Gate는 실행 요청 전에 필수입니다."
+    },
     "expiresIn": "승인 만료 시간을 선택해야 합니다.",
     "gateRequired": "BatchPlane Gate는 실행 요청 전에 필수입니다.",
     "inactive": "비활성 배치는 실행 요청할 수 없습니다.",

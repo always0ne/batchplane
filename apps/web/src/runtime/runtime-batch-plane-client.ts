@@ -2,7 +2,10 @@ import {
   WorkspaceNotConnectedError,
   type BatchPlaneClient,
 } from "@batchplane/ui-client";
-import { createGitHubLiteBatchReadClient } from "@batchplane/github-lite";
+import {
+  createGitHubLiteBatchReadClient,
+  createGitHubLiteExecutionApprovalClient,
+} from "@batchplane/github-lite";
 import {
   createBatchPlaneRuntime,
   createRuntimeBatchRevisionClient,
@@ -91,6 +94,33 @@ export function createRuntimeBatchPlaneClient({
 
       return createGovernedChangeClient(session).withdrawGovernedChange(input);
     },
+    async loadExecutionRequestDraft(input) {
+      return createExecutionApprovalClient().loadExecutionRequestDraft(input);
+    },
+    async previewExecutionRequest(input) {
+      return createExecutionApprovalClient().previewExecutionRequest(input);
+    },
+    async createExecutionRequest(input) {
+      return createExecutionApprovalClient().createExecutionRequest(input);
+    },
+    async getExecutionRequest(input) {
+      return createExecutionApprovalClient().getExecutionRequest(input);
+    },
+    async approveExecutionRequest(input) {
+      return createExecutionApprovalClient().approveExecutionRequest(input);
+    },
+    async rejectExecutionRequest(input) {
+      return createExecutionApprovalClient().rejectExecutionRequest(input);
+    },
+    async listApprovalRequests() {
+      return createExecutionApprovalClient().listApprovalRequests();
+    },
+    async listWorkspaceRequests() {
+      return createExecutionApprovalClient().listWorkspaceRequests();
+    },
+    async getMyWork() {
+      return createExecutionApprovalClient().getMyWork();
+    },
   };
 
   function createBatchReadClient(
@@ -99,6 +129,14 @@ export function createRuntimeBatchPlaneClient({
     return createGitHubLiteBatchReadClient({
       governedChangeClient: createGovernedChangeClient(session),
       revisionClient: createBatchRevisionClient(session),
+      runtime: createRuntime(session),
+    });
+  }
+
+  function createExecutionApprovalClient() {
+    const session = requireSession(readSession());
+
+    return createGitHubLiteExecutionApprovalClient({
       runtime: createRuntime(session),
     });
   }

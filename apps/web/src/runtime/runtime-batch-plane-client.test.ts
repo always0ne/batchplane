@@ -99,6 +99,9 @@ describe("runtime BatchPlane client", () => {
     await expect(
       client.loadBatchChangeDraft({ mode: "create" }),
     ).rejects.toSatisfy(isWorkspaceNotConnectedError);
+    await expect(
+      client.loadExecutionRequestDraft({ batchId: "payment.daily-close" }),
+    ).rejects.toSatisfy(isWorkspaceNotConnectedError);
   });
 
   it.each([
