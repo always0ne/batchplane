@@ -110,23 +110,23 @@ the target structure above. PR #198 establishes the Batch list as the first
 completed vertical slice; the remaining `*Page.tsx` files under `features` are
 legacy placement, not examples for new work.
 
-| Surface                         | Current Page                                                 | Status                                                                                                       |
-| ------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| Batch list                      | `pages/batches/BatchesPage.tsx`                              | Migrated; first reference slice                                                                              |
-| Dashboard                       | `features/dashboard/DashboardPage.tsx`                       | Legacy route Page; migration pending                                                                         |
-| My Work                         | `features/my-work/MyWorkPage.tsx`                            | Legacy route Page; migration pending                                                                         |
-| Batch registration and change   | `pages/batches/BatchRegistrationPage.tsx`                    | Migrated route page; further R2-A split keeps form, schedule, review, and command state page-local           |
-| Batch detail                    | `pages/batches/BatchDetailPage.tsx`                          | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient` |
-| Execution request creation      | `features/execution-requests/ExecutionRequestPage.tsx`       | Legacy route Page; migration pending                                                                         |
-| Execution request detail        | `features/execution-requests/ExecutionRequestDetailPage.tsx` | Legacy route Page; migration pending                                                                         |
-| Execution run list and failures | `features/execution-requests/ExecutionRunListPage.tsx`       | Legacy route Page; migration pending                                                                         |
-| Execution run detail            | `features/execution-requests/ExecutionRunDetailPage.tsx`     | Legacy route Page; migration pending                                                                         |
-| Workspace requests              | `features/requests/WorkspaceRequestsPage.tsx`                | Legacy route Page; migration pending                                                                         |
-| Approvals                       | `features/approvals/ApprovalsPage.tsx`                       | Legacy route Page; migration pending                                                                         |
-| Governed change approval detail | `pages/approvals/GovernedChangeDetailPage.tsx`               | Migrated route page; provider-neutral governed-change client only                                            |
-| Audit                           | `features/audit/AuditPage.tsx`                               | Legacy route Page; migration pending                                                                         |
-| Workspace connection and setup  | `features/lite-setup/LiteSetupPage.tsx`                      | Legacy route Page; migration pending                                                                         |
-| Standalone schedule definition  | None                                                         | Removed; schedules are edited inside the governed Batch form and the deep link redirects there               |
+| Surface                         | Current Page                                              | Status                                                                                                       |
+| ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Batch list                      | `pages/batches/BatchesPage.tsx`                           | Migrated; first reference slice                                                                              |
+| Dashboard                       | `features/dashboard/DashboardPage.tsx`                    | Legacy route Page; migration pending                                                                         |
+| My Work                         | `pages/my-work/MyWorkPage.tsx`                            | R3 product-client work queue; preserves request and failure follow-up destinations                           |
+| Batch registration and change   | `pages/batches/BatchRegistrationPage.tsx`                 | Migrated route page; further R2-A split keeps form, schedule, review, and command state page-local           |
+| Batch detail                    | `pages/batches/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient` |
+| Execution request creation      | `pages/execution-requests/ExecutionRequestPage.tsx`       | R3 route composition with page-local draft, preview, and submission responsibilities                         |
+| Execution request detail        | `pages/execution-requests/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                  |
+| Execution run list and failures | `features/execution-requests/ExecutionRunListPage.tsx`    | Legacy route Page; migration pending                                                                         |
+| Execution run detail            | `features/execution-requests/ExecutionRunDetailPage.tsx`  | Legacy route Page; migration pending                                                                         |
+| Workspace requests              | `pages/requests/WorkspaceRequestsPage.tsx`                | R3 product request inventory; local search and filters                                                       |
+| Approvals                       | `pages/approvals/ApprovalsPage.tsx`                       | R3 product inbox and reusable execution approval action                                                      |
+| Governed change approval detail | `pages/approvals/GovernedChangeDetailPage.tsx`            | Migrated route page; provider-neutral governed-change client only                                            |
+| Audit                           | `features/audit/AuditPage.tsx`                            | Legacy route Page; migration pending                                                                         |
+| Workspace connection and setup  | `features/lite-setup/LiteSetupPage.tsx`                   | Legacy route Page; migration pending                                                                         |
+| Standalone schedule definition  | None                                                      | Removed; schedules are edited inside the governed Batch form and the deep link redirects there               |
 
 New route screens must start under `pages`; the legacy paths above do not
 authorize adding another Page to `features`. A migration is complete only when
@@ -169,6 +169,40 @@ Version-appropriate references:
 - [React 18 useRef caveats](https://18.react.dev/reference/react/useRef#caveats)
 - [React 18 custom Hooks](https://18.react.dev/learn/reusing-logic-with-custom-hooks)
 - [React 18 unnecessary Effects](https://18.react.dev/learn/you-might-not-need-an-effect)
+
+### R3 Execution And Approval Boundary
+
+The R3 vertical covers execution request creation/detail, the approval inbox,
+Workspace requests, and My Work. Their Pages use `BatchPlaneClient`; the Lite
+adapter owns request and decision evidence, provider source references,
+dispatcher projection, and request-to-attempt correlation. Existing run/log
+screens remain with R5; navigating to them does not imply their migration.
+
+- Draft loading captures the Batch context and approved revision. Preview
+  generation must not fetch or silently adopt a newer revision on each edit.
+  Submission retains the reviewed revision so existing mutation-time authority
+  checks can reject a stale or unapproved revision.
+- User events submit and decide requests. Effects synchronize queries and
+  discard stale results; language changes must not reload a query or reset a
+  draft. Route changes isolate the previous request's pending actions.
+- Commands return authoritative request and decision results. A successful
+  write must not depend on an immediately consistent provider list or detail
+  read. Auto-approval evidence disables further approval immediately while
+  Dispatcher and run visibility remain independent asynchronous outcomes.
+- Product capabilities drive approval controls. A pending self-request may
+  still offer rejection while approval is unavailable. An unavailable run
+  lookup differs from a successful lookup with no correlated run yet.
+- Source labels and opaque evidence remain inspectable, but UI does not parse
+  comments, labels, provider payloads, or source IDs to make product decisions.
+- My Work preserves approval, own-request, failure explanation, and manager
+  review work with internal detail destinations.
+
+Execution parameters are intended as business-runtime inputs. Their actual
+delivery is a separate functional task, [#212](https://github.com/always0ne/batchplane/issues/212).
+R3 preserves the existing evidence-only behavior; it does not implement binding,
+change Dispatcher/Gate bytes, or claim that parameter values reach the command.
+The approved UI correction is limited to containing existing mobile overflow in
+request creation/detail, without a layout redesign.
 
 ### Application Composition
 

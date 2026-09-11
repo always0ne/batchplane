@@ -427,8 +427,23 @@ function createClient(
     requestBatchRemediation: async () => ({ request: requestResult("42") }),
     rejectGovernedChange: async () => requestDetail(),
     withdrawGovernedChange: async () => requestDetail(),
+    loadExecutionRequestDraft: unsupported,
+    previewExecutionRequest: unsupported,
+    createExecutionRequest: unsupported,
+    getExecutionRequest: unsupported,
+    approveExecutionRequest: unsupported,
+    rejectExecutionRequest: unsupported,
+    listApprovalRequests: unsupported,
+    listWorkspaceRequests: unsupported,
+    getMyWork: unsupported,
     ...overrides,
   };
+}
+
+async function unsupported(): Promise<never> {
+  throw new Error(
+    "This client method is not used by the batch registration test.",
+  );
 }
 
 function preview() {

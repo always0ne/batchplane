@@ -7,8 +7,11 @@ import {
   createMockGitHubLiteClient,
 } from "@batchplane/github-lite";
 import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import type { BatchPlaneClient } from "@batchplane/ui-client";
 
+import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { createRuntimeBatchPlaneClient } from "../../runtime/runtime-batch-plane-client";
 import "../../i18n/i18n";
 import { MyWorkPage } from "./MyWorkPage";
 
@@ -22,14 +25,7 @@ describe("MyWorkPage", () => {
   it("aggregates approval work for the current maintainer", async () => {
     const client = createMockGitHubLiteClient(createGitHubLiteMockState());
 
-    render(
-      <MemoryRouter>
-        <MyWorkPage
-          createRuntime={() => createGitHubLiteRuntime(session, { client })}
-          readSession={() => session}
-        />
-      </MemoryRouter>,
-    );
+    renderPage(runtimeClient(createGitHubLiteRuntime(session, { client })));
 
     expect(
       await screen.findByRole("heading", { name: "My Work" }),
@@ -52,14 +48,7 @@ describe("MyWorkPage", () => {
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
 
-    render(
-      <MemoryRouter>
-        <MyWorkPage
-          createRuntime={() => createGitHubLiteRuntime(session, { client })}
-          readSession={() => session}
-        />
-      </MemoryRouter>,
-    );
+    renderPage(runtimeClient(createGitHubLiteRuntime(session, { client })));
 
     expect(
       await screen.findByRole("heading", { name: "My Work" }),
@@ -87,15 +76,8 @@ describe("MyWorkPage", () => {
       throw new Error("Expected a Gate-blocked execution run fixture.");
     }
 
-    render(
-      <MemoryRouter>
-        <MyWorkPage
-          createRuntime={() =>
-            runtimeForRun(runtime, Number(gateBlockedRun.runId))
-          }
-          readSession={() => session}
-        />
-      </MemoryRouter>,
+    renderPage(
+      runtimeClient(runtimeForRun(runtime, Number(gateBlockedRun.runId))),
     );
 
     expect(await screen.findByText("Gate blocked")).toBeInTheDocument();
@@ -131,11 +113,7 @@ describe("MyWorkPage", () => {
     });
     client.state.currentUser = { login: "maintainer" };
 
-    render(
-      <MemoryRouter>
-        <MyWorkPage createRuntime={() => runtime} readSession={() => session} />
-      </MemoryRouter>,
-    );
+    renderPage(runtimeClient(runtime));
 
     expect(
       await screen.findByText(
@@ -169,11 +147,7 @@ describe("MyWorkPage", () => {
       status: "RESOLVED",
     });
 
-    render(
-      <MemoryRouter>
-        <MyWorkPage createRuntime={() => runtime} readSession={() => session} />
-      </MemoryRouter>,
-    );
+    renderPage(runtimeClient(runtime));
 
     await screen.findByRole("heading", { name: "My Work" });
     expect(
@@ -202,14 +176,7 @@ describe("MyWorkPage", () => {
       status: "RESOLVED",
     });
 
-    render(
-      <MemoryRouter>
-        <MyWorkPage
-          createRuntime={() => runtimeForRun(runtime, run.id)}
-          readSession={() => session}
-        />
-      </MemoryRouter>,
-    );
+    renderPage(runtimeClient(runtimeForRun(runtime, run.id)));
 
     await screen.findByRole("heading", { name: "My Work" });
     expect(
@@ -249,14 +216,7 @@ describe("MyWorkPage", () => {
     });
     client.state.currentUser = { login: "developer" };
 
-    render(
-      <MemoryRouter>
-        <MyWorkPage
-          createRuntime={() => runtimeForRun(runtime, run.id)}
-          readSession={() => session}
-        />
-      </MemoryRouter>,
-    );
+    renderPage(runtimeClient(runtimeForRun(runtime, run.id)));
 
     await screen.findByRole("heading", { name: "My Work" });
     expect(screen.queryByRole("link", { name: "Write follow-up" })).toBeNull();
@@ -312,14 +272,7 @@ describe("MyWorkPage", () => {
     });
     client.state.currentUser = { login: "developer" };
 
-    render(
-      <MemoryRouter>
-        <MyWorkPage
-          createRuntime={() => runtimeForRun(runtime, run.id)}
-          readSession={() => session}
-        />
-      </MemoryRouter>,
-    );
+    renderPage(runtimeClient(runtimeForRun(runtime, run.id)));
 
     expect(
       await screen.findByText(
@@ -342,17 +295,55 @@ describe("MyWorkPage", () => {
   });
 
   it("renders an empty state when no runtime session is available", async () => {
-    render(
-      <MemoryRouter>
-        <MyWorkPage readSession={() => null} />
-      </MemoryRouter>,
+    renderPage(
+      createRuntimeBatchPlaneClient({
+        createRuntime: () => {
+          throw new Error("A runtime must not be created without a session.");
+        },
+        readSession: () => null,
+      }),
     );
 
     expect(
       await screen.findByText("Connect a Workspace to view your work."),
     ).toBeInTheDocument();
   });
+
+  it("renders a product-client My Work error", async () => {
+    const client = runtimeClient(
+      createGitHubLiteRuntime(session, {
+        client: createMockGitHubLiteClient(createGitHubLiteMockState()),
+      }),
+    );
+    renderPage({
+      ...client,
+      getMyWork: async () => {
+        throw new Error("My Work inventory is unavailable.");
+      },
+    });
+
+    expect(
+      await screen.findByText("My Work inventory is unavailable."),
+    ).toBeInTheDocument();
+  });
 });
+
+function runtimeClient(runtime: BatchPlaneRuntimePorts): BatchPlaneClient {
+  return createRuntimeBatchPlaneClient({
+    createRuntime: () => runtime,
+    readSession: () => session,
+  });
+}
+
+function renderPage(client: BatchPlaneClient) {
+  render(
+    <BatchPlaneClientContext.Provider value={client}>
+      <MemoryRouter>
+        <MyWorkPage />
+      </MemoryRouter>
+    </BatchPlaneClientContext.Provider>,
+  );
+}
 
 function runtimeForRun(
   runtime: BatchPlaneRuntimePorts,

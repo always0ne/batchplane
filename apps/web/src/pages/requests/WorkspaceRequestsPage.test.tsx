@@ -1,62 +1,63 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { BatchPlaneClient } from "@batchplane/ui-client";
+import { WorkspaceNotConnectedError } from "@batchplane/ui-client";
 import { createMockGitHubLiteClient } from "@batchplane/github-lite";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import "../../i18n/i18n";
-import type { GitHubSession } from "../lite-setup/github-session";
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { createRuntimeBatchPlaneClient } from "../../runtime/runtime-batch-plane-client";
 import { createRuntimeFixtureMockState } from "../../runtime/runtime-fixtures";
 import { WorkspaceRequestsPage } from "./WorkspaceRequestsPage";
 
-const session: GitHubSession = {
-  owner: "always0ne",
-  repo: "batch",
-  token: "fixture-token",
-};
+const session = { owner: "always0ne", repo: "batch", token: "fixture-token" };
 
 describe("WorkspaceRequestsPage", () => {
-  beforeEach(() => {
-    sessionStorage.clear();
-  });
-
-  it("lists governed change and execution requests with internal detail links", async () => {
+  it("lists governed change and execution requests with internal detail and source links", async () => {
     const state = createRuntimeFixtureMockState("happy-path");
     state.pullRequests.push(governedChangePullRequest());
-    const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
-
-    renderWorkspaceRequestsPage(runtime);
+    renderPage(productClient(state));
 
     expect(
       await screen.findByRole("heading", { name: "Workspace requests" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Request list")).toBeInTheDocument();
     expect(
-      screen.getByText("Change batch payment.daily-close"),
+      screen.getByText(/Change batch payment\.daily-close/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Run batch payment.daily-close (dispatched)"),
+      screen.getByText(/Run batch payment\.daily-close \(dispatched\)/),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText("#104 Run batch payment.daily-close (dispatched)"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Batch change")).toBeInTheDocument();
     expect(screen.getByText("Manual execution")).toBeInTheDocument();
     expect(screen.getAllByText("Open").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Dispatched").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("payment.daily-close").length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.queryByRole("option", { name: "Withdrawn" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Reapproval required" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", {
+        name: "Legacy request cannot be approved here",
+      }),
+    ).not.toBeInTheDocument();
 
     const detailHrefs = screen
       .getAllByRole("link", { name: "Open request" })
       .map((link) => link.getAttribute("href"));
-
     expect(detailHrefs).toContain("/approvals/registration/51");
     expect(detailHrefs).toContain("/execution-requests/104");
 
     const sourceHrefs = screen
       .getAllByRole("link", { name: "Open source" })
       .map((link) => link.getAttribute("href"));
-
     expect(sourceHrefs).toContain("https://github.com/always0ne/batch/pull/51");
     expect(sourceHrefs).toContain(
       "https://github.com/always0ne/batch/issues/104",
@@ -66,30 +67,25 @@ describe("WorkspaceRequestsPage", () => {
   it("filters request rows by type and status", async () => {
     const state = createRuntimeFixtureMockState("happy-path");
     state.pullRequests.push(governedChangePullRequest());
-    const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
-
-    renderWorkspaceRequestsPage(runtime);
+    renderPage(productClient(state));
 
     expect(
-      await screen.findByText("Change batch payment.daily-close"),
+      await screen.findByText(/Change batch payment\.daily-close/),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Type"), {
       target: { value: "execution" },
     });
-
     expect(
-      screen.queryByText("Change batch payment.daily-close"),
+      screen.queryByText(/Change batch payment\.daily-close/),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText("Run batch payment.daily-close (dispatched)"),
+      screen.getByText(/Run batch payment\.daily-close \(dispatched\)/),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Status"), {
       target: { value: "REQUESTED" },
     });
-
     expect(
       screen.queryByText("Run batch payment.daily-close (dispatched)"),
     ).not.toBeInTheDocument();
@@ -97,26 +93,54 @@ describe("WorkspaceRequestsPage", () => {
       screen.getByText("No Workspace requests match this filter."),
     ).toBeInTheDocument();
   });
+
+  it("renders a disconnected product-client result without accessing a runtime session", async () => {
+    renderPage({
+      listWorkspaceRequests: async () => {
+        throw new WorkspaceNotConnectedError();
+      },
+    } as unknown as BatchPlaneClient);
+
+    expect(
+      await screen.findByText("Connect a Workspace before browsing requests."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a product-client inventory error", async () => {
+    renderPage({
+      listWorkspaceRequests: async () => {
+        throw new Error("Workspace request inventory is unavailable.");
+      },
+    } as unknown as BatchPlaneClient);
+
+    expect(
+      await screen.findByText("Workspace request inventory is unavailable."),
+    ).toBeInTheDocument();
+  });
 });
 
-function renderWorkspaceRequestsPage(
-  runtime: ReturnType<typeof createGitHubLiteRuntime>,
-) {
+function renderPage(client: BatchPlaneClient) {
   render(
-    <MemoryRouter initialEntries={["/requests"]}>
-      <Routes>
-        <Route
-          path="/requests"
-          element={
-            <WorkspaceRequestsPage
-              createRuntime={() => runtime}
-              readSession={() => session}
-            />
-          }
-        />
-      </Routes>
-    </MemoryRouter>,
+    <BatchPlaneClientContext.Provider value={client}>
+      <MemoryRouter initialEntries={["/requests"]}>
+        <Routes>
+          <Route path="/requests" element={<WorkspaceRequestsPage />} />
+        </Routes>
+      </MemoryRouter>
+    </BatchPlaneClientContext.Provider>,
   );
+}
+
+function productClient(
+  state: ReturnType<typeof createRuntimeFixtureMockState>,
+) {
+  const runtime = createGitHubLiteRuntime(session, {
+    client: createMockGitHubLiteClient(state),
+  });
+  return createRuntimeBatchPlaneClient({
+    createRuntime: () => runtime,
+    readSession: () => session,
+  });
 }
 
 function governedChangePullRequest() {

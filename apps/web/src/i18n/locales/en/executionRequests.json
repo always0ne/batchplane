@@ -23,8 +23,8 @@
       "approve": "Approve execution",
       "backToApprovals": "Back to approvals",
       "closedTitle": "No approval action",
-      "note": "Approval records Issue comment evidence. The browser never dispatches the workflow directly.",
-      "openIssue": "Open Issue",
+      "note": "Approval records request evidence. The browser never dispatches the workflow directly.",
+      "openSourceRequest": "Open source request",
       "openRunDetail": "View run detail",
       "refresh": "Refresh",
       "reject": "Reject",
@@ -50,7 +50,7 @@
       "command": "Batch command",
       "environment": "Environment",
       "expiresAt": "Expires at",
-      "issueState": "Issue state",
+      "issueState": "Source request status",
       "reason": "Reason",
       "repository": "Workspace",
       "requestDigest": "Request digest",
@@ -81,7 +81,9 @@
       "error": "Failed to load execution request detail.",
       "loading": "Loading execution request detail...",
       "noSession": "Connect a Workspace before reviewing execution requests.",
-      "notFound": "Execution request Issue #{{issueNumber}} was not found."
+      "notFound": "Execution request {{requestLocator}} was not found.",
+      "pending": "The request is recorded. Awaiting the latest processing status.",
+      "unavailable": "The latest status could not be checked. Showing the last confirmed result."
     },
     "status": {
       "APPROVED": "Approval recorded",
@@ -263,7 +265,7 @@
     "name": "Name",
     "remove": "Remove parameter",
     "sensitive": "Sensitive",
-    "sensitiveHint": "Sensitive values are never written to the GitHub Issue. BatchPlane stores only a value digest for audit comparison.",
+    "sensitiveHint": "Sensitive values are never written to the source request. BatchPlane stores only a value digest for audit comparison.",
     "title": "Parameters",
     "value": "Value"
   },
@@ -274,13 +276,13 @@
   },
   "review": {
     "commandReady": "Batch command is included in the request payload.",
-    "autoApproval": "Workspace policy auto-approves this request after Issue creation. BatchPlane records approval evidence only; the dispatcher still performs workflow_dispatch.",
+    "autoApproval": "Workspace policy auto-approves this request after creation. BatchPlane records approval evidence only; the dispatcher performs the governed workflow dispatch.",
     "digest": "Request digest",
-    "digestReady": "Request digest will be written to the Issue marker.",
+    "digestReady": "Request digest will be written to request evidence.",
     "expiresAt": "Expires at",
     "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
     "nextStep": "After creation, BatchPlane opens the execution request detail.",
-    "noDispatch": "Creating the Issue does not dispatch the workflow.",
+    "noDispatch": "Creating the request does not dispatch the workflow.",
     "pending": "Pending",
     "requestId": "Request ID",
     "runner": "Runner",
@@ -288,7 +290,7 @@
     "workflow": "Workflow"
   },
   "states": {
-    "completeForm": "Complete the request before creating an Issue.",
+    "completeForm": "Complete the request before creating it.",
     "created": "Execution request was created.",
     "error": "Failed to load execution request form.",
     "loading": "Loading execution request form...",
@@ -299,6 +301,11 @@
     "submitError": "Failed to create execution request."
   },
   "validation": {
+    "readiness": {
+      "BATCH_INACTIVE": "Inactive batches cannot be requested for execution.",
+      "EXECUTION_COMMAND_UNAVAILABLE": "The batch command is not recorded in the batch definition.",
+      "GATE_NOT_REQUIRED": "BatchPlane Gate is mandatory before execution can be requested."
+    },
     "expiresIn": "Expiration must be selected.",
     "gateRequired": "BatchPlane Gate is mandatory before execution can be requested.",
     "inactive": "Inactive batches cannot be requested for execution.",
