@@ -1,7 +1,27 @@
 import type {
   BatchDefinition,
+  BatchSchedule,
   DeletedBatchArchiveResult,
 } from "@batchplane/domain";
+
+export type BatchScheduleDisplay = BatchSchedule & {
+  generatedCron: string;
+};
+
+export type BatchDetailDefinition = Omit<BatchDefinition, "schedules"> & {
+  schedules?: BatchScheduleDisplay[];
+};
+
+export type BatchDetailArchiveResult =
+  | Exclude<DeletedBatchArchiveResult, { status: "VERIFIED" }>
+  | {
+      batch: BatchDetailDefinition;
+      sourceRequest: Extract<
+        DeletedBatchArchiveResult,
+        { status: "VERIFIED" }
+      >["sourceRequest"];
+      status: "VERIFIED";
+    };
 
 export type BatchControlStatus = "VERIFIED" | "BYPASSED" | "UNKNOWN";
 
@@ -47,14 +67,14 @@ export type BatchControl =
 export type BatchDetailResult =
   | {
       type: "active";
-      batch: BatchDefinition;
+      batch: BatchDetailDefinition;
       control: BatchControl;
       defaultBranch: string;
       recentExecutionRequests: BatchRecentExecutionRequestSummary[];
     }
   | {
       type: "deleted";
-      archive: DeletedBatchArchiveResult;
+      archive: BatchDetailArchiveResult;
       defaultBranch: string;
       recentExecutionRequests: BatchRecentExecutionRequestSummary[];
     }

@@ -1,4 +1,4 @@
-import type { BatchListItem } from "@batchplane/ui-client";
+import type { BatchListError, BatchListItem } from "@batchplane/ui-client";
 import { Play } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -36,7 +36,7 @@ export function BatchListContent({ state }: BatchListContentProps) {
   }
 
   if (state.type === "error") {
-    return <ErrorState message={state.message} />;
+    return <ErrorState message={formatBatchListError(state.error, t)} />;
   }
 
   if (state.batches.length === 0) {
@@ -48,6 +48,28 @@ export function BatchListContent({ state }: BatchListContentProps) {
   }
 
   return <BatchListTable batches={state.batches} />;
+}
+
+function formatBatchListError(
+  error: BatchListError,
+  t: (key: string) => string,
+): string {
+  if (error.type === "message") return error.message;
+
+  const translationKeyByErrorType = {
+    "access-denied": "errors:githubApi.forbidden",
+    "authentication-required": "errors:githubApi.unauthorized",
+    conflict: "errors:githubApi.conflict",
+    "invalid-input": "errors:githubApi.validation",
+    "request-rejected": "errors:githubApi.badRequest",
+    "resource-unavailable": "errors:githubApi.notFound",
+    "temporarily-unavailable": "errors:githubApi.rateLimited",
+    "provider-unknown": "errors:githubApi.unknown",
+  } as const;
+
+  return error.type === "unknown"
+    ? t("states.error")
+    : t(translationKeyByErrorType[error.type]);
 }
 
 function BatchListTable({ batches }: { batches: BatchListItem[] }) {

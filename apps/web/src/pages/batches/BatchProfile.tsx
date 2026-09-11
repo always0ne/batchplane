@@ -1,14 +1,17 @@
-import type { BatchDefinition, BatchSchedule } from "@batchplane/domain";
+import type { BatchDefinition } from "@batchplane/domain";
+import type {
+  BatchDetailDefinition,
+  BatchScheduleDisplay,
+} from "@batchplane/ui-client";
 import { useTranslation } from "react-i18next";
 
-import { formatGeneratedScheduleCrons } from "../../features/registration/registration-model";
 import { BatchDetailFact } from "./BatchDetailFact";
 
 export function BatchProfile({
   batch,
   defaultBranch,
 }: {
-  batch: BatchDefinition;
+  batch: BatchDetailDefinition;
   defaultBranch: string;
 }) {
   const { t } = useTranslation("batches");
@@ -123,7 +126,11 @@ export function BatchExecutionTarget({ batch }: { batch: BatchDefinition }) {
   );
 }
 
-export function BatchSchedules({ schedules }: { schedules: BatchSchedule[] }) {
+export function BatchSchedules({
+  schedules,
+}: {
+  schedules: BatchScheduleDisplay[];
+}) {
   const { t } = useTranslation("batches");
 
   return (
@@ -174,7 +181,7 @@ export function BatchSchedules({ schedules }: { schedules: BatchSchedule[] }) {
                 />
                 <BatchDetailFact
                   label={t("detail.schedules.fields.generatedCron")}
-                  value={formatGeneratedScheduleCrons(schedule)}
+                  value={schedule.generatedCron}
                 />
               </dl>
             </li>

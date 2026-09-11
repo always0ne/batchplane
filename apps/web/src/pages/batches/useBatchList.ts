@@ -2,14 +2,10 @@ import type { BatchListResult } from "@batchplane/ui-client";
 import { useEffect, useState } from "react";
 
 import { useBatchPlaneClient } from "../../client/batch-plane-client-context";
-import { formatRuntimeError } from "../../runtime/runtime-errors";
 
-export type BatchListState =
-  | { type: "loading" }
-  | BatchListResult
-  | { type: "error"; message: string };
+export type BatchListState = { type: "loading" } | BatchListResult;
 
-export function useBatchList(errorFallback: string) {
+export function useBatchList() {
   const client = useBatchPlaneClient();
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [state, setState] = useState<BatchListState>({ type: "loading" });
@@ -34,7 +30,10 @@ export function useBatchList(errorFallback: string) {
         if (isCurrentRequest) {
           setState({
             type: "error",
-            message: formatRuntimeError(error, errorFallback),
+            error:
+              error instanceof Error && error.message.trim()
+                ? { message: error.message, type: "message" }
+                : { type: "unknown" },
           });
         }
       }
@@ -45,7 +44,7 @@ export function useBatchList(errorFallback: string) {
     return () => {
       isCurrentRequest = false;
     };
-  }, [client, errorFallback, refreshVersion]);
+  }, [client, refreshVersion]);
 
   return { refresh, state };
 }

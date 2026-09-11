@@ -6,6 +6,7 @@ export * from "./execution-gate-result.js";
 export * from "./approved-batch-revision.js";
 export * from "./batch-revision-client.js";
 export * from "./execution-request-summaries.js";
+export * from "./batch-plane-client.js";
 
 export type RepoRef = {
   owner: string;

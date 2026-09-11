@@ -31,6 +31,7 @@ const activeDetail: BatchDetailResult = {
       {
         cron: "0 2 * * *",
         enabled: true,
+        generatedCron: "0 17 * * *",
         name: "Daily close",
         scheduleId: "daily-close",
         timezone: "Asia/Seoul",
@@ -76,6 +77,7 @@ describe("BatchDetailPage", () => {
       screen.getByText("java -jar dist/daily-close.jar"),
     ).toBeInTheDocument();
     expect(screen.getByText("Daily close")).toBeInTheDocument();
+    expect(screen.getByText("0 17 * * *")).toBeInTheDocument();
     expect(screen.getByText("jane")).toBeInTheDocument();
     expect(screen.getByText("btr-daily-close-81")).toBeInTheDocument();
     expect(screen.getByText("sha256:request-81")).toBeInTheDocument();

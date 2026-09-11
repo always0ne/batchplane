@@ -7,7 +7,7 @@ import { useBatchList } from "./useBatchList";
 
 export function BatchesPage() {
   const { t } = useTranslation("batches");
-  const batchList = useBatchList(t("states.error"));
+  const batchList = useBatchList();
 
   return (
     <section>

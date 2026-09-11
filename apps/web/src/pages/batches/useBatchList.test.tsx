@@ -15,12 +15,9 @@ describe("useBatchList", () => {
       .mockReturnValueOnce(firstResponse.promise)
       .mockReturnValueOnce(secondResponse.promise);
     const client = { listBatches } as unknown as BatchPlaneClient;
-    const { result } = renderHook(
-      () => useBatchList("Unable to load batches."),
-      {
-        wrapper: createClientProvider(client),
-      },
-    );
+    const { result } = renderHook(() => useBatchList(), {
+      wrapper: createClientProvider(client),
+    });
 
     await waitFor(() => expect(listBatches).toHaveBeenCalledTimes(1));
 

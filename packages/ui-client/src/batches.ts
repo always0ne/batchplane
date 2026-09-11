@@ -13,8 +13,21 @@ export type BatchListItem = {
   control: BatchControl;
 };
 
+export type BatchListError =
+  | { type: "request-rejected" }
+  | { type: "authentication-required" }
+  | { type: "access-denied" }
+  | { type: "resource-unavailable" }
+  | { type: "conflict" }
+  | { type: "invalid-input" }
+  | { type: "temporarily-unavailable" }
+  | { type: "provider-unknown" }
+  | { type: "unknown" }
+  | { type: "message"; message: string };
+
 export type BatchListResult =
   | { type: "workspace-not-connected" }
+  | { type: "error"; error: BatchListError }
   | {
       type: "loaded";
       batches: BatchListItem[];

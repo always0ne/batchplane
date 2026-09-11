@@ -1,4 +1,4 @@
-import type { DeletedBatchArchiveResult } from "@batchplane/domain";
+import type { BatchDetailArchiveResult } from "@batchplane/ui-client";
 import { useTranslation } from "react-i18next";
 
 import { ButtonLink } from "../../ui/Button";
@@ -9,7 +9,7 @@ export function BatchDeletedArchive({
   archive,
   defaultBranch,
 }: {
-  archive: DeletedBatchArchiveResult;
+  archive: BatchDetailArchiveResult;
   defaultBranch: string;
 }) {
   const { t } = useTranslation("batches");
@@ -98,7 +98,7 @@ function ArchiveHeader({
   batchId?: string;
   description: string;
   sourcePath: string;
-  sourceRequest: DeletedBatchArchiveResult["sourceRequest"];
+  sourceRequest: BatchDetailArchiveResult["sourceRequest"];
   title: string;
 }) {
   const { t } = useTranslation("batches");
