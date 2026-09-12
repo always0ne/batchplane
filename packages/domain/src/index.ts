@@ -167,9 +167,11 @@ export type ExecutionTriggerType = "MANUAL" | "SCHEDULE";
 
 export type ScheduleOccurrenceRef = {
   scheduleId: string;
-  scheduledAt: string;
   definitionPath: string;
   definitionCommitSha: string;
+  repositoryId: string;
+  sourceRunId: string;
+  sourceRunAttempt: number;
 };
 
 export type ExecutionRequest = {
@@ -177,7 +179,7 @@ export type ExecutionRequest = {
   batchId: string;
   requestedBy: string;
   requestedAt: string;
-  expiresAt: string;
+  expiresAt?: string;
   requestDigest: string;
   approvedBatchRevision: {
     governedChangeId: string;
@@ -214,18 +216,23 @@ export type ExecutionRunStatus =
   | "SUCCEEDED"
   | "FAILED"
   | "BLOCKED"
-  | "CANCELED";
+  | "CANCELED"
+  | "UNCONFIRMED";
 
 export type GateDecision = {
   allowed: boolean;
   reasonCode?: string;
   message: string;
   decidedAt: string;
+  requestId?: string;
+  scheduleId?: string;
 };
 
 export type ExecutionRunJob = {
   jobId: string;
   name: string;
+  /** Adapter-projected execution role; absent for legacy provider-neutral jobs. */
+  role?: "GATE" | "BUSINESS";
   status: ExecutionRunStatus;
   conclusion?: string;
   startedAt?: string;
@@ -542,7 +549,10 @@ export type ExecutionPort = {
   getApprovedBatchRevision(params: {
     batchId: string;
   }): Promise<ApprovedBatchRevision>;
-  getExecutionRun(params: { runId: string }): Promise<ExecutionRun | null>;
+  getExecutionRun(params: {
+    runId: string;
+    runAttempt?: number;
+  }): Promise<ExecutionRun | null>;
   getExecutionRunJobLog(params: { jobId: string }): Promise<ExecutionRunJobLog>;
   listExecutionRuns(params?: {
     batchId?: string;
@@ -708,10 +718,11 @@ export type ExecutionRequestPayload = {
     batchId: string;
   };
   spec: {
+    contractVersion?: "NATIVE_SCHEDULE_V2";
     triggerType?: ExecutionTriggerType;
     requestedBy: string;
     requestedAt: string;
-    expiresAt: string;
+    expiresAt?: string;
     reason?: string;
     batch: Pick<
       BatchDefinition,
@@ -766,7 +777,7 @@ export type BuildExecutionRequestIssueParams = {
     targetRevisionDigest: string;
   };
   batch: BatchDefinition;
-  expiresAt: Date;
+  expiresAt?: Date;
   parameters?: ExecutionRequestParameterInput[];
   reason?: string;
   requestId?: string;
@@ -813,14 +824,18 @@ export async function buildExecutionRequestIssue({
   const effectiveRequestId =
     requestId ??
     (triggerType === "SCHEDULE" && schedule
-      ? createScheduledExecutionRequestId(
+      ? await createScheduledExecutionRequestId(
           batch.batchId,
           schedule.scheduleId,
-          schedule.scheduledAt,
+          schedule.repositoryId,
+          schedule.sourceRunId,
         )
       : createExecutionRequestId(batch.batchId, requestedAt));
   const requestedAtIso = requestedAt.toISOString();
-  const expiresAtIso = expiresAt.toISOString();
+  if (triggerType !== "SCHEDULE" && !expiresAt) {
+    throw new Error("Manual execution requests require an expiration time.");
+  }
+  const expiresAtIso = expiresAt?.toISOString();
   const parameterPayload = await buildParameterPayload(parameters);
   const effectiveWorkflowRef = workflowRef?.trim() || batch.workflow.ref;
   const payload: ExecutionRequestPayload = {
@@ -852,7 +867,10 @@ export async function buildExecutionRequestIssue({
             runsOn: batch.execution.runsOn,
           }
         : undefined,
-      expiresAt: expiresAtIso,
+      ...(expiresAtIso ? { expiresAt: expiresAtIso } : {}),
+      ...(triggerType === "SCHEDULE"
+        ? { contractVersion: "NATIVE_SCHEDULE_V2" as const }
+        : {}),
       reason,
       requestedAt: requestedAtIso,
       requestedBy,
@@ -871,7 +889,7 @@ export async function buildExecutionRequestIssue({
   const request: ExecutionRequest = {
     approvedBatchRevision: payload.spec.approvedBatchRevision,
     batchId: batch.batchId,
-    expiresAt: expiresAtIso,
+    ...(expiresAtIso ? { expiresAt: expiresAtIso } : {}),
     requestDigest,
     requestedAt: requestedAtIso,
     requestedBy,
@@ -908,14 +926,28 @@ export function createExecutionRequestId(
   )}-${entropy}`;
 }
 
-export function createScheduledExecutionRequestId(
+export async function createScheduledExecutionRequestId(
   batchId: string,
   scheduleId: string,
-  scheduledAt: string | Date,
-): string {
-  return `btr-${formatRequestTimestamp(
-    scheduledAt instanceof Date ? scheduledAt.toISOString() : scheduledAt,
-  )}-${toRequestSlug(batchId, 24)}-${toRequestSlug(scheduleId, 24)}`;
+  repositoryId: string,
+  sourceRunId: string | number,
+): Promise<string> {
+  const run = String(sourceRunId).trim();
+
+  if (!repositoryId.trim() || !run) {
+    throw new Error(
+      "Scheduled execution requests require the native repository and Run identifiers.",
+    );
+  }
+
+  const tupleDigest = await createRequestDigest({
+    batchId,
+    repositoryId,
+    scheduleId,
+    sourceRunId: run,
+  });
+
+  return `btr-schedule-${tupleDigest.slice("sha256:".length)}`;
 }
 
 export function addHours(date: Date, hours: number): Date {
@@ -986,14 +1018,15 @@ function buildExecutionRequestBody({
     `- Batch ID: \`${request.batchId}\``,
     `- Requested by: @${request.requestedBy}`,
     `- Requested at: ${request.requestedAt}`,
-    `- Expires at: ${request.expiresAt}`,
+    ...(request.expiresAt ? [`- Expires at: ${request.expiresAt}`] : []),
     `- Trigger type: \`${request.triggerType ?? "MANUAL"}\``,
     `- Approved Batch change: \`${request.approvedBatchRevision.governedChangeId}\``,
     `- Approved Batch digest: \`${request.approvedBatchRevision.targetRevisionDigest}\``,
     ...(request.schedule
       ? [
           `- Schedule ID: \`${request.schedule.scheduleId}\``,
-          `- Scheduled at: ${request.schedule.scheduledAt}`,
+          `- Native source Run: \`${request.schedule.sourceRunId}\``,
+          `- Native repository: \`${request.schedule.repositoryId}\``,
         ]
       : []),
     `- Request digest: \`${request.requestDigest}\``,

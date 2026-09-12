@@ -31,6 +31,8 @@ export type BatchChangeDraft = {
     status: BatchStatus;
     workflowRef: string;
   };
+  /** Authenticated requester used only when a user leaves owner blank. */
+  defaultOwner?: string;
   governedChangeId?: string;
   mode: "create" | "change" | "delete";
   remediation?: "REVIEW_CURRENT" | "RESTORE_LAST_APPROVED";

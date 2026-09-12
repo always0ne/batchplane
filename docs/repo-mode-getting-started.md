@@ -295,13 +295,21 @@ the downstream Batch command failed.
 Schedules are stored inside the owning batch definition and approved through
 the registration or change PR.
 
-GitHub Actions cron entries are generated in UTC. BatchPlane keeps the
-user-entered cron and timezone in batch metadata for audit and occurrence
-validation, but GitHub itself triggers scheduled workflows using UTC cron.
+GitHub Actions entries retain the original cron and native IANA timezone.
+Within one Batch workflow, the same cron with different timezones is rejected
+explicitly because the documented event context does not distinguish them.
 
-Scheduled occurrences create or reuse occurrence-specific execution request
-evidence and then dispatch through the same Gate-protected workflow path.
-Scheduled occurrences do not wait in the manual approvals inbox.
+Each observed native Run records a schedule-specific execution request, Gate
+decision, business execution and result in the same workflow. The approved
+Batch revision is its authorization; there is no per-occurrence approval
+comment or second dispatched Run. Scheduled requests do not wait in approvals.
+
+Full and partial native reruns are blocked before the command. Separate native
+Runs are not deduplicated by an inferred nominal scheduled time. Delay is
+possible; Lite does not automatically catch up missed slots or re-execute after
+an uncertain result. Regenerate existing Batch workflows through an approved
+Batch change, not a direct file edit or Workspace reset. See the
+[schedule execution contract and live checklist](./schedule-execution-contract.md).
 
 ## Security Limitations
 

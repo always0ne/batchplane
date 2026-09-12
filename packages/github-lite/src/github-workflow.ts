@@ -1,4 +1,3 @@
-import { CronExpressionParser } from "cron-parser";
 import type {
   BatchDefinition,
   BatchSchedule,
@@ -7,25 +6,23 @@ import type {
 
 import { getBatchDefinitionPath } from "./batch-definition-codec.js";
 
-const batchPlaneDispatcherActionRef =
-  "always0ne/batchplane/actions/dispatcher@main";
 const batchPlaneGateActionRef = "always0ne/batchplane/actions/gate@main";
 const batchPlaneScheduleRequestActionRef =
   "always0ne/batchplane/actions/schedule-request@main";
+const batchPlaneScheduleResultActionRef =
+  "always0ne/batchplane/actions/schedule-result@main";
 
 export type GeneratedScheduleCron = {
   cron: string;
-  source: "original" | "utc";
+  source: "native";
 };
 
-const scheduleCronSampleStart = new Date("2026-01-01T00:00:00.000Z");
-const scheduleCronOccurrenceSampleSize = 512;
-const scheduleTimezoneOffsetSampleDates = [
-  new Date("2026-01-01T12:00:00.000Z"),
-  new Date("2026-04-01T12:00:00.000Z"),
-  new Date("2026-07-01T12:00:00.000Z"),
-  new Date("2026-10-01T12:00:00.000Z"),
-] as const;
+export type NativeScheduleWorkflowJobIdentity = {
+  businessJobId: string;
+  businessJobName: string;
+  controlJobId: string;
+  controlJobName: string;
+};
 
 export function buildBatchWorkflowYaml(definition: BatchDefinition): string {
   const workflowName = definition.name || definition.batchId || "New batch";
@@ -38,16 +35,19 @@ export function buildBatchWorkflowYaml(definition: BatchDefinition): string {
   const enabledSchedules = (definition.schedules ?? []).filter(
     (schedule) => schedule.enabled,
   );
+  assertUnambiguousScheduleTimezones(enabledSchedules);
   const scheduleEntries = Array.from(
     new Map(
       enabledSchedules
-        .flatMap((schedule) =>
-          getGeneratedScheduleCrons(schedule).map((entry) => ({
-            cron: entry.cron,
-          })),
-        )
-        .filter((schedule) => schedule.cron)
-        .map((schedule) => [schedule.cron, schedule]),
+        .map((schedule) => ({
+          cron: schedule.cron.trim(),
+          timezone: schedule.timezone.trim(),
+        }))
+        .filter((schedule) => schedule.cron && schedule.timezone)
+        .map((schedule) => [
+          `${schedule.cron}\u0000${schedule.timezone}`,
+          schedule,
+        ]),
     ).values(),
   );
 
@@ -78,7 +78,8 @@ export function buildBatchWorkflowYaml(definition: BatchDefinition): string {
       ? [
           "  schedule:",
           ...scheduleEntries.map(
-            (schedule) => `    - cron: ${yamlString(schedule.cron)}`,
+            (schedule) =>
+              `    - cron: ${yamlString(schedule.cron)}\n      timezone: ${yamlString(schedule.timezone)}`,
           ),
         ]
       : []),
@@ -88,6 +89,8 @@ export function buildBatchWorkflowYaml(definition: BatchDefinition): string {
       buildScheduledRequestJobLines({
         batchId,
         batchPath,
+        runCommand: definition.execution?.command ?? "",
+        runner,
         schedule,
       }),
     ),
@@ -116,6 +119,8 @@ export function buildBatchWorkflowYaml(definition: BatchDefinition): string {
     "          approval-ref: ${{ inputs.request_id }}",
     "          request-digest: ${{ inputs.request_digest }}",
     "          schedule-id: ${{ inputs.schedule_id }}",
+    "          gate-job-name: BatchPlane Gate",
+    "          gate-step-name: Verify approved execution evidence",
     "          github-token: ${{ secrets.GITHUB_TOKEN }}",
     "",
     "  run-batch:",
@@ -170,33 +175,46 @@ function formatRunnerLabel(runnerLabel: RunnerLabel): string {
 function buildScheduledRequestJobLines({
   batchId,
   batchPath,
+  runCommand,
+  runner,
   schedule,
 }: {
   batchId: string;
   batchPath: string;
+  runCommand: string;
+  runner: string;
   schedule: BatchSchedule;
 }): string[] {
-  const jobId = toScheduleWorkflowJobId(schedule.scheduleId);
-  const generatedCrons = getGeneratedScheduleCrons(schedule).map(
-    (entry) => entry.cron,
-  );
+  const identity = getNativeScheduleWorkflowJobIdentity(schedule);
+  const {
+    businessJobId,
+    businessJobName,
+    controlJobId: jobId,
+    controlJobName,
+  } = identity;
 
   return [
     `  ${jobId}:`,
-    `    name: ${yamlString(`Schedule ${schedule.name || schedule.scheduleId}`)}`,
-    `    if: github.event_name == 'schedule' && (${formatGitHubScheduleMatchExpression(generatedCrons)}) && github.run_attempt == 1`,
+    `    name: ${yamlString(controlJobName)}`,
+    `    if: github.event_name == 'schedule' && github.event.schedule == ${githubExpressionString(schedule.cron)}`,
+    "    outputs:",
+    "      request-id: ${{ steps.schedule_request.outputs.request-id }}",
+    "      request-digest: ${{ steps.schedule_request.outputs.request-digest }}",
+    "      issue-number: ${{ steps.schedule_request.outputs.issue-number }}",
     "    concurrency:",
     `      group: ${yamlString(`batchplane-schedule-${toWorkflowJobId(batchId)}-${toScheduleWorkflowJobId(schedule.scheduleId)}`)}`,
     "      cancel-in-progress: false",
     "    runs-on: ubuntu-latest",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
     "    permissions:",
-    "      actions: write",
     "      contents: read",
     "      issues: write",
     "      pull-requests: read",
     "    steps:",
-    "      - name: Create or reuse scheduled execution request",
+    "      - name: Record native scheduled execution request",
     "        id: schedule_request",
+    "        continue-on-error: true",
     `        uses: ${batchPlaneScheduleRequestActionRef}`,
     "        with:",
     `          batch-id: ${yamlString(batchId)}`,
@@ -206,12 +224,91 @@ function buildScheduledRequestJobLines({
     `          definition-path: ${yamlString(batchPath)}`,
     "          config-path: .batch-governance",
     "          github-token: ${{ secrets.GITHUB_TOKEN }}",
-    "      - name: Dispatch approved scheduled request",
-    "        if: steps.schedule_request.outputs.approval-comment-id != ''",
-    `        uses: ${batchPlaneDispatcherActionRef}`,
+    "      - name: Verify approved native schedule evidence",
+    "        id: verify",
+    "        if: always()",
+    `        uses: ${batchPlaneGateActionRef}`,
     "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    "          request-id: ${{ steps.schedule_request.outputs.request-id }}",
+    "          request-digest: ${{ steps.schedule_request.outputs.request-digest }}",
     "          issue-number: ${{ steps.schedule_request.outputs.issue-number }}",
-    "          comment-id: ${{ steps.schedule_request.outputs.approval-comment-id }}",
+    "          controller-reason: ${{ steps.schedule_request.outputs.failure-reason }}",
+    "          record-evidence: true",
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          gate-job-name: ${yamlString(controlJobName)}`,
+    "          gate-step-name: Verify approved native schedule evidence",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "",
+    `  ${businessJobId}:`,
+    `    name: ${yamlString(businessJobName)}`,
+    `    needs: ${jobId}`,
+    `    if: github.event_name == 'schedule' && needs.${jobId}.result == 'success'`,
+    `    runs-on: ${runner}`,
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    permissions:",
+    "      contents: read",
+    "      issues: read",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Reverify approved native schedule evidence",
+    "        id: verify",
+    `        uses: ${batchPlaneGateActionRef}`,
+    "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    `          request-id: \${{ needs.${jobId}.outputs.request-id }}`,
+    `          request-digest: \${{ needs.${jobId}.outputs.request-digest }}`,
+    `          issue-number: \${{ needs.${jobId}.outputs.issue-number }}`,
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          gate-job-name: ${yamlString(businessJobName)}`,
+    "          gate-step-name: Reverify approved native schedule evidence",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "      - name: Checkout registered assets",
+    "        if: steps.verify.outputs.verified_sha != ''",
+    "        uses: actions/checkout@v4",
+    "        with:",
+    "          ref: ${{ steps.verify.outputs.verified_sha }}",
+    "      - name: Run batch",
+    "        if: steps.verify.outputs.verified_sha != ''",
+    "        run: |",
+    '          echo "::group::BatchPlane batch command"',
+    "          trap 'status=$?; echo \"::endgroup::\"; exit $status' EXIT",
+    `          echo ${yamlString(`BatchPlane approved execution for ${batchId}`)}`,
+    ...indentRunCommand(runCommand),
+    "",
+    `  result-${jobId}:`,
+    `    name: ${yamlString(`Record ${schedule.name || schedule.scheduleId} result`)}`,
+    `    needs: [${jobId}, ${businessJobId}]`,
+    `    if: github.event_name == 'schedule' && github.event.schedule == ${githubExpressionString(schedule.cron)} && always() && needs.${jobId}.outputs.issue-number != ''`,
+    "    runs-on: ubuntu-latest",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    permissions:",
+    "      actions: read",
+    "      contents: read",
+    "      issues: write",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Record native schedule result",
+    `        uses: ${batchPlaneScheduleResultActionRef}`,
+    "        with:",
+    `          batch-id: ${yamlString(batchId)}`,
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          issue-number: \${{ needs.${jobId}.outputs.issue-number }}`,
+    `          request-id: \${{ needs.${jobId}.outputs.request-id }}`,
+    `          request-digest: \${{ needs.${jobId}.outputs.request-digest }}`,
+    `          control-result: \${{ needs.${jobId}.result }}`,
+    `          business-result: \${{ needs.${businessJobId}.result }}`,
+    `          business-job-id: ${yamlString(businessJobId)}`,
+    `          business-job-name: ${yamlString(businessJobName)}`,
+    `          control-job-id: ${yamlString(jobId)}`,
+    `          control-job-name: ${yamlString(controlJobName)}`,
+    `          definition-path: ${yamlString(batchPath)}`,
     "          github-token: ${{ secrets.GITHUB_TOKEN }}",
     "",
   ];
@@ -222,35 +319,11 @@ export function getGeneratedScheduleCrons(
 ): GeneratedScheduleCron[] {
   const cron = schedule.cron.trim();
   const timezone = schedule.timezone.trim();
-  const fields = parseGitHubCronFields(cron);
-
   validateTimeZone(timezone);
-  CronExpressionParser.parse(cron, {
-    currentDate: scheduleCronSampleStart,
-    tz: timezone,
-  });
-
-  if (timezone === "UTC" || timezone === "Etc/UTC") {
-    return [{ cron, source: "original" }];
+  if (cron.split(/\s+/u).length !== 5) {
+    throw new Error("GitHub Actions schedules require a 5-field cron.");
   }
-
-  if (
-    fields.dayOfMonth === "*" &&
-    fields.month === "*" &&
-    fields.dayOfWeek === "*"
-  ) {
-    return convertDailyCronToUtcCronEntries(fields, timezone).map((entry) => ({
-      cron: entry,
-      source: "utc",
-    }));
-  }
-
-  return convertCronOccurrencesToUtcCronEntries(cron, timezone, fields).map(
-    (entry) => ({
-      cron: entry,
-      source: "utc",
-    }),
-  );
+  return [{ cron, source: "native" }];
 }
 
 export function formatGeneratedScheduleCrons(
@@ -261,227 +334,46 @@ export function formatGeneratedScheduleCrons(
     .join(", ");
 }
 
-function parseGitHubCronFields(cron: string): {
-  dayOfMonth: string;
-  dayOfWeek: string;
-  hour: string;
-  minute: string;
-  month: string;
-} {
-  const fields = cron.trim().split(/\s+/);
-
-  if (fields.length !== 5) {
-    throw new Error("GitHub Actions schedules require a 5-field cron.");
-  }
+/**
+ * Keeps execution evidence and generated YAML on one schedule-specific job
+ * identity. Callers must derive this from registered schedule data, never a
+ * mutable result comment.
+ */
+export function getNativeScheduleWorkflowJobIdentity(
+  schedule: Pick<BatchSchedule, "scheduleId">,
+): NativeScheduleWorkflowJobIdentity {
+  const controlJobId = toScheduleWorkflowJobId(schedule.scheduleId);
 
   return {
-    dayOfMonth: fields[2] ?? "*",
-    dayOfWeek: fields[4] ?? "*",
-    hour: fields[1] ?? "*",
-    minute: fields[0] ?? "*",
-    month: fields[3] ?? "*",
+    businessJobId: `run-${controlJobId}`,
+    businessJobName: `Run [${schedule.scheduleId}]`,
+    controlJobId,
+    controlJobName: `Schedule [${schedule.scheduleId}]`,
   };
 }
 
-function convertDailyCronToUtcCronEntries(
-  fields: ReturnType<typeof parseGitHubCronFields>,
-  timezone: string,
-): string[] {
-  const minutes = expandSimpleCronField(fields.minute, 0, 59);
-  const hours = expandSimpleCronField(fields.hour, 0, 23);
-  const offsets = getObservedTimezoneOffsets(timezone);
-  const minuteHourPairs = new Set<string>();
+/** GitHub exposes only the cron expression in github.event.schedule. */
+export function assertUnambiguousScheduleTimezones(
+  schedules: readonly Pick<BatchSchedule, "cron" | "timezone">[],
+): void {
+  const timezoneByCron = new Map<string, string>();
 
-  for (const offset of offsets) {
-    for (const hour of hours) {
-      for (const minute of minutes) {
-        const utcTotalMinutes = normalizeModulo(
-          hour * 60 + minute - offset,
-          24 * 60,
-        );
-        const utcHour = Math.floor(utcTotalMinutes / 60);
-        const utcMinute = utcTotalMinutes % 60;
+  for (const schedule of schedules) {
+    const cron = schedule.cron.trim();
+    const timezone = schedule.timezone.trim();
+    const existing = timezoneByCron.get(cron);
 
-        minuteHourPairs.add(`${utcMinute} ${utcHour}`);
-      }
+    if (existing && existing !== timezone) {
+      throw new Error(
+        `SCHEDULE_TIMEZONE_AMBIGUOUS: schedules with cron ${cron} must use one timezone per workflow.`,
+      );
     }
+    timezoneByCron.set(cron, timezone);
   }
-
-  return formatMinuteHourCronEntries(minuteHourPairs);
-}
-
-function convertCronOccurrencesToUtcCronEntries(
-  cron: string,
-  timezone: string,
-  fields: ReturnType<typeof parseGitHubCronFields>,
-): string[] {
-  const interval = CronExpressionParser.parse(cron, {
-    currentDate: scheduleCronSampleStart,
-    tz: timezone,
-  });
-  const entries = new Set<string>();
-
-  for (let index = 0; index < scheduleCronOccurrenceSampleSize; index += 1) {
-    const next = interval.next().toDate();
-    const minute = next.getUTCMinutes();
-    const hour = next.getUTCHours();
-    const dayOfMonth = next.getUTCDate();
-    const month = next.getUTCMonth() + 1;
-    const dayOfWeek = next.getUTCDay();
-
-    if (
-      fields.dayOfMonth === "*" &&
-      fields.month === "*" &&
-      fields.dayOfWeek !== "*"
-    ) {
-      entries.add(`${minute} ${hour} * * ${dayOfWeek}`);
-    } else if (
-      fields.dayOfMonth !== "*" &&
-      fields.month === "*" &&
-      fields.dayOfWeek === "*"
-    ) {
-      entries.add(`${minute} ${hour} ${dayOfMonth} * *`);
-    } else {
-      entries.add(`${minute} ${hour} ${dayOfMonth} ${month} ${dayOfWeek}`);
-    }
-  }
-
-  return [...entries].sort(compareCronText);
-}
-
-function formatMinuteHourCronEntries(pairs: Set<string>): string[] {
-  const minutesByHour = new Map<number, Set<number>>();
-
-  for (const pair of pairs) {
-    const [minuteText = "", hourText = ""] = pair.split(" ");
-    const minute = Number(minuteText);
-    const hour = Number(hourText);
-    const minutes = minutesByHour.get(hour) ?? new Set<number>();
-
-    minutes.add(minute);
-    minutesByHour.set(hour, minutes);
-  }
-
-  return [...minutesByHour.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(
-      ([hour, minutes]) =>
-        `${formatCronNumberList(
-          [...minutes].sort((left, right) => left - right),
-        )} ${hour} * * *`,
-    );
-}
-
-function expandSimpleCronField(
-  field: string,
-  min: number,
-  max: number,
-): number[] {
-  const values = new Set<number>();
-
-  for (const part of field.split(",")) {
-    const trimmed = part.trim();
-
-    if (!trimmed) {
-      continue;
-    }
-
-    const [rangeText = "", stepText] = trimmed.split("/");
-    const step = stepText ? Number(stepText) : 1;
-
-    if (!Number.isInteger(step) || step < 1) {
-      throw new Error(`Invalid cron step: ${trimmed}`);
-    }
-
-    let start = min;
-    let end = max;
-
-    if (rangeText !== "*") {
-      if (rangeText.includes("-")) {
-        const rangeValues = rangeText.split("-").map(Number);
-
-        start = rangeValues[0] ?? Number.NaN;
-        end = rangeValues[1] ?? Number.NaN;
-      } else {
-        start = Number(rangeText);
-        end = start;
-      }
-    }
-
-    if (
-      !Number.isInteger(start) ||
-      !Number.isInteger(end) ||
-      start < min ||
-      end > max ||
-      start > end
-    ) {
-      throw new Error(`Unsupported cron field: ${field}`);
-    }
-
-    for (let value = start; value <= end; value += step) {
-      values.add(value);
-    }
-  }
-
-  return [...values].sort((left, right) => left - right);
-}
-
-function getObservedTimezoneOffsets(timezone: string): number[] {
-  const offsets = new Set<number>();
-
-  for (const sampleDate of scheduleTimezoneOffsetSampleDates) {
-    offsets.add(getTimezoneOffsetMinutes(sampleDate, timezone));
-  }
-
-  return [...offsets].sort((left, right) => left - right);
-}
-
-function getTimezoneOffsetMinutes(date: Date, timezone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: false,
-    minute: "2-digit",
-    month: "2-digit",
-    second: "2-digit",
-    timeZone: timezone,
-    year: "numeric",
-  }).formatToParts(date);
-  const values = Object.fromEntries(
-    parts.map((part) => [part.type, part.value]),
-  );
-  const zonedAsUtc = Date.UTC(
-    Number(values.year),
-    Number(values.month) - 1,
-    Number(values.day),
-    Number(values.hour),
-    Number(values.minute),
-    Number(values.second),
-  );
-
-  return Math.round((zonedAsUtc - date.getTime()) / 60_000);
 }
 
 function validateTimeZone(timeZone: string): void {
   new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
-}
-
-function normalizeModulo(value: number, modulo: number): number {
-  return ((value % modulo) + modulo) % modulo;
-}
-
-function formatCronNumberList(values: number[]): string {
-  return values.join(",");
-}
-
-function formatGitHubScheduleMatchExpression(crons: string[]): string {
-  return crons
-    .map((cron) => `github.event.schedule == ${githubExpressionString(cron)}`)
-    .join(" || ");
-}
-
-function compareCronText(left: string, right: string): number {
-  return left.localeCompare(right, "en-US", { numeric: true });
 }
 
 function toWorkflowJobId(value: string): string {

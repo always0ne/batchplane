@@ -1,0 +1,15 @@
+{
+  "name": "@batchplane/schedule-result-action",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@batchplane/domain": "workspace:*",
+    "@batchplane/github-lite": "workspace:*"
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "test": "vitest run"
+  }
+}

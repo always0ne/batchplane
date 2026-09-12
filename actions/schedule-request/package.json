@@ -5,8 +5,7 @@
   "type": "module",
   "dependencies": {
     "@batchplane/domain": "workspace:*",
-    "@batchplane/github-lite": "workspace:*",
-    "cron-parser": "^5.5.0"
+    "@batchplane/github-lite": "workspace:*"
   },
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/index.js",

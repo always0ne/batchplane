@@ -19,9 +19,11 @@
   "detail": {
     "title": "실행 요청 상세",
     "subtitle": "{{requestId}} 요청을 검토하고 승인 증적을 기록합니다.",
+    "nativeScheduleSubtitle": "요청 {{requestId}}",
     "actions": {
       "approve": "실행 승인",
       "backToApprovals": "승인함으로",
+      "backToRequestInventory": "요청 목록으로",
       "closedTitle": "승인 작업 없음",
       "note": "승인은 요청 증적으로 기록됩니다. 브라우저는 Workflow를 직접 dispatch하지 않습니다.",
       "openSourceRequest": "원본 요청 열기",
@@ -37,6 +39,8 @@
       "gateBlocked": "차단",
       "gateEvidence": "Gate 증적",
       "noBrowserDispatch": "BatchPlane UI는 증적만 기록합니다. 저장소 dispatcher workflow가 승인 comment를 감지해 workflow_dispatch를 수행합니다.",
+      "nativeScheduleEvidence": "이 항목은 기록된 네이티브 일정 발생입니다. 관찰된 Actions 실행 시도가 실행 증거입니다.",
+      "nativeScheduleTitle": "네이티브 일정 증거",
       "none": "증적 없음",
       "noWorkflowRun": "연결된 workflow run 없음",
       "status": "상태",
@@ -46,6 +50,7 @@
     },
     "fields": {
       "artifact": "실행 파일",
+      "approvedBatchRevision": "승인된 Batch 리비전",
       "batchId": "Batch ID",
       "command": "배치 명령",
       "environment": "환경",
@@ -57,6 +62,7 @@
       "requestedAt": "요청 시각",
       "requestedBy": "요청자",
       "runsOn": "실행 환경",
+      "sourceChange": "원본 변경 요청",
       "workflow": "Workflow"
     },
     "governance": {
@@ -92,7 +98,8 @@
       "DISPATCH_FAILED": "Dispatch 실패",
       "GATE_BLOCKED": "Gate 차단",
       "REJECTED": "반려됨",
-      "REQUESTED": "승인 대기"
+      "REQUESTED": "승인 대기",
+      "SCHEDULE_RECORDED": "스케줄 발생 기록됨"
     },
     "statusHelp": {
       "APPROVED": "승인 comment 증적이 존재합니다. Dispatcher가 이를 감지해야 합니다.",
@@ -101,7 +108,8 @@
       "DISPATCH_FAILED": "Dispatcher 증적상 workflow dispatch가 실패했습니다.",
       "GATE_BLOCKED": "Gate 증적상 workflow 실행이 차단되었습니다.",
       "REJECTED": "요청이 반려되어 dispatch되면 안 됩니다.",
-      "REQUESTED": "Maintainer 승인 comment가 아직 필요합니다."
+      "REQUESTED": "Maintainer 승인 comment가 아직 필요합니다.",
+      "SCHEDULE_RECORDED": "이 항목은 native 스케줄 발생입니다. 승인된 Batch 리비전, Gate 관측, 실행 증적을 각각 표시하며 사람 승인을 기다리는 항목이 아닙니다."
     },
     "values": {
       "selfApprovalAllowed": "Workspace 정책({{mode}})에 따라 자가승인이 허용됩니다. 이 승인도 자가승인 증적으로 기록됩니다.",
@@ -109,6 +117,7 @@
     }
   },
   "runDetail": {
+    "sourceRunTitle": "원본 Run 상세",
     "title": "실행 Run 상세",
     "subtitle": "{{runId}} workflow run 증적을 확인합니다.",
     "actions": {
@@ -119,6 +128,7 @@
       "refresh": "새로고침"
     },
     "business": {
+      "sourceRunUnconfirmed": "이 원본 Run은 기록된 스케줄 회차와 연결되지 않았습니다. Job과 로그를 확인할 수 있으나 업무 결과는 귀속하지 않습니다.",
       "current": "업무 실행 상태: {{status}}.",
       "failed": "Gate 통과 후 배치 명령 또는 업무 job이 실패했습니다.",
       "notReached": "Gate에서 차단되어 배치 명령은 실행되지 않았습니다.",
@@ -200,6 +210,7 @@
       "hideLog": "로그 접기",
       "jobId": "Job ID {{jobId}}",
       "kind": {
+        "source": "원본 job",
         "business": "업무 job",
         "gate": "Gate job"
       },
@@ -210,6 +221,7 @@
       "logUnavailable": "로그 링크 없음",
       "logViewTruncated": "일치하는 로그 {{count}}줄 중 처음 {{limit}}줄만 표시합니다.",
       "openBusinessLog": "업무 로그 열기",
+      "openSourceLog": "원본 로그 열기",
       "openGateLog": "Gate 로그 열기",
       "openLogForJob": "{{name}} GitHub Actions 로그 열기",
       "rawLogNotPersisted": "GitHub에서 필요할 때만 불러옵니다. 로그 본문은 감사 증적으로 기록하지 않습니다.",
@@ -217,6 +229,7 @@
       "searchLog": "로그 검색",
       "searchPlaceholder": "표시할 로그 라인을 필터링",
       "viewBusinessLog": "업무 로그 보기",
+      "viewSourceLog": "원본 로그 보기",
       "viewGateLog": "Gate 로그 보기",
       "title": "Job 결과 요약"
     },
@@ -226,7 +239,8 @@
       "FAILED": "실패",
       "QUEUED": "대기 중",
       "RUNNING": "실행 중",
-      "SUCCEEDED": "성공"
+      "SUCCEEDED": "성공",
+      "UNCONFIRMED": "증적 확인 불가"
     },
     "states": {
       "actionsPermission": "Run 증적과 job 로그 링크를 불러오려면 GitHub Actions 읽기 권한이 필요합니다. 비공개 저장소 토큰 권한을 확인하세요.",
@@ -242,7 +256,8 @@
       "GATE_VERIFICATION_UNKNOWN": "Gate 판정 확인 불가",
       "QUEUED": "대기 중",
       "RUNNING": "실행 중",
-      "SUCCEEDED": "성공"
+      "SUCCEEDED": "성공",
+      "UNCONFIRMED": "증적 확인 불가"
     },
     "values": {
       "inProgress": "진행 중",

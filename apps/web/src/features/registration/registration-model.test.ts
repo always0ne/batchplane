@@ -140,7 +140,7 @@ describe("registration model", () => {
     ).toContain('runs-on: ["self-hosted", "linux", "prod"]');
   });
 
-  it("builds schedule-triggered request jobs without direct cron execution", () => {
+  it("delegates schedule workflow generation to the canonical native protocol", () => {
     const scheduledDefinition = toBatchDefinition(registrationValues, {
       schedules: [
         {
@@ -164,23 +164,26 @@ describe("registration model", () => {
     );
 
     expect(scheduleBlock).toContain("schedule:");
-    expect(workflowYaml).toContain('- cron: "0 20 * * *"');
-    expect(scheduleBlock).not.toContain("timezone:");
+    expect(workflowYaml).toContain('- cron: "0 5 * * *"');
+    expect(scheduleBlock).toContain('timezone: "Asia/Seoul"');
     expect(workflowYaml).toContain("id: schedule_request");
-    expect(workflowYaml).toContain("schedule_payment_daily_close_daily:");
     expect(workflowYaml).toContain(
-      "if: github.event_name == 'schedule' && (github.event.schedule == '0 20 * * *') && github.run_attempt == 1",
+      "schedule_70_61_79_6d_65_6e_74_2e_64_61_69_6c_79_2d_63_6c_6f_73_65_2d_64_61_69_6c_79:",
+    );
+    expect(workflowYaml).toContain(
+      "if: github.event_name == 'schedule' && github.event.schedule == '0 5 * * *'",
     );
     expect(workflowYaml).toContain("concurrency:");
     expect(workflowYaml).toContain(
-      'group: "batchplane-schedule-payment_daily_close-payment_daily_close_daily"',
+      'group: "batchplane-schedule-payment_daily_close-schedule_70_61_79_6d_65_6e_74_2e_64_61_69_6c_79_2d_63_6c_6f_73_65_2d_64_61_69_6c_79"',
     );
     expect(workflowYaml).toContain(
       "uses: always0ne/batchplane/actions/schedule-request@main",
     );
     expect(workflowYaml).toContain(
-      "uses: always0ne/batchplane/actions/dispatcher@main",
+      "uses: always0ne/batchplane/actions/schedule-result@main",
     );
+    expect(workflowYaml).not.toContain("actions/dispatcher@main");
     expect(workflowYaml).toContain("schedule-id: ${{ inputs.schedule_id }}");
     expect(workflowYaml).toContain('cron: "0 5 * * *"');
     expect(workflowYaml).toContain('timezone: "Asia/Seoul"');
@@ -189,11 +192,11 @@ describe("registration model", () => {
     );
   });
 
-  it("converts timezone-aware schedule crons to generated UTC scheduler crons", () => {
+  it("keeps timezone-aware schedule crons native", () => {
     expect(getGeneratedScheduleCrons(scheduleDefinition)).toEqual([
       {
-        cron: "0 20 * * *",
-        source: "utc",
+        cron: "0 5 * * *",
+        source: "native",
       },
     ]);
     expect(
@@ -203,11 +206,43 @@ describe("registration model", () => {
       }),
     ).toEqual([
       {
-        cron: "35 23 * * *",
-        source: "utc",
+        cron: "35 08 * * *",
+        source: "native",
       },
     ]);
-    expect(formatGeneratedScheduleCrons(scheduleDefinition)).toBe("0 20 * * *");
+    expect(formatGeneratedScheduleCrons(scheduleDefinition)).toBe("0 5 * * *");
+  });
+
+  it("rejects one native cron with different timezones while keeping distinct same-timezone schedules", () => {
+    const sharedCron = {
+      cron: "0 5 * * *",
+      enabled: true,
+      name: "Schedule",
+    };
+    expect(() =>
+      buildBatchWorkflowYaml(
+        toBatchDefinition(registrationValues, {
+          schedules: [
+            { ...sharedCron, scheduleId: "seoul", timezone: "Asia/Seoul" },
+            { ...sharedCron, scheduleId: "utc", timezone: "UTC" },
+          ],
+        }),
+        registrationValues.runCommand,
+        registrationValues.runnerLabel,
+      ),
+    ).toThrow("must use one timezone per workflow");
+    expect(
+      buildBatchWorkflowYaml(
+        toBatchDefinition(registrationValues, {
+          schedules: [
+            { ...sharedCron, scheduleId: "one", timezone: "Asia/Seoul" },
+            { ...sharedCron, scheduleId: "two", timezone: "Asia/Seoul" },
+          ],
+        }),
+        registrationValues.runCommand,
+        registrationValues.runnerLabel,
+      ),
+    ).toContain('schedule-id: "two"');
   });
 
   it("validates required fields", () => {
@@ -286,7 +321,7 @@ describe("registration model", () => {
       buildRegistrationPullRequestBody(definition, "create", [
         scheduleDefinition,
       ]),
-    ).toContain("Generated scheduler cron: `0 20 * * *`");
+    ).toContain("Generated scheduler cron: `0 5 * * *`");
     expect(
       buildRegistrationPullRequestBody(
         definition,

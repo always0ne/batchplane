@@ -1,7 +1,18 @@
 export type ExecutionGateResult = {
   allowed: boolean;
+  batchId?: string;
   message: string;
   reasonCode?: string;
+  requestDigest?: string;
+  requestId?: string;
+  scheduleId?: string;
+};
+
+export type NativeScheduleGateOccurrence = {
+  batchId: string;
+  requestDigest: string;
+  requestId: string;
+  scheduleId: string;
 };
 
 type GateResultRecord = {
@@ -13,8 +24,12 @@ type GateResultRecord = {
   gateJobName: string;
   gateStep: string;
   result: "ALLOW" | "DENY";
+  batchId?: string;
   reasonCode?: string;
   message: string;
+  requestDigest?: string;
+  requestId?: string;
+  scheduleId?: string;
 };
 
 export function parseExecutionGateResult({
@@ -24,6 +39,7 @@ export function parseExecutionGateResult({
   content: string;
   expected: {
     gateJobName: string;
+    gateJob?: string;
     gateStep: {
       completedAt?: string;
       name: string;
@@ -33,6 +49,7 @@ export function parseExecutionGateResult({
     repository: string;
     runAttempt: number;
     runId: number;
+    occurrence?: NativeScheduleGateOccurrence;
   };
 }): ExecutionGateResult | undefined {
   const records: GateResultRecord[] = [];
@@ -68,16 +85,52 @@ export function parseExecutionGateResult({
     record.runId !== String(expected.runId) ||
     record.runAttempt !== expected.runAttempt ||
     record.gateJobName !== expected.gateJobName ||
-    record.gateStep !== expected.gateStep.name
+    (expected.gateJob !== undefined && record.gateJob !== expected.gateJob) ||
+    record.gateStep !== expected.gateStep.name ||
+    (expected.occurrence !== undefined &&
+      !matchesExpectedOccurrence(record, expected.occurrence))
   ) {
     return undefined;
   }
 
   return {
     allowed: record.result === "ALLOW",
+    ...(record.batchId ? { batchId: record.batchId } : {}),
     message: record.message,
     ...(record.reasonCode ? { reasonCode: record.reasonCode } : {}),
+    ...(record.requestDigest ? { requestDigest: record.requestDigest } : {}),
+    ...(record.requestId ? { requestId: record.requestId } : {}),
+    ...(record.scheduleId ? { scheduleId: record.scheduleId } : {}),
   };
+}
+
+function matchesExpectedOccurrence(
+  record: GateResultRecord,
+  occurrence: NativeScheduleGateOccurrence,
+): boolean {
+  if (
+    record.batchId !== occurrence.batchId ||
+    record.scheduleId !== occurrence.scheduleId
+  ) {
+    return false;
+  }
+
+  if (
+    record.requestDigest === occurrence.requestDigest &&
+    record.requestId === occurrence.requestId
+  ) {
+    return true;
+  }
+
+  // A rerun controller deliberately clears its request outputs rather than
+  // reusing an earlier Issue as a permit. Its Gate DENY remains observable
+  // through the actual schedule Run, canonical control job, batch, and
+  // schedule identity, but it can never establish an ALLOW.
+  return (
+    record.result === "DENY" &&
+    record.requestDigest === undefined &&
+    record.requestId === undefined
+  );
 }
 
 function parseLogTimestamp(line: string): number | undefined {
@@ -166,6 +219,12 @@ function isGateResultRecord(value: unknown): value is GateResultRecord {
     typeof record.gateStep === "string" &&
     (record.result === "ALLOW" || record.result === "DENY") &&
     typeof record.message === "string" &&
-    (record.reasonCode === undefined || typeof record.reasonCode === "string")
+    (record.reasonCode === undefined ||
+      typeof record.reasonCode === "string") &&
+    (record.batchId === undefined || typeof record.batchId === "string") &&
+    (record.requestDigest === undefined ||
+      typeof record.requestDigest === "string") &&
+    (record.requestId === undefined || typeof record.requestId === "string") &&
+    (record.scheduleId === undefined || typeof record.scheduleId === "string")
   );
 }

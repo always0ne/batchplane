@@ -32,6 +32,7 @@ import {
   parseRegistrationApprovalDecision,
   parseRegistrationRequestSummary,
 } from "./registration-approval-legacy.js";
+import { parseGovernedChangeRequestEvidence } from "./governed-change-evidence.js";
 
 type ExecutionApprovalClient = Pick<
   BatchPlaneClient,
@@ -170,9 +171,10 @@ export function createGitHubLiteExecutionApprovalClient({
       const parsed = parseExecutionRequestDetail(issue, comments);
       if (!parsed) return null;
 
-      const [draft, attempts] = await Promise.all([
+      const [draft, attempts, sourceChange] = await Promise.all([
         loadCapabilityDraft(runtime),
         loadAttempts(runtime, parsed),
+        loadSourceChange(runtime, parsed),
       ]);
 
       return projectRequest(
@@ -181,6 +183,7 @@ export function createGitHubLiteExecutionApprovalClient({
         attempts,
         draft.workspaceLabel,
         approvalNoticeFor(parsed, draft),
+        sourceChange,
       );
     },
 
@@ -269,7 +272,8 @@ export function createGitHubLiteExecutionApprovalClient({
       return {
         requests: requests.filter((item) =>
           item.kind === "EXECUTION"
-            ? item.request.status === "REQUESTED" &&
+            ? item.request.triggerType !== "SCHEDULE" &&
+              item.request.status === "REQUESTED" &&
               item.request.sourceState === "OPEN"
             : item.request.reviewState === "OPEN",
         ),
@@ -426,7 +430,8 @@ function capabilityFor(
   request: ExecutionApprovalRequest,
   context: Pick<ExecutionRequestDraft, "requestedBy" | "workspaceApprovalMode">,
 ) {
-  const pending = request.status === "REQUESTED";
+  const pending =
+    request.triggerType !== "SCHEDULE" && request.status === "REQUESTED";
   const selfBlocked =
     request.requestedBy === context.requestedBy &&
     context.workspaceApprovalMode === "SELF_APPROVAL_BLOCKED";
@@ -464,6 +469,13 @@ async function loadExecutionRequestItems(
     workspaceLabel: workspaceLabel(repository),
   };
 
+  const registrationRequests = await runtime.approvals.listRegistrationRequests(
+    {
+      baseBranch: repository.defaultBranch,
+      state: "all",
+    },
+  );
+
   return Promise.all(
     issues.map(async (issue): Promise<ExecutionRequestInventoryItem | null> => {
       const comments = await runtime.approvals.listExecutionRequestComments({
@@ -480,6 +492,7 @@ async function loadExecutionRequestItems(
           undefined,
           workspaceLabel(repository),
           approvalNoticeFor(parsed, capabilityContext),
+          sourceChangeFor(parsed, registrationRequests),
         ),
         targetLabel: parsed.schedule
           ? [parsed.batchId, parsed.schedule.scheduleId].join(" / ")
@@ -581,6 +594,7 @@ function projectRequest(
   attempts: ExecutionRequest["attempts"] = { attempts: [], type: "loaded" },
   workspace = "",
   approvalNotice?: ExecutionRequest["approvalNotice"],
+  sourceChange?: ExecutionRequest["evidence"]["sourceChange"],
 ): ExecutionRequest {
   return {
     ...(request.approvalDecision
@@ -616,6 +630,7 @@ function projectRequest(
         ? JSON.stringify(request.canonicalPayload, null, 2)
         : request.issue.body,
       requestDigest: request.requestDigest,
+      ...(sourceChange ? { sourceChange } : {}),
     },
     ...(request.execution ? { execution: request.execution } : {}),
     expiresAt: request.expiresAt,
@@ -638,6 +653,49 @@ function projectRequest(
   };
 }
 
+async function loadSourceChange(
+  runtime: BatchPlaneRuntimePorts,
+  request: ExecutionApprovalRequest,
+): Promise<ExecutionRequest["evidence"]["sourceChange"]> {
+  if (!request.canonicalPayload?.spec.approvedBatchRevision) return undefined;
+
+  const repository = await runtime.settings.getRepository();
+  const pullRequests = await runtime.approvals.listRegistrationRequests({
+    baseBranch: repository.defaultBranch,
+    state: "all",
+  });
+
+  return sourceChangeFor(request, pullRequests);
+}
+
+function sourceChangeFor(
+  request: ExecutionApprovalRequest,
+  pullRequests: Awaited<
+    ReturnType<BatchPlaneRuntimePorts["approvals"]["listRegistrationRequests"]>
+  >,
+): ExecutionRequest["evidence"]["sourceChange"] {
+  const revision = request.canonicalPayload?.spec.approvedBatchRevision;
+  if (!revision) return undefined;
+
+  const matches = pullRequests.flatMap((pullRequest) => {
+    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+
+    return evidence &&
+      evidence.governedChangeId === revision.governedChangeId &&
+      evidence.targetRevisionDigest === revision.targetRevisionDigest &&
+      evidence.batchId === request.batchId
+      ? [
+          {
+            label: `PR #${pullRequest.number}`,
+            requestLocator: String(pullRequest.number),
+          },
+        ]
+      : [];
+  });
+
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 function approvalNoticeFor(
   request: ExecutionApprovalRequest,
   context: Pick<ExecutionRequestDraft, "requestedBy" | "workspaceApprovalMode">,
@@ -656,7 +714,9 @@ function approvalNoticeFor(
   };
 }
 
-function toAttempt(run: ExecutionRun): ExecutionAttempt {
+function toAttempt(
+  run: ExecutionRun & { nativeSchedule?: ExecutionAttempt["nativeSchedule"] },
+): ExecutionAttempt {
   return {
     ...(run.actor ? { actor: run.actor } : {}),
     attempt: run.runAttempt ?? 1,
@@ -664,6 +724,7 @@ function toAttempt(run: ExecutionRun): ExecutionAttempt {
     ...(run.completedAt ? { completedAt: run.completedAt } : {}),
     ...(run.gateDecision ? { gateDecision: run.gateDecision } : {}),
     ...(run.jobs ? { jobs: run.jobs } : {}),
+    ...(run.nativeSchedule ? { nativeSchedule: run.nativeSchedule } : {}),
     requestId: run.requestId,
     sourceLabel: run.workflowRunId ?? run.runId,
     ...(run.workflowRunUrl ? { sourceUrl: run.workflowRunUrl } : {}),
@@ -746,6 +807,9 @@ function failureFollowUpWorkItems(
   requests: ExecutionRequestInventoryItem[],
   actor: string,
 ): MyWorkItem[] {
+  const requestsById = new Map(
+    requests.map((item) => [item.request.requestId, item.request]),
+  );
   const requestedByMe = new Set(
     requests
       .filter((item) => item.request.requestedBy === actor)
@@ -753,6 +817,11 @@ function failureFollowUpWorkItems(
   );
   return runs.flatMap((run) => {
     if (run.status !== "FAILED" && run.status !== "BLOCKED") return [];
+    const request = requestsById.get(run.requestId);
+    const assignedInitialFollowUp =
+      request?.triggerType === "SCHEDULE"
+        ? request.batch.owner === actor
+        : requestedByMe.has(run.requestId);
     const followUps = run.failureFollowUps ?? [];
     const source = toAttempt(run);
     const title = `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`;
@@ -815,7 +884,7 @@ function failureFollowUpWorkItems(
         occurredAt: followUp.createdAt,
         priority: "NORMAL" as const,
       })),
-      ...(followUps.length === 0 && requestedByMe.has(run.requestId)
+      ...(followUps.length === 0 && assignedInitialFollowUp
         ? [
             {
               ...base,

@@ -9,6 +9,10 @@ import {
 } from "@batchplane/github-lite";
 
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import {
+  createBatchPlaneRuntime,
+  writeRuntimeFixtureSelection,
+} from "../../runtime/runtime-fixtures";
 import type { GitHubSession } from "../lite-setup/github-session";
 import "../../i18n/i18n";
 import { i18next } from "../../i18n/i18n";
@@ -25,6 +29,38 @@ describe("ExecutionRunListPage", () => {
     sessionStorage.clear();
     await i18next.changeLanguage("en");
   });
+
+  it.each(["en", "ko"])(
+    "distinguishes unknown completion from active execution in %s",
+    async (locale) => {
+      await i18next.changeLanguage(locale);
+      const statuses = ["QUEUED", "RUNNING", "UNCONFIRMED", "BLOCKED"] as const;
+      const runtime = {
+        executions: {
+          listExecutionRuns: async () =>
+            statuses.map((status, index) => ({
+              batchId: "payment.daily-close",
+              requestId: "",
+              runId: String(900 + index),
+              status,
+            })),
+        },
+      } as unknown as BatchPlaneRuntimePorts;
+      renderPage({ createRuntime: () => runtime, readSession: () => session });
+      const labels = await screen.findAllByText(
+        locale === "en" ? "Completed" : "완료",
+      );
+      expect(
+        labels.map(
+          (label) => label.parentElement?.querySelector("dd")?.textContent,
+        ),
+      ).toEqual(
+        locale === "en"
+          ? ["In progress", "In progress", "Unknown", "Unknown"]
+          : ["진행 중", "진행 중", "알 수 없음", "알 수 없음"],
+      );
+    },
+  );
 
   it("lists execution runs with status filters and run detail links", async () => {
     const client = createMockGitHubLiteClient(createGitHubLiteMockState());
@@ -142,6 +178,45 @@ describe("ExecutionRunListPage", () => {
     ).toEqual(expect.arrayContaining(["/execution-runs/205?from=failures"]));
   });
 
+  it.each(["en", "ko"])(
+    "localizes native failure outcomes and exact attempt links in %s",
+    async (locale) => {
+      await i18next.changeLanguage(locale);
+      writeRuntimeFixtureSelection("native-schedule-mixed");
+      const runtime = createBatchPlaneRuntime(session);
+      renderPage({
+        createRuntime: () => runtime,
+        readSession: () => session,
+        initialPath: "/failures",
+        view: "failures",
+      });
+
+      const links = await screen.findAllByRole("link", {
+        name: locale === "en" ? "Open run" : "Run 열기",
+      });
+      expect(links.map((link) => link.getAttribute("href")).sort()).toEqual(
+        [
+          `/execution-runs/${encodeURIComponent(`native:btr-schedule-${"a".repeat(64)}:900:2`)}?from=failures`,
+          `/execution-runs/${encodeURIComponent(`native:btr-schedule-${"b".repeat(64)}:900:1`)}?from=failures`,
+        ].sort(),
+      );
+      expect(
+        screen.getAllByText(locale === "en" ? "Business failed" : "업무 실패")
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(locale === "en" ? "Gate blocked" : "Gate 차단")
+          .length,
+      ).toBeGreaterThan(0);
+      expect(screen.queryByText(/nativeObservation\./)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(
+          locale === "en" ? "Evidence unconfirmed" : "증적 확인 불가",
+        ),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("distinguishes submitted failure follow-up review state", async () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);
@@ -257,6 +332,21 @@ describe("ExecutionRunListPage", () => {
         "Connect a Workspace before reviewing executions.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("links each uncorrelated source attempt to its numeric Run detail without a false outcome", async () => {
+    writeRuntimeFixtureSelection("native-schedule-source-unconfirmed");
+    const runtime = createBatchPlaneRuntime(session);
+    renderPage({ createRuntime: () => runtime, readSession: () => session });
+    const links = await screen.findAllByRole("link", { name: "Open run" });
+    expect(links.map((link) => link.getAttribute("href")).sort()).toEqual([
+      "/execution-runs/900?runAttempt=1",
+      "/execution-runs/900?runAttempt=2",
+    ]);
+    expect(screen.getAllByText("Source run")).toHaveLength(2);
+    expect(
+      screen.queryByText("Batch command failed after Gate allowed the run."),
+    ).not.toBeInTheDocument();
   });
 });
 

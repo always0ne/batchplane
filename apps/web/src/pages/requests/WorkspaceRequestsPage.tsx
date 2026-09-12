@@ -20,6 +20,7 @@ const statusFilters = [
   "MERGED",
   "REJECTED",
   "CLOSED",
+  "SCHEDULE_RECORDED",
   "REQUESTED",
   "APPROVED",
   "DISPATCHING",
@@ -302,7 +303,9 @@ function requestKey(item: RequestInventoryItem) {
 function requestStatus(item: RequestInventoryItem) {
   return item.kind === "GOVERNED_CHANGE"
     ? item.request.reviewState
-    : item.request.status;
+    : item.request.triggerType === "SCHEDULE"
+      ? "SCHEDULE_RECORDED"
+      : item.request.status;
 }
 
 function requestTypeLabel(
@@ -335,6 +338,9 @@ function statusLabel(status: string, t: (key: string) => string) {
 }
 
 function statusClassName(status: string) {
+  if (status === "SCHEDULE_RECORDED") {
+    return "rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700";
+  }
   if (
     status === "REJECTED" ||
     status === "DISPATCH_FAILED" ||
