@@ -23,12 +23,12 @@ export function RuntimeFixtureSwitcher({
 
   return (
     <label
-      className="flex items-center gap-2 text-sm text-bp-muted"
+      className="flex min-w-0 max-w-full items-center gap-2 text-sm text-bp-muted"
       title={t("devRuntime.description")}
     >
-      <span>{t("devRuntime.label")}</span>
+      <span className="shrink-0">{t("devRuntime.label")}</span>
       <select
-        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-bp-graphite"
+        className="w-40 min-w-0 max-w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-bp-graphite"
         value={fixtureId}
         onChange={(event) => onChange(event.target.value as RuntimeFixtureId)}
       >

@@ -34,6 +34,7 @@
     "noSession": "Connect a Workspace before reviewing executions."
   },
   "status": {
+    "SOURCE_RUN": "Source run",
     "BLOCKED": "Gate blocked",
     "CANCELED": "Canceled",
     "FAILED": "Business failed",
@@ -42,6 +43,15 @@
     "RUNNING": "Running",
     "SUCCEEDED": "Succeeded"
   },
+  "nativeObservation": {
+    "BLOCKED": "Gate blocked",
+    "CANCELED": "Canceled",
+    "FAILED": "Business failed",
+    "QUEUED": "Queued",
+    "RUNNING": "Running",
+    "SUCCEEDED": "Succeeded",
+    "UNCONFIRMED": "Evidence unconfirmed"
+  },
   "summary": {
     "active": "Active runs",
     "followUp": "Follow-up",
@@ -49,6 +59,7 @@
     "total": "Total runs"
   },
   "values": {
+    "sourceRunUnconfirmed": "Source run observed; schedule occurrence and business result are unconfirmed.",
     "active": "The workflow run is still in progress.",
     "businessFailure": "Batch command failed after Gate allowed the run.",
     "canceled": "The workflow run was canceled or skipped.",
@@ -57,6 +68,7 @@
     "inProgress": "In progress",
     "succeeded": "The workflow run completed successfully.",
     "unknown": "Unknown",
+    "nativeUnconfirmed": "Actions evidence could not confirm this schedule occurrence. It is not a business failure or approval task.",
     "unknownBatch": "Unknown batch"
   }
 }

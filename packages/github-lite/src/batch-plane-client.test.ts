@@ -118,7 +118,7 @@ describe("GitHub Lite BatchPlane client", () => {
 
     expect(activeResult).toMatchObject({
       batch: {
-        schedules: [{ generatedCron: "0 20 * * *" }],
+        schedules: [{ generatedCron: "0 5 * * *" }],
       },
       type: "active",
     });
@@ -143,7 +143,7 @@ describe("GitHub Lite BatchPlane client", () => {
     expect(deletedResult).toMatchObject({
       archive: {
         batch: {
-          schedules: [{ generatedCron: "0 20 * * *" }],
+          schedules: [{ generatedCron: "0 5 * * *" }],
         },
       },
       type: "deleted",

@@ -178,7 +178,7 @@ spec:
 
 The generated workflow has:
 
-- one schedule-occurrence job per enabled schedule
+- a control/business/result path per matching enabled schedule
 - `batchplane-gate`
 - `run-batch`
 
@@ -190,7 +190,7 @@ The workflow must set a run name that includes the Batch ID and request ID:
 run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}
 ```
 
-The workflow is invoked only by `workflow_dispatch` with these inputs:
+The manual path is invoked by `workflow_dispatch` with these inputs:
 
 ```yaml
 request_id:
@@ -202,24 +202,25 @@ request_digest:
 ```
 
 If the batch definition contains enabled schedules, the generated workflow also
-declares `on.schedule` and creates one scheduler job per enabled schedule. The
-scheduler job must:
+declares `on.schedule` and creates a same-Run execution path per enabled schedule.
+The scheduled path must:
 
 - run only on `github.event_name == 'schedule'`
-- match its generated GitHub Actions UTC cron expression
-- reject reruns with `github.run_attempt == 1`
-- serialize by schedule-specific `concurrency` so duplicate GitHub cron
-  deliveries cannot create parallel requests for the same schedule
-- emit only generated UTC `cron` values in `on.schedule`; GitHub Actions
-  schedule entries must not rely on non-standard timezone semantics
-- pass the user-entered schedule `cron` and `timezone` to
-  `actions/schedule-request` so occurrence validation, request evidence, and
-  audit text remain timezone-aware
-- call `always0ne/batchplane/actions/schedule-request@main`
-- call `always0ne/batchplane/actions/dispatcher@main` directly when delegated
-  approval evidence was created or reused
+- match the registered cron through the actual platform schedule event
+- generate native cron/timezone entries without year-round DST alternatives
+- reject equal cron strings with different timezones in one workflow rather
+  than selecting an ambiguous schedule
+- record a source-Run-bound request and Gate evidence before admission
+- use the approved-revision verifier at control and immediately before business
+- reject actual attempts greater than one, including a business-only rerun with
+  retained upstream outputs
+- checkout the verified SHA and separate Issue-write control/result permissions
+  from the read-only business job
+- record the actual schedule-specific job and attempt results without calling
+  dispatcher or inventing an approval comment
 
-The scheduler job must not execute the batch command directly.
+The controller must not execute the batch command. Identity, write-failure and
+exact correlation rules are defined in the [schedule execution contract](./schedule-execution-contract.md).
 
 The batch job runs on the selected runner label and then executes the Batch
 command. Uploaded execution files are committed as repository artifacts and are
@@ -397,11 +398,10 @@ actionable approval check and returns `IGNORED_COMMENT` without writing failure
 evidence when the comment is not marker-backed approval evidence.
 
 The browser UI must not directly dispatch governed batch workflows in Lite mode.
-Scheduled occurrences also must not rely on `issue_comment.created` from
-`github-actions[bot]`, because GitHub token-authored Issue comments are not a
-reliable trigger source for a second workflow. Generated schedule jobs invoke
-`actions/dispatcher` directly after they create or reuse delegated approval
-evidence.
+Scheduled occurrences do not use a second workflow or dispatcher. The native
+Run records its request, Gate decision and result around the same-Run business
+job. Schedule evidence/comments are not actionable manual approvals; dispatcher
+must exclude scheduled requests even when given an approval-shaped comment.
 
 The dispatcher workflow is responsible for:
 
@@ -516,14 +516,15 @@ to future Main/R2-B work.
 The UI reads GitHub Actions run detail through the target repository API and
 maps it into `ExecutionRun`:
 
-- list workflows and workflow runs with `event=workflow_dispatch`
+- list workflows and both manual `workflow_dispatch` and native `schedule` runs
 - when workflow lists are used for execution contexts, exclude workflows whose
   YAML does not declare `workflow_dispatch`
 - read a specific workflow run by run ID
 - read the workflow run jobs for the run's reported attempt, including Gate and
   business-job conclusions and Gate step timestamps
-- correlate runs to BatchPlane requests using the workflow run name/title,
-  request ID, Batch ID, workflow path, and execution request evidence
+- correlate manual runs to explicit request evidence and scheduled runs to the
+  source occurrence, schedule-specific jobs and actual attempt; a first request
+  for the same Batch is not sufficient correlation
 
 Generated workflows must set:
 
@@ -568,8 +569,9 @@ checkout/setup troubleshooting. Older workflows without the explicit group may
 fall back to the generated `Run batch` step.
 
 Gate records its result in the existing Gate job log for both `ALLOW` and
-`DENY`; Lite does not add a write job, Issue evidence, artifact, cache, or
-database. The adapter fetches the specific Gate job log for run detail and only
+`DENY`. R4 additionally records scheduled request/Gate/result evidence through
+separate control/recording responsibilities with Issue-write permissions. It
+does not add an artifact store, cache or database. The adapter fetches the specific Gate job log for run detail and only
 the actual Gate job log for each failed run that has that job, including a
 successful Gate followed by business failure, to classify recent non-success
 list rows. It never
@@ -620,7 +622,7 @@ but this is not a cross-client lock.
 The Lite runtime exposes `audit.listAuditTimeline({ limit })` by composing
 GitHub repository evidence rather than reading a database. The GitHub adapter
 loads registration pull requests, execution request Issues and comments,
-workflow_dispatch runs, and workflow metadata, then normalizes them into
+manual and scheduled runs, and workflow metadata, then normalizes them into
 `AuditTimelineItem` rows with optional `sourceUrl` values. UI filtering is
 client-side for the first Lite implementation and uses normalized metadata keys
 such as `batchId`, `requestId`, `runId`, `status`, and `reasonCode`.
@@ -630,9 +632,10 @@ current GitHub user, registration pull requests, execution request Issues and
 comments, and recent execution runs. Items are classified into approvals,
 registrations, user requests, and failure follow-ups, then linked to the
 corresponding BatchPlane detail route. For failure follow-up: no valid record
-on a business-failed run routes the execution requester to `Write follow-up`.
+on a business-failed run routes the manual execution requester, or the scheduled
+execution revision's Batch owner, to `Write follow-up`.
 A Gate-blocked run without follow-up remains `Gate blocked` evidence work and
-routes that requester to `Review evidence`, because its batch command did not
+routes that requester/owner to `Review evidence`, because its batch command did not
 run. `AWAITING_REVIEW` routes only Runtime-eligible managers to review;
 `APPROVED` creates no remaining author/requester follow-up item;
 `CHANGES_REQUESTED` or `REJECTED` routes the author or owner to `Submit
@@ -659,48 +662,37 @@ part of the governed Batch revision:
 .batch-governance/batches/{batchId}.yml
 ```
 
-Every due occurrence creates or reuses one execution request issue keyed by:
+Every observed native occurrence has an execution request identity derived
+through canonical serialization and hashing from:
 
 ```text
-{scheduleId}:{scheduledAt}
+(repositoryId, batchId, scheduleId, sourceRunId)
 ```
 
-Scheduled request payloads extend manual requests:
+Attempt and timestamps are not components of the occurrence identity. Evidence
+retains the actual attempt/job linkage and approved revision binding. Nominal
+time remains unknown rather than being computed from worker time. Separate
+native Runs are distinct occurrences; no nominal-slot exactly-once guarantee
+is made. Same-Run full and partial reruns must fail at business entry.
 
-```json
-{
-  "spec": {
-    "triggerType": "SCHEDULE",
-    "schedule": {
-      "scheduleId": "payment.daily-close.weekday-0900",
-      "scheduledAt": "2026-05-13T00:00:00.000Z",
-      "definitionPath": ".batch-governance/batches/payment.daily-close.yml",
-      "definitionCommitSha": "..."
-    }
-  }
-}
-```
+The request's owning Batch revision, workflow target, execution snapshot and
+source occurrence are covered by its digest. Reuse the existing approved
+revision binding (`governedChangeId`, `targetRevisionDigest`) and verifier,
+including workflow-source comparison and current-artifact validation.
 
-`scheduledAt` is part of the digest. A previous occurrence approval cannot be
-reused for a later occurrence.
+The same native workflow records the request and Gate decision, runs the
+business job after rechecking authority/attempt, and records its exact result.
+It neither creates an approval comment nor dispatches a second Run. Required
+write acknowledgement precedes admission; uncertainty is not an automatic
+retry. Result recording failure never restarts business.
 
-`definitionPath` and `definitionCommitSha` identify the approved owning
-BatchDefinition path and revision for the scheduled occurrence.
-
-The scheduler may inspect the latest request for:
-
-- duplicate request prevention
-- overlap prevention
-- retry decisions
-- skip decisions
-
-The scheduler must not use the latest request as authorization for a new
-occurrence.
-
-Scheduled occurrences do not enter the human approval inbox. The approved Batch
-revision, including its embedded schedule, is the approval source of truth;
-each occurrence writes delegated approval evidence and then dispatches through
-the same dispatcher-plus-Gate path used by manual requests.
+Scheduled requests remain queryable but are not approval work. A missing
+approval comment cannot enable manual decisions, produce approval counts, or
+leave a permanent manual-pending change blocker. Authority, Gate, run outcome
+and confirmation state remain distinct in product projections. Source parsing
+belongs in github-lite; product UI receives opaque execution IDs and internal
+detail destinations. See [Schedule Execution Contract](./schedule-execution-contract.md)
+for required owner, timezone, UI and verification behavior.
 
 ## R2 Boundary
 

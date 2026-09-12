@@ -19,7 +19,14 @@
       "dispatch-failed": "Dispatch failed",
       "gate-blocked": "Gate blocked",
       "requestless-gate-deny": "Requestless Gate deny",
-      "gate-verification-unknown": "Gate verification unknown"
+      "gate-verification-unknown": "Gate verification unknown",
+      "native-schedule-success": "Native schedule success",
+      "native-schedule-failure": "Native schedule failure",
+      "native-schedule-blocked": "Native schedule blocked",
+      "native-schedule-unconfirmed": "Native schedule unconfirmed",
+      "native-schedule-running": "Native schedule running",
+      "native-schedule-mixed": "Native schedule mixed",
+      "native-schedule-source-unconfirmed": "Native source without request"
     }
   },
   "actions": {

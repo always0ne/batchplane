@@ -62,7 +62,7 @@ export function BatchChangeReview({
         ) : null}
         {previewState.type === "error" ? (
           <p className="mt-3 text-sm font-medium text-rose-700" role="alert">
-            {previewState.message || t("errors.previewFailed")}
+            {previewErrorMessage(previewState.message, t)}
           </p>
         ) : null}
         {noChanges ? (
@@ -112,6 +112,17 @@ export function BatchChangeReview({
       ) : null}
     </aside>
   );
+}
+
+function previewErrorMessage(
+  message: string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (message.startsWith("SCHEDULE_TIMEZONE_AMBIGUOUS")) {
+    return t("errors.scheduleTimezoneAmbiguous");
+  }
+
+  return message || t("errors.previewFailed");
 }
 
 function getDisabledReason({

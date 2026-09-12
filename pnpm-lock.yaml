@@ -76,6 +76,9 @@ importers:
 
   actions/gate:
     dependencies:
+      "@batchplane/domain":
+        specifier: workspace:*
+        version: link:../../packages/domain
       "@batchplane/github-lite":
         specifier: workspace:*
         version: link:../../packages/github-lite
@@ -88,9 +91,15 @@ importers:
       "@batchplane/github-lite":
         specifier: workspace:*
         version: link:../../packages/github-lite
-      cron-parser:
-        specifier: ^5.5.0
-        version: 5.5.0
+
+  actions/schedule-result:
+    dependencies:
+      "@batchplane/domain":
+        specifier: workspace:*
+        version: link:../../packages/domain
+      "@batchplane/github-lite":
+        specifier: workspace:*
+        version: link:../../packages/github-lite
 
   apps/web:
     dependencies:

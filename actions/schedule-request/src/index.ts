@@ -1,11 +1,7 @@
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-import { CronExpressionParser } from "cron-parser";
-
 import {
-  addHours,
-  buildExecutionApprovalComment,
   buildExecutionRequestIssue,
   createScheduledExecutionRequestId,
   parseYamlDocument,
@@ -27,10 +23,17 @@ export type ScheduleRequestInput = {
   definitionPath: string;
   fetcher?: typeof fetch;
   githubToken: string;
+  eventName: string;
   now?: Date;
+  eventSchedule?: string;
   repository: string;
   scheduleId: string;
   sha: string;
+  repositoryId: string;
+  sourceRunAttempt: number;
+  sourceRunId: string;
+  workflowPath: string;
+  workflowRef: string;
   timezone: string;
   verifyBatchRevision?: (input: {
     batchId: string;
@@ -39,19 +42,10 @@ export type ScheduleRequestInput = {
 };
 
 export type ScheduleRequestResult = {
-  approvalCommentId?: number;
-  issueNumber?: number;
+  issueNumber: number;
   requestDigest: string;
   requestId: string;
-  scheduledAt: string;
-  status: "already-dispatched" | "created" | "reused";
-};
-
-type ScheduledRequestComment = {
-  author: string;
-  body: string;
-  createdAt: string;
-  id: number;
+  status: "created";
 };
 
 type GitHubLabelDefinition = {
@@ -68,14 +62,20 @@ const requestLabels: GitHubLabelDefinition[] = [
   },
   {
     color: "0F766E",
-    description: "BatchPlane delegated scheduled execution request",
+    description: "BatchPlane native scheduled execution request",
     name: "batchplane:scheduled-execution",
   },
 ];
 
-export async function createOrReuseScheduledExecutionRequest(
+export async function createNativeScheduledExecutionRequest(
   input: ScheduleRequestInput,
 ): Promise<ScheduleRequestResult> {
+  assertNativeScheduleOccurrence(input);
+  if (input.sourceRunAttempt !== 1) {
+    throw new Error(
+      "RERUN_NOT_AUTHORIZED: native schedule reruns cannot create a new occurrence.",
+    );
+  }
   const client = createScheduleRequestGitHubClient({
     apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
     fetcher: input.fetcher ?? fetch,
@@ -128,129 +128,56 @@ export async function createOrReuseScheduledExecutionRequest(
       `Schedule ${input.scheduleId} timezone does not match workflow configuration.`,
     );
   }
+  if (batch.workflow.path !== input.workflowPath) {
+    throw new Error(
+      "NATIVE_SCHEDULE_WORKFLOW_MISMATCH: the running workflow is not the registered Batch workflow.",
+    );
+  }
+  if (batch.workflow.ref !== input.workflowRef) {
+    throw new Error(
+      "NATIVE_SCHEDULE_WORKFLOW_MISMATCH: the running workflow ref is not the registered Batch workflow ref.",
+    );
+  }
 
-  const scheduledAt = resolveScheduledAt({
-    cron: input.cron,
-    now: input.now ?? new Date(),
-    timezone: input.timezone,
-  });
-  const requestId = createScheduledExecutionRequestId(
+  const requestId = await createScheduledExecutionRequestId(
     batch.batchId,
     input.scheduleId,
-    scheduledAt,
+    input.repositoryId,
+    input.sourceRunId,
   );
   const existingIssue = await client.findIssueByRequestId(requestId);
 
   if (existingIssue) {
-    const existingRequest = parseExecutionRequest(existingIssue.body);
-
-    if (
-      !existingRequest ||
-      existingRequest.requestId !== requestId ||
-      existingRequest.approvedBatchRevision.governedChangeId !==
-        revision.approvedRevision.governedChangeId ||
-      existingRequest.approvedBatchRevision.targetRevisionDigest !==
-        revision.approvedRevision.targetRevisionDigest
-    ) {
-      throw new Error(
-        `Scheduled execution request evidence is invalid for ${requestId}.`,
-      );
-    }
-
-    const comments = await client.listIssueComments(existingIssue.number);
-    const dispatcherStatus = findLatestDispatcherStatus(comments, requestId);
-
-    if (
-      dispatcherStatus === "DISPATCHED" ||
-      dispatcherStatus === "DISPATCHING"
-    ) {
-      return {
-        issueNumber: existingIssue.number,
-        requestDigest: existingRequest.requestDigest,
-        requestId,
-        scheduledAt,
-        status: "already-dispatched",
-      };
-    }
-
-    const approvalComment = findLatestApprovalComment(comments, requestId);
-
-    if (approvalComment) {
-      return {
-        approvalCommentId: approvalComment.id,
-        issueNumber: existingIssue.number,
-        requestDigest: existingRequest.requestDigest,
-        requestId,
-        scheduledAt,
-        status: "reused",
-      };
-    }
-
-    const comment = await client.createIssueComment(
-      existingIssue.number,
-      buildExecutionApprovalComment({
-        approvalType: "SCHEDULE_DELEGATED",
-        approvedAt: input.now ?? new Date(),
-        approver: "github-actions[bot]",
-        request: {
-          batchId: existingRequest.batchId,
-          requestDigest: existingRequest.requestDigest,
-          requestId: existingRequest.requestId,
-          requestedBy: existingRequest.requestedBy,
-        },
-      }),
+    throw new Error(
+      `NATIVE_SCHEDULE_OCCURRENCE_ALREADY_RECORDED: ${requestId} already has Issue #${existingIssue.number}; no existing request can be reused as a fresh permit.`,
     );
-
-    return {
-      approvalCommentId: comment.id,
-      issueNumber: existingIssue.number,
-      requestDigest: existingRequest.requestDigest,
-      requestId,
-      scheduledAt,
-      status: "reused",
-    };
   }
 
   await client.ensureLabels(requestLabels);
   const issue = await buildExecutionRequestIssue({
     approvedBatchRevision: revision.approvedRevision,
     batch,
-    expiresAt: addHours(input.now ?? new Date(), 24),
-    reason: "Scheduled occurrence generated from approved BatchPlane schedule.",
+    reason:
+      "Native GitHub Actions schedule occurrence from an approved BatchPlane schedule.",
     requestId,
     requestedAt: input.now ?? new Date(),
     requestedBy: "github-actions[bot]",
     schedule: {
       definitionCommitSha: input.sha,
       definitionPath,
+      repositoryId: input.repositoryId,
       scheduleId: input.scheduleId,
-      scheduledAt,
+      sourceRunAttempt: input.sourceRunAttempt,
+      sourceRunId: input.sourceRunId,
     },
     triggerType: "SCHEDULE",
     workflowRef: batch.workflow.ref,
   });
   const createdIssue = await client.createIssue(issue);
-  const approvalComment = await client.createIssueComment(
-    createdIssue.number,
-    buildExecutionApprovalComment({
-      approvalType: "SCHEDULE_DELEGATED",
-      approvedAt: input.now ?? new Date(),
-      approver: "github-actions[bot]",
-      request: {
-        batchId: issue.request.batchId,
-        requestDigest: issue.request.requestDigest,
-        requestId: issue.request.requestId,
-        requestedBy: issue.request.requestedBy,
-      },
-    }),
-  );
-
   return {
-    approvalCommentId: approvalComment.id,
     issueNumber: createdIssue.number,
     requestDigest: issue.request.requestDigest,
     requestId,
-    scheduledAt,
     status: "created",
   };
 }
@@ -264,32 +191,51 @@ export function readScheduleRequestInputFromEnv(
     configPath: readActionInput(env, "config-path") || ".batch-governance",
     cron: readActionInput(env, "cron"),
     definitionPath: readActionInput(env, "definition-path"),
+    eventName: env.GITHUB_EVENT_NAME ?? "",
+    eventSchedule: readNativeScheduleEvent(env),
     githubToken: readActionInput(env, "github-token") || env.GITHUB_TOKEN || "",
     repository: env.GITHUB_REPOSITORY || "",
+    repositoryId: env.GITHUB_REPOSITORY_ID ?? "",
     scheduleId: readActionInput(env, "schedule-id"),
-    sha: env.GITHUB_SHA || "",
+    sha: env.GITHUB_WORKFLOW_SHA ?? "",
+    sourceRunAttempt: Number.parseInt(env.GITHUB_RUN_ATTEMPT ?? "", 10),
+    sourceRunId: env.GITHUB_RUN_ID ?? "",
+    workflowPath: readWorkflowPath(env.GITHUB_WORKFLOW_REF ?? ""),
+    workflowRef: readWorkflowRef(env.GITHUB_WORKFLOW_REF ?? ""),
     timezone: readActionInput(env, "timezone"),
   };
 }
 
 export async function run(env = process.env): Promise<ScheduleRequestResult> {
   const input = readScheduleRequestInputFromEnv(env);
-  const result = await createOrReuseScheduledExecutionRequest(input);
+  let result: ScheduleRequestResult;
+  try {
+    result = await createNativeScheduledExecutionRequest(input);
+  } catch (error) {
+    const reason = toReasonCode(error);
+    setActionOutput("request-id", "");
+    setActionOutput("request-digest", "");
+    setActionOutput("issue-number", "");
+    setActionOutput("failure-reason", reason);
+    throw error;
+  }
 
   setActionOutput("status", result.status);
   setActionOutput("request-id", result.requestId);
   setActionOutput("request-digest", result.requestDigest);
-  setActionOutput("scheduled-at", result.scheduledAt);
   setActionOutput("issue-number", String(result.issueNumber ?? ""));
-  setActionOutput(
-    "approval-comment-id",
-    String(result.approvalCommentId ?? ""),
-  );
+  setActionOutput("failure-reason", "");
   console.log(
-    `BatchPlane scheduled occurrence resolved: ${result.scheduledAt} (${input.timezone}, ${input.cron})`,
+    `BatchPlane native schedule occurrence resolved: ${input.sourceRunId} (${input.timezone}, ${input.cron})`,
   );
 
   return result;
+}
+
+function toReasonCode(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = /^([A-Z][A-Z0-9_]+):/u.exec(message);
+  return match?.[1] ?? "SCHEDULE_REQUEST_FAILED";
 }
 
 type GitHubApiRequestError = Error & {
@@ -376,22 +322,6 @@ function createScheduleRequestGitHubClient({
       };
     },
 
-    async createIssueComment(issueNumber: number, body: string) {
-      const response = await request<{ body: string; id: number }>(
-        `${repoPath}/issues/${issueNumber}/comments`,
-        {
-          body: JSON.stringify({ body }),
-          method: "POST",
-        },
-      );
-
-      if (!response) {
-        throw new Error("GitHub issue comment response was empty.");
-      }
-
-      return response;
-    },
-
     async ensureLabels(labels: GitHubLabelDefinition[]) {
       for (const label of labels) {
         try {
@@ -423,15 +353,19 @@ function createScheduleRequestGitHubClient({
           break;
         }
 
-        const match = response.find((issue) => {
+        const matches = response.filter((issue) => {
           if (issue.pull_request) {
             return false;
           }
 
-          return (issue.body ?? "").includes(`requestId=${requestId}`);
+          return readRequestIdMarker(issue.body ?? "") === requestId;
         });
 
-        if (match) {
+        if (matches.length > 0) {
+          const match = matches[0];
+          if (!match) {
+            continue;
+          }
           return {
             body: match.body ?? "",
             number: match.number,
@@ -472,41 +406,18 @@ function createScheduleRequestGitHubClient({
         path: response.path,
       };
     },
-
-    async listIssueComments(
-      issueNumber: number,
-    ): Promise<ScheduledRequestComment[]> {
-      const comments: ScheduledRequestComment[] = [];
-
-      for (let page = 1; page <= 10; page += 1) {
-        const response = await request<
-          Array<{
-            body: string | null;
-            created_at?: string | null;
-            id: number;
-            user?: { login?: string | null } | null;
-          }>
-        >(
-          `${repoPath}/issues/${issueNumber}/comments?per_page=100&page=${page}`,
-        );
-
-        if (!response?.length) {
-          break;
-        }
-
-        comments.push(
-          ...response.map((comment) => ({
-            author: comment.user?.login ?? "",
-            body: comment.body ?? "",
-            createdAt: comment.created_at ?? "",
-            id: comment.id,
-          })),
-        );
-      }
-
-      return comments;
-    },
   };
+}
+
+function readRequestIdMarker(body: string): string | undefined {
+  const marker = body.match(
+    /<!--\s*(?:batchplane|batchtrail):execution-request\s*([\s\S]*?)-->/u,
+  );
+  if (!marker?.[1]) return undefined;
+  const line = marker[1]
+    .split("\n")
+    .find((candidate) => candidate.trimStart().startsWith("requestId="));
+  return line?.slice(line.indexOf("=") + 1).trim() || undefined;
 }
 
 function parseBatchDefinition(content: string, path: string): BatchDefinition {
@@ -547,56 +458,66 @@ function fromBatchDefinitionFile(file: BatchDefinitionFile): BatchDefinition {
   };
 }
 
-function resolveScheduledAt({
-  cron,
-  now,
-  timezone,
-}: {
-  cron: string;
-  now: Date;
-  timezone: string;
-}): string {
-  validateTimeZone(timezone);
-
-  const interval = CronExpressionParser.parse(cron, {
-    currentDate: new Date(now.getTime() + 60_000),
-    tz: timezone,
-  });
-
-  return interval.prev().toDate().toISOString();
-}
-
-function validateTimeZone(timeZone: string): void {
-  new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
-}
-
-function parseExecutionRequest(issueBody: string) {
-  const marker = parseBatchPlaneMarker(issueBody, "execution-request");
-  const payload = parseCanonicalPayload(issueBody);
-  const requestId =
-    marker.get("requestId") ?? readMarkdownField(issueBody, "Request ID");
-  const batchId =
-    marker.get("batchId") ?? readMarkdownField(issueBody, "Batch ID");
-  const requestDigest =
-    marker.get("requestDigest") ??
-    readMarkdownField(issueBody, "Request digest");
-  const requestedBy =
-    readMarkdownField(issueBody, "Requested by").replace(/^@/, "") ||
-    payload?.spec?.requestedBy ||
-    "";
-  const approvedBatchRevision = readApprovedBatchRevision(payload);
-
-  if (!requestId || !batchId || !requestDigest || !approvedBatchRevision) {
-    return null;
+function assertNativeScheduleOccurrence(input: ScheduleRequestInput): void {
+  if (input.eventName !== "schedule") {
+    throw new Error(
+      "NATIVE_SCHEDULE_EVENT_REQUIRED: schedule requests only run from GitHub's schedule event.",
+    );
   }
+  if (
+    !input.eventSchedule?.trim() ||
+    input.eventSchedule.trim() !== input.cron.trim()
+  ) {
+    throw new Error(
+      "NATIVE_SCHEDULE_CRON_MISMATCH: GitHub event schedule does not match the registered cron.",
+    );
+  }
+  if (
+    !input.repositoryId.trim() ||
+    !isPositiveIntegerString(input.sourceRunId) ||
+    !input.workflowPath.trim() ||
+    !input.workflowRef.trim() ||
+    !input.sha.trim() ||
+    !Number.isInteger(input.sourceRunAttempt) ||
+    input.sourceRunAttempt < 1
+  ) {
+    throw new Error(
+      "NATIVE_SCHEDULE_RUN_REQUIRED: repository and source Run identifiers are required.",
+    );
+  }
+}
 
-  return {
-    approvedBatchRevision,
-    batchId,
-    requestDigest,
-    requestedBy,
-    requestId,
-  };
+function isPositiveIntegerString(value: string): boolean {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0;
+}
+
+function readNativeScheduleEvent(
+  env: Record<string, string | undefined>,
+): string {
+  const path = env.GITHUB_EVENT_PATH;
+  if (!path) return "";
+  try {
+    const value = JSON.parse(readFileSync(path, "utf8")) as {
+      schedule?: unknown;
+    };
+    return typeof value.schedule === "string" ? value.schedule : "";
+  } catch {
+    return "";
+  }
+}
+
+function readWorkflowPath(workflowRef: string): string {
+  const marker = "/.github/workflows/";
+  const start = workflowRef.indexOf(marker);
+  const end = workflowRef.lastIndexOf("@");
+  return start >= 0 && end > start ? workflowRef.slice(start + 1, end) : "";
+}
+
+function readWorkflowRef(workflowRef: string): string {
+  const separator = workflowRef.lastIndexOf("@");
+  const value = separator >= 0 ? workflowRef.slice(separator + 1) : "";
+  return value.replace(/^refs\/heads\//u, "").trim();
 }
 
 async function resolveApprovedBatchRevision(
@@ -622,152 +543,6 @@ async function resolveApprovedBatchRevision(
     executionWorkflowSha: input.sha,
     repository: { owner, repo },
   });
-}
-
-function readApprovedBatchRevision(payload: unknown): {
-  governedChangeId: string;
-  targetRevisionDigest: string;
-} | null {
-  if (!payload || typeof payload !== "object") return null;
-  const spec = (payload as { spec?: unknown }).spec;
-  const revision =
-    spec && typeof spec === "object"
-      ? (spec as { approvedBatchRevision?: unknown }).approvedBatchRevision
-      : null;
-
-  if (!revision || typeof revision !== "object") return null;
-  const governedChangeId = (revision as { governedChangeId?: unknown })
-    .governedChangeId;
-  const targetRevisionDigest = (revision as { targetRevisionDigest?: unknown })
-    .targetRevisionDigest;
-
-  return typeof governedChangeId === "string" &&
-    governedChangeId.trim() &&
-    typeof targetRevisionDigest === "string" &&
-    targetRevisionDigest.startsWith("sha256:")
-    ? { governedChangeId, targetRevisionDigest }
-    : null;
-}
-
-function findLatestApprovalComment(
-  comments: ScheduledRequestComment[],
-  requestId: string,
-): ScheduledRequestComment | null {
-  return (
-    comments
-      .slice()
-      .reverse()
-      .find((comment) => {
-        const marker = parseBatchPlaneMarker(
-          comment.body,
-          "execution-approval",
-        );
-
-        return (
-          marker.get("decision") === "APPROVED" &&
-          marker.get("requestId") === requestId
-        );
-      }) ?? null
-  );
-}
-
-function findLatestDispatcherStatus(
-  comments: ScheduledRequestComment[],
-  requestId: string,
-): "DISPATCHED" | "DISPATCHING" | "DISPATCH_FAILED" | null {
-  for (let index = comments.length - 1; index >= 0; index -= 1) {
-    const marker = parseBatchPlaneMarker(
-      comments[index]?.body ?? "",
-      "bgcp:dispatcher",
-    );
-
-    if (marker.get("requestId") !== requestId) {
-      continue;
-    }
-
-    const status = marker.get("status");
-
-    if (
-      status === "DISPATCHED" ||
-      status === "DISPATCHING" ||
-      status === "DISPATCH_FAILED"
-    ) {
-      return status;
-    }
-  }
-
-  return null;
-}
-
-function parseCanonicalPayload(body: string) {
-  const match = body.match(
-    /### Canonical payload\s*```json\s*([\s\S]*?)\s*```/u,
-  );
-
-  if (!match?.[1]) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(match[1]) as {
-      spec?: {
-        requestedBy?: string;
-      };
-    };
-  } catch {
-    return null;
-  }
-}
-
-function parseBatchPlaneMarker(
-  body: string,
-  markerName: string,
-): Map<string, string> {
-  const marker = new Map<string, string>();
-  const match = body.match(
-    new RegExp(
-      `<!--\\s*(?:batchplane|batchtrail):${escapeRegExp(markerName)}\\s*([\\s\\S]*?)-->`,
-      "u",
-    ),
-  );
-
-  if (!match?.[1]) {
-    return marker;
-  }
-
-  for (const line of match[1].split("\n")) {
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      continue;
-    }
-
-    const separatorIndex = trimmed.indexOf("=");
-
-    if (separatorIndex <= 0) {
-      continue;
-    }
-
-    marker.set(
-      trimmed.slice(0, separatorIndex).trim(),
-      trimmed.slice(separatorIndex + 1).trim(),
-    );
-  }
-
-  return marker;
-}
-
-function readMarkdownField(body: string, label: string): string {
-  const match = body.match(
-    new RegExp(`^-\\s*${escapeRegExp(label)}:\\s*(.+)$`, "imu"),
-  );
-  const value = match?.[1]?.trim() ?? "";
-
-  return value.replace(/^`|`$/g, "");
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function encodePath(path: string): string {

@@ -30,6 +30,7 @@ export type BatchDefinitionFile = {
       ref: string;
     };
     schedules?: Array<{
+      cron: string;
       id: string;
       enabled: boolean;
     }>;
@@ -273,14 +274,17 @@ export function validateBatchDefinitionFile(
                 (
                   schedule,
                 ): schedule is {
+                  cron: string;
                   id: string;
                   enabled: boolean;
                 } =>
                   schedule !== null &&
+                  isString(schedule.cron) &&
                   isString(schedule.id) &&
                   isBoolean(schedule.enabled),
               )
               .map((schedule) => ({
+                cron: schedule.cron,
                 enabled: schedule.enabled,
                 id: schedule.id,
               }))

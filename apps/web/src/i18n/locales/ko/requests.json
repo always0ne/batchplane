@@ -51,7 +51,8 @@
     "MERGED": "병합됨",
     "OPEN": "열림",
     "REJECTED": "반려됨",
-    "REQUESTED": "요청됨"
+    "REQUESTED": "요청됨",
+    "SCHEDULE_RECORDED": "일정 발생 기록됨"
   },
   "types": {
     "batchChange": "배치 변경",

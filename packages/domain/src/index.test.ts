@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { createRequestDigest } from "@batchplane/digest";
 
 import {
-  addHours,
   buildExecutionApprovalComment,
   buildExecutionRequestIssue,
   createExecutionRequestId,
@@ -505,17 +505,32 @@ describe("execution request builders", () => {
     ).toBe("btr-20260509010203-payment-daily-close-abcdef12");
   });
 
-  it("creates deterministic scheduled execution request ids", () => {
-    expect(
+  it("creates deterministic full-digest native scheduled execution request ids", async () => {
+    const id = await createScheduledExecutionRequestId(
+      "payment.daily-close",
+      "payment.daily-close-daily",
+      "12345",
+      "98765",
+    );
+    const expectedDigest = await createRequestDigest({
+      batchId: "payment.daily-close",
+      repositoryId: "12345",
+      scheduleId: "payment.daily-close-daily",
+      sourceRunId: "98765",
+    });
+
+    expect(id).toBe(`btr-schedule-${expectedDigest.slice("sha256:".length)}`);
+    await expect(
       createScheduledExecutionRequestId(
         "payment.daily-close",
         "payment.daily-close-daily",
-        "2026-05-13T05:00:00.000Z",
+        "12345",
+        "98766",
       ),
-    ).toBe("btr-20260513050000-payment.daily-close-payment.daily-close-dail");
+    ).resolves.not.toBe(id);
   });
 
-  it("builds a scheduled execution request with delegated evidence fields", async () => {
+  it("builds a scheduled execution request with native Run evidence fields", async () => {
     const issue = await buildExecutionRequestIssue({
       approvedBatchRevision: {
         governedChangeId: "bgc-20260513-payment.daily-close-approved",
@@ -523,14 +538,15 @@ describe("execution request builders", () => {
           "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
       },
       batch: executableBatch,
-      expiresAt: addHours(new Date("2026-05-13T05:01:00.000Z"), 24),
       requestedAt: new Date("2026-05-13T05:01:00.000Z"),
       requestedBy: "github-actions[bot]",
       schedule: {
         definitionCommitSha: "abc123",
         definitionPath: ".batch-governance/batches/payment.daily-close.yml",
+        repositoryId: "12345",
         scheduleId: "payment.daily-close-daily",
-        scheduledAt: "2026-05-13T05:00:00.000Z",
+        sourceRunAttempt: 1,
+        sourceRunId: "98765",
       },
       triggerType: "SCHEDULE",
       workflowRef: "main",
@@ -543,6 +559,9 @@ describe("execution request builders", () => {
     ]);
     expect(issue.body).toContain("- Trigger type: `SCHEDULE`");
     expect(issue.body).toContain("- Schedule ID: `payment.daily-close-daily`");
+    expect(issue.body).toContain("- Native source Run: `98765`");
+    expect(issue.payload.spec.contractVersion).toBe("NATIVE_SCHEDULE_V2");
+    expect(issue.payload.spec.expiresAt).toBeUndefined();
     expect(issue.request.requestDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
   });
 

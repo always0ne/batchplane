@@ -5,6 +5,7 @@ import type {
 import { ExternalLink, Filter, History, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 import { formatRuntimeError } from "../../runtime/runtime-errors";
 import {
@@ -132,15 +133,15 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
   return (
     <div className="space-y-4">
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex min-w-0 flex-wrap items-end gap-3">
           <div className="flex min-w-44 flex-1 items-center gap-2 text-sm font-semibold text-bp-muted">
             <Filter className="h-4 w-4 text-bp-git" aria-hidden="true" />
             {t("audit:filters.title")}
           </div>
-          <label className="grid min-w-56 flex-1 gap-1 text-xs font-semibold uppercase text-bp-muted">
+          <label className="grid min-w-0 basis-56 flex-1 gap-1 text-xs font-semibold uppercase text-bp-muted">
             {t("audit:filters.batch")}
             <select
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm normal-case text-bp-graphite"
+              className="w-full min-w-0 max-w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm normal-case text-bp-graphite"
               value={batchFilter}
               onChange={(event) => setBatchFilter(event.target.value)}
             >
@@ -152,10 +153,10 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
               ))}
             </select>
           </label>
-          <label className="grid min-w-64 flex-[2] gap-1 text-xs font-semibold uppercase text-bp-muted">
+          <label className="grid min-w-0 basis-64 flex-[2] gap-1 text-xs font-semibold uppercase text-bp-muted">
             {t("audit:filters.request")}
             <select
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm normal-case text-bp-graphite"
+              className="w-full min-w-0 max-w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm normal-case text-bp-graphite"
               value={requestFilter}
               onChange={(event) => setRequestFilter(event.target.value)}
             >
@@ -185,7 +186,11 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
                 </span>
                 <div>
                   <p className="text-sm font-bold text-bp-graphite">
-                    {t(`common:status.auditTimelineType.${item.type}`)}
+                    {item.metadata?.evidenceScope === "SOURCE_RUN"
+                      ? t("executions:status.SOURCE_RUN")
+                      : item.metadata?.executionLocator
+                        ? t("audit:values.scheduleExecution")
+                        : t(`common:status.auditTimelineType.${item.type}`)}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-bp-muted">
                     {formatAuditTime(
@@ -197,10 +202,13 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
               </div>
               <div className="min-w-0">
                 <p className="break-words text-sm font-semibold text-bp-graphite">
-                  {t(`audit:summaries.${item.type}`, {
-                    ...toAuditSummaryValues(item, t),
-                    defaultValue: item.summary,
-                  })}
+                  {t(
+                    `audit:summaries.${item.metadata?.evidenceScope === "SOURCE_RUN" ? "SOURCE_RUN_OBSERVED" : item.metadata?.executionLocator ? "NATIVE_SCHEDULE_OBSERVED" : item.type}`,
+                    {
+                      ...toAuditSummaryValues(item, t),
+                      defaultValue: item.summary,
+                    },
+                  )}
                 </p>
                 <p className="mt-1 break-words text-xs font-semibold text-bp-muted">
                   {t("audit:values.actor", {
@@ -209,17 +217,27 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
                 </p>
                 <AuditMetadata item={item} />
               </div>
-              {item.sourceUrl ? (
-                <a
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-bp-graphite hover:border-bp-git"
-                  href={item.sourceUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                  {t("audit:actions.openSource")}
-                </a>
-              ) : null}
+              <div className="flex min-w-0 flex-wrap items-start gap-2">
+                {typeof item.metadata?.executionLocator === "string" ? (
+                  <Link
+                    className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-bp-graphite hover:border-bp-git"
+                    to={`/execution-runs/${encodeURIComponent(item.metadata.executionLocator)}${item.metadata.evidenceScope === "SOURCE_RUN" ? `?runAttempt=${item.metadata.runAttempt}` : ""}`}
+                  >
+                    {t("audit:actions.openExecution")}
+                  </Link>
+                ) : null}
+                {item.sourceUrl ? (
+                  <a
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-bp-graphite hover:border-bp-git"
+                    href={item.sourceUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                    {t("audit:actions.openSource")}
+                  </a>
+                ) : null}
+              </div>
             </li>
           ))}
         </ol>
@@ -234,6 +252,9 @@ function AuditMetadata({ item }: { item: AuditTimelineItem }) {
     ["batchId", item.metadata?.batchId],
     ["requestId", item.metadata?.requestId],
     ["runId", item.metadata?.runId],
+    ["runAttempt", item.metadata?.runAttempt],
+    ["scheduleId", item.metadata?.scheduleId],
+    ["observation", item.metadata?.observation],
     ["gateResult", item.metadata?.gateResult],
     ["status", item.metadata?.status],
     ["reasonCode", item.metadata?.reasonCode],
@@ -246,16 +267,16 @@ function AuditMetadata({ item }: { item: AuditTimelineItem }) {
   }
 
   return (
-    <dl className="mt-3 flex flex-wrap gap-2">
+    <dl className="mt-3 flex min-w-0 flex-wrap gap-2">
       {entries.map(([key, value]) => (
         <div
-          className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1"
+          className="min-w-0 max-w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1"
           key={`${item.itemId}-${key}`}
         >
           <dt className="text-[0.65rem] font-bold uppercase text-bp-muted">
             {t(`metadata.${key}`)}
           </dt>
-          <dd className="max-w-72 break-all text-xs font-semibold text-bp-graphite">
+          <dd className="max-w-full break-all text-xs font-semibold text-bp-graphite sm:max-w-72">
             {formatAuditMetadataValue(key, value, t)}
           </dd>
         </div>
@@ -296,6 +317,11 @@ function toAuditSummaryValues(
     reviewId: String(item.metadata?.reviewId ?? ""),
     reviewStatus: String(item.metadata?.reviewStatus ?? ""),
     runId: Number(item.metadata?.runId ?? 0),
+    runAttempt: Number(item.metadata?.runAttempt ?? 1),
+    scheduleId: String(item.metadata?.scheduleId ?? ""),
+    observation: item.metadata?.observation
+      ? translate(`executions:nativeObservation.${item.metadata.observation}`)
+      : "",
     selfReview: String(item.metadata?.selfReview ?? ""),
     status: String(item.metadata?.status ?? ""),
   };
@@ -308,6 +334,9 @@ function formatAuditMetadataValue(
 ): string {
   if (key === "gateResult") {
     return translate(`values.gateResult.${String(value)}`);
+  }
+  if (key === "observation") {
+    return translate(`executions:nativeObservation.${String(value)}`);
   }
 
   return String(value);

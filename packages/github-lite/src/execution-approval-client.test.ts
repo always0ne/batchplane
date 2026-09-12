@@ -3,11 +3,18 @@ import type {
   BatchPlaneRuntimePorts,
   ExecutionRun,
   RepositoryIssue,
+  RepositoryPullRequest,
+} from "@batchplane/domain";
+import {
+  buildExecutionRequestIssue,
+  governedChangeEvidenceVersion,
+  type GovernedChangeRequestEvidence,
 } from "@batchplane/domain";
 import { isExecutionRequestCreationUnavailableError } from "@batchplane/ui-client";
 import { describe, expect, it, vi } from "vitest";
 
 import { createGitHubLiteExecutionApprovalClient } from "./execution-approval-client.js";
+import { buildGovernedChangeRequestBody } from "./governed-change-evidence.js";
 
 const draft = {
   approvedBatchRevision: {
@@ -223,6 +230,81 @@ describe("GitHub Lite execution approval client", () => {
     });
   });
 
+  it("projects the exact existing governed change locator for a matching approved revision", async () => {
+    const issue = await createCanonicalIssue();
+    const runtime = createRuntime({
+      getExecutionRequestIssue: vi.fn().mockResolvedValue(issue),
+      listRegistrationRequests: vi.fn().mockResolvedValue([sourceChange()]),
+    });
+    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+
+    await expect(
+      client.getExecutionRequest({ requestLocator: "71" }),
+    ).resolves.toMatchObject({
+      evidence: {
+        sourceChange: { label: "PR #42", requestLocator: "42" },
+      },
+    });
+  });
+
+  it.each([
+    { targetRevisionDigest: "sha256:other" },
+    { batchId: "other.batch" },
+    { governedChangeId: "bgc-other" },
+  ])(
+    "keeps mismatched source evidence inspectable without a link: %j",
+    async (mismatch) => {
+      const issue = await createCanonicalIssue();
+      const runtime = createRuntime({
+        getExecutionRequestIssue: vi.fn().mockResolvedValue(issue),
+        listRegistrationRequests: vi
+          .fn()
+          .mockResolvedValue([sourceChange(mismatch)]),
+      });
+      const client = createGitHubLiteExecutionApprovalClient({ runtime });
+
+      const result = await client.getExecutionRequest({ requestLocator: "71" });
+
+      expect(result?.evidence.approvedBatchRevision).toEqual(
+        draft.approvedBatchRevision,
+      );
+      expect(result?.evidence.sourceChange).toBeUndefined();
+    },
+  );
+
+  it.each([[], [sourceChange(), { ...sourceChange(), number: 43 }]])(
+    "does not choose a source link when the matching record is missing or ambiguous",
+    async (...records) => {
+      const runtime = createRuntime({
+        getExecutionRequestIssue: vi
+          .fn()
+          .mockResolvedValue(await createCanonicalIssue()),
+        listRegistrationRequests: vi.fn().mockResolvedValue(records),
+      });
+      const client = createGitHubLiteExecutionApprovalClient({ runtime });
+      expect(
+        (await client.getExecutionRequest({ requestLocator: "71" }))?.evidence
+          .sourceChange,
+      ).toBeUndefined();
+    },
+  );
+
+  it("surfaces a source lookup failure instead of silently claiming no matching change", async () => {
+    const runtime = createRuntime({
+      getExecutionRequestIssue: vi
+        .fn()
+        .mockResolvedValue(await createCanonicalIssue()),
+      listRegistrationRequests: vi
+        .fn()
+        .mockRejectedValue(new Error("Source lookup unavailable")),
+    });
+    await expect(
+      createGitHubLiteExecutionApprovalClient({ runtime }).getExecutionRequest({
+        requestLocator: "71",
+      }),
+    ).rejects.toThrow("Source lookup unavailable");
+  });
+
   it("keeps a stable product locator for each failure follow-up work item", async () => {
     const runtime = createRuntime({
       executionRuns: [
@@ -346,14 +428,18 @@ function createRuntime({
   createExecutionRequest = vi
     .fn()
     .mockImplementation(async () => createIssue()),
+  getExecutionRequestIssue = vi.fn(),
   listExecutionRequestIssues = vi.fn().mockResolvedValue([]),
+  listRegistrationRequests = vi.fn().mockResolvedValue([]),
   executionRuns = [],
   workspaceApprovalMode = "AUTO_APPROVE",
 }: {
   batchDefinitions?: BatchDefinition[];
   createExecutionRequest?: ReturnType<typeof vi.fn>;
   executionRuns?: ExecutionRun[];
+  getExecutionRequestIssue?: ReturnType<typeof vi.fn>;
   listExecutionRequestIssues?: ReturnType<typeof vi.fn>;
+  listRegistrationRequests?: ReturnType<typeof vi.fn>;
   workspaceApprovalMode?:
     | "AUTO_APPROVE"
     | "SELF_APPROVAL_ALLOWED"
@@ -368,10 +454,10 @@ function createRuntime({
         id: 12,
         issueNumber: 71,
       })),
-      getExecutionRequestIssue: vi.fn(),
+      getExecutionRequestIssue,
       listExecutionRequestComments: vi.fn().mockResolvedValue([]),
       listExecutionRequestIssues,
-      listRegistrationRequests: vi.fn().mockResolvedValue([]),
+      listRegistrationRequests,
     },
     executions: {
       createExecutionRequest,
@@ -436,5 +522,56 @@ function createIssue(): RepositoryIssue {
     state: "open",
     title: "Run batch payment.daily-close",
     url: "https://example.test/issues/71",
+  };
+}
+
+async function createCanonicalIssue(): Promise<RepositoryIssue> {
+  const built = await buildExecutionRequestIssue({
+    approvedBatchRevision: draft.approvedBatchRevision,
+    batch: batchDefinition(),
+    expiresAt: new Date("2026-09-11T10:00:00.000Z"),
+    reason: "Close after reconciliation.",
+    requestId: draft.requestId,
+    requestedAt: new Date("2026-09-11T09:00:00.000Z"),
+    requestedBy: "developer",
+    workflowRef: "main",
+  });
+
+  return {
+    ...createIssue(),
+    body: built.body,
+    title: built.title,
+  };
+}
+
+function sourceChange(
+  overrides: Partial<GovernedChangeRequestEvidence> = {},
+): RepositoryPullRequest {
+  const evidence: GovernedChangeRequestEvidence = {
+    artifacts: [],
+    baseRevisionSha: "base-sha",
+    batchId: "payment.daily-close",
+    governedChangeId: draft.approvedBatchRevision.governedChangeId,
+    headRevisionSha: "head-sha",
+    repository: "always0ne/batch",
+    requestedAt: "2026-09-11T08:00:00.000Z",
+    requester: "developer",
+    targetRevisionDigest: draft.approvedBatchRevision.targetRevisionDigest,
+    type: "CHANGE",
+    version: governedChangeEvidenceVersion,
+    workspace: "always0ne/batch",
+    ...overrides,
+  };
+
+  return {
+    author: "developer",
+    base: "main",
+    body: buildGovernedChangeRequestBody(evidence),
+    head: "batchplane/change/payment.daily-close",
+    merged: true,
+    number: 42,
+    state: "closed",
+    title: "Change batch payment.daily-close",
+    url: "https://example.test/pulls/42",
   };
 }

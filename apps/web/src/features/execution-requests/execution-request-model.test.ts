@@ -45,14 +45,15 @@ describe("execution request model", () => {
     ).toBe("2026-05-09T02:02:03.000Z");
   });
 
-  it("creates deterministic scheduled request ids", () => {
-    expect(
-      createScheduledExecutionRequestId(
-        "payment.daily-close",
-        "payment.daily-close-daily",
-        "2026-05-09T05:00:00.000Z",
-      ),
-    ).toBe("btr-20260509050000-payment.daily-close-payment.daily-close-dail");
+  it("creates deterministic scheduled request ids", async () => {
+    const id = await createScheduledExecutionRequestId(
+      "payment.daily-close",
+      "payment.daily-close-daily",
+      "12345",
+      "98765",
+    );
+
+    expect(id).toMatch(/^btr-schedule-[a-f0-9]{64}$/);
   });
 
   it("builds an auditable GitHub issue body", async () => {
@@ -108,7 +109,7 @@ describe("execution request model", () => {
     expect(issue.body).not.toContain("super-secret-token");
   });
 
-  it("builds delegated scheduled execution issues", async () => {
+  it("builds native scheduled execution issues without manual expiry", async () => {
     const issue = await buildExecutionRequestIssue({
       approvedBatchRevision: {
         governedChangeId: "bgc-20260509-payment.daily-close-approved",
@@ -127,14 +128,15 @@ describe("execution request model", () => {
           },
         ],
       },
-      expiresAt: new Date("2026-05-10T05:01:00.000Z"),
       requestedAt: new Date("2026-05-09T05:01:00.000Z"),
       requestedBy: "github-actions[bot]",
       schedule: {
         definitionCommitSha: "abc123",
         definitionPath: ".batch-governance/batches/payment.daily-close.yml",
+        repositoryId: "12345",
         scheduleId: "payment.daily-close-daily",
-        scheduledAt: "2026-05-09T05:00:00.000Z",
+        sourceRunAttempt: 1,
+        sourceRunId: "98765",
       },
       triggerType: "SCHEDULE",
       workflowRef: "main",
@@ -144,5 +146,7 @@ describe("execution request model", () => {
     expect(issue.labels).toContain("batchplane:scheduled-execution");
     expect(issue.body).toContain("- Trigger type: `SCHEDULE`");
     expect(issue.body).toContain('"scheduleId": "payment.daily-close-daily"');
+    expect(issue.payload.spec.contractVersion).toBe("NATIVE_SCHEDULE_V2");
+    expect(issue.payload.spec.expiresAt).toBeUndefined();
   });
 });

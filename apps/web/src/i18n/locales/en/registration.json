@@ -168,6 +168,7 @@
     "changeMissingDefinition": "The governed batch definition was not found at {{path}}.",
     "scheduleAlreadyExists": "A schedule with the same ID already exists in {{path}}.",
     "workflowAlreadyExists": "A workflow already exists at {{path}}.",
+    "scheduleTimezoneAmbiguous": "Schedules with the same cron expression must use one timezone in this GitHub workflow.",
     "previewFailed": "Failed to load the governed diff preview.",
     "previewNotReady": "Governed diff preview is not ready yet.",
     "noChanges": "No governed file changes were detected.",

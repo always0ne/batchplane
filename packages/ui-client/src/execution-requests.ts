@@ -1,11 +1,17 @@
 import type {
   ExecutionRequestPayload,
   ExecutionRequestStatus,
+  ExecutionRun,
   ExecutionRunJob,
   ExecutionRunStatus,
   RunnerLabel,
   WorkspaceApprovalMode,
 } from "@batchplane/domain";
+
+/** Source evidence can be inspected before an execution request is correlated. */
+export type ExecutionRunPresentation = ExecutionRun & {
+  evidenceScope?: "SOURCE_RUN";
+};
 
 export type ExecutionRequestParameter = {
   name: string;
@@ -87,6 +93,11 @@ export type ExecutionRequestEvidence = {
     governedChangeId: string;
     targetRevisionDigest: string;
   } | null;
+  /** A uniquely matched, existing governed change; provider routing stays outside this contract. */
+  sourceChange?: {
+    label: string;
+    requestLocator: string;
+  };
 };
 
 export type ExecutionDecision = {
@@ -129,6 +140,21 @@ export type ExecutionAttempt = {
   sourceUrl?: string;
   startedAt?: string;
   status: ExecutionRunStatus;
+  /** A provider-neutral presentation of a native schedule occurrence. */
+  nativeSchedule?: {
+    observation:
+      | "QUEUED"
+      | "RUNNING"
+      | "SUCCEEDED"
+      | "FAILED"
+      | "BLOCKED"
+      | "CANCELED"
+      | "UNCONFIRMED";
+    reason?: string;
+    scheduleId: string;
+    sourceRunAttempt: number;
+    sourceRunId: string;
+  };
   workflow: {
     name?: string;
     path?: string;
