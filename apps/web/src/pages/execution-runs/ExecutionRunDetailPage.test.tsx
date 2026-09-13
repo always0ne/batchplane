@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RuntimeClientTestProvider } from "../../test/RuntimeClientTestProvider";
 
 import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
@@ -8,14 +9,14 @@ import {
   type GitHubLiteMockState,
 } from "@batchplane/github-lite";
 
+import type { GitHubSession } from "../../features/lite-setup/github-session";
+import { i18next } from "../../i18n/i18n";
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
 import {
   createBatchPlaneRuntime,
   createRuntimeFixtureMockState,
   writeRuntimeFixtureSelection,
 } from "../../runtime/runtime-fixtures";
-import type { GitHubSession } from "../lite-setup/github-session";
-import { i18next } from "../../i18n/i18n";
 import { ExecutionRunDetailPage } from "./ExecutionRunDetailPage";
 
 const session = {
@@ -665,10 +666,12 @@ function renderDetail({
         <Route
           path="/execution-runs/:runId"
           element={
-            <ExecutionRunDetailPage
+            <RuntimeClientTestProvider
               createRuntime={createRuntime}
               readSession={readSession}
-            />
+            >
+              <ExecutionRunDetailPage />
+            </RuntimeClientTestProvider>
           }
         />
       </Routes>

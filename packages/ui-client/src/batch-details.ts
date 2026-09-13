@@ -26,6 +26,7 @@ export type BatchDetailArchiveResult =
 export type BatchControlStatus = "VERIFIED" | "BYPASSED" | "UNKNOWN";
 
 export type BatchRecentExecutionRequestSummary = {
+  scheduled?: boolean;
   locator: string;
   /** Present for canonical execution-request evidence; absent for legacy data. */
   requestDigest?: string;

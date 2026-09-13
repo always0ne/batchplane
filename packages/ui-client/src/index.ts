@@ -3,34 +3,62 @@ export * from "./batch-details.js";
 export * from "./execution-requests.js";
 export * from "./governed-changes.js";
 export * from "./request-inventory.js";
+export * from "./execution-inspection.js";
 
 import type {
-  BatchChangeDraft,
-  BatchChangeBlocker,
-  CreateGovernedChangeResult,
-  GovernedChangeDetail,
-  GovernedChangePreview,
-} from "./governed-changes.js";
+  BatchDetailResult,
+  BatchRemediationCapability,
+  RequestBatchRemediationInput,
+} from "./batch-details.js";
+import type { BatchListResult } from "./batches.js";
+import type {
+  CreateFailureFollowUpInput,
+  DashboardSummary,
+  ExecutionAuditItem,
+  ExecutionJobLog,
+  ExecutionRunLocator,
+  ExecutionRunQuery,
+  FailureFollowUp,
+  FailureFollowUpReviewDecision,
+  ReviewFailureFollowUpInput,
+} from "./execution-inspection.js";
 import type {
   CreateExecutionRequestResult,
   ExecutionRequest,
   ExecutionRequestDraftResult,
   ExecutionRequestInput,
   ExecutionRequestPreview,
+  ExecutionRunPresentation,
 } from "./execution-requests.js";
+import type {
+  BatchChangeBlocker,
+  BatchChangeDraft,
+  CreateGovernedChangeResult,
+  GovernedChangeDetail,
+  GovernedChangePreview,
+} from "./governed-changes.js";
 import type {
   ApprovalRequestInventory,
   MyWorkInventory,
   WorkspaceRequestInventory,
 } from "./request-inventory.js";
-import type { BatchListResult } from "./batches.js";
-import type {
-  BatchDetailResult,
-  BatchRemediationCapability,
-  RequestBatchRemediationInput,
-} from "./batch-details.js";
 
 export type BatchPlaneClient = {
+  listExecutionRuns(
+    input?: ExecutionRunQuery,
+  ): Promise<ExecutionRunPresentation[]>;
+  getExecutionRun(
+    input: ExecutionRunLocator,
+  ): Promise<ExecutionRunPresentation | null>;
+  getExecutionRunJobLog(input: { jobId: string }): Promise<ExecutionJobLog>;
+  createFailureFollowUp(
+    input: CreateFailureFollowUpInput,
+  ): Promise<FailureFollowUp>;
+  reviewFailureFollowUp(
+    input: ReviewFailureFollowUpInput,
+  ): Promise<FailureFollowUpReviewDecision>;
+  listAuditTimeline(input?: { limit?: number }): Promise<ExecutionAuditItem[]>;
+  getDashboardSummary(): Promise<DashboardSummary>;
   listBatches(): Promise<BatchListResult>;
   getBatchDetail(input: { batchId: string }): Promise<BatchDetailResult>;
   requestBatchRemediation(

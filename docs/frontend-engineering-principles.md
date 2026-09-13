@@ -113,18 +113,18 @@ legacy placement, not examples for new work.
 | Surface                         | Current Page                                              | Status                                                                                                       |
 | ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Batch list                      | `pages/batches/BatchesPage.tsx`                           | Migrated; first reference slice                                                                              |
-| Dashboard                       | `features/dashboard/DashboardPage.tsx`                    | Legacy route Page; migration pending                                                                         |
+| Dashboard                       | `pages/dashboard/DashboardPage.tsx`                       | R5 product summary query and page-local operational sections                                                 |
 | My Work                         | `pages/my-work/MyWorkPage.tsx`                            | R3 product-client work queue; preserves request and failure follow-up destinations                           |
 | Batch registration and change   | `pages/batches/BatchRegistrationPage.tsx`                 | Migrated route page; further R2-A split keeps form, schedule, review, and command state page-local           |
 | Batch detail                    | `pages/batches/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient` |
 | Execution request creation      | `pages/execution-requests/ExecutionRequestPage.tsx`       | R3 route composition with page-local draft, preview, and submission responsibilities                         |
 | Execution request detail        | `pages/execution-requests/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                  |
-| Execution run list and failures | `features/execution-requests/ExecutionRunListPage.tsx`    | Legacy route Page; migration pending                                                                         |
-| Execution run detail            | `features/execution-requests/ExecutionRunDetailPage.tsx`  | Legacy route Page; migration pending                                                                         |
+| Execution run list and failures | `pages/execution-runs/ExecutionRunListPage.tsx`           | R5 product execution query and route-preserving history/failure views                                        |
+| Execution run detail            | `pages/execution-runs/ExecutionRunDetailPage.tsx`         | R5 detail query, failure commands, evidence regions, and on-demand log presentation                          |
 | Workspace requests              | `pages/requests/WorkspaceRequestsPage.tsx`                | R3 product request inventory; local search and filters                                                       |
 | Approvals                       | `pages/approvals/ApprovalsPage.tsx`                       | R3 product inbox and reusable execution approval action                                                      |
 | Governed change approval detail | `pages/approvals/GovernedChangeDetailPage.tsx`            | Migrated route page; provider-neutral governed-change client only                                            |
-| Audit                           | `features/audit/AuditPage.tsx`                            | Legacy route Page; migration pending                                                                         |
+| Audit                           | `pages/audit/AuditPage.tsx`                               | R5 product timeline query, local filtering, and exact execution destinations                                 |
 | Workspace connection and setup  | `features/lite-setup/LiteSetupPage.tsx`                   | Legacy route Page; migration pending                                                                         |
 | Standalone schedule definition  | None                                                      | Removed; schedules are edited inside the governed Batch form and the deep link redirects there               |
 
@@ -175,8 +175,8 @@ Version-appropriate references:
 The R3 vertical covers execution request creation/detail, the approval inbox,
 Workspace requests, and My Work. Their Pages use `BatchPlaneClient`; the Lite
 adapter owns request and decision evidence, provider source references,
-dispatcher projection, and request-to-attempt correlation. Existing run/log
-screens remain with R5; navigating to them does not imply their migration.
+dispatcher projection, and request-to-attempt correlation. Run/log inspection
+and failure follow-up have their own R5 boundary below.
 
 - Draft loading captures the Batch context and approved revision. Preview
   generation must not fetch or silently adopt a newer revision on each edit.
@@ -203,6 +203,43 @@ R3 preserves the existing evidence-only behavior; it does not implement binding,
 change Dispatcher/Gate bytes, or claim that parameter values reach the command.
 The approved UI correction is limited to containing existing mobile overflow in
 request creation/detail, without a layout redesign.
+
+### R5 Execution Inspection Boundary
+
+Run history, failures, run detail, audit, and Dashboard use `BatchPlaneClient`.
+Pages compose product results and page-local interaction; they do not construct
+a runtime, read session tokens, parse provider evidence, classify job names, or
+decide provider permissions. The Lite adapter owns execution correlation, Gate
+and result projection, failure records and review authority, audit aggregation,
+and business-log section selection. Runtime only supplies these operations with
+the existing connection and installation dependencies.
+
+- Page-local Hooks separate the query lifetime from log loading and user-caused
+  follow-up commands. A large Hook concealing the former Page is not completion.
+- Query errors remain language-neutral. Language changes must not refetch the
+  execution or clear an explanation draft. Route/client changes and unmounting
+  prevent old reads or completed commands from updating a different execution.
+- The adapter returns the complete log and its business section. UI owns view
+  selection, text search, download, and bounded scrolling, without interpreting
+  runner groups or Gate markers.
+- Dashboard uses the same actionable requests and verified execution/failure
+  results as the destination screens. My Work and Batch recent runs reuse the
+  same execution operations instead of retaining independent evidence policy.
+- Native occurrence/attempt identity, source-only runs, deleted history,
+  current follow-up authority, and existing internal routes remain unchanged.
+  A failed query is not an empty collection; an unavailable result is not a
+  fabricated terminal outcome.
+
+This slice does not add cancellation, result synchronization, schedule backfill,
+new review policy, caching, or a new runtime framework. Workspace setup remains
+in R6; package-resolution cleanup remains in R7. Actions/Gate/Dispatcher
+protocols and shipped Action bundles are outside R5.
+
+Version-appropriate references:
+
+- [React 18 Effect synchronization and cleanup](https://18.react.dev/reference/react/useEffect)
+- [React 18 derived state and event handling](https://18.react.dev/learn/you-might-not-need-an-effect)
+- [React Router 6 search parameters](https://reactrouter.com/6.30.3/hooks/use-search-params)
 
 ### Application Composition
 
@@ -432,6 +469,23 @@ A screen change is complete only when:
 Refactor through complete vertical slices. A slice should leave a working user
 path, preserve current behavior unless a defect is explicitly in scope, and be
 small enough to review honestly.
+
+Do not manufacture threats or exceptional states to justify extra engineering.
+Separate verified defects, explicit requirements, and unverified hypotheses in
+planning, worker instructions, and review. Before proposing a defensive change,
+identify how the condition can arise in the current system or which documented
+trust boundary is exposed, and state its concrete impact. Code evidence or a
+reproduction may establish a risk without a production incident; an imagined
+state alone cannot establish a defect.
+
+For example, a reader accepting failure follow-up records does not prove that a
+Gate-blocked execution can acquire such a record. Do not claim an existing
+navigation defect or extend explanation eligibility without verifying that path.
+If the evidence is missing, keep the concern a hypothesis and limit investigation
+to what is proportionate. Do not add defensive branches, states, abstractions,
+compatibility behavior, or backlog work just to accommodate it. A justified
+change outside the approved scope still needs a minimum solution, its cost and
+user approval before implementation.
 
 Do not introduce the following without an observed need and explicit approval:
 

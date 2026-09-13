@@ -13,6 +13,17 @@ export * from "./execution-approval-legacy.js";
 export * from "./registration-approval-legacy.js";
 export * from "./execution-approval-client.js";
 export * from "./batch-plane-client.js";
+export * from "./dashboard-client.js";
+export * from "./execution-audit-client.js";
+export * from "./execution-inspection-client.js";
+export * from "./execution-log-client.js";
+export * from "./execution-run-client.js";
+export * from "./failure-follow-up-client.js";
+export * from "./failure-follow-up-records.js";
+export {
+  loadWorkspacePolicy,
+  parseWorkspacePolicyFile,
+} from "./inspection-context.js";
 
 export type RepoRef = {
   owner: string;

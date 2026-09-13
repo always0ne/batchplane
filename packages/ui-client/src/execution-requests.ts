@@ -10,7 +10,11 @@ import type {
 
 /** Source evidence can be inspected before an execution request is correlated. */
 export type ExecutionRunPresentation = ExecutionRun & {
+  observedAt?: string;
   evidenceScope?: "SOURCE_RUN";
+  nativeSchedule?: NonNullable<ExecutionAttempt["nativeSchedule"]> & {
+    executionLocator: string;
+  };
 };
 
 export type ExecutionRequestParameter = {

@@ -1,11 +1,17 @@
+import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
 import type {
   GitHubIssue,
   GitHubIssueComment,
   GitHubLiteClient,
   RepoRef,
 } from "./index.js";
+import {
+  toRepositoryIssue,
+  toRepositoryIssueComment,
+} from "./inspection-context.js";
 
 export type RecentExecutionRequestSummary = {
+  scheduled?: boolean;
   locator: string;
   requestDigest?: string;
   requestId?: string;
@@ -49,7 +55,13 @@ export async function listRecentExecutionRequestSummaries(
         issueNumber: request.number,
       });
 
+      const issue = issues.find((issue) => issue.number === request.number)!;
+      const parsed = parseExecutionRequestDetail(
+        toRepositoryIssue(issue),
+        comments.map(toRepositoryIssueComment),
+      );
       return {
+        ...(parsed?.triggerType === "SCHEDULE" ? { scheduled: true } : {}),
         locator: request.locator,
         ...(request.requestDigest
           ? { requestDigest: request.requestDigest }

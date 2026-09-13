@@ -86,14 +86,14 @@ follow-up update`. An assigned `OPEN` or `INVESTIGATING` record may appear as
   decision is recorded. Operational status (`OPEN`, `INVESTIGATING`,
   `RESOLVED`, `ACCEPTED_RISK`) and review status (`AWAITING_REVIEW`,
   `APPROVED`, `CHANGES_REQUESTED`, `REJECTED`) are shown separately. Review
-  controls are shown only when the Runtime reports that the current actor is
+  controls are shown only when the product client reports that the current actor is
   eligible; unavailable review affordances use a compact reason or tooltip
   rather than a large explanatory panel. Follow-up and review timestamps use
   the active locale's compact date/time format and fall back to the localized
   unknown value for empty or invalid evidence. Review reasons are mandatory for
   `APPROVED`, `CHANGES_REQUESTED`, and `REJECTED`.
 
-- The runtime accepts a follow-up only when its `requestId` and `batchId` match
+- The Lite adapter accepts a follow-up only when its `requestId` and `batchId` match
   the containing execution request, retains the first valid base comment for a
   duplicate `followUpId`, and uses actual GitHub comment author/time plus
   current `admin`/`maintain` verification for review evidence. Default
@@ -113,6 +113,33 @@ follow-up update`. An assigned `OPEN` or `INVESTIGATING` record may appear as
   described as non-persisted raw text. Business logs should open on the batch
   command runner group first, with full-log mode available when setup or
   checkout evidence matters.
+
+## Inspection Continuity
+
+Run, failure, audit, and Dashboard Pages consume product-client results. Provider
+connection and evidence interpretation are adapter responsibilities, not
+additional user steps or screen modes.
+
+- Dashboard failure and approval shortcuts count the same eligible records as
+  the destination lists. An unknown Gate result does not count as a verified
+  business failure, and native scheduled occurrences do not create manual
+  approval work.
+- Refresh performs a new query. A query failure must remain distinguishable
+  from a successful empty result; do not hide it through an invented empty list.
+- Language changes preserve the selected route, filters, log view/search, and
+  unsent explanation. They change presentation, not the execution being loaded.
+- Switching execution or Workspace isolates in-flight work. A late query,
+  log response, or completed follow-up command must not change the newly opened
+  execution or present an unconfirmed decision as successful.
+- Internal destinations retain the exact scheduled occurrence and attempt,
+  including source-only and deleted-batch history. External source links remain
+  secondary evidence access, not replacements for available product detail.
+- Log text remains unchanged and downloadable. Business/full-log selection and
+  search must remain usable at mobile widths without widening the page.
+
+These checks preserve existing post-execution functionality. They do not imply
+implementation of result synchronization, actual execution cancellation,
+backfill, new review policy, or stronger evidence retention.
 
 ## Approval UX Rules
 

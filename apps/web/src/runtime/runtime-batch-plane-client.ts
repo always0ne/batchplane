@@ -1,11 +1,13 @@
 import {
+  createGitHubLiteBatchReadClient,
+  createGitHubLiteDashboardClient,
+  createGitHubLiteExecutionApprovalClient,
+  createGitHubLiteExecutionInspectionClient,
+} from "@batchplane/github-lite";
+import {
   WorkspaceNotConnectedError,
   type BatchPlaneClient,
 } from "@batchplane/ui-client";
-import {
-  createGitHubLiteBatchReadClient,
-  createGitHubLiteExecutionApprovalClient,
-} from "@batchplane/github-lite";
 import {
   createBatchPlaneRuntime,
   createRuntimeBatchRevisionClient,
@@ -121,6 +123,27 @@ export function createRuntimeBatchPlaneClient({
     async getMyWork() {
       return createExecutionApprovalClient().getMyWork();
     },
+    listExecutionRuns: async (input) =>
+      createInspectionClient().listExecutionRuns(input),
+    getExecutionRun: async (input) =>
+      createInspectionClient().getExecutionRun(input),
+    getExecutionRunJobLog: async (input) =>
+      createInspectionClient().getExecutionRunJobLog(input),
+    createFailureFollowUp: async (input) =>
+      createInspectionClient().createFailureFollowUp(input),
+    reviewFailureFollowUp: async (input) =>
+      createInspectionClient().reviewFailureFollowUp(input),
+    listAuditTimeline: async (input) =>
+      createInspectionClient().listAuditTimeline(input),
+    getDashboardSummary: async () => {
+      const session = requireSession(readSession());
+      const runtime = createRuntime(session);
+      return createGitHubLiteDashboardClient({
+        runtime,
+        requests: createGitHubLiteExecutionApprovalClient({ runtime }),
+        inspections: createGitHubLiteExecutionInspectionClient({ runtime }),
+      }).getDashboardSummary();
+    },
   };
 
   function createBatchReadClient(
@@ -137,6 +160,13 @@ export function createRuntimeBatchPlaneClient({
     const session = requireSession(readSession());
 
     return createGitHubLiteExecutionApprovalClient({
+      runtime: createRuntime(session),
+    });
+  }
+
+  function createInspectionClient() {
+    const session = requireSession(readSession());
+    return createGitHubLiteExecutionInspectionClient({
       runtime: createRuntime(session),
     });
   }

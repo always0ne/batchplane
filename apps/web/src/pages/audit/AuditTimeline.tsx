@@ -1,96 +1,15 @@
-import type {
-  AuditTimelineItem,
-  BatchPlaneRuntimePorts,
-} from "@batchplane/domain";
-import { ExternalLink, Filter, History, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import type { TFunction } from "i18next";
+import type { ExecutionAuditItem } from "@batchplane/ui-client";
+import type { ExecutionAuditItem as AuditTimelineItem } from "@batchplane/ui-client";
+import { ExternalLink, Filter, History } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-
-import { formatRuntimeError } from "../../runtime/runtime-errors";
-import {
-  createBatchPlaneRuntime,
-  readRuntimeSession,
-} from "../../runtime/runtime-fixtures";
-import { PageHeader } from "../../ui/PageHeader";
+import { formatInspectionError } from "../../client/inspection-errors";
 import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
-import type { GitHubSession } from "../lite-setup/github-session";
+import type { AuditTimelineState } from "./useAuditTimeline";
 
-type AuditPageProps = {
-  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
-  readSession?: () => GitHubSession | null;
-};
-
-type AuditPageState =
-  | { type: "loading" }
-  | { type: "no-session" }
-  | { type: "error"; message: string }
-  | { type: "loaded"; items: AuditTimelineItem[] };
-
-export function AuditPage({
-  createRuntime = createBatchPlaneRuntime,
-  readSession = readRuntimeSession,
-}: AuditPageProps = {}) {
-  const { t } = useTranslation("audit");
-  const [reloadToken, setReloadToken] = useState(0);
-  const [state, setState] = useState<AuditPageState>({ type: "loading" });
-
-  useEffect(() => {
-    let ignoreResult = false;
-
-    async function loadAuditTimeline() {
-      const session = readSession();
-
-      if (!session) {
-        setState({ type: "no-session" });
-        return;
-      }
-
-      setState({ type: "loading" });
-
-      try {
-        const runtime = createRuntime(session);
-        const items = await runtime.audit.listAuditTimeline({ limit: 100 });
-
-        if (!ignoreResult) {
-          setState({ type: "loaded", items });
-        }
-      } catch (error) {
-        if (!ignoreResult) {
-          setState({
-            type: "error",
-            message: formatRuntimeError(error, t("states.error")),
-          });
-        }
-      }
-    }
-
-    void loadAuditTimeline();
-
-    return () => {
-      ignoreResult = true;
-    };
-  }, [createRuntime, readSession, reloadToken, t]);
-
-  return (
-    <section>
-      <PageHeader title={t("title")} subtitle={t("subtitle")} />
-      <div className="mb-4 flex justify-end">
-        <button
-          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite shadow-sm hover:border-bp-git"
-          type="button"
-          onClick={() => setReloadToken((value) => value + 1)}
-        >
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
-          {t("actions.refresh")}
-        </button>
-      </div>
-      <AuditContent state={state} />
-    </section>
-  );
-}
-
-function AuditContent({ state }: { state: AuditPageState }) {
+export function AuditContent({ state }: { state: AuditTimelineState }) {
   const { t } = useTranslation("audit");
 
   if (state.type === "loading") {
@@ -102,7 +21,11 @@ function AuditContent({ state }: { state: AuditPageState }) {
   }
 
   if (state.type === "error") {
-    return <ErrorState message={state.message} />;
+    return (
+      <ErrorState
+        message={formatInspectionError(state.error, t, "states.error")}
+      />
+    );
   }
 
   return <LoadedAudit items={state.items} />;
@@ -186,9 +109,9 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
                 </span>
                 <div>
                   <p className="text-sm font-bold text-bp-graphite">
-                    {item.metadata?.evidenceScope === "SOURCE_RUN"
+                    {item.execution?.sourceOnly
                       ? t("executions:status.SOURCE_RUN")
-                      : item.metadata?.executionLocator
+                      : item.execution?.locator
                         ? t("audit:values.scheduleExecution")
                         : t(`common:status.auditTimelineType.${item.type}`)}
                   </p>
@@ -202,13 +125,7 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
               </div>
               <div className="min-w-0">
                 <p className="break-words text-sm font-semibold text-bp-graphite">
-                  {t(
-                    `audit:summaries.${item.metadata?.evidenceScope === "SOURCE_RUN" ? "SOURCE_RUN_OBSERVED" : item.metadata?.executionLocator ? "NATIVE_SCHEDULE_OBSERVED" : item.type}`,
-                    {
-                      ...toAuditSummaryValues(item, t),
-                      defaultValue: item.summary,
-                    },
-                  )}
+                  {formatAuditSummary(item, t)}
                 </p>
                 <p className="mt-1 break-words text-xs font-semibold text-bp-muted">
                   {t("audit:values.actor", {
@@ -218,10 +135,10 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
                 <AuditMetadata item={item} />
               </div>
               <div className="flex min-w-0 flex-wrap items-start gap-2">
-                {typeof item.metadata?.executionLocator === "string" ? (
+                {item.execution ? (
                   <Link
                     className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-bp-graphite hover:border-bp-git"
-                    to={`/execution-runs/${encodeURIComponent(item.metadata.executionLocator)}${item.metadata.evidenceScope === "SOURCE_RUN" ? `?runAttempt=${item.metadata.runAttempt}` : ""}`}
+                    to={`/execution-runs/${encodeURIComponent(item.execution.locator)}${item.execution.sourceOnly ? `?runAttempt=${item.execution.runAttempt}` : ""}`}
                   >
                     {t("audit:actions.openExecution")}
                   </Link>
@@ -299,34 +216,6 @@ function uniqueMetadataValues(
   ].sort((left, right) => left.localeCompare(right));
 }
 
-function toAuditSummaryValues(
-  item: AuditTimelineItem,
-  translate: (key: string) => string,
-): Record<string, string | number> {
-  const gateResult = String(item.metadata?.gateResult ?? "");
-
-  return {
-    batchId: String(item.metadata?.batchId ?? item.subjectId),
-    conclusion: String(item.metadata?.conclusion ?? ""),
-    decision: String(item.metadata?.decision ?? ""),
-    followUpId: String(item.metadata?.followUpId ?? ""),
-    gateResult: gateResult ? translate(`values.gateResult.${gateResult}`) : "",
-    pullNumber: Number(item.metadata?.pullNumber ?? 0),
-    reasonCode: String(item.metadata?.reasonCode ?? ""),
-    requestId: String(item.metadata?.requestId ?? item.subjectId),
-    reviewId: String(item.metadata?.reviewId ?? ""),
-    reviewStatus: String(item.metadata?.reviewStatus ?? ""),
-    runId: Number(item.metadata?.runId ?? 0),
-    runAttempt: Number(item.metadata?.runAttempt ?? 1),
-    scheduleId: String(item.metadata?.scheduleId ?? ""),
-    observation: item.metadata?.observation
-      ? translate(`executions:nativeObservation.${item.metadata.observation}`)
-      : "",
-    selfReview: String(item.metadata?.selfReview ?? ""),
-    status: String(item.metadata?.status ?? ""),
-  };
-}
-
 function formatAuditMetadataValue(
   key: string,
   value: string | number | boolean,
@@ -350,4 +239,49 @@ function formatAuditTime(value: string, fallback: string): string {
   const date = new Date(value);
 
   return Number.isNaN(date.getTime()) ? fallback : date.toLocaleString();
+}
+
+function formatAuditSummary(
+  item: ExecutionAuditItem,
+  translate: TFunction,
+): string {
+  const key = item.execution?.sourceOnly
+    ? "SOURCE_RUN_OBSERVED"
+    : item.execution
+      ? "NATIVE_SCHEDULE_OBSERVED"
+      : item.type;
+  return translate(`audit:summaries.${key}`, {
+    ...toAuditSummaryValues(item, translate),
+    defaultValue: item.summary,
+  });
+}
+
+function toAuditSummaryValues(
+  item: ExecutionAuditItem,
+  translate: (key: string) => string,
+): Record<string, string | number> {
+  const gateResult = String(item.metadata?.gateResult ?? "");
+
+  return {
+    batchId: String(item.metadata?.batchId ?? item.subjectId),
+    conclusion: String(item.metadata?.conclusion ?? ""),
+    decision: String(item.metadata?.decision ?? ""),
+    followUpId: String(item.metadata?.followUpId ?? ""),
+    gateResult: gateResult
+      ? translate(`audit:values.gateResult.${gateResult}`)
+      : "",
+    pullNumber: Number(item.metadata?.pullNumber ?? 0),
+    reasonCode: String(item.metadata?.reasonCode ?? ""),
+    requestId: String(item.metadata?.requestId ?? item.subjectId),
+    reviewId: String(item.metadata?.reviewId ?? ""),
+    reviewStatus: String(item.metadata?.reviewStatus ?? ""),
+    runId: Number(item.metadata?.runId ?? 0),
+    runAttempt: Number(item.execution?.runAttempt ?? 1),
+    scheduleId: String(item.execution?.scheduleId ?? ""),
+    observation: item.execution?.observation
+      ? translate(`executions:nativeObservation.${item.execution.observation}`)
+      : "",
+    selfReview: String(item.metadata?.selfReview ?? ""),
+    status: String(item.metadata?.status ?? ""),
+  };
 }

@@ -444,6 +444,19 @@ comments, and workflow_dispatch run records. The timeline must support filtering
 by Batch ID and request ID and show GitHub source links for each event when the
 source URL is available.
 
+Dashboard approval and failure summaries must use the same eligible records as
+their destination screens. Scheduled occurrences are not pending human approval
+work. A failed workflow without verified Gate permission is not counted as a
+business failure. The summary and detail views must preserve the same native
+occurrence, attempt, source-only observation, and deleted-batch history.
+
+Inspection screens must preserve filters, log view/search, and an unsent
+explanation when the operator changes language. Refresh performs a new provider
+read and distinguishes a failed query from an empty result. Responses belonging
+to a previous execution or Workspace must not update the newly opened one.
+These continuity requirements do not add result synchronization, cancellation,
+new follow-up eligibility, or new review authority.
+
 Approving an execution request must write an approval comment that starts with:
 
 ```text

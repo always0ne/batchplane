@@ -1,8 +1,8 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
 import type {
   ApprovalRequestInventory,
   BatchPlaneClient,
 } from "@batchplane/ui-client";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -79,6 +79,13 @@ function createClient(
     getExecutionRequest: unsupported,
     getGovernedChange: unsupported,
     getMyWork: unsupported,
+    listExecutionRuns: unsupported,
+    getExecutionRun: unsupported,
+    getExecutionRunJobLog: unsupported,
+    createFailureFollowUp: unsupported,
+    reviewFailureFollowUp: unsupported,
+    listAuditTimeline: unsupported,
+    getDashboardSummary: unsupported,
     listApprovalRequests: unsupported,
     listBatches: unsupported,
     listWorkspaceRequests: unsupported,

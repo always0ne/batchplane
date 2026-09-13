@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
+import { RuntimeClientTestProvider } from "../../test/RuntimeClientTestProvider";
 
 import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
@@ -8,14 +9,14 @@ import {
   createMockGitHubLiteClient,
 } from "@batchplane/github-lite";
 
+import type { GitHubSession } from "../../features/lite-setup/github-session";
+import "../../i18n/i18n";
+import { i18next } from "../../i18n/i18n";
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
 import {
   createBatchPlaneRuntime,
   writeRuntimeFixtureSelection,
 } from "../../runtime/runtime-fixtures";
-import type { GitHubSession } from "../lite-setup/github-session";
-import "../../i18n/i18n";
-import { i18next } from "../../i18n/i18n";
 import { ExecutionRunListPage } from "./ExecutionRunListPage";
 
 const session = {
@@ -367,21 +368,23 @@ function renderPage({
         <Route
           path="/runs"
           element={
-            <ExecutionRunListPage
+            <RuntimeClientTestProvider
               createRuntime={createRuntime}
               readSession={readSession}
-              view={view}
-            />
+            >
+              <ExecutionRunListPage view={view} />
+            </RuntimeClientTestProvider>
           }
         />
         <Route
           path="/failures"
           element={
-            <ExecutionRunListPage
+            <RuntimeClientTestProvider
               createRuntime={createRuntime}
               readSession={readSession}
-              view={view}
-            />
+            >
+              <ExecutionRunListPage view={view} />
+            </RuntimeClientTestProvider>
           }
         />
       </Routes>

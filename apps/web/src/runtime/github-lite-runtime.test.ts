@@ -1,7 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { sha256BytesHex } from "@batchplane/digest";
 import type { BatchDefinition } from "@batchplane/domain";
 import { createTargetRevisionDigest } from "@batchplane/domain";
-import { sha256BytesHex } from "@batchplane/digest";
 import {
   buildGovernedChangeRequestBody,
   createGitHubLiteMockState,
@@ -9,15 +8,16 @@ import {
   serializeBatchDefinitionYaml,
   type GitHubLiteMockState,
 } from "@batchplane/github-lite";
+import { describe, expect, it } from "vitest";
 
+import {
+  buildFailureFollowUpComment,
+  buildFailureFollowUpReviewComment,
+} from "@batchplane/github-lite";
 import {
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
 } from "../features/lite-setup/installation-model";
-import {
-  buildFailureFollowUpComment,
-  buildFailureFollowUpReviewComment,
-} from "../features/execution-requests/failure-follow-up-model";
 import { createGitHubLiteRuntime } from "./github-lite-runtime";
 
 const session = {
