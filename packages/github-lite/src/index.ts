@@ -2,7 +2,10 @@ export * from "./governed-change-evidence.js";
 export * from "./governed-change-client.js";
 export * from "./governed-change-verifier.js";
 export * from "./batch-definition-codec.js";
+export * from "./github-workflow.js";
 export * from "./execution-gate-result.js";
+export * from "./native-schedule-evidence.js";
+export * from "./native-schedule-projections.js";
 export * from "./approved-batch-revision.js";
 export * from "./batch-revision-client.js";
 export * from "./execution-request-summaries.js";
@@ -157,6 +160,7 @@ export type GitHubWorkflowRun = {
   updatedAt?: string;
   batchId?: string;
   requestId?: string;
+  repositoryId?: string;
   workflowPath?: string;
 };
 
@@ -404,7 +408,7 @@ export type GitHubLiteClient = {
     params: ListWorkflowRunsParams,
   ): Promise<GitHubWorkflowRun[]>;
   getWorkflowRun(
-    params: RepoRef & { runId: number },
+    params: RepoRef & { runId: number; runAttempt?: number },
   ): Promise<GitHubWorkflowRun | null>;
   listWorkflowRunJobs(
     params: ListWorkflowRunJobsParams,
@@ -632,6 +636,9 @@ type GitHubWorkflowRunResponse = {
   run_started_at?: string | null;
   updated_at?: string | null;
   path?: string | null;
+  repository?: {
+    id?: number | string | null;
+  } | null;
 };
 
 type GitHubWorkflowRunsResponse = {
@@ -1243,11 +1250,15 @@ export function createGitHubLiteClient({
       return (runs?.workflow_runs ?? []).map(mapWorkflowRunResponse);
     },
 
-    async getWorkflowRun({ owner, repo, runId }) {
+    async getWorkflowRun({ owner, repo, runAttempt, runId }) {
       const run = await request<GitHubWorkflowRunResponse>(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo,
-        )}/actions/runs/${runId}`,
+        runAttempt
+          ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+              repo,
+            )}/actions/runs/${runId}/attempts/${runAttempt}`
+          : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+              repo,
+            )}/actions/runs/${runId}`,
         {},
         { allowNotFound: true },
       );
@@ -2118,9 +2129,21 @@ export function createMockGitHubLiteClient(
     async getWorkflowRun(params) {
       assertMockRepository(state, params);
 
-      const run = state.workflowRuns.find(
+      const candidates = state.workflowRuns.filter(
         (candidate) => candidate.id === params.runId,
       );
+      const run =
+        params.runAttempt === undefined
+          ? candidates.reduce<(typeof candidates)[number] | undefined>(
+              (latest, candidate) =>
+                !latest || candidate.runAttempt > latest.runAttempt
+                  ? candidate
+                  : latest,
+              undefined,
+            )
+          : candidates.find(
+              (candidate) => candidate.runAttempt === params.runAttempt,
+            );
 
       return run ? cloneJson(run) : null;
     },
@@ -2800,6 +2823,9 @@ function mapWorkflowRunResponse(
     ...(run.updated_at ? { updatedAt: run.updated_at } : {}),
     url: run.html_url,
     workflowId: run.workflow_id,
+    ...(run.repository?.id !== undefined && run.repository.id !== null
+      ? { repositoryId: String(run.repository.id) }
+      : {}),
     ...(run.path ? { workflowPath: run.path } : {}),
   };
 }

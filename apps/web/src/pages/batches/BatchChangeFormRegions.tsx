@@ -20,6 +20,7 @@ export function BatchChangeFormRegions({
   onAddSchedule,
   onArtifactChange,
   onRemoveSchedule,
+  onOwnerBlur,
   onRestoreSchedule,
   onScheduleChange,
   onValueChange,
@@ -31,6 +32,7 @@ export function BatchChangeFormRegions({
   onAddSchedule: () => void;
   onArtifactChange: (file?: File) => Promise<void>;
   onRemoveSchedule: (key: string) => void;
+  onOwnerBlur: () => void;
   onRestoreSchedule: (key: string) => void;
   onScheduleChange: (key: string, values: BatchSchedule) => void;
   onValueChange: (field: keyof BatchChangeFormValues, value: string) => void;
@@ -62,6 +64,7 @@ export function BatchChangeFormRegions({
           <TextField
             label={t("form.owner")}
             onChange={(value) => onValueChange("owner", value)}
+            onBlur={onOwnerBlur}
             placeholder={t("form.placeholders.owner")}
             value={values.owner}
           />
@@ -410,12 +413,14 @@ function TextField({
   disabled = false,
   label,
   onChange,
+  onBlur,
   placeholder,
   value,
 }: {
   disabled?: boolean;
   label: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
   placeholder?: string;
   value: string;
 }) {
@@ -426,6 +431,7 @@ function TextField({
         className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-bp-graphite disabled:bg-slate-100"
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         value={value}
       />

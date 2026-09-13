@@ -77,21 +77,31 @@ export function ExecutionRequestDetailPage() {
   const postCreateError = postCreateErrorFrom(location.state, request);
   const attempt = latestAttempt(request);
   const isBusy = Boolean(detail.runningAction);
-  const canAct = request.capability.canApprove || request.capability.canReject;
+  const scheduled = request.triggerType === "SCHEDULE";
+  const canAct =
+    !scheduled &&
+    (request.capability.canApprove || request.capability.canReject);
 
   return (
     <section className="min-w-0">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
         <PageHeader
           title={t("detail.title")}
-          subtitle={t("detail.subtitle", { requestId: request.requestId })}
+          subtitle={t(
+            scheduled ? "detail.nativeScheduleSubtitle" : "detail.subtitle",
+            { requestId: request.requestId },
+          )}
         />
         <div className="flex min-w-0 flex-wrap gap-2">
           <Link
             className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-            to="/approvals"
+            to={scheduled ? "/requests" : "/approvals"}
           >
-            {t("detail.actions.backToApprovals")}
+            {t(
+              scheduled
+                ? "detail.actions.backToRequestInventory"
+                : "detail.actions.backToApprovals",
+            )}
           </Link>
           {attempt ? (
             <Link
@@ -203,16 +213,20 @@ export function ExecutionRequestDetailPage() {
                 rejectLabel={t("detail.actions.reject")}
               />
             </article>
-          ) : (
+          ) : !scheduled ? (
             <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-base font-bold text-bp-graphite">
                 {t("detail.actions.closedTitle")}
               </h2>
               <p className="mt-2 text-sm font-semibold text-bp-muted">
-                {t(`detail.statusHelp.${request.status}`)}
+                {t(
+                  scheduled
+                    ? "detail.statusHelp.SCHEDULE_RECORDED"
+                    : `detail.statusHelp.${request.status}`,
+                )}
               </p>
             </article>
-          )}
+          ) : null}
         </aside>
       </div>
     </section>
@@ -258,9 +272,21 @@ function postCreateErrorFrom(
 }
 
 function latestAttempt(request: ExecutionRequest): ExecutionAttempt | null {
-  return request.attempts.type === "loaded"
-    ? (request.attempts.attempts[0] ?? null)
-    : null;
+  if (request.attempts.type !== "loaded") return null;
+
+  return (
+    [...request.attempts.attempts].sort((left, right) => {
+      const chronology = attemptTimestamp(right) - attemptTimestamp(left);
+      if (chronology !== 0) return chronology;
+      return right.attempt - left.attempt;
+    })[0] ?? null
+  );
+}
+
+function attemptTimestamp(attempt: ExecutionAttempt): number {
+  const value = attempt.completedAt ?? attempt.startedAt;
+  const timestamp = value ? Date.parse(value) : Number.NaN;
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 function RequestSummary({ request }: { request: ExecutionRequest }) {
@@ -277,7 +303,10 @@ function RequestSummary({ request }: { request: ExecutionRequest }) {
             {request.title}
           </h2>
         </div>
-        <StatusBadge status={request.status} />
+        <StatusBadge
+          scheduled={request.triggerType === "SCHEDULE"}
+          status={request.status}
+        />
       </div>
       <dl className="mt-5 grid min-w-0 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <Fact
@@ -342,6 +371,17 @@ function DecisionMaterial({ request }: { request: ExecutionRequest }) {
         </div>
         <dl className="grid min-w-0 gap-3 text-sm">
           <Fact
+            label={t("detail.fields.approvedBatchRevision")}
+            value={formatApprovedBatchRevision(request)}
+          />
+          {request.evidence.sourceChange ? (
+            <LinkedFact
+              label={t("detail.fields.sourceChange")}
+              to={`/approvals/registration/${encodeURIComponent(request.evidence.sourceChange.requestLocator)}`}
+              value={request.evidence.sourceChange.label}
+            />
+          ) : null}
+          <Fact
             label={t("detail.fields.environment")}
             value={request.batch.environment || "-"}
           />
@@ -397,6 +437,7 @@ function DispatcherEvidence({
   request: ExecutionRequest;
 }) {
   const { t } = useTranslation("executionRequests");
+  const scheduled = request.triggerType === "SCHEDULE";
   const gateEvidence = request.gateDecision
     ? `${request.gateDecision.allowed ? t("detail.dispatcher.gateAllowed") : t("detail.dispatcher.gateBlocked")} ${formatGateReasonDisplay(request.gateDecision.reasonCode, t, t("detail.dispatcher.none"))}`
     : "";
@@ -406,28 +447,44 @@ function DispatcherEvidence({
   return (
     <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="text-base font-bold text-bp-graphite">
-        {t("detail.dispatcher.title")}
+        {t(
+          scheduled
+            ? "detail.dispatcher.nativeScheduleTitle"
+            : "detail.dispatcher.title",
+        )}
       </h2>
       <p className="mt-2 text-sm text-bp-muted">
-        {t("detail.dispatcher.noBrowserDispatch")}
+        {t(
+          scheduled
+            ? "detail.dispatcher.nativeScheduleEvidence"
+            : "detail.dispatcher.noBrowserDispatch",
+        )}
       </p>
       <dl className="mt-4 grid min-w-0 gap-3 text-sm">
         <Fact
           label={t("detail.dispatcher.status")}
-          value={t(`detail.status.${request.status}`)}
-        />
-        <Fact
-          label={t("detail.dispatcher.dispatcherEvidence")}
           value={
-            request.dispatcher
-              ? `${request.dispatcher.status} @ ${request.dispatcher.createdAt}`
-              : t("detail.dispatcher.none")
+            request.triggerType === "SCHEDULE"
+              ? t("detail.status.SCHEDULE_RECORDED")
+              : t(`detail.status.${request.status}`)
           }
         />
-        <Fact
-          label={t("detail.dispatcher.approvalEvidence")}
-          value={approvalEvidence}
-        />
+        {!scheduled ? (
+          <>
+            <Fact
+              label={t("detail.dispatcher.dispatcherEvidence")}
+              value={
+                request.dispatcher
+                  ? `${request.dispatcher.status} @ ${request.dispatcher.createdAt}`
+                  : t("detail.dispatcher.none")
+              }
+            />
+            <Fact
+              label={t("detail.dispatcher.approvalEvidence")}
+              value={approvalEvidence}
+            />
+          </>
+        ) : null}
         {gateEvidence ? (
           <Fact
             label={t("detail.dispatcher.gateEvidence")}
@@ -454,9 +511,11 @@ function DispatcherEvidence({
           </dd>
         </div>
       </dl>
-      <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bp-muted">
-        {t(`detail.statusHelp.${request.status}`)}
-      </p>
+      {!scheduled ? (
+        <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bp-muted">
+          {t(`detail.statusHelp.${request.status}`)}
+        </p>
+      ) : null}
     </article>
   );
 }
@@ -497,6 +556,39 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+function LinkedFact({
+  label,
+  to,
+  value,
+}: {
+  label: string;
+  to: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-md bg-slate-50 px-3 py-2">
+      <dt className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
+        {label}
+      </dt>
+      <dd className="mt-1 min-w-0">
+        <Link
+          className="break-all font-mono text-xs font-semibold text-bp-control underline"
+          to={to}
+        >
+          {value}
+        </Link>
+      </dd>
+    </div>
+  );
+}
+
+function formatApprovedBatchRevision(request: ExecutionRequest): string {
+  const revision = request.evidence.approvedBatchRevision;
+  return revision
+    ? `${revision.governedChangeId} (${revision.targetRevisionDigest})`
+    : "-";
+}
+
 function TextBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
@@ -523,14 +615,23 @@ function CheckRow({ ok, text }: { ok: boolean; text: string }) {
   );
 }
 
-function StatusBadge({ status }: { status: ExecutionRequest["status"] }) {
+function StatusBadge({
+  scheduled,
+  status,
+}: {
+  scheduled: boolean;
+  status: ExecutionRequest["status"];
+}) {
   const { t } = useTranslation("executionRequests");
+  const displayStatus = scheduled ? "SCHEDULE_RECORDED" : status;
   return (
     <span
-      className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${statusPalette(status)}`}
-      title={t(`detail.statusHelp.${status}`)}
+      className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${
+        scheduled ? "bg-slate-100 text-slate-700" : statusPalette(status)
+      }`}
+      title={t(`detail.statusHelp.${displayStatus}`)}
     >
-      {t(`detail.status.${status}`)}
+      {t(`detail.status.${displayStatus}`)}
     </span>
   );
 }

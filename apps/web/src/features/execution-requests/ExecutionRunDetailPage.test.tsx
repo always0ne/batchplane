@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
@@ -9,7 +9,11 @@ import {
 } from "@batchplane/github-lite";
 
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
-import { createRuntimeFixtureMockState } from "../../runtime/runtime-fixtures";
+import {
+  createBatchPlaneRuntime,
+  createRuntimeFixtureMockState,
+  writeRuntimeFixtureSelection,
+} from "../../runtime/runtime-fixtures";
 import type { GitHubSession } from "../lite-setup/github-session";
 import { i18next } from "../../i18n/i18n";
 import { ExecutionRunDetailPage } from "./ExecutionRunDetailPage";
@@ -25,6 +29,43 @@ describe("ExecutionRunDetailPage", () => {
     sessionStorage.clear();
     await i18next.changeLanguage("en");
   });
+
+  it.each([
+    ["en", "QUEUED", "In progress"],
+    ["en", "RUNNING", "In progress"],
+    ["en", "UNCONFIRMED", "Unknown"],
+    ["en", "BLOCKED", "Unknown"],
+    ["ko", "QUEUED", "진행 중"],
+    ["ko", "RUNNING", "진행 중"],
+    ["ko", "UNCONFIRMED", "알 수 없음"],
+    ["ko", "BLOCKED", "알 수 없음"],
+  ] as const)(
+    "renders absent completion for %s %s as %s",
+    async (locale, status, expected) => {
+      await i18next.changeLanguage(locale);
+      const runtime = {
+        executions: {
+          getExecutionRun: async () => ({
+            batchId: "payment.daily-close",
+            requestId: "",
+            runId: "900",
+            status,
+          }),
+        },
+      } as unknown as BatchPlaneRuntimePorts;
+      renderDetail({
+        createRuntime: () => runtime,
+        readSession: () => session,
+        runId: 900,
+      });
+      const label = await screen.findByText(
+        locale === "en" ? "Completed at" : "완료 시각",
+      );
+      expect(label.parentElement?.querySelector("dd")?.textContent).toBe(
+        expected,
+      );
+    },
+  );
 
   it("separates Gate blocked evidence from business execution", async () => {
     const state = createRuntimeFixtureMockState("gate-blocked");
@@ -174,6 +215,218 @@ describe("ExecutionRunDetailPage", () => {
     expect(
       screen.getByText("Evidence and corrective action are sufficient."),
     ).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      fixture: "native-schedule-success" as const,
+      requestLetter: "a",
+      scheduleId: "weekday-close",
+      output: "completed successfully",
+    },
+    {
+      fixture: "native-schedule-failure" as const,
+      requestLetter: "b",
+      scheduleId: "weekday-open",
+      output: "failed: ledger unavailable",
+    },
+  ])(
+    "focuses $fixture logs on the actual batch command and retains full Gate evidence",
+    async ({ fixture, requestLetter, scheduleId, output }) => {
+      writeRuntimeFixtureSelection(fixture);
+      const runtime = createBatchPlaneRuntime(session);
+      const runId = `native:btr-schedule-${requestLetter.repeat(64)}:900:1`;
+      const run = await runtime.executions.getExecutionRun({ runId });
+      expect(run?.jobs).toEqual([
+        expect.objectContaining({
+          name: `Schedule [${scheduleId}]`,
+          role: "GATE",
+        }),
+        expect.objectContaining({
+          name: `Run [${scheduleId}]`,
+          role: "BUSINESS",
+        }),
+      ]);
+      renderDetail({
+        createRuntime: () => runtime,
+        readSession: () => session,
+        runId,
+      });
+
+      fireEvent.click(
+        await screen.findByRole("button", { name: "View business logs" }),
+      );
+      const logText = new RegExp(`Native batch ${scheduleId} ${output}`);
+      expect(await screen.findByText(logText)).toBeInTheDocument();
+      expect(screen.getByText(/echo native fixture/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/##\[group\]BatchPlane batch command/),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/##\[endgroup\]/)).toBeInTheDocument();
+      expect(
+        screen.queryByText(/BATCHPLANE_GATE_RESULT/),
+      ).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Full log" }));
+      expect(screen.getByText(/BATCHPLANE_GATE_RESULT/)).toBeInTheDocument();
+      expect(screen.getByText(logText)).toBeInTheDocument();
+    },
+  );
+
+  it("reads internal job logs without an external job URL", async () => {
+    const getExecutionRunJobLog = vi.fn().mockResolvedValue({
+      content:
+        "2026-09-11T01:01:04.000Z ##[group]Run batch\ncommand output without external URL\n##[endgroup]",
+      jobId: "17",
+      sizeBytes: 120,
+      truncated: false,
+    });
+    const runtime = {
+      executions: {
+        getExecutionRun: async () => ({
+          batchId: "payment.daily-close",
+          requestId: "",
+          runId: "900",
+          status: "UNCONFIRMED",
+          jobs: [
+            {
+              jobId: "17",
+              name: "Native business",
+              role: "BUSINESS",
+              status: "SUCCEEDED",
+            },
+          ],
+        }),
+        getExecutionRunJobLog,
+      },
+    } as unknown as BatchPlaneRuntimePorts;
+    renderDetail({
+      createRuntime: () => runtime,
+      readSession: () => session,
+      runId: 900,
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "View business logs" }),
+    );
+    expect(
+      await screen.findByText(/command output without external URL/),
+    ).toBeInTheDocument();
+    expect(getExecutionRunJobLog).toHaveBeenCalledWith({ jobId: "17" });
+    expect(
+      screen.queryByRole("link", {
+        name: "Open GitHub Actions logs for Native business",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    "native-schedule-success",
+    "native-schedule-running",
+    "business-failed",
+  ] as const)(
+    "bounds long %s full logs within shrinkable grid cells without changing their text",
+    async (fixture) => {
+      writeRuntimeFixtureSelection(fixture);
+      const runtime = createBatchPlaneRuntime(session);
+      const [run] = await runtime.executions.listExecutionRuns({ limit: 20 });
+      const content = [
+        `BATCHPLANE_GATE_RESULT ${"x".repeat(4096)}`,
+        "##[group]BatchPlane batch command",
+        "echo command output is intact",
+        "command output is intact",
+        "##[endgroup]",
+      ].join("\n");
+      vi.spyOn(runtime.executions, "getExecutionRunJobLog").mockImplementation(
+        async ({ jobId }) => ({
+          content,
+          jobId,
+          sizeBytes: content.length,
+          truncated: false,
+        }),
+      );
+      renderDetail({
+        createRuntime: () => runtime,
+        readSession: () => session,
+        runId: run!.runId,
+      });
+      fireEvent.click(
+        await screen.findByRole("button", { name: "View business logs" }),
+      );
+      await screen.findByText(/command output is intact/, { selector: "pre" });
+      fireEvent.click(screen.getByRole("button", { name: "Full log" }));
+      const pre = screen.getByText(/BATCHPLANE_GATE_RESULT/, {
+        selector: "pre",
+      });
+      expect(pre.textContent).toBe(content);
+      expect(pre).toHaveClass(
+        "w-full",
+        "min-w-0",
+        "max-w-full",
+        "overflow-auto",
+      );
+      expect(pre.closest("section")).toHaveClass("min-w-0", "max-w-full");
+      expect(pre.closest("section")?.parentElement).toHaveClass(
+        "min-w-0",
+        "max-w-full",
+      );
+      expect(pre.closest("li")).toHaveClass("min-w-0", "grid-cols-1");
+      expect(pre.closest("article")).toHaveClass("min-w-0", "max-w-full");
+    },
+  );
+
+  it("opens historical source Run jobs and full logs without inventing a schedule association", async () => {
+    writeRuntimeFixtureSelection("native-schedule-source-unconfirmed");
+    const runtime = createBatchPlaneRuntime(session);
+    const getRun = vi.spyOn(runtime.executions, "getExecutionRun");
+    renderDetail({
+      createRuntime: () => runtime,
+      readSession: () => session,
+      runId: 900,
+      runAttempt: 1,
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Source run detail" }),
+    ).toBeInTheDocument();
+    expect(getRun).toHaveBeenCalledWith({ runId: "900", runAttempt: 1 });
+    expect(screen.getAllByText("Source job")).toHaveLength(4);
+    expect(screen.queryByText("Business job")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "View source logs" })[1]!,
+    );
+    expect(
+      await screen.findByText(
+        /Native batch weekday-close completed successfully/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/BATCHPLANE_GATE_RESULT/)).toBeInTheDocument();
+    expect(screen.getByText(/"runAttempt":1/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Record follow-up" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps a denied native entry log without an executed batch command", async () => {
+    writeRuntimeFixtureSelection("native-schedule-blocked");
+    const runtime = createBatchPlaneRuntime(session);
+    renderDetail({
+      createRuntime: () => runtime,
+      readSession: () => session,
+      runId: `native:btr-schedule-${"a".repeat(64)}:900:2`,
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "View business logs" }),
+    );
+    expect(
+      await screen.findByText(/BATCHPLANE_GATE_RESULT/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/"result":"DENY"/)).toBeInTheDocument();
+    expect(screen.queryByText(/echo native fixture/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/##\[group\]BatchPlane batch command/),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Full log" }));
+    expect(screen.queryByText(/echo native fixture/)).not.toBeInTheDocument();
   });
 
   it("does not offer failure review actions to a non-manager", async () => {
@@ -395,13 +648,19 @@ function renderDetail({
   createRuntime,
   readSession,
   runId,
+  runAttempt,
 }: {
   createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
   readSession?: () => GitHubSession | null;
-  runId: number;
+  runId: number | string;
+  runAttempt?: number;
 }) {
   render(
-    <MemoryRouter initialEntries={[`/execution-runs/${runId}`]}>
+    <MemoryRouter
+      initialEntries={[
+        `/execution-runs/${encodeURIComponent(runId)}${runAttempt ? `?runAttempt=${runAttempt}` : ""}`,
+      ]}
+    >
       <Routes>
         <Route
           path="/execution-runs/:runId"

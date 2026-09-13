@@ -54,7 +54,7 @@ jobs:
         run: pnpm build
 
       - name: Verify checked-in Action bundles
-        run: git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist
+        run: git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist actions/schedule-result/dist
 
       - name: Build GitHub Pages static bundle
         run: VITE_BASE_PATH=/${{ github.event.repository.name }}/ pnpm --filter @batchplane/web build

@@ -1,26 +1,20 @@
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-
-import { describe, expect, it } from "vitest";
-
+import { readFileSync, writeFileSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  buildExecutionRequestIssue,
+  createScheduledExecutionRequestId,
   serializeYamlDocument,
   type BatchDefinition,
 } from "@batchplane/domain";
 
-import { createOrReuseScheduledExecutionRequest } from "./index";
+import { createNativeScheduledExecutionRequest, run } from "./index";
 
-const batchDefinition: BatchDefinition = {
+const sha = "a".repeat(40);
+const batch: BatchDefinition = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
   domain: "payments",
   environment: "PROD",
-  execution: {
-    command: "echo close payments",
-    runsOn: "ubuntu-latest",
-  },
+  execution: { command: "echo close payments", runsOn: "ubuntu-latest" },
   gateRequired: true,
   name: "Daily Close",
   owner: "ops-team",
@@ -34,359 +28,209 @@ const batchDefinition: BatchDefinition = {
     },
   ],
   status: "ACTIVE",
-  workflow: {
-    path: ".github/workflows/payment.daily-close.yml",
-    ref: "main",
-  },
+  workflow: { path: ".github/workflows/payment.daily-close.yml", ref: "main" },
 };
-
 const batchYaml = serializeYamlDocument({
   apiVersion: "batchplane.io/v1",
   kind: "BatchDefinition",
-  metadata: {
-    id: batchDefinition.batchId,
-    name: batchDefinition.name,
-  },
+  metadata: { id: batch.batchId, name: batch.name },
   spec: {
-    criticality: batchDefinition.criticality,
-    domain: batchDefinition.domain,
-    environment: batchDefinition.environment,
-    execution: batchDefinition.execution,
+    criticality: batch.criticality,
+    domain: batch.domain,
+    environment: batch.environment,
+    execution: batch.execution,
     gateRequired: true,
-    owner: batchDefinition.owner,
-    schedules: [
-      {
-        cron: "0 5 * * *",
-        enabled: true,
-        id: "payment.daily-close-daily",
-        name: "Daily settlement window",
-        timezone: "Asia/Seoul",
-      },
-    ],
-    status: batchDefinition.status,
-    workflow: batchDefinition.workflow,
+    owner: batch.owner,
+    schedules: batch.schedules!.map((schedule) => ({
+      cron: schedule.cron,
+      enabled: schedule.enabled,
+      id: schedule.scheduleId,
+      name: schedule.name,
+      timezone: schedule.timezone,
+    })),
+    status: batch.status,
+    workflow: batch.workflow,
   },
 });
-
-const approvedBatchRevision = {
-  governedChangeId: "bgc-20260602-payment.daily-close-approved",
-  targetRevisionDigest:
-    "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+const approvedRevision = {
+  governedChangeId: "GC-42",
+  targetRevisionDigest: `sha256:${"b".repeat(64)}`,
 };
 
-const verifyApprovedBatchRevision = async () => ({
-  approvedRevision: approvedBatchRevision,
-  controlStatus: "VERIFIED" as const,
-  verifiedSha: "approved-merge-sha",
-});
+function nativeInput(overrides: Record<string, unknown> = {}) {
+  return {
+    batchId: batch.batchId,
+    configPath: ".batch-governance",
+    cron: "0 5 * * *",
+    definitionPath: ".batch-governance/batches/payment.daily-close.yml",
+    eventName: "schedule",
+    eventSchedule: "0 5 * * *",
+    githubToken: "token",
+    repository: "acme/batch",
+    repositoryId: "99",
+    scheduleId: "payment.daily-close-daily",
+    sha,
+    sourceRunAttempt: 1,
+    sourceRunId: "100",
+    timezone: "Asia/Seoul",
+    verifyBatchRevision: async () => ({
+      approvedRevision,
+      controlStatus: "VERIFIED" as const,
+      verifiedSha: sha,
+    }),
+    workflowPath: batch.workflow.path,
+    workflowRef: batch.workflow.ref,
+    ...overrides,
+  };
+}
 
-describe("schedule request action", () => {
-  it("ships a self-contained dist bundle for runtime dependencies", () => {
+function json(value: unknown): Response {
+  return new Response(JSON.stringify(value), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+describe("schedule request Action", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("ships a self-contained Node24 bundle without cron conversion", () => {
     const dist = readFileSync(
       new URL("../dist/index.js", import.meta.url),
-      "utf-8",
+      "utf8",
     );
-
-    expect(dist).toContain("cron-parser");
     expect(dist).not.toMatch(/from\s+["']cron-parser["']/u);
   });
 
-  it("runs the bundled Action when Node invokes it as the direct entrypoint", () => {
-    const result = spawnSync(
-      process.execPath,
-      [fileURLToPath(new URL("../dist/index.js", import.meta.url))],
-      {
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          GITHUB_REPOSITORY: "invalid-repository",
-        },
-      },
-    );
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(
-      "GITHUB_REPOSITORY must be in owner/repo format.",
-    );
-  });
-
-  it("creates a new delegated scheduled request and approval comment", async () => {
-    const calls: Array<{ method: string; url: string }> = [];
-    const fetcher: typeof fetch = async (input, init) => {
-      const url = String(input);
-      const method = init?.method ?? "GET";
-      calls.push({ method, url });
-
-      if (
-        url.includes(
-          "/contents/.batch-governance/batches/payment.daily-close.yml",
-        )
-      ) {
-        return jsonResponse({
-          content: Buffer.from(batchYaml, "utf-8").toString("base64"),
+  it("creates the initial native occurrence with the full digest identifier", async () => {
+    const fetcher: typeof fetch = async (url, init) => {
+      const path = String(url);
+      if (path.includes("/contents/")) {
+        return json({
+          content: Buffer.from(batchYaml).toString("base64"),
           encoding: "base64",
           path: ".batch-governance/batches/payment.daily-close.yml",
         });
       }
-
-      if (url.includes("/issues?state=all&per_page=100&page=1")) {
-        return jsonResponse([]);
+      if (path.includes("/issues?state=all")) return json([]);
+      if (path.endsWith("/labels")) return json({});
+      if (path.endsWith("/issues") && init?.method === "POST") {
+        return json({ body: "", number: 77, title: "Scheduled run" });
       }
-
-      if (url.endsWith("/labels")) {
-        return jsonResponse({});
-      }
-
-      if (url.endsWith("/issues")) {
-        return jsonResponse({
-          body: null,
-          number: 77,
-          state: "open",
-          title: "Scheduled run payment.daily-close",
-        });
-      }
-
-      if (url.endsWith("/issues/77/comments")) {
-        return jsonResponse({ body: "ok", id: 88 });
-      }
-
-      throw new Error(`Unexpected request: ${method} ${url}`);
+      throw new Error(`Unexpected request: ${path}`);
     };
-
-    const result = await createOrReuseScheduledExecutionRequest({
-      batchId: "payment.daily-close",
-      configPath: ".batch-governance",
-      cron: "0 5 * * *",
-      definitionPath: ".batch-governance/batches/payment.daily-close.yml",
+    const result = await createNativeScheduledExecutionRequest({
+      ...nativeInput(),
       fetcher,
-      githubToken: "token",
-      now: new Date("2026-06-02T05:01:00.000Z"),
-      repository: "always0ne/batchplane",
-      scheduleId: "payment.daily-close-daily",
-      sha: "abc123",
-      timezone: "Asia/Seoul",
-      verifyBatchRevision: verifyApprovedBatchRevision,
     });
-
-    expect(result.status).toBe("created");
-    expect(result.issueNumber).toBe(77);
-    expect(result.approvalCommentId).toBe(88);
-    expect(result.scheduledAt).toBe("2026-06-01T20:00:00.000Z");
-    expect(result.requestId).toBe(
-      "btr-20260601200000-payment.daily-close-payment.daily-close-dail",
-    );
-    expect(calls.some((call) => call.url.endsWith("/issues"))).toBe(true);
+    expect(result).toMatchObject({ issueNumber: 77, status: "created" });
+    expect(result.requestId).toMatch(/^btr-schedule-[0-9a-f]{64}$/u);
   });
 
-  it("reuses existing scheduled request approval when the occurrence already exists", async () => {
-    const existingIssue = await buildExecutionRequestIssue({
-      approvedBatchRevision,
-      batch: batchDefinition,
-      expiresAt: new Date("2026-06-03T05:01:00.000Z"),
-      requestedAt: new Date("2026-06-02T05:01:00.000Z"),
-      requestedBy: "github-actions[bot]",
-      requestId:
-        "btr-20260601200000-payment.daily-close-payment.daily-close-dail",
-      schedule: {
-        definitionCommitSha: "abc123",
-        definitionPath: ".batch-governance/batches/payment.daily-close.yml",
-        scheduleId: "payment.daily-close-daily",
-        scheduledAt: "2026-06-01T20:00:00.000Z",
-      },
-      triggerType: "SCHEDULE",
-      workflowRef: "main",
-    });
-    const approvalBody = [
-      `/bgcp approve requestDigest=${existingIssue.request.requestDigest}`,
-      "",
-      "## BatchPlane Execution Approval",
-      "",
-      "- Decision: APPROVED",
-      "- Approver: @github-actions[bot]",
-      "- Approved at: 2026-06-02T05:01:30.000Z",
-      "- Approval type: SCHEDULE_DELEGATED",
-      `- Request ID: \`${existingIssue.request.requestId}\``,
-      `- Batch ID: \`${existingIssue.request.batchId}\``,
-      `- Request digest: \`${existingIssue.request.requestDigest}\``,
-      "",
-      "<!-- batchplane:execution-approval",
-      "decision=APPROVED",
-      `requestId=${existingIssue.request.requestId}`,
-      `batchId=${existingIssue.request.batchId}`,
-      `requestDigest=${existingIssue.request.requestDigest}`,
-      "approvalType=SCHEDULE_DELEGATED",
-      "-->",
-    ].join("\n");
-
-    const fetcher: typeof fetch = async (input) => {
-      const url = String(input);
-
-      if (
-        url.includes(
-          "/contents/.batch-governance/batches/payment.daily-close.yml",
-        )
-      ) {
-        return jsonResponse({
-          content: Buffer.from(batchYaml, "utf-8").toString("base64"),
+  it("fails closed for a pre-seeded occurrence instead of returning a permit", async () => {
+    const requestId = await createScheduledExecutionRequestId(
+      batch.batchId,
+      "payment.daily-close-daily",
+      "99",
+      "100",
+    );
+    const fetcher: typeof fetch = async (url) => {
+      const path = String(url);
+      if (path.includes("/contents/")) {
+        return json({
+          content: Buffer.from(batchYaml).toString("base64"),
           encoding: "base64",
           path: ".batch-governance/batches/payment.daily-close.yml",
         });
       }
-
-      if (url.includes("/issues?state=all&per_page=100&page=1")) {
-        return jsonResponse([
+      if (path.includes("/issues?state=all")) {
+        return json([
           {
-            body: existingIssue.body,
+            body: `<!-- batchplane:execution-request\nrequestId=${requestId}\n-->`,
             number: 77,
-            state: "open",
-            title: existingIssue.title,
           },
         ]);
       }
-
-      if (url.includes("/issues/77/comments?per_page=100&page=1")) {
-        return jsonResponse([
-          {
-            body: approvalBody,
-            created_at: "2026-06-02T05:01:30.000Z",
-            id: 88,
-            user: { login: "github-actions[bot]" },
-          },
-        ]);
-      }
-
-      if (url.includes("/issues/77/comments?per_page=100&page=2")) {
-        return jsonResponse([]);
-      }
-
-      throw new Error(`Unexpected request: ${url}`);
+      throw new Error(`Unexpected request: ${path}`);
     };
-
-    const result = await createOrReuseScheduledExecutionRequest({
-      batchId: "payment.daily-close",
-      configPath: ".batch-governance",
-      cron: "0 5 * * *",
-      definitionPath: ".batch-governance/batches/payment.daily-close.yml",
-      fetcher,
-      githubToken: "token",
-      now: new Date("2026-06-02T05:01:00.000Z"),
-      repository: "always0ne/batchplane",
-      scheduleId: "payment.daily-close-daily",
-      sha: "abc123",
-      timezone: "Asia/Seoul",
-      verifyBatchRevision: verifyApprovedBatchRevision,
-    });
-
-    expect(result.status).toBe("reused");
-    expect(result.issueNumber).toBe(77);
-    expect(result.approvalCommentId).toBe(88);
-    expect(result.requestDigest).toBe(existingIssue.request.requestDigest);
+    await expect(
+      createNativeScheduledExecutionRequest({ ...nativeInput(), fetcher }),
+    ).rejects.toThrow("NATIVE_SCHEDULE_OCCURRENCE_ALREADY_RECORDED");
   });
 
-  it("does not redispatch when the occurrence is already dispatching or dispatched", async () => {
-    const existingIssue = await buildExecutionRequestIssue({
-      approvedBatchRevision,
-      batch: batchDefinition,
-      expiresAt: new Date("2026-06-03T05:01:00.000Z"),
-      requestedAt: new Date("2026-06-02T05:01:00.000Z"),
-      requestedBy: "github-actions[bot]",
-      requestId:
-        "btr-20260601200000-payment.daily-close-payment.daily-close-dail",
-      schedule: {
-        definitionCommitSha: "abc123",
-        definitionPath: ".batch-governance/batches/payment.daily-close.yml",
-        scheduleId: "payment.daily-close-daily",
-        scheduledAt: "2026-06-01T20:00:00.000Z",
-      },
-      triggerType: "SCHEDULE",
-      workflowRef: "main",
-    });
-    const dispatchBody = [
-      "## BatchPlane Dispatcher",
-      "",
-      "- Status: DISPATCHED",
-      `- Request ID: \`${existingIssue.request.requestId}\``,
-      `- Batch ID: \`${existingIssue.request.batchId}\``,
-      `- Request digest: \`${existingIssue.request.requestDigest}\``,
-      "",
-      "<!-- batchplane:bgcp:dispatcher",
-      "status=DISPATCHED",
-      `requestId=${existingIssue.request.requestId}`,
-      `batchId=${existingIssue.request.batchId}`,
-      `requestDigest=${existingIssue.request.requestDigest}`,
-      "-->",
-    ].join("\n");
-
-    const fetcher: typeof fetch = async (input) => {
-      const url = String(input);
-
-      if (
-        url.includes(
-          "/contents/.batch-governance/batches/payment.daily-close.yml",
-        )
-      ) {
-        return jsonResponse({
-          content: Buffer.from(batchYaml, "utf-8").toString("base64"),
+  it("denies a partial or full rerun and missing native attempt context", async () => {
+    const fetcher: typeof fetch = async (url) => {
+      const path = String(url);
+      if (path.includes("/contents/")) {
+        return json({
+          content: Buffer.from(batchYaml).toString("base64"),
           encoding: "base64",
           path: ".batch-governance/batches/payment.daily-close.yml",
         });
       }
-
-      if (url.includes("/issues?state=all&per_page=100&page=1")) {
-        return jsonResponse([
-          {
-            body: existingIssue.body,
-            number: 77,
-            state: "open",
-            title: existingIssue.title,
-          },
-        ]);
-      }
-
-      if (url.includes("/issues/77/comments?per_page=100&page=1")) {
-        return jsonResponse([
-          {
-            body: dispatchBody,
-            created_at: "2026-06-02T05:02:00.000Z",
-            id: 89,
-            user: { login: "github-actions[bot]" },
-          },
-        ]);
-      }
-
-      if (url.includes("/issues/77/comments?per_page=100&page=2")) {
-        return jsonResponse([]);
-      }
-
-      throw new Error(`Unexpected request: ${url}`);
+      if (path.includes("/issues?state=all")) return json([]);
+      throw new Error(`Unexpected request: ${path}`);
     };
+    await expect(
+      createNativeScheduledExecutionRequest({
+        ...nativeInput({ sourceRunAttempt: 2 }),
+        fetcher,
+      }),
+    ).rejects.toThrow("RERUN_NOT_AUTHORIZED");
+    await expect(
+      createNativeScheduledExecutionRequest({
+        ...nativeInput({ sourceRunAttempt: Number.NaN }),
+        fetcher,
+      }),
+    ).rejects.toThrow("NATIVE_SCHEDULE_RUN_REQUIRED");
+  });
 
-    const result = await createOrReuseScheduledExecutionRequest({
-      batchId: "payment.daily-close",
-      configPath: ".batch-governance",
-      cron: "0 5 * * *",
-      definitionPath: ".batch-governance/batches/payment.daily-close.yml",
-      fetcher,
-      githubToken: "token",
-      now: new Date("2026-06-02T05:01:00.000Z"),
-      repository: "always0ne/batchplane",
-      scheduleId: "payment.daily-close-daily",
-      sha: "abc123",
-      timezone: "Asia/Seoul",
-      verifyBatchRevision: verifyApprovedBatchRevision,
-    });
+  it("clears all permit outputs before a full rerun can inspect or reuse an occurrence", async () => {
+    const eventPath = `/tmp/batchplane-schedule-event-${Date.now()}.json`;
+    const outputPath = `/tmp/batchplane-schedule-request-output-${Date.now()}.txt`;
+    writeFileSync(eventPath, JSON.stringify({ schedule: "0 5 * * *" }));
+    vi.stubEnv("GITHUB_OUTPUT", outputPath);
+    vi.stubGlobal("fetch", (async (url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/contents/")) {
+        return json({
+          content: Buffer.from(batchYaml).toString("base64"),
+          encoding: "base64",
+          path: ".batch-governance/batches/payment.daily-close.yml",
+        });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }) as typeof fetch);
 
-    expect(result.status).toBe("already-dispatched");
-    expect(result.issueNumber).toBe(77);
-    expect(result.approvalCommentId).toBeUndefined();
-    expect(result.requestDigest).toBe(existingIssue.request.requestDigest);
+    await expect(
+      run({
+        GITHUB_EVENT_NAME: "schedule",
+        GITHUB_EVENT_PATH: eventPath,
+        GITHUB_REPOSITORY: "acme/batch",
+        GITHUB_REPOSITORY_ID: "99",
+        GITHUB_RUN_ATTEMPT: "2",
+        GITHUB_RUN_ID: "100",
+        GITHUB_WORKFLOW_REF:
+          "acme/batch/.github/workflows/payment.daily-close.yml@refs/heads/main",
+        GITHUB_WORKFLOW_SHA: sha,
+        "INPUT_BATCH-ID": batch.batchId,
+        "INPUT_CONFIG-PATH": ".batch-governance",
+        INPUT_CRON: "0 5 * * *",
+        "INPUT_DEFINITION-PATH":
+          ".batch-governance/batches/payment.daily-close.yml",
+        "INPUT_GITHUB-TOKEN": "token",
+        "INPUT_SCHEDULE-ID": "payment.daily-close-daily",
+        INPUT_TIMEZONE: "Asia/Seoul",
+      }),
+    ).rejects.toThrow("RERUN_NOT_AUTHORIZED");
+
+    expect(readFileSync(outputPath, "utf8")).toContain("request-id=\n");
+    expect(readFileSync(outputPath, "utf8")).toContain("request-digest=\n");
+    expect(readFileSync(outputPath, "utf8")).toContain("issue-number=\n");
+    expect(readFileSync(outputPath, "utf8")).toContain(
+      "failure-reason=RERUN_NOT_AUTHORIZED",
+    );
   });
 });
-
-function jsonResponse(value: unknown, init?: ResponseInit): Response {
-  return new Response(JSON.stringify(value), {
-    headers: { "Content-Type": "application/json" },
-    status: 200,
-    ...init,
-  });
-}

@@ -1,5 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import {
+  buildExecutionRequestIssue,
+  type BatchDefinition,
+} from "@batchplane/domain";
+import {
+  buildBatchWorkflowYaml,
+  getNativeScheduleWorkflowJobIdentity,
+  inspectNativeScheduleExecution,
+  serializeBatchDefinitionYaml,
+  type GitHubLiteClient,
+} from "@batchplane/github-lite";
 
 import {
   readGateInputFromEnv,
@@ -54,7 +65,7 @@ describe("Gate action runtime", () => {
         runAttempt: 1,
       }),
     ).toEqual({
-      message: "Execution request evidence is present.",
+      message: "Manual execution request evidence is present.",
       result: "ALLOW",
     });
   });
@@ -92,6 +103,28 @@ describe("Gate action runtime", () => {
       message:
         "GitHub Actions reruns are not authorized by BatchPlane. Create a new execution request or approved retry instead.",
       reasonCode: "RERUN_NOT_AUTHORIZED",
+      result: "DENY",
+    });
+  });
+
+  it("requires an explicit valid Run attempt for native schedule context", () => {
+    expect(
+      verifyLiteInput({
+        batchId,
+        configPath: ".batch-governance",
+        eventName: "schedule",
+        eventSchedule: "0 5 * * *",
+        mode: "lite",
+        repositoryId: "99",
+        requestDigest,
+        requestId,
+        sourceRunId: "100",
+        workflowPath,
+        workflowRef: "main",
+        workflowSha: verifiedSha,
+      }),
+    ).toMatchObject({
+      reasonCode: "NATIVE_SCHEDULE_CONTEXT_REQUIRED",
       result: "DENY",
     });
   });
@@ -671,6 +704,220 @@ describe("Gate action runtime", () => {
     });
   });
 
+  it("rejects historical delegated schedule approval evidence for manual execution", async () => {
+    await expect(
+      verifyLiteAuthorization(
+        {
+          ...authorizedGateInput(),
+          fetcher: createGateFetchMock({
+            comments: [
+              buildApprovalComment({ approvalType: "SCHEDULE_DELEGATED" }),
+            ],
+          }),
+        },
+        verifyApprovedRevision,
+      ),
+    ).resolves.toMatchObject({
+      reasonCode: "SCHEDULE_DELEGATED_APPROVAL_NOT_SUPPORTED",
+      result: "DENY",
+    });
+  });
+
+  it("uses the supplied native Issue number and rejects forged canonical schedule evidence", async () => {
+    const native = await createNativeScheduleEvidence();
+    const fetcher = createNativeGateFetch(native);
+    const nativeResult = await verifyLiteAuthorization(
+      native.input(fetcher),
+      verifyNativeApprovedRevision,
+    );
+    expect(nativeResult).toEqual({
+      message:
+        "Native schedule occurrence and approved Batch revision evidence are verified.",
+      result: "ALLOW",
+      verifiedSha,
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.github.com/repos/always0ne/batch/issues/71",
+      expect.anything(),
+    );
+    expect(
+      fetcher.mock.calls.some(([url]) =>
+        String(url).includes("/issues?state=all"),
+      ),
+    ).toBe(false);
+
+    const forged = createNativeGateFetch({
+      ...native,
+      issueBody: native.issueBody.replace("payments-platform", "attacker"),
+    });
+    await expect(
+      verifyLiteAuthorization(
+        native.input(forged),
+        verifyNativeApprovedRevision,
+      ),
+    ).resolves.toMatchObject({
+      reasonCode: "NATIVE_SCHEDULE_REQUEST_UNVERIFIED",
+      result: "DENY",
+    });
+  });
+
+  it("exercises generated business Gate Issue input through exact native verification", async () => {
+    const native = await createNativeScheduleEvidence();
+    const identity = getNativeScheduleWorkflowJobIdentity({
+      scheduleId: "weekday-close",
+    });
+    const workflow = buildBatchWorkflowYaml(native.batch);
+
+    expect(workflow).toContain(`  ${identity.businessJobId}:`);
+    expect(workflow).toContain(
+      `          issue-number: \${{ needs.${identity.controlJobId}.outputs.issue-number }}`,
+    );
+    await expect(
+      verifyLiteAuthorization(
+        native.input(createNativeGateFetch(native)),
+        verifyNativeApprovedRevision,
+      ),
+    ).resolves.toMatchObject({ result: "ALLOW" });
+  });
+
+  it("records a controller-failure DENY in the Gate log without inventing Issue evidence", async () => {
+    const eventPath = `/tmp/batchplane-schedule-event-${Date.now()}.json`;
+    writeFileSync(eventPath, JSON.stringify({ schedule: "0 5 * * *" }));
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(
+      runGateFromEnv({
+        GITHUB_EVENT_NAME: "schedule",
+        GITHUB_EVENT_PATH: eventPath,
+        GITHUB_JOB: "Schedule Daily close [weekday-close]",
+        GITHUB_REPOSITORY: "always0ne/batch",
+        GITHUB_REPOSITORY_ID: "99",
+        GITHUB_RUN_ATTEMPT: "1",
+        GITHUB_RUN_ID: "100",
+        GITHUB_WORKFLOW_REF:
+          "always0ne/batch/.github/workflows/payment.daily-close.yml@refs/heads/main",
+        GITHUB_WORKFLOW_SHA: verifiedSha,
+        "INPUT_BATCH-ID": batchId,
+        "INPUT_CONTROLLER-REASON": "SCHEDULE_REQUEST_FAILED",
+        "INPUT_GATE-JOB-NAME": "Schedule Daily close [weekday-close]",
+        "INPUT_GATE-STEP-NAME": "Verify approved native schedule evidence",
+        INPUT_MODE: "lite",
+        "INPUT_RECORD-EVIDENCE": "true",
+        "INPUT_SCHEDULE-ID": "weekday-close",
+      }),
+    ).resolves.toMatchObject({
+      reasonCode: "SCHEDULE_REQUEST_FAILED",
+      result: "DENY",
+    });
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"result":"DENY"'),
+    );
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"reasonCode":"SCHEDULE_REQUEST_FAILED"'),
+    );
+  });
+
+  it("proves a full rerun controller DENY from the real Gate log without a request permit", async () => {
+    const eventPath = `/tmp/batchplane-full-rerun-event-${Date.now()}.json`;
+    const identity = getNativeScheduleWorkflowJobIdentity({
+      scheduleId: "weekday-close",
+    });
+    writeFileSync(eventPath, JSON.stringify({ schedule: "0 5 * * *" }));
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(
+      runGateFromEnv({
+        GITHUB_EVENT_NAME: "schedule",
+        GITHUB_EVENT_PATH: eventPath,
+        GITHUB_JOB: identity.controlJobId,
+        GITHUB_REPOSITORY: "always0ne/batch",
+        GITHUB_REPOSITORY_ID: "99",
+        GITHUB_RUN_ATTEMPT: "2",
+        GITHUB_RUN_ID: "100",
+        GITHUB_WORKFLOW_REF:
+          "always0ne/batch/.github/workflows/payment.daily-close.yml@refs/heads/main",
+        GITHUB_WORKFLOW_SHA: verifiedSha,
+        "INPUT_BATCH-ID": batchId,
+        "INPUT_GATE-JOB-NAME": identity.controlJobName,
+        "INPUT_GATE-STEP-NAME": "Verify approved native schedule evidence",
+        INPUT_MODE: "lite",
+        "INPUT_RECORD-EVIDENCE": "true",
+        "INPUT_SCHEDULE-ID": "weekday-close",
+      }),
+    ).resolves.toMatchObject({
+      reasonCode: "RERUN_NOT_AUTHORIZED",
+      result: "DENY",
+    });
+
+    const gateLog = log.mock.calls
+      .map(([value]) => String(value))
+      .find((value) => value.includes("BATCHPLANE_GATE_RESULT"));
+    expect(gateLog).toContain('"batchId":"payment.daily-close"');
+    expect(gateLog).toContain('"scheduleId":"weekday-close"');
+    expect(gateLog).not.toContain('"requestId"');
+    expect(gateLog).not.toContain('"requestDigest"');
+
+    const client = {
+      getWorkflowJobLog: vi.fn(async () => ({
+        content: `${new Date().toISOString()} ${gateLog ?? ""}`,
+        jobId: 201,
+        sizeBytes: gateLog?.length ?? 0,
+        truncated: false,
+      })),
+      getWorkflowRun: vi.fn(async () => ({
+        actor: "github-actions[bot]",
+        conclusion: "failure" as const,
+        event: "schedule" as const,
+        id: 100,
+        name: "BatchPlane",
+        repositoryId: "99",
+        runAttempt: 2,
+        status: "completed" as const,
+        url: "https://example.test/runs/100",
+        workflowId: 1,
+        workflowPath,
+      })),
+      listWorkflowRunJobs: vi.fn(async () => [
+        {
+          conclusion: "failure" as const,
+          id: 201,
+          name: identity.controlJobName,
+          status: "completed" as const,
+          steps: [
+            {
+              completedAt: new Date().toISOString(),
+              conclusion: "failure" as const,
+              name: "Verify approved native schedule evidence",
+              number: 1,
+              startedAt: "2020-01-01T00:00:00.000Z",
+              status: "completed" as const,
+            },
+          ],
+        },
+      ]),
+    } as unknown as GitHubLiteClient;
+
+    await expect(
+      inspectNativeScheduleExecution({
+        client,
+        expectedOccurrence: {
+          batchId,
+          requestDigest: `sha256:${"c".repeat(64)}`,
+          requestId: `btr-schedule-${"d".repeat(64)}`,
+          scheduleId: "weekday-close",
+        },
+        expectedRepositoryId: "99",
+        expectedWorkflowPath: workflowPath,
+        repository: { owner: "always0ne", repo: "batch" },
+        runAttempt: 2,
+        runId: 100,
+        schedule: { scheduleId: "weekday-close" },
+      }),
+    ).resolves.toMatchObject({ observation: "BLOCKED" });
+  });
+
   it("sets failing exit code and writes outputs when Gate denies execution", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
@@ -888,6 +1135,108 @@ function buildWorkspacePolicyYaml(mode: WorkspaceApprovalMode) {
     "  approval:",
     `    mode: ${JSON.stringify(mode)}`,
   ].join("\n");
+}
+
+async function createNativeScheduleEvidence() {
+  const nativeBatch: BatchDefinition = {
+    batchId,
+    criticality: "HIGH",
+    domain: "payments",
+    environment: "PROD",
+    execution: { command: "echo run", runsOn: "ubuntu-latest" },
+    gateRequired: true,
+    name: "Daily Close",
+    owner: "payments-platform",
+    schedules: [
+      {
+        cron: "0 5 * * *",
+        enabled: true,
+        name: "Daily close",
+        scheduleId: "weekday-close",
+        timezone: "Asia/Seoul",
+      },
+    ],
+    status: "ACTIVE",
+    workflow: { path: workflowPath, ref: "main" },
+  };
+  const issue = await buildExecutionRequestIssue({
+    approvedBatchRevision: {
+      governedChangeId: "GC-42",
+      targetRevisionDigest: `sha256:${"b".repeat(64)}`,
+    },
+    batch: nativeBatch,
+    requestedAt: new Date("2026-01-02T03:04:05.000Z"),
+    requestedBy: "github-actions[bot]",
+    schedule: {
+      definitionCommitSha: verifiedSha,
+      definitionPath: `.batch-governance/batches/${batchId}.yml`,
+      repositoryId: "99",
+      scheduleId: "weekday-close",
+      sourceRunAttempt: 1,
+      sourceRunId: "100",
+    },
+    triggerType: "SCHEDULE",
+  });
+  const batchYaml = serializeBatchDefinitionYaml(nativeBatch);
+  return {
+    batch: nativeBatch,
+    batchYaml,
+    input: (fetcher: typeof fetch) => ({
+      batchId,
+      configPath: ".batch-governance",
+      eventName: "schedule",
+      eventSchedule: "0 5 * * *",
+      fetcher,
+      githubToken: "ghs_test",
+      issueNumber: "71",
+      mode: "lite",
+      repository: "always0ne/batch",
+      repositoryId: "99",
+      requestDigest: issue.request.requestDigest,
+      requestId: issue.request.requestId,
+      runAttempt: 1,
+      scheduleId: "weekday-close",
+      sourceRunId: "100",
+      workflowPath,
+      workflowRef: "main",
+      workflowSha: verifiedSha,
+    }),
+    issueBody: issue.body,
+  };
+}
+
+async function verifyNativeApprovedRevision() {
+  return {
+    approvedRevision: {
+      governedChangeId: "GC-42",
+      targetRevisionDigest: `sha256:${"b".repeat(64)}`,
+    },
+    controlStatus: "VERIFIED" as const,
+    verifiedSha,
+  };
+}
+
+function createNativeGateFetch(native: {
+  batchYaml: string;
+  issueBody: string;
+}) {
+  return vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/repos/always0ne/batch/issues/71")) {
+      return Response.json({ body: native.issueBody, number: 71 });
+    }
+    if (url.includes(`/contents/.batch-governance/batches/${batchId}.yml`)) {
+      return Response.json({
+        content: Buffer.from(native.batchYaml).toString("base64"),
+        encoding: "base64",
+        path: `.batch-governance/batches/${batchId}.yml`,
+      });
+    }
+    return Response.json(
+      { message: `Unexpected URL: ${url}` },
+      { status: 404 },
+    );
+  }) as unknown as ReturnType<typeof vi.fn<typeof fetch>>;
 }
 
 function createGateFetchMock({

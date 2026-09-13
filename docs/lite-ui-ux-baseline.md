@@ -17,6 +17,13 @@ Lite must read as one connected operational flow:
 7. Let the dispatcher invoke the governed workflow.
 8. Review execution evidence, Gate decisions, failures, and audit history.
 
+For scheduled execution, the approved Batch change authorizes unattended
+occurrences. The native Run records its request, Gate and result in the same
+workflow without per-run human approval or dispatcher handoff. Request detail
+shows the schedule and original governed-revision authority, not a missing
+approval. It links to the exact occurrence/attempt detail. See
+[`schedule-execution-contract.md`](./schedule-execution-contract.md).
+
 ## Screen Responsibilities
 
 - Workspace shows GitHub connection, installation readiness, and
@@ -25,7 +32,9 @@ Lite must read as one connected operational flow:
   affected workflow paths and provide a pull-request action to update them.
 - Registration shows what will be controlled, what will run, where it will run,
   and which governed files the request will change.
-- Approvals shows only work that can still be approved or rejected.
+- Approvals shows only work that can still be approved or rejected. Scheduled
+  occurrences never become manual approval tasks or counts, including while
+  their Gate/result evidence is not yet available.
 - Registration/change detail shows request status, external source metadata,
   governance checklist, and YAML change summary before an internal decision.
 - Execution request detail shows the full judgment record for one request:
@@ -50,7 +59,8 @@ Lite must read as one connected operational flow:
   work, the user's own registration and execution requests, and failure
   follow-up items, with each row linking to the relevant BatchPlane detail
   route. Failure routing is explicit: no valid business-failure follow-up gives
-  the requester `Write follow-up`; a no-follow-up Gate block remains `Gate
+  the manual requester (or the scheduled execution revision's Batch owner)
+  `Write follow-up`; a no-follow-up Gate block remains `Gate
 blocked` evidence work with `Review evidence`, because the batch command did
   not run. `AWAITING_REVIEW` gives only an eligible manager review work;
   `APPROVED` clears author/requester follow-up work; and
@@ -61,7 +71,10 @@ follow-up update`. An assigned `OPEN` or `INVESTIGATING` record may appear as
   the `Gate blocked` label and Gate context.
 - Audit Trail is the evidence timeline. It should show event type, actor, time,
   source link, and compact metadata, with Batch ID and request ID filters.
-- Execution run list is the primary run-history surface. It must show normal,
+- Execution run list includes manual and native schedule executions. Multiple
+  schedules within one platform Run retain distinct detail/log links and exact
+  attempt results; one schedule's failure must not be copied to the others.
+  The list is the primary run-history surface. It must show normal,
   active, business failed, and Gate-blocked workflow runs before failure-only
   shortcuts are added.
 - Failure list or failure shortcuts show only follow-up execution evidence.
@@ -113,6 +126,10 @@ follow-up update`. An assigned `OPEN` or `INVESTIGATING` record may appear as
   - Gate-required status
 - Request digest is audit evidence. It must be visible, but it is not the
   primary decision material.
+- Schedule authority, Gate decision and business outcome are separate facts.
+  No scheduled approval/dispatcher placeholder should imply that a person must
+  act. Unknown nominal time or result must not be filled with an observed time,
+  a fabricated success, or a false business failure.
 - Failed, Gate-blocked, dispatching, dispatched, and rejected execution issues
   are not approval work. They must not be shown with approve/reject controls.
 - Rejecting an execution request must require a reason.

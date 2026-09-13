@@ -87,7 +87,7 @@ describe("BatchDefinition codec", () => {
 });
 
 describe("GitHub workflow generation", () => {
-  it("emits Gate-before-command workflow YAML and converted schedule entries", () => {
+  it("emits Gate-before-command workflow YAML and native schedule entries", () => {
     const workflow = buildBatchWorkflowYaml(definition);
 
     expect(workflow).toContain("uses: always0ne/batchplane/actions/gate@main");
@@ -103,13 +103,92 @@ describe("GitHub workflow generation", () => {
     expect(workflow.indexOf("batchplane-gate:")).toBeLessThan(
       workflow.indexOf("run-batch:"),
     );
-    expect(workflow).toContain('- cron: "0 20 * * *"');
+    expect(workflow).toContain('- cron: "0 5 * * *"');
+    expect(workflow).toContain('timezone: "Asia/Seoul"');
+
+    const businessStart = workflow.indexOf(
+      "  run-schedule_64_61_69_6c_79_2d_63_6c_6f_73_65:",
+    );
+    const resultStart = workflow.indexOf(
+      "  result-schedule_64_61_69_6c_79_2d_63_6c_6f_73_65:",
+    );
+    const businessBlock = workflow.slice(businessStart, resultStart);
+    const resultBlock = workflow.slice(resultStart);
+
+    expect(businessBlock).toContain(
+      "issue-number: ${{ needs.schedule_64_61_69_6c_79_2d_63_6c_6f_73_65.outputs.issue-number }}",
+    );
+    expect(resultBlock).toContain(
+      "GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    );
   });
 
-  it("converts timezone-aware schedule cron text deterministically", () => {
+  it("keeps timezone-aware schedule cron text native", () => {
     expect(formatGeneratedScheduleCrons(definition.schedules![0]!)).toBe(
-      "0 20 * * *",
+      "0 5 * * *",
     );
+  });
+
+  it("keeps result recorders bound to their own cron while preserving same-timezone schedule IDs", () => {
+    const workflow = buildBatchWorkflowYaml({
+      ...definition,
+      schedules: [
+        {
+          cron: "0 5 * * *",
+          enabled: true,
+          name: "First close",
+          scheduleId: "first-close",
+          timezone: "Asia/Seoul",
+        },
+        {
+          cron: "30 5 * * *",
+          enabled: true,
+          name: "Second close",
+          scheduleId: "second-close",
+          timezone: "Asia/Seoul",
+        },
+      ],
+    });
+
+    expect(workflow).toContain(
+      "if: github.event_name == 'schedule' && github.event.schedule == '0 5 * * *' && always() && needs.schedule_66_69_72_73_74_2d_63_6c_6f_73_65.outputs.issue-number != ''",
+    );
+    expect(workflow).toContain(
+      "if: github.event_name == 'schedule' && github.event.schedule == '30 5 * * *' && always() && needs.schedule_73_65_63_6f_6e_64_2d_63_6c_6f_73_65.outputs.issue-number != ''",
+    );
+    expect(workflow).not.toContain(
+      "if: github.event_name == 'schedule' && always()",
+    );
+    expect(workflow).toContain(
+      "issue-number: ${{ needs.schedule_66_69_72_73_74_2d_63_6c_6f_73_65.outputs.issue-number }}",
+    );
+    expect(workflow).toContain(
+      "GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    );
+  });
+
+  it("rejects same cron entries with different timezones by stable code", () => {
+    expect(() =>
+      buildBatchWorkflowYaml({
+        ...definition,
+        schedules: [
+          {
+            cron: "0 5 * * *",
+            enabled: true,
+            name: "Seoul",
+            scheduleId: "seoul-close",
+            timezone: "Asia/Seoul",
+          },
+          {
+            cron: "0 5 * * *",
+            enabled: true,
+            name: "New York",
+            scheduleId: "new-york-close",
+            timezone: "America/New_York",
+          },
+        ],
+      }),
+    ).toThrow("SCHEDULE_TIMEZONE_AMBIGUOUS");
   });
 
   it("serializes malformed custom runner labels and arrays structurally", () => {

@@ -23,6 +23,21 @@ inputs:
   ref:
     required: false
     description: Repository ref that contains the governed batch definition
+  issue-number:
+    required: false
+    description: Issue that receives an acknowledged native Gate decision
+  record-evidence:
+    required: false
+    description: Record the Gate decision before releasing a native schedule business job
+  controller-reason:
+    required: false
+    description: Schedule controller denial reason when no request evidence was emitted
+  gate-job-name:
+    required: false
+    description: Generated GitHub job name used for exact result-log correlation
+  gate-step-name:
+    required: false
+    description: Generated Gate step name used for exact result-log correlation
   schedule-id:
     required: false
     description: Schedule identifier for schedule-triggered executions

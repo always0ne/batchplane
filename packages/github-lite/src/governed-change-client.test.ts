@@ -62,6 +62,64 @@ const installedWorkspacePolicy = readFileSync(
 );
 
 describe("GitHub Lite governed change client", () => {
+  it("normalizes a cleared owner before preview and persists the same owner", async () => {
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({ currentUser: { login: "developer" } }),
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      client,
+    );
+    const draft = {
+      ...registrationDraft,
+      batch: { ...registrationDraft.batch, owner: "   " },
+    };
+
+    const preview = await governedChanges.previewBatchChange(draft);
+    const previewBatch = preview.files.find(
+      (file) => file.path === ".batch-governance/batches/payment.month-end.yml",
+    );
+    expect(previewBatch?.nextContent).toContain('owner: "developer"');
+
+    const created = await governedChanges.createBatchChangeRequest(draft);
+    const pullRequest = findCreatedPullRequest(
+      client,
+      created.request.requestLocator,
+    );
+    expect(
+      client.state.files.find(
+        (file) =>
+          file.branch === pullRequest.head &&
+          file.path === ".batch-governance/batches/payment.month-end.yml",
+      )?.content,
+    ).toBe(previewBatch?.nextContent);
+  });
+
+  it("uses the authenticated requester for an existing blank owner draft", async () => {
+    const state = createGitHubLiteMockState({
+      currentUser: { login: "developer" },
+    });
+    state.files = state.files.map((file) =>
+      file.path === ".batch-governance/batches/payment.daily-close.yml"
+        ? {
+            ...file,
+            content: file.content.replace(/owner: .*$/mu, 'owner: ""'),
+          }
+        : file,
+    );
+    const governedChanges = createGitHubLiteGovernedChangeClient(
+      session(),
+      createMockGitHubLiteClient(state),
+    );
+
+    await expect(
+      governedChanges.loadBatchChangeDraft({
+        batchId: "payment.daily-close",
+        mode: "change",
+      }),
+    ).resolves.toMatchObject({ batch: { owner: "developer" } });
+  });
+
   it("reads the installed Workspace policy fixture from its canonical path", async () => {
     const state = createGitHubLiteMockState({
       currentUser: { login: "developer" },

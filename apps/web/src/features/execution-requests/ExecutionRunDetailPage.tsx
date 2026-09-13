@@ -1,12 +1,12 @@
 import type {
   BatchPlaneRuntimePorts,
-  ExecutionRun,
   ExecutionRunJobLog,
   FailureFollowUp,
   FailureFollowUpReviewDecision,
   FailureFollowUpReviewDecisionValue,
   FailureFollowUpStatus,
 } from "@batchplane/domain";
+import type { ExecutionRunPresentation as ExecutionRun } from "@batchplane/ui-client";
 import {
   Activity,
   AlertTriangle,
@@ -43,7 +43,7 @@ type ExecutionRunDetailPageProps = {
 };
 
 type ExecutionRunJobItem = NonNullable<ExecutionRun["jobs"]>[number];
-type ExecutionRunJobKind = "business" | "gate";
+type ExecutionRunJobKind = "business" | "gate" | "source";
 type LoadExecutionRunJobLog = (jobId: string) => Promise<ExecutionRunJobLog>;
 type LogViewMode = "focused" | "full";
 type JobLogState =
@@ -67,6 +67,7 @@ export function ExecutionRunDetailPage({
 }: ExecutionRunDetailPageProps = {}) {
   const { runId = "" } = useParams();
   const [searchParams] = useSearchParams();
+  const attemptParameter = searchParams.get("runAttempt");
   const { t } = useTranslation("executionRequests");
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<PageState>({ type: "loading" });
@@ -86,7 +87,19 @@ export function ExecutionRunDetailPage({
 
       try {
         const runtime = createRuntime(session);
-        const run = await runtime.executions.getExecutionRun({ runId });
+        const runAttempt =
+          attemptParameter === null ? undefined : Number(attemptParameter);
+        if (
+          runAttempt !== undefined &&
+          (!Number.isSafeInteger(runAttempt) || runAttempt < 1)
+        ) {
+          if (!ignoreResult) setState({ type: "not-found", runId });
+          return;
+        }
+        const run = await runtime.executions.getExecutionRun({
+          runId,
+          ...(runAttempt === undefined ? {} : { runAttempt }),
+        });
 
         if (ignoreResult) {
           return;
@@ -113,7 +126,7 @@ export function ExecutionRunDetailPage({
     return () => {
       ignoreResult = true;
     };
-  }, [createRuntime, readSession, reloadToken, runId, t]);
+  }, [attemptParameter, createRuntime, readSession, reloadToken, runId, t]);
 
   if (state.type === "loading") {
     return <LoadingState message={t("runDetail.states.loading")} />;
@@ -273,7 +286,11 @@ export function ExecutionRunDetailPage({
     <section>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader
-          title={t("runDetail.title")}
+          title={t(
+            run.evidenceScope === "SOURCE_RUN"
+              ? "runDetail.sourceRunTitle"
+              : "runDetail.title",
+          )}
           subtitle={t("runDetail.subtitle", { runId: run.runId })}
         />
         <div className="flex flex-wrap gap-2">
@@ -314,7 +331,7 @@ export function ExecutionRunDetailPage({
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <RunSummaryPanel run={run} />
         <aside className="space-y-4">
           <GateOutcomePanel run={run} />
@@ -329,7 +346,7 @@ export function ExecutionRunDetailPage({
             />
           </div>
         ) : null}
-        <div className="xl:col-span-2">
+        <div className="min-w-0 max-w-full xl:col-span-2">
           <JobSummaryPanel onLoadLog={loadExecutionRunJobLog} run={run} />
         </div>
       </div>
@@ -764,7 +781,14 @@ function RunSummaryPanel({ run }: { run: ExecutionRun }) {
         />
         <DetailFact
           label={t("runDetail.fields.completedAt")}
-          value={run.completedAt || t("runDetail.values.inProgress")}
+          value={
+            run.completedAt ||
+            t(
+              run.status === "QUEUED" || run.status === "RUNNING"
+                ? "runDetail.values.inProgress"
+                : "runDetail.values.unknown",
+            )
+          }
         />
       </dl>
     </article>
@@ -874,15 +898,17 @@ function BusinessOutcomePanel({ run }: { run: ExecutionRun }) {
         </h2>
       </div>
       <p className="mt-3 text-sm font-semibold text-bp-muted">
-        {blocked
-          ? t("runDetail.business.notReached")
-          : businessFailed
-            ? t("runDetail.business.failed")
-            : run.status === "FAILED"
-              ? t("runDetail.business.verificationUnknown")
-              : t("runDetail.business.current", {
-                  status: t(`runDetail.status.${run.status}`),
-                })}
+        {run.evidenceScope === "SOURCE_RUN"
+          ? t("runDetail.business.sourceRunUnconfirmed")
+          : blocked
+            ? t("runDetail.business.notReached")
+            : businessFailed
+              ? t("runDetail.business.failed")
+              : run.status === "FAILED"
+                ? t("runDetail.business.verificationUnknown")
+                : t("runDetail.business.current", {
+                    status: t(`runDetail.status.${run.status}`),
+                  })}
       </p>
     </article>
   );
@@ -899,7 +925,7 @@ function JobSummaryPanel({
   const jobs = run.jobs ?? [];
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="min-w-0 max-w-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2">
         <GitBranch className="h-5 w-5 text-bp-git" aria-hidden="true" />
         <h2 className="text-lg font-semibold text-bp-graphite">
@@ -914,16 +940,22 @@ function JobSummaryPanel({
           {t("runDetail.jobs.empty")}
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-slate-100">
+        <ul className="mt-4 min-w-0 divide-y divide-slate-100">
           {jobs.map((job) => (
             <li
-              className="grid gap-3 py-3 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_8rem_9rem_11rem]"
+              className="grid min-w-0 grid-cols-1 gap-3 py-3 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_8rem_9rem_11rem]"
               key={job.jobId}
             >
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold text-bp-graphite">{job.name}</p>
-                  <JobKindBadge kind={getJobKind(job)} />
+                  <JobKindBadge
+                    kind={
+                      run.evidenceScope === "SOURCE_RUN"
+                        ? "source"
+                        : getJobKind(job)
+                    }
+                  />
                 </div>
                 <p className="mt-1 font-mono text-xs text-bp-muted">
                   {t("runDetail.jobs.jobId", { jobId: job.jobId })}
@@ -933,7 +965,15 @@ function JobSummaryPanel({
               <p className="text-sm font-semibold text-bp-muted">
                 {job.conclusion || t("runDetail.values.inProgress")}
               </p>
-              <JobLogAction job={job} onLoadLog={onLoadLog} />
+              <JobLogAction
+                job={job}
+                kind={
+                  run.evidenceScope === "SOURCE_RUN"
+                    ? "source"
+                    : getJobKind(job)
+                }
+                onLoadLog={onLoadLog}
+              />
             </li>
           ))}
         </ul>
@@ -956,13 +996,14 @@ function JobKindBadge({ kind }: { kind: ExecutionRunJobKind }) {
 
 function JobLogAction({
   job,
+  kind,
   onLoadLog,
 }: {
   job: ExecutionRunJobItem;
+  kind: ExecutionRunJobKind;
   onLoadLog: LoadExecutionRunJobLog;
 }) {
   const { t } = useTranslation("executionRequests");
-  const kind = getJobKind(job);
   const [logState, setLogState] = useState<JobLogState>({ type: "idle" });
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -987,14 +1028,6 @@ function JobLogAction({
     }
   }
 
-  if (!job.url) {
-    return (
-      <div className="text-sm font-semibold text-bp-muted">
-        {t("runDetail.jobs.logUnavailable")}
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="space-y-2">
@@ -1016,20 +1049,26 @@ function JobLogAction({
                 ? t("runDetail.jobs.loadingLog")
                 : kind === "gate"
                   ? t("runDetail.jobs.viewGateLog")
-                  : t("runDetail.jobs.viewBusinessLog")}
+                  : kind === "source"
+                    ? t("runDetail.jobs.viewSourceLog")
+                    : t("runDetail.jobs.viewBusinessLog")}
           </button>
-          <a
-            aria-label={t("runDetail.jobs.openLogForJob", { name: job.name })}
-            className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-            href={job.url}
-            rel="noreferrer"
-            target="_blank"
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            {kind === "gate"
-              ? t("runDetail.jobs.openGateLog")
-              : t("runDetail.jobs.openBusinessLog")}
-          </a>
+          {job.url ? (
+            <a
+              aria-label={t("runDetail.jobs.openLogForJob", { name: job.name })}
+              className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
+              href={job.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              {kind === "gate"
+                ? t("runDetail.jobs.openGateLog")
+                : kind === "source"
+                  ? t("runDetail.jobs.openSourceLog")
+                  : t("runDetail.jobs.openBusinessLog")}
+            </a>
+          ) : null}
         </div>
         {logState.type === "error" ? (
           <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
@@ -1038,9 +1077,10 @@ function JobLogAction({
         ) : null}
       </div>
       {logState.type === "loaded" ? (
-        <div className="lg:col-span-4">
+        <div className="min-w-0 max-w-full lg:col-span-4">
           <JobLogViewer
             job={job}
+            kind={kind}
             log={logState.log}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
@@ -1053,17 +1093,18 @@ function JobLogAction({
 
 function JobLogViewer({
   job,
+  kind,
   log,
   searchTerm,
   setSearchTerm,
 }: {
   job: ExecutionRunJobItem;
+  kind: ExecutionRunJobKind;
   log: ExecutionRunJobLog;
   searchTerm: string;
   setSearchTerm: (value: string) => void;
 }) {
   const { t } = useTranslation("executionRequests");
-  const kind = getJobKind(job);
   const [viewMode, setViewMode] = useState<LogViewMode>(
     kind === "business" ? "focused" : "full",
   );
@@ -1091,7 +1132,7 @@ function JobLogViewer({
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-slate-950 p-3 text-slate-100">
+    <section className="min-w-0 max-w-full rounded-lg border border-slate-200 bg-slate-950 p-3 text-slate-100">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-bold">
@@ -1165,7 +1206,7 @@ function JobLogViewer({
           })}
         </p>
       ) : null}
-      <pre className="mt-3 max-h-96 overflow-auto rounded-md bg-black p-3 text-xs leading-relaxed text-slate-100">
+      <pre className="mt-3 max-h-96 w-full min-w-0 max-w-full overflow-auto rounded-md bg-black p-3 text-xs leading-relaxed text-slate-100">
         {view.text ||
           (searchTerm.trim()
             ? t("runDetail.jobs.searchEmpty")
@@ -1345,10 +1386,14 @@ function getRunStatusPalette(status: ExecutionRun["status"]): string {
       return "bg-red-50 text-red-800";
     case "CANCELED":
       return "bg-slate-100 text-bp-muted";
+    case "UNCONFIRMED":
+      return "bg-slate-100 text-slate-700";
   }
 }
 
 function getJobKind(job: ExecutionRunJobItem): ExecutionRunJobKind {
+  if (job.role === "GATE") return "gate";
+  if (job.role === "BUSINESS") return "business";
   return isGateJob(job) ? "gate" : "business";
 }
 

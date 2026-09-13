@@ -144,6 +144,26 @@ describe("BatchRegistrationPage", () => {
     expect(screen.getByText("배치 명령 전 Gate 필수 적용")).toBeInTheDocument();
   });
 
+  it("applies the authenticated owner default when the actual owner input loses focus", async () => {
+    renderPage(
+      createClient({
+        loadBatchChangeDraft: vi.fn().mockResolvedValue({
+          ...newBatchDraft,
+          batch: { ...newBatchDraft.batch, owner: "ops-team" },
+          defaultOwner: "developer",
+        }),
+      }),
+    );
+
+    const owner = await screen.findByLabelText("Owner");
+    fireEvent.change(owner, { target: { value: "" } });
+    expect(owner).toHaveValue("");
+
+    fireEvent.blur(owner);
+
+    await waitFor(() => expect(owner).toHaveValue("developer"));
+  });
+
   it("resets the loaded editor for a new client but preserves form state for a locale change", async () => {
     const firstClient = createClient({
       loadBatchChangeDraft: vi.fn().mockResolvedValue({

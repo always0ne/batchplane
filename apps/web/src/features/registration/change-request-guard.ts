@@ -180,6 +180,7 @@ function findExecutionRequestBlockers({
     if (
       !request ||
       request.batchId !== batchId ||
+      request.triggerType === "SCHEDULE" ||
       !isBlockingExecutionStatus(request.status)
     ) {
       return [];

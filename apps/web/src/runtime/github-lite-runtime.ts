@@ -33,9 +33,11 @@ import {
   createGitHubLiteClient,
   getBatchDefinitionPath,
   hasAuthoritativeGovernedChangeRequest,
+  parseNativeScheduleExecutionLocator,
   parseExecutionGateResult,
   parseBatchDefinitionYaml as parseGovernedBatchDefinitionYaml,
   parseGovernedChangeRequestEvidence,
+  projectNativeScheduleRun,
   verifyApprovedBatchRevision,
   type GitHubIssue,
   type GitHubIssueComment,
@@ -47,8 +49,10 @@ import {
   type GitHubWorkflowJob,
   type GitHubWorkflowJobLog,
   type GitHubWorkflowRun,
+  type NativeSchedulePresentation,
 } from "@batchplane/github-lite";
 import { sha256BytesHex } from "@batchplane/digest";
+import type { ExecutionRunPresentation } from "@batchplane/ui-client";
 
 import { parseExecutionRequestDetail } from "../features/approvals/approval-model";
 import {
@@ -214,26 +218,36 @@ export function createGitHubLiteRuntime(
 
     audit: {
       async listAuditTimeline({ limit = 50 } = {}) {
-        const [issues, pullRequests, workflowRuns, workflows] =
-          await Promise.all([
-            client.listIssues({
-              ...repositoryRef,
-              state: "all",
-            }),
-            client.listPullRequests({
-              ...repositoryRef,
-              state: "all",
-            }),
-            client.listWorkflowRuns({
-              ...repositoryRef,
-              event: "workflow_dispatch",
-              perPage: Math.max(limit, 20),
-            }),
-            client.listWorkflows({
-              ...repositoryRef,
-              dispatchableOnly: true,
-            }),
-          ]);
+        const [
+          issues,
+          pullRequests,
+          manualWorkflowRuns,
+          scheduledWorkflowRuns,
+          workflows,
+        ] = await Promise.all([
+          client.listIssues({
+            ...repositoryRef,
+            state: "all",
+          }),
+          client.listPullRequests({
+            ...repositoryRef,
+            state: "all",
+          }),
+          client.listWorkflowRuns({
+            ...repositoryRef,
+            event: "workflow_dispatch",
+            perPage: Math.max(limit, 20),
+          }),
+          client.listWorkflowRuns({
+            ...repositoryRef,
+            event: "schedule",
+            perPage: Math.max(limit, 20),
+          }),
+          client.listWorkflows({
+            ...repositoryRef,
+            dispatchableOnly: true,
+          }),
+        ]);
         const [issueComments, pullRequestComments] = await Promise.all([
           Promise.all(
             issues.map((issue) =>
@@ -274,6 +288,55 @@ export function createGitHubLiteRuntime(
             repositoryRef,
             requests: executionRequests,
           });
+        const nativeAuditRuns = await Promise.all(
+          scheduledWorkflowRuns.flatMap((run) =>
+            executionRequests
+              .filter(
+                (request) =>
+                  request.triggerType === "SCHEDULE" &&
+                  request.schedule?.sourceRunId === String(run.id),
+              )
+              .map(async (request) => {
+                const projection = await projectNativeScheduleRun({
+                  client,
+                  repository: repositoryRef,
+                  request,
+                  run,
+                });
+                return projection
+                  ? toNativeScheduleRunAuditItem(request, projection)
+                  : undefined;
+              }),
+          ),
+        );
+        const projectedSourceAttempts = new Set(
+          nativeAuditRuns.flatMap((item) =>
+            item
+              ? [`${item.metadata?.runId}:${item.metadata?.runAttempt}`]
+              : [],
+          ),
+        );
+        const sourceAuditRuns = scheduledWorkflowRuns
+          .filter(
+            (run) =>
+              !projectedSourceAttempts.has(`${run.id}:${run.runAttempt}`),
+          )
+          .map((run) => ({
+            ...toWorkflowRunAuditItem(
+              run,
+              workflowById.get(run.workflowId)?.path,
+            ),
+            itemId: `source-run-${run.id}-${run.runAttempt}`,
+            summary: `Source run ${run.id} attempt ${run.runAttempt}: unconfirmed`,
+            metadata: compactAuditMetadata({
+              batchId: run.batchId,
+              evidenceScope: "SOURCE_RUN",
+              executionLocator: String(run.id),
+              observation: "UNCONFIRMED",
+              runAttempt: run.runAttempt,
+              runId: run.id,
+            }),
+          }));
 
         return [
           ...pullRequests.flatMap((pullRequest, index) =>
@@ -289,11 +352,15 @@ export function createGitHubLiteRuntime(
               request,
             }),
           ),
-          ...workflowRuns.map((run) => {
+          ...manualWorkflowRuns.map((run) => {
             const workflow = workflowById.get(run.workflowId);
 
             return toWorkflowRunAuditItem(run, workflow?.path);
           }),
+          ...nativeAuditRuns.filter((item): item is NonNullable<typeof item> =>
+            Boolean(item),
+          ),
+          ...sourceAuditRuns,
         ]
           .sort(compareAuditItemsDesc)
           .slice(0, limit);
@@ -365,20 +432,12 @@ export function createGitHubLiteRuntime(
           );
         }
 
-        const run = await loadWorkflowRunForFailureFollowUp({
+        const runContext = await loadFailureFollowUpRunContext({
           client,
           repositoryRef,
           runId,
         });
-        const requests = await loadExecutionApprovalRequests(
-          client,
-          repositoryRef,
-        );
-        const request = findExecutionRequestForRun(
-          run,
-          requests,
-          run.workflowPath,
-        );
+        const { evidenceRunId, request, run } = runContext;
 
         if (!request) {
           throw new Error(
@@ -399,7 +458,7 @@ export function createGitHubLiteRuntime(
           followUpId: createFailureFollowUpId(run.id),
           owner: normalizedOwner,
           requestId: request.requestId,
-          runId: String(run.id),
+          runId: evidenceRunId,
           reviewStatus: "AWAITING_REVIEW",
           reviews: [],
           status,
@@ -432,7 +491,7 @@ export function createGitHubLiteRuntime(
         ).find(
           (candidate) =>
             candidate.followUpId === followUp.followUpId &&
-            candidate.runId === String(run.id),
+            candidate.runId === evidenceRunId,
         );
 
         if (!persistedFollowUp) {
@@ -458,20 +517,12 @@ export function createGitHubLiteRuntime(
         failureFollowUpReviewsInFlight.add(followUpId);
 
         try {
-          const run = await loadWorkflowRunForFailureFollowUp({
+          const runContext = await loadFailureFollowUpRunContext({
             client,
             repositoryRef,
             runId,
           });
-          const requests = await loadExecutionApprovalRequests(
-            client,
-            repositoryRef,
-          );
-          const request = findExecutionRequestForRun(
-            run,
-            requests,
-            run.workflowPath,
-          );
+          const { evidenceRunId, request, run } = runContext;
 
           if (!request) {
             throw new Error(
@@ -497,7 +548,7 @@ export function createGitHubLiteRuntime(
           const followUp = followUps.find(
             (candidate) =>
               candidate.followUpId === followUpId &&
-              candidate.runId === String(run.id),
+              candidate.runId === evidenceRunId,
           );
 
           if (!followUp) {
@@ -530,7 +581,7 @@ export function createGitHubLiteRuntime(
             reviewedAt: new Date().toISOString(),
             reviewer: user.login,
             reviewId: createFailureFollowUpReviewId(run.id),
-            runId: String(run.id),
+            runId: evidenceRunId,
             selfReview,
           };
           const comment = await client.createIssueComment({
@@ -562,7 +613,7 @@ export function createGitHubLiteRuntime(
             .find(
               (candidate) =>
                 candidate.followUpId === followUpId &&
-                candidate.runId === String(run.id),
+                candidate.runId === evidenceRunId,
             )
             ?.reviews.find(
               (candidate) => candidate.reviewId === review.reviewId,
@@ -629,7 +680,53 @@ export function createGitHubLiteRuntime(
         };
       },
 
-      async getExecutionRun({ runId }) {
+      async getExecutionRun({ runId, runAttempt }) {
+        const nativeLocator = parseNativeScheduleExecutionLocator(runId);
+        if (nativeLocator) {
+          const [run, requests] = await Promise.all([
+            client.getWorkflowRun({
+              ...repositoryRef,
+              runAttempt: nativeLocator.runAttempt,
+              runId: Number(nativeLocator.sourceRunId),
+            }),
+            loadExecutionApprovalRequests(client, repositoryRef),
+          ]);
+          const request = requests.find(
+            (candidate) =>
+              candidate.requestId === nativeLocator.requestId &&
+              candidate.schedule?.sourceRunId === nativeLocator.sourceRunId,
+          );
+          if (!run || !request) {
+            return null;
+          }
+          const projection = await projectNativeScheduleRun({
+            client,
+            repository: repositoryRef,
+            request,
+            run,
+          });
+          if (!projection) return null;
+          const jobs = await loadNativeProjectionJobs({
+            client,
+            projection,
+            repositoryRef,
+          });
+          return toExecutionRun(projection.run, {
+            failureFollowUps: (
+              await projectFailureFollowUpsForRequests({
+                client,
+                includeReviewCapabilities: true,
+                repositoryRef,
+                requests: [request],
+              })
+            ).get(request.issue.number),
+            gateDecision: projection.gateDecision,
+            jobs,
+            jobRoles: nativeProjectionJobRoles(projection),
+            nativeSchedule: projection.presentation,
+            request,
+          });
+        }
         const numericRunId = Number(runId);
 
         if (!Number.isInteger(numericRunId) || numericRunId <= 0) {
@@ -639,6 +736,7 @@ export function createGitHubLiteRuntime(
         const run = await client.getWorkflowRun({
           ...repositoryRef,
           runId: numericRunId,
+          ...(runAttempt === undefined ? {} : { runAttempt }),
         });
 
         if (!run) {
@@ -654,17 +752,21 @@ export function createGitHubLiteRuntime(
           loadExecutionApprovalRequests(client, repositoryRef),
           findWorkflowForRun(client, repositoryRef, run),
         ]);
-        const request = findExecutionRequestForRun(
-          run,
-          requests,
-          workflow?.path,
-        );
+        if (run.event === "schedule") {
+          return toNativeSourceRun(run, jobs, workflow);
+        }
         const gateDecision = await loadGateDecisionForRun({
           client,
           jobs,
           repositoryRef,
           run,
         });
+        const request = findExecutionRequestForRun(
+          run,
+          requests,
+          workflow?.path,
+          gateDecision?.requestId,
+        );
 
         const failureFollowUpsByIssue =
           await projectFailureFollowUpsForRequests({
@@ -707,53 +809,91 @@ export function createGitHubLiteRuntime(
         requestId,
         workflowPath,
       } = {}) {
-        const [runs, workflows, requests] = await Promise.all([
-          client.listWorkflowRuns({
-            ...repositoryRef,
-            event: "workflow_dispatch",
-            perPage: limit,
-          }),
-          client.listWorkflows({
-            ...repositoryRef,
-            dispatchableOnly: true,
-          }),
-          loadExecutionApprovalRequests(client, repositoryRef),
-        ]);
+        const [manualRuns, scheduledRuns, workflows, requests] =
+          await Promise.all([
+            client.listWorkflowRuns({
+              ...repositoryRef,
+              event: "workflow_dispatch",
+              perPage: limit,
+            }),
+            client.listWorkflowRuns({
+              ...repositoryRef,
+              event: "schedule",
+              perPage: limit,
+            }),
+            client.listWorkflows({
+              ...repositoryRef,
+              dispatchableOnly: true,
+            }),
+            loadExecutionApprovalRequests(client, repositoryRef),
+          ]);
+        const runs = [...manualRuns, ...scheduledRuns]
+          .filter(
+            (run, index, candidates) =>
+              candidates.findIndex(
+                (candidate) =>
+                  candidate.id === run.id &&
+                  candidate.runAttempt === run.runAttempt,
+              ) === index,
+          )
+          .sort((left, right) => right.id - left.id)
+          .slice(0, limit);
         const workflowById = new Map(
           workflows.map((workflow) => [workflow.id, workflow]),
         );
         const jobsByRunId = await loadWorkflowRunJobsForList({
           client,
           repositoryRef,
-          runs,
-        });
-        const runContexts = runs.map((run) => {
-          const workflow = workflowById.get(run.workflowId);
-          const request = findExecutionRequestForRun(
-            run,
-            requests,
-            workflow?.path,
-          );
-
-          return { request, run, workflow };
+          runs: runs.filter((run) => run.event !== "schedule"),
         });
         const gateDecisionsByRunId = await loadGateDecisionsForList({
           client,
           jobsByRunId,
           repositoryRef,
-          runs,
+          runs: runs.filter((run) => run.event !== "schedule"),
         });
+        const runContexts = runs.map((run) => {
+          const workflow = workflowById.get(run.workflowId);
+          const request =
+            run.event === "schedule"
+              ? undefined
+              : findExecutionRequestForRun(
+                  run,
+                  requests,
+                  workflow?.path,
+                  gateDecisionsByRunId.get(run.id)?.requestId,
+                );
+
+          return { request, run, workflow };
+        });
+        const nativeRequests = requests.filter(
+          (request) =>
+            request.triggerType === "SCHEDULE" &&
+            request.schedule &&
+            runs.some(
+              (run) =>
+                run.event === "schedule" &&
+                String(run.id) === request.schedule?.sourceRunId,
+            ),
+        );
         const failureFollowUpsByIssue =
           await projectFailureFollowUpsForRequests({
             client,
             includeReviewCapabilities: true,
             repositoryRef,
-            requests: runContexts.flatMap(({ request }) =>
-              request ? [request] : [],
-            ),
+            requests: [
+              ...runContexts.flatMap(({ request }) =>
+                request ? [request] : [],
+              ),
+              ...nativeRequests,
+            ],
           });
 
-        return runContexts
+        const projectedRuns = runContexts
+          // A scheduled Actions Run can contain multiple schedule occurrences.
+          // Native occurrences and uncorrelated source observations are projected
+          // separately; the shared Run conclusion cannot belong to one schedule.
+          .filter(({ run }) => run.event !== "schedule")
           .map(({ request, run, workflow }) =>
             toExecutionRun(run, {
               failureFollowUps: request
@@ -764,7 +904,74 @@ export function createGitHubLiteRuntime(
               request,
               workflow,
             }),
-          )
+          );
+        const nativeRuns = await Promise.all(
+          runContexts
+            .filter(({ run }) => run.event === "schedule")
+            .flatMap(({ run }) =>
+              requests
+                .filter(
+                  (request) =>
+                    request.triggerType === "SCHEDULE" &&
+                    request.schedule?.sourceRunId === String(run.id),
+                )
+                .map(async (request) => {
+                  const projection = await projectNativeScheduleRun({
+                    client,
+                    repository: repositoryRef,
+                    request,
+                    run,
+                  });
+                  return projection
+                    ? toExecutionRun(projection.run, {
+                        gateDecision: projection.gateDecision,
+                        jobs: await loadNativeProjectionJobs({
+                          client,
+                          projection,
+                          repositoryRef,
+                        }),
+                        jobRoles: nativeProjectionJobRoles(projection),
+                        failureFollowUps: failureFollowUpsByIssue.get(
+                          request.issue.number,
+                        ),
+                        nativeSchedule: projection.presentation,
+                        request,
+                      })
+                    : undefined;
+                }),
+            ),
+        );
+        const projectedSourceAttempts = new Set(
+          nativeRuns.flatMap((run) =>
+            run ? [`${run.workflowRunId}:${run.runAttempt}`] : [],
+          ),
+        );
+        const sourceRuns = await Promise.all(
+          runContexts
+            .filter(
+              ({ run }) =>
+                run.event === "schedule" &&
+                !projectedSourceAttempts.has(`${run.id}:${run.runAttempt}`),
+            )
+            .map(async ({ run, workflow }) =>
+              toNativeSourceRun(
+                run,
+                await client.listWorkflowRunJobs({
+                  ...repositoryRef,
+                  runId: run.id,
+                  runAttempt: run.runAttempt,
+                }),
+                workflow,
+              ),
+            ),
+        );
+        return [
+          ...projectedRuns,
+          ...sourceRuns,
+          ...nativeRuns.filter((run): run is NonNullable<typeof run> =>
+            Boolean(run),
+          ),
+        ]
           .filter((run) => !batchId || run.batchId === batchId)
           .filter((run) => !requestId || run.requestId === requestId)
           .filter((run) => !workflowPath || run.workflowPath === workflowPath)
@@ -1451,7 +1658,10 @@ function toExecutionRequestAuditItems({
       sourceUrl: request.issue.url,
       subjectId: request.requestId,
       subjectType: "EXECUTION_REQUEST",
-      summary: `Execution requested for ${request.batchId}`,
+      summary:
+        request.triggerType === "SCHEDULE"
+          ? `Native schedule occurrence recorded for ${request.batchId}`
+          : `Execution requested for ${request.batchId}`,
       type: "EXECUTION_REQUESTED",
       metadata: compactAuditMetadata({
         batchId: request.batchId,
@@ -1565,6 +1775,35 @@ function toExecutionRequestAuditItems({
   }
 
   return items;
+}
+
+function toNativeScheduleRunAuditItem(
+  request: ExecutionRequestForRun,
+  projection: NonNullable<Awaited<ReturnType<typeof projectNativeScheduleRun>>>,
+): AuditTimelineItem {
+  return {
+    actor: projection.run.actor,
+    itemId: `native-schedule-run-${projection.presentation.executionLocator}`,
+    occurredAt:
+      projection.run.updatedAt ??
+      projection.run.startedAt ??
+      projection.run.createdAt ??
+      "",
+    sourceUrl: projection.run.url,
+    subjectId: projection.presentation.executionLocator,
+    subjectType: "EXECUTION_RUN",
+    summary: `Native schedule ${projection.presentation.observation.toLowerCase()} for ${request.batchId}`,
+    type: "RUN_COMPLETED",
+    metadata: compactAuditMetadata({
+      batchId: request.batchId,
+      executionLocator: projection.presentation.executionLocator,
+      observation: projection.presentation.observation,
+      requestId: request.requestId,
+      runAttempt: projection.presentation.sourceRunAttempt,
+      runId: projection.presentation.sourceRunId,
+      scheduleId: projection.presentation.scheduleId,
+    }),
+  };
 }
 
 function toWorkflowRunAuditItem(
@@ -1735,10 +1974,8 @@ async function loadGateDecisionForRun({
   repositoryRef: RuntimeRepositoryRef;
   run: GitHubWorkflowRun;
 }): Promise<GateDecision | undefined> {
-  const gateJob = jobs.find(isGateWorkflowJob);
-  const gateStep = gateJob?.steps?.find(
-    (step) => step.name === "Verify approved execution evidence",
-  );
+  const gateJob = jobs.find((job) => job.name === "BatchPlane Gate");
+  const gateStep = gateJob?.steps?.find(isGateVerificationStep);
 
   if (!gateJob || !gateStep) {
     return undefined;
@@ -1772,6 +2009,8 @@ async function loadGateDecisionForRun({
       decidedAt: gateJob.completedAt ?? run.updatedAt ?? run.startedAt ?? "",
       message: result.message,
       ...(result.reasonCode ? { reasonCode: result.reasonCode } : {}),
+      ...(result.requestId ? { requestId: result.requestId } : {}),
+      ...(result.scheduleId ? { scheduleId: result.scheduleId } : {}),
     };
   } catch {
     // A missing, expired, or unreadable log cannot create a Gate decision.
@@ -1783,11 +2022,7 @@ function shouldLoadGateDecisionForList(
   run: GitHubWorkflowRun,
   jobs: GitHubWorkflowJob[],
 ): boolean {
-  return (
-    run.status === "completed" &&
-    run.conclusion === "failure" &&
-    jobs.some(isGateWorkflowJob)
-  );
+  return run.status === "completed" && jobs.some(isGateWorkflowJob);
 }
 
 function findNextStepStartedAt(
@@ -1803,13 +2038,29 @@ function isGateWorkflowJob(job: Pick<GitHubWorkflowJob, "name">): boolean {
   return job.name === "BatchPlane Gate";
 }
 
+function isGateVerificationStep(step: { name: string }): boolean {
+  return (
+    step.name === "Verify approved execution evidence" ||
+    step.name === "Verify approved native schedule evidence" ||
+    step.name === "Reverify approved native schedule evidence"
+  );
+}
+
 function findExecutionRequestForRun(
   run: GitHubWorkflowRun,
   requests: ExecutionRequestForRun[],
   workflowPath?: string,
+  gateRequestId?: string,
 ): ExecutionRequestForRun | undefined {
-  const explicitRequestId = run.requestId ?? parseRequestIdFromRun(run);
+  const explicitRequestId =
+    run.requestId ?? parseRequestIdFromRun(run) ?? gateRequestId;
   const explicitBatchId = run.batchId ?? parseBatchIdFromRun(run, workflowPath);
+
+  if (run.event === "schedule") {
+    return explicitRequestId
+      ? requests.find((request) => request.requestId === explicitRequestId)
+      : undefined;
+  }
 
   return requests.find((request) => {
     if (explicitRequestId) {
@@ -2090,35 +2341,62 @@ function toExecutionRun(
     failureFollowUps = [],
     gateDecision,
     jobs = [],
+    jobRoles,
+    nativeSchedule,
     request,
     workflow,
   }: {
     failureFollowUps?: FailureFollowUp[];
     gateDecision?: GateDecision;
     jobs?: GitHubWorkflowJob[];
+    jobRoles?: ReadonlyMap<string, ExecutionRunJob["role"]>;
+    nativeSchedule?: NativeSchedulePresentation;
     request?: ExecutionRequestForRun;
     workflow?: { name: string; path: string };
   } = {},
-): ExecutionRun {
-  const mappedJobs = jobs.map(toExecutionRunJob);
+): ExecutionRun & { nativeSchedule?: NativeSchedulePresentation } {
+  const mappedJobs = jobs.map((job) =>
+    toExecutionRunJob(job, jobRoles?.get(String(job.id))),
+  );
   const inferredBatchId = parseBatchIdFromRun(run, workflow?.path);
+  const status = nativeSchedule
+    ? nativeSchedule.observation
+    : toExecutionRunStatus(run, gateDecision);
+  const terminal =
+    status !== "QUEUED" && status !== "RUNNING" && status !== "UNCONFIRMED";
+  let completedAt: string | undefined;
+  if (terminal && nativeSchedule) {
+    completedAt = jobs.find(
+      (job) =>
+        jobRoles?.get(String(job.id)) === "BUSINESS" &&
+        job.status === "completed",
+    )?.completedAt;
+  } else if (
+    terminal &&
+    run.event !== "schedule" &&
+    run.status === "completed"
+  ) {
+    completedAt = run.updatedAt;
+  }
 
   return {
     actor: run.actor,
     batchId: run.batchId ?? request?.batchId ?? inferredBatchId ?? "",
-    ...(run.updatedAt ? { completedAt: run.updatedAt } : {}),
+    ...(completedAt ? { completedAt } : {}),
     event: run.event,
     ...(gateDecision ? { gateDecision } : {}),
+    ...(nativeSchedule ? { nativeSchedule } : {}),
     failureFollowUps: failureFollowUps.filter(
-      (followUp) => followUp.runId === String(run.id),
+      (followUp) =>
+        followUp.runId === (nativeSchedule?.executionLocator ?? String(run.id)),
     ),
     jobs: mappedJobs,
     requestId:
       run.requestId ?? request?.requestId ?? parseRequestIdFromRun(run) ?? "",
     runAttempt: run.runAttempt,
-    runId: String(run.id),
+    runId: nativeSchedule?.executionLocator ?? String(run.id),
     ...(run.startedAt ? { startedAt: run.startedAt } : {}),
-    status: toExecutionRunStatus(run, gateDecision),
+    status,
     workflowName: workflow?.name ?? run.name,
     workflowPath: workflow?.path ?? run.workflowPath,
     workflowRunId: String(run.id),
@@ -2132,7 +2410,23 @@ function toExecutionRun(
   };
 }
 
-async function loadWorkflowRunForFailureFollowUp({
+function toNativeSourceRun(
+  run: GitHubWorkflowRun,
+  jobs: GitHubWorkflowJob[],
+  workflow?: { name: string; path: string },
+): ExecutionRunPresentation {
+  // A source Run without occurrence correlation preserves API evidence only.
+  // Its aggregate conclusion and individual Gate results cannot establish a
+  // business outcome or a request/owner binding, especially with many schedules.
+  return {
+    ...toExecutionRun(run, { jobs, workflow }),
+    evidenceScope: "SOURCE_RUN",
+    requestId: "",
+    status: "UNCONFIRMED",
+  };
+}
+
+async function loadFailureFollowUpRunContext({
   client,
   repositoryRef,
   runId,
@@ -2140,23 +2434,84 @@ async function loadWorkflowRunForFailureFollowUp({
   client: GitHubLiteClient;
   repositoryRef: RuntimeRepositoryRef;
   runId: string;
-}): Promise<GitHubWorkflowRun> {
+}): Promise<{
+  evidenceRunId: string;
+  request: ExecutionRequestForRun | undefined;
+  run: GitHubWorkflowRun;
+}> {
+  const nativeLocator = parseNativeScheduleExecutionLocator(runId);
+  if (nativeLocator) {
+    const [run, requests] = await Promise.all([
+      client.getWorkflowRun({
+        ...repositoryRef,
+        runAttempt: nativeLocator.runAttempt,
+        runId: Number(nativeLocator.sourceRunId),
+      }),
+      loadExecutionApprovalRequests(client, repositoryRef),
+    ]);
+    const request = requests.find(
+      (candidate) =>
+        candidate.requestId === nativeLocator.requestId &&
+        candidate.triggerType === "SCHEDULE" &&
+        candidate.schedule?.sourceRunId === nativeLocator.sourceRunId,
+    );
+
+    if (!run || !request) {
+      throw new Error("Execution request evidence was not found for this run.");
+    }
+
+    return { evidenceRunId: runId, request, run };
+  }
   const numericRunId = Number(runId);
 
   if (!Number.isInteger(numericRunId) || numericRunId <= 0) {
     throw new Error("Execution run ID must be a positive number.");
   }
 
-  const run = await client.getWorkflowRun({
-    ...repositoryRef,
-    runId: numericRunId,
-  });
+  const [run, requests] = await Promise.all([
+    client.getWorkflowRun({
+      ...repositoryRef,
+      runId: numericRunId,
+    }),
+    loadExecutionApprovalRequests(client, repositoryRef),
+  ]);
 
   if (!run) {
     throw new Error("Execution run was not found.");
   }
 
-  return run;
+  return {
+    evidenceRunId: String(run.id),
+    request: findExecutionRequestForRun(run, requests, run.workflowPath),
+    run,
+  };
+}
+
+async function loadNativeProjectionJobs({
+  client,
+  projection,
+  repositoryRef,
+}: {
+  client: GitHubLiteClient;
+  projection: NonNullable<Awaited<ReturnType<typeof projectNativeScheduleRun>>>;
+  repositoryRef: RuntimeRepositoryRef;
+}): Promise<GitHubWorkflowJob[]> {
+  const expectedJobIds = new Set(projection.jobs.map((job) => job.id));
+  if (expectedJobIds.size === 0) return [];
+
+  const jobs = await client.listWorkflowRunJobs({
+    ...repositoryRef,
+    runAttempt: projection.run.runAttempt,
+    runId: projection.run.id,
+  });
+
+  return jobs.filter((job) => expectedJobIds.has(String(job.id)));
+}
+
+function nativeProjectionJobRoles(
+  projection: NonNullable<Awaited<ReturnType<typeof projectNativeScheduleRun>>>,
+): ReadonlyMap<string, ExecutionRunJob["role"]> {
+  return new Map(projection.jobs.map((job) => [job.id, job.role]));
 }
 
 function createFailureFollowUpId(runId: number): string {
@@ -2222,12 +2577,16 @@ function failureFollowUpReviewCapabilityError(
   return "Workspace manager permission is required to review failure follow-up evidence.";
 }
 
-function toExecutionRunJob(job: GitHubWorkflowJob): ExecutionRunJob {
+function toExecutionRunJob(
+  job: GitHubWorkflowJob,
+  role?: ExecutionRunJob["role"],
+): ExecutionRunJob {
   return {
     ...(job.completedAt ? { completedAt: job.completedAt } : {}),
     ...(job.conclusion ? { conclusion: job.conclusion } : {}),
     jobId: String(job.id),
     name: job.name,
+    ...(role ? { role } : {}),
     ...(job.startedAt ? { startedAt: job.startedAt } : {}),
     status: toExecutionRunStatus(job),
     ...(job.url ? { url: job.url } : {}),

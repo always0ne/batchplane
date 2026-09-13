@@ -117,6 +117,148 @@ describe("ExecutionRequestDetailPage", () => {
       await screen.findByText("Failed to record approval decision."),
     ).toBeInTheDocument();
   });
+
+  it("renders a scheduled request as a recorded occurrence without approval or dispatcher claims", async () => {
+    const occurrenceLocator = `native:btr-schedule-${"a".repeat(64)}:900:2`;
+    renderDetail(
+      createClient({
+        getExecutionRequest: async () =>
+          request({
+            attempts: {
+              attempts: [
+                {
+                  attempt: 2,
+                  attemptLocator: occurrenceLocator,
+                  nativeSchedule: {
+                    observation: "BLOCKED",
+                    scheduleId: "weekday-close",
+                    sourceRunAttempt: 2,
+                    sourceRunId: "900",
+                  },
+                  requestId: "btr-payment-101",
+                  sourceLabel: "Native schedule occurrence",
+                  status: "BLOCKED",
+                  workflow: { path: ".github/workflows/daily-close.yml" },
+                },
+              ],
+              type: "loaded",
+            },
+            capability: { canApprove: true, canReject: true },
+            status: "REQUESTED",
+            triggerType: "SCHEDULE",
+          }),
+      }),
+    );
+
+    expect(
+      (await screen.findAllByText("Scheduled occurrence recorded")).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("link", { name: "Back to request inventory" }),
+    ).toHaveAttribute("href", "/requests");
+    expect(
+      screen.getByRole("link", { name: "View run detail" }),
+    ).toHaveAttribute(
+      "href",
+      `/execution-runs/${encodeURIComponent(occurrenceLocator)}`,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Approve execution" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Approval evidence")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dispatcher evidence")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "No approval action" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/record approval evidence/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps an unresolved source revision inspectable without inventing a route", async () => {
+    renderDetail(createClient());
+    expect(
+      await screen.findByText("bgc-payment-approved (sha256:approved)"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Source change")).not.toBeInTheDocument();
+    expect(
+      screen
+        .queryAllByRole("link")
+        .some((link) =>
+          link.getAttribute("href")?.startsWith("/approvals/registration/"),
+        ),
+    ).toBe(false);
+  });
+
+  it.each([undefined, "2026-09-11T01:02:00.000Z"])(
+    "opens the later observed attempt when attempt timestamps tie (%s)",
+    async (completedAt) => {
+      const first = {
+        attempt: 1,
+        attemptLocator: "native:btr-schedule-a:900:1",
+        completedAt,
+        requestId: "btr-payment-101",
+        sourceLabel: "900",
+        status: "SUCCEEDED" as const,
+        workflow: {},
+      };
+      renderDetail(
+        createClient({
+          getExecutionRequest: async () =>
+            request({
+              triggerType: "SCHEDULE",
+              attempts: {
+                type: "loaded",
+                attempts: [
+                  first,
+                  {
+                    ...first,
+                    attempt: 2,
+                    attemptLocator: "native:btr-schedule-a:900:2",
+                    status: "BLOCKED",
+                  },
+                ],
+              },
+            }),
+        }),
+      );
+      expect(
+        await screen.findByRole("link", { name: "View run detail" }),
+      ).toHaveAttribute(
+        "href",
+        "/execution-runs/native%3Abtr-schedule-a%3A900%3A2",
+      );
+      expect(
+        screen.getByRole("link", { name: "900 Gate blocked" }),
+      ).toHaveAttribute(
+        "href",
+        "/execution-runs/native%3Abtr-schedule-a%3A900%3A2",
+      );
+    },
+  );
+
+  it("links a uniquely resolved approved source change at its registration request locator", async () => {
+    renderDetail(
+      createClient({
+        getExecutionRequest: async () =>
+          request({
+            evidence: {
+              ...request().evidence,
+              sourceChange: {
+                label: "PR #42",
+                requestLocator: "42",
+              },
+            },
+          }),
+      }),
+    );
+
+    expect(await screen.findByText("Source change")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PR #42" })).toHaveAttribute(
+      "href",
+      "/approvals/registration/42",
+    );
+  });
 });
 
 function renderDetail(client: BatchPlaneClient, state?: unknown) {

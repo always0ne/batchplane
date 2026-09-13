@@ -54,6 +54,7 @@ export function BatchChangeEditorSession({
               onAddSchedule={editor.addSchedule}
               onArtifactChange={editor.selectArtifact}
               onRemoveSchedule={editor.removeSchedule}
+              onOwnerBlur={editor.resolveOwnerDefault}
               onRestoreSchedule={editor.restoreSchedule}
               onScheduleChange={editor.updateSchedule}
               onValueChange={editor.updateValue}

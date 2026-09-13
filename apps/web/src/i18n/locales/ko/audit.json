@@ -2,6 +2,7 @@
   "title": "감사 Trail",
   "subtitle": "요청, 승인, dispatch, Gate 판단, workflow run 증적을 추적합니다.",
   "actions": {
+    "openExecution": "실행 상세",
     "openSource": "GitHub 원본",
     "refresh": "새로고침"
   },
@@ -16,6 +17,9 @@
     "batchId": "배치",
     "requestId": "요청",
     "runId": "Run",
+    "runAttempt": "시도",
+    "scheduleId": "스케줄",
+    "observation": "관측 결과",
     "followUpId": "소명",
     "reviewId": "검토",
     "reviewStatus": "검토",
@@ -31,6 +35,8 @@
     "error": "감사 타임라인을 불러오지 못했습니다."
   },
   "summaries": {
+    "SOURCE_RUN_OBSERVED": "원본 Run {{runId}}, 시도 {{runAttempt}}: {{observation}}",
+    "NATIVE_SCHEDULE_OBSERVED": "스케줄 {{scheduleId}}, Run {{runId}}, 시도 {{runAttempt}}: {{observation}}",
     "BATCH_REGISTERED": "{{batchId}} 배치가 PR #{{pullNumber}}로 등록되었습니다.",
     "BATCH_CHANGED": "{{batchId}} 배치 변경이 PR #{{pullNumber}}로 요청되었습니다.",
     "EXECUTION_REQUESTED": "{{batchId}} 실행이 요청되었습니다.",
@@ -43,6 +49,7 @@
     "SCHEDULE_OCCURRED": "{{batchId}} 스케줄 발생이 기록되었습니다."
   },
   "values": {
+    "scheduleExecution": "스케줄 실행",
     "actor": "주체: {{actor}}",
     "gateResult": {
       "ALLOWED": "허용",

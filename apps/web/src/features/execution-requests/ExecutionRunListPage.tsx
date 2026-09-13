@@ -1,4 +1,5 @@
-import type { BatchPlaneRuntimePorts, ExecutionRun } from "@batchplane/domain";
+import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import type { ExecutionRunPresentation as ExecutionRun } from "@batchplane/ui-client";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -216,11 +217,13 @@ function LoadedExecutionRunList({
   const activeRuns = runs.filter(isActiveRun);
   const followUpRuns = runs.filter(isFollowUpRun);
   const businessFailedRuns = runs.filter(isVerifiedBusinessFailure);
-  const blockedRuns = runs.filter((run) => run.status === "BLOCKED");
+  const blockedRuns = runs.filter((run) => observedStatus(run) === "BLOCKED");
   const explainedRuns = businessFailedRuns.filter(
     (run) => (run.failureFollowUps ?? []).length > 0,
   );
-  const succeededRuns = runs.filter((run) => run.status === "SUCCEEDED");
+  const succeededRuns = runs.filter(
+    (run) => observedStatus(run) === "SUCCEEDED",
+  );
   const filters = view === "failures" ? failureRunFilters : executionRunFilters;
 
   return (
@@ -312,7 +315,7 @@ function LoadedExecutionRunList({
           <ul className="mt-5 divide-y divide-slate-100">
             {filteredRuns.map((run) => (
               <ExecutionRunRow
-                key={run.runId}
+                key={`${run.runId}:${run.runAttempt ?? 1}`}
                 namespace={namespace}
                 run={run}
                 view={view}
@@ -362,14 +365,13 @@ function ExecutionRunRow({
   const { i18n, t } = useTranslation(namespace);
   const display = getRunStatusDisplay(run);
   const Icon = display.icon;
-  const runDetailPath =
-    view === "failures"
-      ? `/execution-runs/${run.runId}?from=failures`
-      : `/execution-runs/${run.runId}`;
+  const detailQuery = new URLSearchParams();
+  if (view === "failures") detailQuery.set("from", "failures");
+  if (run.evidenceScope === "SOURCE_RUN")
+    detailQuery.set("runAttempt", String(run.runAttempt ?? 1));
+  const runDetailPath = `/execution-runs/${encodeURIComponent(run.runId)}${detailQuery.size ? `?${detailQuery}` : ""}`;
   const followUpPath =
-    view === "failures"
-      ? `/execution-runs/${run.runId}?from=failures#failure-follow-up`
-      : runDetailPath;
+    view === "failures" ? `${runDetailPath}#failure-follow-up` : runDetailPath;
   const hasFailureFollowUp = (run.failureFollowUps ?? []).length > 0;
   const failureFollowUpStatusKey = getFailureFollowUpStatusKey(run);
 
@@ -412,7 +414,11 @@ function ExecutionRunRow({
             label={t("fields.completedAt")}
             value={
               formatRunTimestamp(run.completedAt, i18n.language) ||
-              t("values.inProgress")
+              t(
+                run.status === "QUEUED" || run.status === "RUNNING"
+                  ? "values.inProgress"
+                  : "values.unknown",
+              )
             }
           />
         </dl>
@@ -503,26 +509,26 @@ function matchesFilter(run: ExecutionRun, filter: ExecutionRunFilter): boolean {
   }
 
   if (filter === "blocked") {
-    return run.status === "BLOCKED";
+    return observedStatus(run) === "BLOCKED";
   }
 
   if (filter === "canceled") {
-    return run.status === "CANCELED";
+    return observedStatus(run) === "CANCELED";
   }
 
   if (filter === "failed") {
     return isVerifiedBusinessFailure(run);
   }
 
-  return run.status === "SUCCEEDED";
+  return observedStatus(run) === "SUCCEEDED";
 }
 
 function isFollowUpRun(run: ExecutionRun): boolean {
-  return run.status === "BLOCKED" || isVerifiedBusinessFailure(run);
+  return observedStatus(run) === "BLOCKED" || isVerifiedBusinessFailure(run);
 }
 
 function isVerifiedBusinessFailure(run: ExecutionRun): boolean {
-  return run.status === "FAILED" && run.gateDecision?.allowed === true;
+  return observedStatus(run) === "FAILED" && run.gateDecision?.allowed === true;
 }
 
 function isActiveRun(run: ExecutionRun): boolean {
@@ -557,7 +563,13 @@ function getRunOutcomeText(
   run: ExecutionRun,
   t: (key: string) => string,
 ): string {
-  if (run.status === "BLOCKED") {
+  if (run.evidenceScope === "SOURCE_RUN")
+    return t("values.sourceRunUnconfirmed");
+  const native = nativeSchedule(run);
+  if (native?.observation === "UNCONFIRMED") {
+    return t("values.nativeUnconfirmed");
+  }
+  if (observedStatus(run) === "BLOCKED") {
     return formatGateReasonDisplay(
       run.gateDecision?.reasonCode,
       t,
@@ -565,13 +577,13 @@ function getRunOutcomeText(
     );
   }
 
-  if (run.status === "FAILED") {
+  if (observedStatus(run) === "FAILED") {
     return run.gateDecision?.allowed === true
       ? t("values.businessFailure")
       : t("values.gateVerificationUnknown");
   }
 
-  if (run.status === "SUCCEEDED") {
+  if (observedStatus(run) === "SUCCEEDED") {
     return t("values.succeeded");
   }
 
@@ -579,7 +591,7 @@ function getRunOutcomeText(
     return t("values.active");
   }
 
-  if (run.status === "CANCELED") {
+  if (observedStatus(run) === "CANCELED") {
     return t("values.canceled");
   }
 
@@ -590,7 +602,10 @@ function getRunStatusDisplay(run: ExecutionRun): {
   className: string;
   icon: LucideIcon;
 } {
-  if (run.status === "FAILED" && !isVerifiedBusinessFailure(run)) {
+  if (nativeSchedule(run)?.observation === "UNCONFIRMED") {
+    return { className: "bg-slate-100 text-slate-700", icon: CircleOff };
+  }
+  if (observedStatus(run) === "FAILED" && !isVerifiedBusinessFailure(run)) {
     return {
       className: "bg-slate-100 text-slate-700",
       icon: CircleOff,
@@ -604,6 +619,11 @@ function getRunStatusDisplay(run: ExecutionRun): {
         icon: ShieldAlert,
       };
     case "CANCELED":
+      return {
+        className: "bg-slate-100 text-slate-700",
+        icon: CircleOff,
+      };
+    case "UNCONFIRMED":
       return {
         className: "bg-slate-100 text-slate-700",
         icon: CircleOff,
@@ -631,9 +651,41 @@ function getRunStatusLabel(
   run: ExecutionRun,
   t: (key: string) => string,
 ): string {
+  if (run.evidenceScope === "SOURCE_RUN") return t("status.SOURCE_RUN");
+  const native = nativeSchedule(run);
+  if (native) return t(`executions:nativeObservation.${native.observation}`);
   return run.status === "FAILED" && !isVerifiedBusinessFailure(run)
     ? t("status.GATE_VERIFICATION_UNKNOWN")
     : t(`status.${run.status}`);
+}
+
+type NativeScheduleRun = ExecutionRun & {
+  nativeSchedule?: {
+    observation:
+      | "QUEUED"
+      | "RUNNING"
+      | "SUCCEEDED"
+      | "FAILED"
+      | "BLOCKED"
+      | "CANCELED"
+      | "UNCONFIRMED";
+    reason?: string;
+    scheduleId: string;
+    sourceRunAttempt: number;
+    sourceRunId: string;
+  };
+};
+
+function nativeSchedule(
+  run: ExecutionRun,
+): NativeScheduleRun["nativeSchedule"] {
+  return (run as NativeScheduleRun).nativeSchedule;
+}
+
+function observedStatus(
+  run: ExecutionRun,
+): ExecutionRun["status"] | "UNCONFIRMED" {
+  return nativeSchedule(run)?.observation ?? run.status;
 }
 
 function readExecutionRunFilter(

@@ -51,7 +51,8 @@
     "MERGED": "Merged",
     "OPEN": "Open",
     "REJECTED": "Rejected",
-    "REQUESTED": "Requested"
+    "REQUESTED": "Requested",
+    "SCHEDULE_RECORDED": "Schedule recorded"
   },
   "types": {
     "batchChange": "Batch change",

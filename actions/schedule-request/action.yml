@@ -1,5 +1,5 @@
 name: BatchPlane Schedule Request
-description: Create or reuse a delegated scheduled execution request.
+description: Record a native GitHub Actions scheduled execution occurrence.
 outputs:
   status:
     description: Request handling result
@@ -9,10 +9,8 @@ outputs:
     description: BatchPlane execution request ID
   request-digest:
     description: BatchPlane execution request digest
-  scheduled-at:
-    description: Scheduled occurrence timestamp resolved from cron and timezone
-  approval-comment-id:
-    description: Approval comment ID to pass into the dispatcher action
+  failure-reason:
+    description: Machine-readable controller denial reason when no request output exists
 inputs:
   batch-id:
     required: true
@@ -35,7 +33,7 @@ inputs:
     description: BatchPlane repository config path
   github-token:
     required: true
-    description: GitHub token used to create request and approval evidence
+    description: GitHub token used to create request evidence
 runs:
   using: node24
   main: dist/index.js

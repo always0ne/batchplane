@@ -31,6 +31,13 @@ export function useBatchChangeForm({
   );
   const [artifactError, setArtifactError] = useState<string>();
 
+  const resolvedValues = useMemo(
+    () => ({
+      ...values,
+      owner: values.owner.trim() || initialDraft.defaultOwner || "",
+    }),
+    [initialDraft.defaultOwner, values],
+  );
   const draft = useMemo(
     () =>
       toBatchChangeDraft({
@@ -40,7 +47,7 @@ export function useBatchChangeForm({
         mode,
         scheduleDrafts,
         targetBatchId: mode === "create" ? undefined : targetBatchId,
-        values,
+        values: resolvedValues,
       }),
     [
       initialDraft.batch.existingArtifact,
@@ -49,12 +56,17 @@ export function useBatchChangeForm({
       scheduleDrafts,
       targetBatchId,
       uploadedArtifact,
-      values,
+      resolvedValues,
     ],
   );
   const missingFields = useMemo(
-    () => findBatchChangeMissingFields({ mode, scheduleDrafts, values }),
-    [mode, scheduleDrafts, values],
+    () =>
+      findBatchChangeMissingFields({
+        mode,
+        scheduleDrafts,
+        values: resolvedValues,
+      }),
+    [mode, resolvedValues, scheduleDrafts],
   );
 
   const updateValue = useCallback(
@@ -63,6 +75,13 @@ export function useBatchChangeForm({
     },
     [],
   );
+  const resolveOwnerDefault = useCallback(() => {
+    const defaultOwner = initialDraft.defaultOwner?.trim();
+    if (!defaultOwner) return;
+    setValues((current) =>
+      current.owner.trim() ? current : { ...current, owner: defaultOwner },
+    );
+  }, [initialDraft.defaultOwner]);
   const selectArtifact = useCallback(async (file?: File) => {
     if (!file) return;
     try {
@@ -120,6 +139,7 @@ export function useBatchChangeForm({
     existingArtifact: initialDraft.batch.existingArtifact,
     missingFields,
     removeSchedule,
+    resolveOwnerDefault,
     restoreSchedule,
     scheduleDrafts,
     selectArtifact,

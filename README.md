@@ -35,7 +35,7 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist
+git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist actions/schedule-result/dist
 VITE_BASE_PATH=/batchplane/ pnpm --filter @batchplane/web build
 git diff --check
 ```
@@ -123,14 +123,22 @@ choose `Refresh`; the approved batch definition should appear from the
 repository's `.batch-governance/batches` directory.
 
 To test schedule execution, include at least one enabled schedule during batch
-registration or change approval. After the registration PR is merged, GitHub
-Actions cron triggers create one execution request Issue per occurrence,
-record delegated approval evidence automatically, and dispatch the governed
-workflow through the same Gate-protected path as manual requests. Scheduled
-occurrences do not wait in `Approvals`; they appear as execution request/audit
-evidence and in execution run history. GitHub Actions scheduled workflows run
-from the latest commit on the repository's default branch, support a minimum
-interval of 5 minutes, and may be delayed during high-load periods.
+registration or change approval. The approved revision authorizes unattended
+execution; a schedule does not need another human approval for each occurrence.
+The native scheduled workflow records an execution request, verifies Gate,
+rechecks authority immediately before the batch command, and records the result
+in the same workflow. It does not dispatch another workflow or fabricate an
+approval comment. Scheduled occurrences appear in requests, runs and audit,
+but not as approval work.
+
+Generated schedules retain the original cron and native IANA timezone. Within
+one batch, the same cron with different timezones is rejected because the
+documented trigger context does not distinguish them. A source occurrence is
+identified by the repository, batch, schedule and native Run, not an inferred
+nominal time. Full and partial native reruns are denied; deduplication of
+separate Runs for the same nominal slot is not guaranteed. GitHub may delay or
+drop scheduled runs. See the [schedule execution contract](docs/schedule-execution-contract.md)
+for trust boundaries and the separate live verification procedure.
 
 Lite currently covers repository installation PR creation, registration
 request, approval, merge, Workspace-backed batch listing, execution request creation,

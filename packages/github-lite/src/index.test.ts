@@ -41,6 +41,63 @@ describe("createGitHubLiteClient", () => {
     ).resolves.toBeNull();
   });
 
+  it("reads the requested workflow-run attempt instead of the latest attempt", async () => {
+    const requests: string[] = [];
+    const client = createGitHubLiteClient({
+      fetcher: async (input) => {
+        requests.push(String(input));
+        return Response.json({
+          actor: { login: "github-actions[bot]" },
+          conclusion: "success",
+          event: "schedule",
+          html_url: "https://example.test/runs/100",
+          id: 100,
+          path: ".github/workflows/payment.daily-close.yml",
+          run_attempt: 1,
+          status: "completed",
+          workflow_id: 1,
+        });
+      },
+      token: "ghp_test",
+    });
+
+    await expect(
+      client.getWorkflowRun({
+        owner: "always0ne",
+        repo: "batchplane",
+        runAttempt: 1,
+        runId: 100,
+      }),
+    ).resolves.toMatchObject({ id: 100, runAttempt: 1 });
+    expect(requests).toEqual([
+      "https://api.github.com/repos/always0ne/batchplane/actions/runs/100/attempts/1",
+    ]);
+  });
+
+  it("keeps a historical attempt inspectable after the same Run has a newer attempt", async () => {
+    const defaults = createGitHubLiteMockState();
+    const base = defaults.workflowRuns[0];
+    if (!base) throw new Error("Expected a workflow-run mock fixture.");
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({
+        workflowRuns: [
+          { ...base, conclusion: "failure", id: 909, runAttempt: 1 },
+          { ...base, conclusion: "success", id: 909, runAttempt: 2 },
+        ],
+      }),
+    );
+    const repository = { owner: "always0ne", repo: "batch" };
+
+    await expect(
+      client.getWorkflowRun({ ...repository, runId: 909 }),
+    ).resolves.toMatchObject({
+      runAttempt: 2,
+    });
+    await expect(
+      client.getWorkflowRun({ ...repository, runAttempt: 1, runId: 909 }),
+    ).resolves.toMatchObject({ conclusion: "failure", runAttempt: 1 });
+  });
+
   it("decodes base64 file content", async () => {
     const fetcher: typeof fetch = async () =>
       Response.json({

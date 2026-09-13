@@ -42,9 +42,49 @@ describe("useBatchChangeForm", () => {
 
     expect(result.current.artifactError).toBe("");
   });
+
+  it("lets an explicit owner be cleared and replaced without restoring the old owner", () => {
+    const { result } = renderHook(() =>
+      useBatchChangeForm({
+        initialDraft: draft({ defaultOwner: "developer" }),
+        mode: "create",
+        targetBatchId: "",
+      }),
+    );
+
+    act(() => {
+      result.current.updateValue("owner", "");
+      result.current.updateValue("owner", "release-manager");
+    });
+
+    expect(result.current.values.owner).toBe("release-manager");
+    expect(result.current.draft.batch.owner).toBe("release-manager");
+  });
+
+  it("uses the authenticated default only at the preview and blur boundary", () => {
+    const { result } = renderHook(() =>
+      useBatchChangeForm({
+        initialDraft: draft({ defaultOwner: "developer" }),
+        mode: "change",
+        targetBatchId: "payment.daily-close",
+      }),
+    );
+
+    act(() => {
+      result.current.updateValue("owner", "   ");
+    });
+    expect(result.current.values.owner).toBe("   ");
+    expect(result.current.draft.batch.owner).toBe("developer");
+    expect(result.current.missingFields).not.toContain("owner");
+
+    act(() => {
+      result.current.resolveOwnerDefault();
+    });
+    expect(result.current.values.owner).toBe("developer");
+  });
 });
 
-function draft(): BatchChangeDraft {
+function draft(overrides: Partial<BatchChangeDraft> = {}): BatchChangeDraft {
   return {
     batch: {
       batchId: "payment.daily-close",
@@ -60,5 +100,6 @@ function draft(): BatchChangeDraft {
     },
     mode: "create",
     schedules: [],
+    ...overrides,
   };
 }

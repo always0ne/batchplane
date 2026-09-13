@@ -3,7 +3,9 @@ import {
   authorizeGovernedChangeRejection,
   authorizeGovernedChangeCreation,
   createGovernedChangeRequestDigest,
+  parseYamlDocument,
   resolveAutoApproval,
+  serializeYamlDocument,
   validateRejectionReason,
   type GovernedChangeRequestEvidence,
 } from "@batchplane/domain";
@@ -26,7 +28,11 @@ import type {
   GovernedChangeRequest,
 } from "@batchplane/ui-client";
 
-import { assertCanonicalBatchId } from "./batch-definition-codec.js";
+import {
+  assertCanonicalBatchId,
+  getBatchDefinitionPath,
+  parseBatchDefinitionYaml,
+} from "./batch-definition-codec.js";
 import {
   assertPreparedChangeTargets,
   createPreparedChangeArtifactEvidence,
@@ -104,8 +110,10 @@ async function loadBatchChangeDraft(
   { batchId, mode }: Parameters<BatchPlaneClient["loadBatchChangeDraft"]>[0],
 ) {
   if (mode === "create") {
+    const user = await client.getCurrentUser();
     return {
-      batch: createEmptyBatchDraft(),
+      batch: { ...createEmptyBatchDraft(), owner: user.login },
+      defaultOwner: user.login,
       governedChangeId: createGovernedChangeId("new-batch"),
       mode,
       schedules: [],
@@ -113,21 +121,69 @@ async function loadBatchChangeDraft(
   }
 
   const canonicalBatchId = assertCanonicalBatchId(batchId ?? "");
-  const batch = await loadExistingBatchDefinition(
+  const fallbackOwner = (await client.getCurrentUser()).login;
+  const batch = await loadExistingBatchDraftDefinition(
     repository,
     client,
     canonicalBatchId,
+    fallbackOwner,
   );
 
   if (!batch) throw new Error("The governed batch could not be found.");
+  const draft = toBatchChangeDraft(batch);
+  const owner = draft.owner.trim() || fallbackOwner;
 
   return {
-    batch: toBatchChangeDraft(batch),
+    batch: { ...draft, owner },
+    defaultOwner: fallbackOwner,
     governedChangeId: createGovernedChangeId(batch.batchId),
     mode,
     schedules: batch.schedules ?? [],
     targetBatchId: batch.batchId,
   };
+}
+
+async function loadExistingBatchDraftDefinition(
+  repository: RepoRef,
+  client: GitHubLiteClient,
+  batchId: string,
+  fallbackOwner: string,
+) {
+  try {
+    return await loadExistingBatchDefinition(repository, client, batchId);
+  } catch (error) {
+    const repo = await client.getRepository(repository);
+    const file = await client.getFile({
+      ...repository,
+      path: getBatchDefinitionPath(batchId),
+      ref: repo.defaultBranch,
+    });
+    const parsed = file ? parseYamlDocument(file.content) : undefined;
+    const document = parsed?.ok ? parsed.value : undefined;
+    const spec = isYamlRecord(document) ? document.spec : undefined;
+
+    if (
+      !isYamlRecord(document) ||
+      !isYamlRecord(spec) ||
+      typeof spec.owner !== "string" ||
+      spec.owner.trim()
+    ) {
+      throw error;
+    }
+
+    return parseBatchDefinitionYaml(
+      serializeYamlDocument({
+        ...document,
+        spec: { ...spec, owner: fallbackOwner },
+      }),
+    );
+  }
+}
+
+function isYamlRecord(
+  value: unknown,
+): value is Record<string, import("@batchplane/domain").YamlValue | undefined> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 async function getBatchChangeBlocker(
@@ -185,10 +241,15 @@ async function previewBatchChange(
   { client, repository }: GovernedChangeOperationsContext,
   draft: BatchChangeDraft,
 ) {
-  assertChangeBatchIdentity(draft);
-  const prepared = prepareGovernedChange(
+  const normalizedDraft = normalizeDraftOwner(
     draft,
-    draft.governedChangeId ?? createGovernedChangeId(draft.batch.batchId),
+    (await client.getCurrentUser()).login,
+  );
+  assertChangeBatchIdentity(normalizedDraft);
+  const prepared = prepareGovernedChange(
+    normalizedDraft,
+    normalizedDraft.governedChangeId ??
+      createGovernedChangeId(normalizedDraft.batch.batchId),
   );
   const defaultBranch = (await client.getRepository(repository)).defaultBranch;
   const files = await loadPreparedChangePreviewFiles(
@@ -222,19 +283,32 @@ async function createBatchChangeRequest(
   );
 
   const creation = await loadGovernedChangeCreation(context);
+  const normalizedDraft = normalizeDraftOwner(draft, creation.actor.login);
   const preparedChange = await prepareNewGovernedChange(
     context,
-    draft,
+    normalizedDraft,
     creation.baseRevisionSha,
   );
   const pullRequest = await openGovernedChangePullRequest(
     context,
-    draft,
+    normalizedDraft,
     creation,
     preparedChange,
   );
 
   return finishCreatedGovernedChange(context, creation, pullRequest);
+}
+
+function normalizeDraftOwner(
+  draft: BatchChangeDraft,
+  authenticatedRequester: string,
+): BatchChangeDraft {
+  const owner = draft.batch.owner.trim() || authenticatedRequester;
+
+  return {
+    ...draft,
+    batch: { ...draft.batch, owner },
+  };
 }
 
 async function requestBatchRemediation(

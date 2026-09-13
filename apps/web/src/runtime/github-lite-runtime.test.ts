@@ -1310,6 +1310,31 @@ describe("createGitHubLiteRuntime", () => {
     );
   });
 
+  it.each(["queued", "in_progress", "completed"] as const)(
+    "only supplies direct manual Run completion when its API status is completed (%s)",
+    async (status) => {
+      const state = createGitHubLiteMockState();
+      const run = state.workflowRuns.find(
+        (candidate) => candidate.event === "workflow_dispatch",
+      )!;
+      run.status = status;
+      run.conclusion = status === "completed" ? "success" : null;
+      run.updatedAt = "2026-09-12T01:00:00.000Z";
+      const runtime = createGitHubLiteRuntime(session, {
+        client: createMockGitHubLiteClient(state),
+      });
+      const detail = await runtime.executions.getExecutionRun({
+        runId: String(run.id),
+      });
+      expect(detail).not.toBeNull();
+      if (status === "completed") {
+        expect(detail?.completedAt).toBe(run.updatedAt);
+      } else {
+        expect(detail).not.toHaveProperty("completedAt");
+      }
+    },
+  );
+
   it("ignores a Gate marker that appears only in the business job log", async () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);

@@ -15,6 +15,13 @@ const expected = {
   runId: 203,
 };
 
+const occurrence = {
+  batchId: "payment.daily-close",
+  requestDigest: `sha256:${"a".repeat(64)}`,
+  requestId: `btr-schedule-${"b".repeat(64)}`,
+  scheduleId: "weekday-close",
+};
+
 function record(overrides: Record<string, unknown> = {}) {
   return `BATCHPLANE_GATE_RESULT ${JSON.stringify({
     gateJob: "batchplane-gate",
@@ -65,6 +72,69 @@ describe("parseExecutionGateResult", () => {
       message: "Execution request evidence is required.",
       reasonCode: "EXECUTION_REQUEST_REQUIRED",
     });
+  });
+
+  it("requires the full native occurrence identity when one is expected", () => {
+    const nativeExpected = { ...expected, occurrence };
+
+    expect(
+      parseExecutionGateResult({
+        content: loggedRecord(occurrence),
+        expected: nativeExpected,
+      }),
+    ).toMatchObject({
+      allowed: true,
+      batchId: occurrence.batchId,
+      requestDigest: occurrence.requestDigest,
+      requestId: occurrence.requestId,
+      scheduleId: occurrence.scheduleId,
+    });
+
+    for (const key of Object.keys(occurrence) as Array<
+      keyof typeof occurrence
+    >) {
+      expect(
+        parseExecutionGateResult({
+          content: loggedRecord({
+            ...occurrence,
+            [key]: `${occurrence[key]}-other`,
+          }),
+          expected: nativeExpected,
+        }),
+      ).toBeUndefined();
+    }
+  });
+
+  it("accepts only a requestless native controller DENY for a matching batch and schedule", () => {
+    const nativeExpected = { ...expected, occurrence };
+    const requestlessDenial = {
+      batchId: occurrence.batchId,
+      message: "Native schedule controller denied this occurrence.",
+      result: "DENY",
+      scheduleId: occurrence.scheduleId,
+    };
+
+    expect(
+      parseExecutionGateResult({
+        content: loggedRecord(requestlessDenial),
+        expected: nativeExpected,
+      }),
+    ).toMatchObject({ allowed: false, batchId: occurrence.batchId });
+    expect(
+      parseExecutionGateResult({
+        content: loggedRecord({ ...requestlessDenial, result: "ALLOW" }),
+        expected: nativeExpected,
+      }),
+    ).toBeUndefined();
+    expect(
+      parseExecutionGateResult({
+        content: loggedRecord({
+          ...requestlessDenial,
+          requestId: occurrence.requestId,
+        }),
+        expected: nativeExpected,
+      }),
+    ).toBeUndefined();
   });
 
   it("parses GitHub's high-precision UTC log timestamp", () => {

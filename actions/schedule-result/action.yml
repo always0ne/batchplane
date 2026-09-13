@@ -1,0 +1,45 @@
+name: BatchPlane Schedule Result
+description: Record the terminal evidence for a native GitHub Actions schedule occurrence.
+inputs:
+  batch-id:
+    required: true
+    description: Batch definition ID
+  schedule-id:
+    required: true
+    description: Registered schedule identifier
+  issue-number:
+    required: true
+    description: Exact canonical scheduled execution request Issue number from the control job
+  request-id:
+    required: true
+    description: Exact canonical scheduled execution request ID from the control job
+  request-digest:
+    required: true
+    description: Exact canonical scheduled execution request digest from the control job
+  control-result:
+    required: true
+    description: Native schedule control-job conclusion
+  business-result:
+    required: true
+    description: Native schedule business-job conclusion
+  business-job-id:
+    required: true
+    description: Generated business workflow job ID
+  business-job-name:
+    required: true
+    description: Generated business workflow job name
+  control-job-id:
+    required: true
+    description: Generated control workflow job ID
+  control-job-name:
+    required: true
+    description: Generated control workflow job name
+  definition-path:
+    required: true
+    description: Registered Batch definition path
+  github-token:
+    required: true
+    description: GitHub token used to record terminal evidence
+runs:
+  using: node24
+  main: dist/index.js

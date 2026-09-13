@@ -18,6 +18,7 @@ export type ExecutionRequestEvidence = {
   requestedBy: string;
   requestId: string;
   scheduleId?: string;
+  triggerType?: string;
   status: string;
   workflowPath: string;
   workflowRef: string;
@@ -99,6 +100,7 @@ export type DispatcherVerificationResult =
         | "REQUEST_FIELD_MISMATCH"
         | "REQUEST_NOT_FOUND"
         | "REQUEST_NOT_REQUESTED"
+        | "SCHEDULE_DISPATCH_NOT_ALLOWED"
         | "WORKFLOW_NOT_FOUND";
     };
 
@@ -367,6 +369,14 @@ export function verifyDispatcherEvidence({
     };
   }
 
+  if (request.triggerType === "SCHEDULE") {
+    return {
+      ok: false,
+      message: "Native schedule occurrences are not dispatcher commands.",
+      reasonCode: "SCHEDULE_DISPATCH_NOT_ALLOWED",
+    };
+  }
+
   if (isExpired(request.expiresAt, now)) {
     return {
       ok: false,
@@ -476,6 +486,9 @@ export function parseExecutionRequestEvidence(
     requestedBy: readMarkdownField(issueBody, "Requested by").replace(/^@/, ""),
     requestId,
     ...(readScheduleId(payload) ? { scheduleId: readScheduleId(payload) } : {}),
+    ...(readTriggerType(payload)
+      ? { triggerType: readTriggerType(payload) }
+      : {}),
     status,
     workflowPath: workflow.path,
     workflowRef: workflow.ref,
@@ -692,6 +705,14 @@ function readScheduleId(payload: unknown): string {
   const scheduleId = (schedule as { scheduleId?: unknown }).scheduleId;
 
   return typeof scheduleId === "string" ? scheduleId : "";
+}
+
+function readTriggerType(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const spec = (payload as { spec?: unknown }).spec;
+  if (!spec || typeof spec !== "object") return "";
+  const triggerType = (spec as { triggerType?: unknown }).triggerType;
+  return typeof triggerType === "string" ? triggerType : "";
 }
 
 function readMarkdownField(body: string, label: string): string {
