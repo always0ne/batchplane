@@ -1,6 +1,6 @@
 {
   "title": "Workspace",
-  "subtitle": "Connect a Workspace backed by GitHub and manage Workspace policy changes.",
+  "subtitle": "Connect a Workspace and manage installation and approval policy.",
   "language": "Language",
   "tokenPolicy": "GitHub tokens are kept in sessionStorage only.",
   "github": {
@@ -14,54 +14,69 @@
     "clear": "Clear session"
   },
   "session": {
-    "title": "Session",
+    "title": "Connection",
     "status": "Status",
     "empty": "Not connected",
     "stored": "Saved for this browser session",
-    "checking": "Checking GitHub connection...",
+    "checking": "Checking connection...",
     "connected": "Connected",
     "user": "User",
     "repository": "GitHub repository",
     "defaultBranch": "Default branch",
-    "token": "Token"
+    "token": "Token",
+    "subtitle": "Current Workspace connection.",
+    "connectionLabel": "Workspace",
+    "defaultRevision": "Default revision"
   },
   "installation": {
     "title": "Workspace installation",
-    "subtitle": "Install dispatcher workflow and governance folders for this Workspace in the connected GitHub repository.",
-    "idle": "Check the GitHub connection to inspect installation status.",
+    "subtitle": "Manage the installation required by this Workspace.",
+    "idle": "Check the connection to inspect installation status.",
     "checking": "Checking BatchPlane installation...",
-    "installed": "BatchPlane Lite is installed.",
-    "missing": "Installation files are missing.",
-    "outdated": "Workspace workflow files do not match the current BatchPlane template.",
-    "creating": "Creating installation pull request...",
-    "createPullRequest": "Create installation PR",
-    "createUpdatePullRequest": "Create workflow update PR",
-    "success": "Pull request created.",
-    "installSuccess": "Installation pull request is ready for maintainer review.",
-    "updateSuccess": "Workflow update pull request is ready for maintainer review."
+    "installed": "BatchPlane is installed.",
+    "missing": "Installation evidence is missing.",
+    "outdated": "Workspace installation needs an update.",
+    "creating": "Creating installation request...",
+    "success": "Request created.",
+    "installSuccess": "Installation request is ready for maintainer review. Installation remains unchanged until applied.",
+    "updateSuccess": "Update request is ready for maintainer review. Installation remains unchanged until applied.",
+    "createRequest": "Create installation request",
+    "createUpdateRequest": "Create update request",
+    "verifiedRequired": "Check the current connection before creating a request."
   },
   "workspacePolicy": {
     "title": "Workspace policy",
-    "subtitle": "Change approval behavior through a pull request to .batch-governance/workspace.yml.",
+    "subtitle": "Request a change to the Workspace approval policy.",
     "modeLabel": "Approval mode",
     "currentMode": "Current mode",
     "requestedMode": "Requested mode",
-    "idle": "Check the GitHub connection to inspect Workspace policy.",
+    "idle": "Check the connection to inspect Workspace policy.",
     "checking": "Checking Workspace policy...",
-    "creating": "Creating Workspace policy pull request...",
-    "createPullRequest": "Create policy PR",
-    "success": "Workspace policy pull request created.",
-    "selfApprovalNotice": "Requester self-approval will be allowed after this policy PR is merged. The approval remains explicit evidence.",
-    "autoApproveNotice": "After this policy PR is merged, execution requests are approved automatically by Workspace policy. This mode also includes self-approval permission. The UI records explicit approval evidence; the dispatcher still performs workflow_dispatch.",
+    "creating": "Creating Workspace policy request...",
+    "success": "Workspace policy request created.",
+    "selfApprovalNotice": "Requester self-approval will be allowed after this policy change is applied. Approval remains explicit evidence.",
+    "autoApproveNotice": "After this policy change is applied, Workspace policy automatically approves execution requests and permits self-approval. Explicit approval evidence is recorded; execution remains controlled by the connected platform.",
     "modes": {
       "SELF_APPROVAL_BLOCKED": "Self-approval blocked",
       "SELF_APPROVAL_ALLOWED": "Self-approval allowed",
       "AUTO_APPROVE": "Auto-approve"
-    }
+    },
+    "createRequest": "Create policy request",
+    "checkFirst": "Check the connection first.",
+    "pendingRequest": "The policy request has not been applied.",
+    "chooseDifferentMode": "Choose a different approval mode."
   },
   "errors": {
-    "unknown": "Unknown error",
+    "unknown": "The operation could not be completed.",
     "requiredFields": "GitHub repository owner, repository name, and token are required.",
-    "connectionFailed": "GitHub connection failed."
+    "connectionFailed": "Workspace connection failed.",
+    "access-denied": "This connection does not have permission to perform that operation.",
+    "authentication-required": "Authentication failed. Check the connection credentials.",
+    "conflict": "The source changed. Check the connection and try again.",
+    "invalid-input": "Check the required connection or request values.",
+    "request-rejected": "The connected platform rejected the request.",
+    "resource-unavailable": "The requested source is unavailable or cannot be accessed.",
+    "temporarily-unavailable": "The connected platform is temporarily unavailable. Try again later.",
+    "provider-unknown": "The connected platform could not complete the operation."
   }
 }

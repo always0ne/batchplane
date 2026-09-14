@@ -9,7 +9,7 @@ import {
   createMockGitHubLiteClient,
 } from "@batchplane/github-lite";
 
-import type { GitHubSession } from "../../features/lite-setup/github-session";
+import type { GitHubSession } from "../../runtime/github-session";
 import "../../i18n/i18n";
 import { i18next } from "../../i18n/i18n";
 import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";

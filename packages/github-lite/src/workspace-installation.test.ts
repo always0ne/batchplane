@@ -20,7 +20,7 @@ import {
   liteRoleMappingPath,
   liteSampleTargetWorkflowPath,
   liteWorkspacePolicyPath,
-} from "./installation-model";
+} from "./index.js";
 
 describe("Lite installation model", () => {
   it("detects missing repository-side installation files", async () => {

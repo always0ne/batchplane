@@ -28,6 +28,18 @@ const disconnectedClient = {
   listExecutionRuns: async () => {
     throw new WorkspaceNotConnectedError();
   },
+  inspectWorkspace: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  requestWorkspaceInstallation: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  requestWorkspaceUpdate: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  requestWorkspacePolicyChange: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
   getExecutionRun: async () => {
     throw new WorkspaceNotConnectedError();
   },

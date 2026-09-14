@@ -3,6 +3,7 @@ import {
   createGitHubLiteDashboardClient,
   createGitHubLiteExecutionApprovalClient,
   createGitHubLiteExecutionInspectionClient,
+  createGitHubLiteWorkspaceClient,
 } from "@batchplane/github-lite";
 import {
   WorkspaceNotConnectedError,
@@ -29,6 +30,13 @@ export function createRuntimeBatchPlaneClient({
   readSession = readRuntimeSession,
 }: RuntimeBatchPlaneClientDependencies = {}): BatchPlaneClient {
   return {
+    inspectWorkspace: async () => createWorkspaceClient().inspectWorkspace(),
+    requestWorkspaceInstallation: async () =>
+      createWorkspaceClient().requestWorkspaceInstallation(),
+    requestWorkspaceUpdate: async () =>
+      createWorkspaceClient().requestWorkspaceUpdate(),
+    requestWorkspacePolicyChange: async (input) =>
+      createWorkspaceClient().requestWorkspacePolicyChange(input),
     async listBatches() {
       const session = readSession();
 
@@ -153,6 +161,13 @@ export function createRuntimeBatchPlaneClient({
       governedChangeClient: createGovernedChangeClient(session),
       revisionClient: createBatchRevisionClient(session),
       runtime: createRuntime(session),
+    });
+  }
+
+  function createWorkspaceClient() {
+    const session = requireSession(readSession());
+    return createGitHubLiteWorkspaceClient({
+      settings: createRuntime(session).settings,
     });
   }
 

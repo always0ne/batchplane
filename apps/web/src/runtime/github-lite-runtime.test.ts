@@ -17,7 +17,7 @@ import {
 import {
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
-} from "../features/lite-setup/installation-model";
+} from "@batchplane/github-lite";
 import { createGitHubLiteRuntime } from "./github-lite-runtime";
 
 const session = {

@@ -110,23 +110,23 @@ the target structure above. PR #198 establishes the Batch list as the first
 completed vertical slice; the remaining `*Page.tsx` files under `features` are
 legacy placement, not examples for new work.
 
-| Surface                         | Current Page                                              | Status                                                                                                       |
-| ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Batch list                      | `pages/batches/BatchesPage.tsx`                           | Migrated; first reference slice                                                                              |
-| Dashboard                       | `pages/dashboard/DashboardPage.tsx`                       | R5 product summary query and page-local operational sections                                                 |
-| My Work                         | `pages/my-work/MyWorkPage.tsx`                            | R3 product-client work queue; preserves request and failure follow-up destinations                           |
-| Batch registration and change   | `pages/batches/BatchRegistrationPage.tsx`                 | Migrated route page; further R2-A split keeps form, schedule, review, and command state page-local           |
-| Batch detail                    | `pages/batches/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient` |
-| Execution request creation      | `pages/execution-requests/ExecutionRequestPage.tsx`       | R3 route composition with page-local draft, preview, and submission responsibilities                         |
-| Execution request detail        | `pages/execution-requests/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                  |
-| Execution run list and failures | `pages/execution-runs/ExecutionRunListPage.tsx`           | R5 product execution query and route-preserving history/failure views                                        |
-| Execution run detail            | `pages/execution-runs/ExecutionRunDetailPage.tsx`         | R5 detail query, failure commands, evidence regions, and on-demand log presentation                          |
-| Workspace requests              | `pages/requests/WorkspaceRequestsPage.tsx`                | R3 product request inventory; local search and filters                                                       |
-| Approvals                       | `pages/approvals/ApprovalsPage.tsx`                       | R3 product inbox and reusable execution approval action                                                      |
-| Governed change approval detail | `pages/approvals/GovernedChangeDetailPage.tsx`            | Migrated route page; provider-neutral governed-change client only                                            |
-| Audit                           | `pages/audit/AuditPage.tsx`                               | R5 product timeline query, local filtering, and exact execution destinations                                 |
-| Workspace connection and setup  | `features/lite-setup/LiteSetupPage.tsx`                   | Legacy route Page; migration pending                                                                         |
-| Standalone schedule definition  | None                                                      | Removed; schedules are edited inside the governed Batch form and the deep link redirects there               |
+| Surface                         | Current Page                                              | Status                                                                                                        |
+| ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Batch list                      | `pages/batches/BatchesPage.tsx`                           | Migrated; first reference slice                                                                               |
+| Dashboard                       | `pages/dashboard/DashboardPage.tsx`                       | R5 product summary query and page-local operational sections                                                  |
+| My Work                         | `pages/my-work/MyWorkPage.tsx`                            | R3 product-client work queue; preserves request and failure follow-up destinations                            |
+| Batch registration and change   | `pages/batches/BatchRegistrationPage.tsx`                 | Migrated route page; further R2-A split keeps form, schedule, review, and command state page-local            |
+| Batch detail                    | `pages/batches/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
+| Execution request creation      | `pages/execution-requests/ExecutionRequestPage.tsx`       | R3 route composition with page-local draft, preview, and submission responsibilities                          |
+| Execution request detail        | `pages/execution-requests/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
+| Execution run list and failures | `pages/execution-runs/ExecutionRunListPage.tsx`           | R5 product execution query and route-preserving history/failure views                                         |
+| Execution run detail            | `pages/execution-runs/ExecutionRunDetailPage.tsx`         | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
+| Workspace requests              | `pages/requests/WorkspaceRequestsPage.tsx`                | R3 product request inventory; local search and filters                                                        |
+| Approvals                       | `pages/approvals/ApprovalsPage.tsx`                       | R3 product inbox and reusable execution approval action                                                       |
+| Governed change approval detail | `pages/approvals/GovernedChangeDetailPage.tsx`            | Migrated route page; provider-neutral governed-change client only                                             |
+| Audit                           | `pages/audit/AuditPage.tsx`                               | R5 product timeline query, local filtering, and exact execution destinations                                  |
+| Workspace connection and setup  | `pages/workspace/WorkspacePage.tsx`                       | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
+| Standalone schedule definition  | None                                                      | Removed; schedules are edited inside the governed Batch form and the deep link redirects there                |
 
 New route screens must start under `pages`; the legacy paths above do not
 authorize adding another Page to `features`. A migration is complete only when
@@ -231,8 +231,8 @@ the existing connection and installation dependencies.
   fabricated terminal outcome.
 
 This slice does not add cancellation, result synchronization, schedule backfill,
-new review policy, caching, or a new runtime framework. Workspace setup remains
-in R6; package-resolution cleanup remains in R7. Actions/Gate/Dispatcher
+new review policy, caching, or a new runtime framework. Workspace setup follows
+the R6 boundary below; package-resolution cleanup remains in R7. Actions/Gate/Dispatcher
 protocols and shipped Action bundles are outside R5.
 
 Version-appropriate references:
@@ -240,6 +240,81 @@ Version-appropriate references:
 - [React 18 Effect synchronization and cleanup](https://18.react.dev/reference/react/useEffect)
 - [React 18 derived state and event handling](https://18.react.dev/learn/you-might-not-need-an-effect)
 - [React Router 6 search parameters](https://reactrouter.com/6.30.3/hooks/use-search-params)
+
+### R6 Workspace Connection And Setup Boundary
+
+The shared Workspace Page queries connection, installation and approval policy
+through `BatchPlaneClient`. It composes page-local status and command regions;
+it neither owns credentials nor generates or compares provider artifacts.
+The Lite adapter owns installation templates, inspection and setup/update/policy
+request creation. Runtime supplies the current connection and fixture selection.
+
+The router points directly to `WorkspacePage` and supplies the Lite connection
+editor as an ordinary component prop. Do not insert a `LiteWorkspaceRoute`
+wrapper merely to assemble the editor. The editor owns the
+owner/repository/token draft, explicit session-storage commands and stored
+session presentation. The Page receives connection-change and check events,
+not credential state, separate form/summary slots or a `prepareRequest`
+callback. No raw or masked token enters a shared Page, product-client model,
+URL, audit record or product request. This is a bounded React composition
+contract, not a dynamic form schema, provider registry or additional Context.
+
+Connection check explicitly saves the draft and inspects that connection.
+Editing, saving, disconnecting or failing a check invalidates the previous
+inspection and related request results. Installation/update and policy
+commands operate only after a successful current inspection; neither command
+saves editor fields. Disable unavailable actions with a localized reason and
+guard their handlers as well. Obsolete in-flight results cannot restore
+verification or results after invalidation. This is an approved behavior change
+from the former save-before-request callback, not behavior-preserving renaming.
+
+- Keep connection verification, installation inspection and policy commands
+  distinct. A request-created result is not an installed or applied result.
+- Display the currently applied policy separately from a requested replacement.
+  Browser state cannot grant approval permissions.
+- Product state and opaque source references drive shared rendering. Lite
+  labels may identify concrete source artifacts, but Pages do not parse paths,
+  pull requests, branch names or repository permission DTOs.
+- User events start save/check/disconnect and change requests. Effects manage
+  query lifetime; obsolete work from a disconnected/replaced connection cannot
+  update the current screen. Language changes do not erase drafts or refetch.
+- Preserve the single session-only connection, current setup route and actual
+  install/update/policy journeys. Do not add a form framework, storage layer,
+  identity provider, compatibility system or new dependency for this slice.
+
+Official composition reference:
+[React 18 JSX children and props](https://18.react.dev/learn/passing-props-to-a-component#passing-jsx-as-children).
+
+#### Workspace And Platform Extension Boundary
+
+Keep three different concepts separate: Lite/Main chooses the product runtime;
+Workspace is the business and policy context; a platform connection identifies
+an execution target environment. A connection editor is not a platform choice
+for the entire Workspace. Lite's browser GitHub session is not Main's engine
+credential-management implementation.
+
+The target UI has Workspace-level settings and a list of connections, with
+connection-specific editors and installation status. Multiple connections of
+the same or different platform types must not require copies of the Workspace
+Page. Main uses the common product client through Kotlin; the server selects
+the execution adapter, not React Router.
+
+When multi-Workspace functionality is implemented, scope queries and commands
+by Workspace and connection identity rather than a mutable global repository
+session. Use ordinary dynamic route parameters for the selected context, and
+keep identity independent of display names and ownership so transfer is not
+blocked by the UI. The server validates membership and permissions; URL IDs
+are not authority. Shared-connection ownership, transfer approval and history
+visibility need separate product decisions, not assumptions in React code.
+
+R6 still implements one session-storage connection at `/lite/setup`. It does
+not implement a connection list, multiple IDs, new routes, Main identity,
+Jenkins forms, sharing or transfer. Do not add fake identifiers, empty Pages or
+unused provider methods to imply readiness. The current single-session product
+client must still be extended in the multi-Workspace feature.
+
+Official routing reference:
+[React Router 6 dynamic segments](https://reactrouter.com/6.30.3/route/route#dynamic-segments).
 
 ### Application Composition
 

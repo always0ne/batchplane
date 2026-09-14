@@ -12,14 +12,11 @@ import {
 } from "@batchplane/github-lite";
 import type { BatchPlaneClient } from "@batchplane/ui-client";
 
-import {
-  readGitHubSession,
-  type GitHubSession,
-} from "../features/lite-setup/github-session";
+import { readGitHubSession, type GitHubSession } from "./github-session";
 import {
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
-} from "../features/lite-setup/installation-model";
+} from "@batchplane/github-lite";
 import { createGitHubLiteRuntime } from "./github-lite-runtime";
 
 export const runtimeFixtureStorageKey = "batchplane.dev.runtimeFixture";
