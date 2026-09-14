@@ -108,11 +108,11 @@ The target repository is installed when the default branch contains:
 .batch-governance/batches/.gitkeep
 ```
 
-If any required file is missing, choose `Create installation PR` in Workspace.
+If any required file is missing, choose `Create installation request` in Workspace.
 Review and merge the pull request in GitHub.
 
 If required files exist but generated workflow files are outdated, Workspace
-shows the affected workflow paths and offers `Create workflow update PR`. That
+shows the affected workflow paths and offers `Create update request`. That
 update only changes managed workflow files:
 
 ```text

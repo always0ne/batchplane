@@ -7,17 +7,17 @@ import { describe, expect, it } from "vitest";
 import {
   buildBatchWorkflowYaml,
   parseBatchDefinitionYaml,
-} from "../registration/registration-model";
+} from "../features/registration/registration-model";
 import {
   buildDispatcherWorkflowYaml,
   buildRoleMappingYaml,
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
-} from "./installation-model";
+} from "@batchplane/github-lite";
 
 const demoRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../../../examples/github-lite-demo",
+  "../../../../examples/github-lite-demo",
 );
 
 function readDemoFile(path: string): string {

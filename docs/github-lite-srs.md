@@ -29,6 +29,18 @@ execution evidence, or failure follow-up.
 
 ## Installation Requirements
 
+Workspace settings use the shared product UI. A Lite-specific connection form
+owns GitHub credentials; the shared screen owns connection results,
+installation readiness and approval-policy presentation through the product
+client. Only one session-storage connection is supported here. Main identity,
+OAuth and multiple Workspaces are separate scope.
+
+Saving a connection must not be reported as verified connectivity. Creating an
+installation/update request must not be reported as applied installation.
+Policy requests must display current and requested modes separately until the
+source confirms application. Disconnecting or replacing the connection must
+prevent pending results from restoring the previous connection's screen state.
+
 The setup screen must inspect the connected repository before users rely on
 execution approval.
 

@@ -89,7 +89,7 @@ Use `Save session`, then `Check connection`. Tokens are stored in
 `sessionStorage` only. Connection check also inspects whether the repository has
 BatchPlane Lite installed.
 
-If Lite is not installed, choose `Create installation PR` in `Workspace`. The
+If Lite is not installed, choose `Create installation request` in `Workspace`. The
 installation pull request adds:
 
 - `.github/workflows/batchplane-dispatcher.yml`

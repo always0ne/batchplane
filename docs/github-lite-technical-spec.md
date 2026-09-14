@@ -25,6 +25,19 @@ must not persist placeholder paths such as `new-batch.yml`.
 
 ## Installation Flow
 
+The shared Workspace screen consumes provider-neutral `BatchPlaneClient`
+operations. GitHub credentials belong to the Lite connection form, composed
+into the screen by `app`; they remain in session storage and never appear in
+product contracts. Runtime supplies the active Lite connection. Installation
+templates, required-file inspection, managed-workflow comparison, and setup,
+update and policy request creation belong to `packages/github-lite`, not React
+Pages or features. The adapter returns product status and opaque source
+references for display; the Page does not interpret repository artifacts.
+
+Creating a setup, update or policy request returns the request evidence
+immediately. It does not change the applied installation or approval policy.
+Inspection of the default branch remains authoritative for applied status.
+
 GitHub Lite is installed into a target repository by a setup pull request. The
 setup product operation delegates branch and pull-request mechanics to the
 GitHub Lite adapter; a repository maintainer reviews and applies the setup

@@ -39,13 +39,13 @@ import {
   batchDefinitionDirectory,
   isBatchDefinitionFile,
 } from "../features/batches/batch-repository";
-import type { GitHubSession } from "../features/lite-setup/github-session";
+import type { GitHubSession } from "./github-session";
 import {
   checkLiteInstallationStatus,
   createLiteInstallationPullRequest,
   createLiteInstallationUpdatePullRequest,
   createWorkspacePolicyPullRequest as createWorkspacePolicyChangePullRequest,
-} from "../features/lite-setup/installation-model";
+} from "@batchplane/github-lite";
 
 export type GitHubLiteRuntimeOptions = {
   client?: GitHubLiteClient;

@@ -4,7 +4,7 @@ import {
   type RouteObject,
 } from "react-router-dom";
 
-import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
+import { LiteWorkspaceRoute } from "./LiteWorkspaceRoute";
 import { ApprovalsPage } from "../pages/approvals/ApprovalsPage";
 import { GovernedChangeDetailPage } from "../pages/approvals/GovernedChangeDetailPage";
 import { AuditPage } from "../pages/audit/AuditPage";
@@ -92,7 +92,7 @@ export const appRoutes: RouteObject[] = [
         element: <GovernedChangeDetailPage />,
       },
       { id: "audit", path: "audit", element: <AuditPage /> },
-      { id: "lite-setup", path: "lite/setup", element: <LiteSetupPage /> },
+      { id: "lite-setup", path: "lite/setup", element: <LiteWorkspaceRoute /> },
       { id: "not-found", path: "*", element: <NotFoundPage /> },
     ],
   },

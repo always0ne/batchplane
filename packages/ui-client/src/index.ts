@@ -4,6 +4,14 @@ export * from "./execution-requests.js";
 export * from "./governed-changes.js";
 export * from "./request-inventory.js";
 export * from "./execution-inspection.js";
+export * from "./workspace.js";
+
+import type {
+  WorkspaceInspection,
+  WorkspaceInstallationRequest,
+  WorkspacePolicy,
+  WorkspacePolicyRequest,
+} from "./workspace.js";
 
 import type {
   BatchDetailResult,
@@ -44,6 +52,12 @@ import type {
 } from "./request-inventory.js";
 
 export type BatchPlaneClient = {
+  inspectWorkspace(): Promise<WorkspaceInspection>;
+  requestWorkspaceInstallation(): Promise<WorkspaceInstallationRequest>;
+  requestWorkspaceUpdate(): Promise<WorkspaceInstallationRequest>;
+  requestWorkspacePolicyChange(input: {
+    policy: WorkspacePolicy;
+  }): Promise<WorkspacePolicyRequest>;
   listExecutionRuns(
     input?: ExecutionRunQuery,
   ): Promise<ExecutionRunPresentation[]>;

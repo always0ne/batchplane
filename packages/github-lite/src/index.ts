@@ -24,6 +24,12 @@ export {
   loadWorkspacePolicy,
   parseWorkspacePolicyFile,
 } from "./inspection-context.js";
+export * from "./workspace-installation-templates.js";
+export * from "./workspace-installation-inspection.js";
+export * from "./workspace-installation-requests.js";
+export * from "./workspace-policy-request.js";
+export * from "./workspace-client.js";
+export * from "./github-action-references.js";
 
 export type RepoRef = {
   owner: string;

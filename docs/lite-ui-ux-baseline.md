@@ -168,6 +168,16 @@ backfill, new review policy, or stronger evidence retention.
 - The navigation label must use Workspace language, not Repo Settings.
 - GitHub owner/repository fields are connection details inside the Workspace,
   not the product-level settings concept.
+- The Lite connection form owns credentials. Shared settings regions show
+  connection results, installation readiness and policy, without requiring
+  provider-specific input fields or interpreting provider artifacts.
+- Saving a connection is not verification. Creating an installation/update or
+  policy request is not application. Keep the current and requested policy
+  visible as distinct values, with the returned request's source link.
+- Check save, connection check, disconnect, missing/partial installation,
+  up-to-date installation, update request and policy request paths in English
+  and Korean at desktop and mobile widths. Late results from an old connection
+  must not replace the new connection's screen state.
 - Approval mode changes must create a pull request to
   `.batch-governance/workspace.yml`; the browser must not store approval policy
   as local UI state.
