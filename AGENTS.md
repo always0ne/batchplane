@@ -125,6 +125,17 @@ file is the enforcement checklist.
 
 ## No Overengineering
 
+- Distinguish verified defects, explicit requirements, and unverified
+  hypotheses. Never describe a hypothetical state as an observed defect.
+- Do not invent threats or exceptional states to justify defensive branches,
+  new states, abstractions, compatibility paths, or additional backlog work.
+  Before proposing mitigation, identify a reachable path or documented trust
+  boundary in the current system and its concrete impact. A demonstrated risk
+  does not require a production incident, but speculation alone is not evidence.
+- When evidence is missing, perform only proportionate investigation. Do not
+  implement the hypothetical case or expand the approved scope. Present any
+  justified out-of-scope change, its minimum solution and cost for user approval.
+  Apply this rule to planning, worker instructions, and review alike.
 - Add only the boundaries required by current product behavior and the approved
   next vertical slice.
 - Do not add empty layers, speculative interfaces, future-provider methods,

@@ -1,14 +1,15 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
+import { RuntimeClientTestProvider } from "../../test/RuntimeClientTestProvider";
 
 import {
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
 } from "@batchplane/github-lite";
 
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
 import { i18next } from "../../i18n/i18n";
+import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
 import {
   createBatchPlaneRuntime,
   writeRuntimeFixtureSelection,
@@ -35,10 +36,12 @@ describe("AuditPage", () => {
       const runtime = createBatchPlaneRuntime(session);
       render(
         <MemoryRouter>
-          <AuditPage
+          <RuntimeClientTestProvider
             createRuntime={() => runtime}
             readSession={() => session}
-          />
+          >
+            <AuditPage />
+          </RuntimeClientTestProvider>
         </MemoryRouter>,
       );
 
@@ -111,10 +114,12 @@ describe("AuditPage", () => {
 
     render(
       <MemoryRouter>
-        <AuditPage
+        <RuntimeClientTestProvider
           createRuntime={() => createGitHubLiteRuntime(session, { client })}
           readSession={() => session}
-        />
+        >
+          <AuditPage />
+        </RuntimeClientTestProvider>
       </MemoryRouter>,
     );
 
@@ -141,7 +146,9 @@ describe("AuditPage", () => {
   it("renders an empty state when no runtime session is available", async () => {
     render(
       <MemoryRouter>
-        <AuditPage readSession={() => null} />
+        <RuntimeClientTestProvider readSession={() => null}>
+          <AuditPage />
+        </RuntimeClientTestProvider>
       </MemoryRouter>,
     );
 

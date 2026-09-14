@@ -30,9 +30,11 @@ export function RecentExecutionRequests({
                 {request.title}
               </Link>
               <p className="mt-1 text-xs font-semibold text-bp-muted">
-                {t(
-                  `detail.recentRuns.status.${request.status.toLowerCase().replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())}`,
-                )}
+                {request.scheduled
+                  ? t("executionRequests:detail.status.SCHEDULE_RECORDED")
+                  : t(
+                      `detail.recentRuns.status.${request.status.toLowerCase().replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())}`,
+                    )}
               </p>
               <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
                 <BatchDetailFact

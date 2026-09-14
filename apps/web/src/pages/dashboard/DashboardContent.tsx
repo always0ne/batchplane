@@ -1,15 +1,6 @@
-import type {
-  AuditTimelineItem,
-  BatchDefinition,
-  BatchPlaneRuntimePorts,
-  ExecutionRun,
-  Repository,
-  RepositoryIssue,
-  RepositoryIssueComment,
-  RepositoryPullRequest,
-  RepositoryUser,
-  RuntimeInstallationStatus,
-} from "@batchplane/domain";
+import type { TFunction } from "i18next";
+import type { ExecutionAuditItem } from "@batchplane/ui-client";
+import type { DashboardSummary } from "@batchplane/ui-client";
 import {
   AlertTriangle,
   ClipboardCheck,
@@ -19,45 +10,11 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-
-import { parseExecutionApprovalRequest } from "../approvals/approval-model";
-import { isOpenRegistrationReview } from "../approvals/registration-approval-model";
-import type { GitHubSession } from "../lite-setup/github-session";
-import { PageHeader } from "../../ui/PageHeader";
+import { Link } from "react-router-dom";
+import { formatInspectionError } from "../../client/inspection-errors";
 import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
-import {
-  createBatchPlaneRuntime,
-  readRuntimeSession,
-} from "../../runtime/runtime-fixtures";
-import { formatRuntimeError } from "../../runtime/runtime-errors";
-
-type DashboardState =
-  | { type: "loading" }
-  | { type: "no-session" }
-  | { type: "loaded"; summary: DashboardSummary }
-  | { type: "error"; message: string };
-
-type DashboardSummary = {
-  auditItems: AuditTimelineItem[];
-  batches: BatchDefinition[];
-  defaultBranch: string;
-  executionIssues: RepositoryIssue[];
-  failedRuns: ExecutionRun[];
-  gateBlockedRuns: ExecutionRun[];
-  installationStatus: RuntimeInstallationStatus;
-  pendingExecutionIssues: RepositoryIssue[];
-  pendingRegistrationRequests: RepositoryPullRequest[];
-  repository: Repository;
-  user: RepositoryUser;
-};
-
-type DashboardPageProps = {
-  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
-  readSession?: () => GitHubSession | null;
-};
+import type { DashboardState } from "./useDashboard";
 
 type DashboardCard = {
   icon: LucideIcon;
@@ -67,135 +24,7 @@ type DashboardCard = {
   value: string | number;
 };
 
-export function DashboardPage({
-  createRuntime = createBatchPlaneRuntime,
-  readSession = readRuntimeSession,
-}: DashboardPageProps = {}) {
-  const { t } = useTranslation("dashboard");
-  const [state, setState] = useState<DashboardState>({ type: "loading" });
-
-  useEffect(() => {
-    let ignoreResult = false;
-
-    async function loadDashboard() {
-      const session = readSession();
-
-      if (!session) {
-        setState({ type: "no-session" });
-        return;
-      }
-
-      setState({ type: "loading" });
-
-      try {
-        const runtime = createRuntime(session);
-        const [user, repository] = await Promise.all([
-          runtime.settings.getCurrentUser(),
-          runtime.settings.getRepository(),
-        ]);
-        const [
-          installationStatus,
-          batches,
-          registrationRequests,
-          executionIssues,
-          executionRuns,
-          auditItems,
-        ] = await Promise.all([
-          runtime.settings.checkInstallationStatus({
-            ref: repository.defaultBranch,
-          }),
-          runtime.batches.listBatchDefinitions({
-            ref: repository.defaultBranch,
-          }),
-          runtime.approvals.listRegistrationRequests({
-            baseBranch: repository.defaultBranch,
-          }),
-          runtime.approvals.listExecutionRequestIssues(),
-          runtime.executions.listExecutionRuns({ limit: 100 }),
-          runtime.audit.listAuditTimeline({ limit: 5 }),
-        ]);
-
-        const [executionIssueComments, registrationRequestComments] =
-          await Promise.all([
-            loadRequestComments(runtime, executionIssues),
-            loadRequestComments(runtime, registrationRequests),
-          ]);
-
-        if (ignoreResult) {
-          return;
-        }
-
-        const pendingExecutionIssues = executionIssues.filter((issue, index) =>
-          isPendingExecutionApprovalIssue(
-            issue,
-            executionIssueComments[index] ?? [],
-          ),
-        );
-        const pendingRegistrationRequests = registrationRequests.filter(
-          (pullRequest, index) =>
-            isOpenRegistrationReview(
-              pullRequest,
-              registrationRequestComments[index] ?? [],
-            ),
-        );
-
-        setState({
-          type: "loaded",
-          summary: {
-            auditItems,
-            batches,
-            defaultBranch: repository.defaultBranch,
-            executionIssues,
-            failedRuns: executionRuns.filter((run) => run.status === "FAILED"),
-            gateBlockedRuns: executionRuns.filter(
-              (run) => run.status === "BLOCKED",
-            ),
-            installationStatus,
-            pendingExecutionIssues,
-            pendingRegistrationRequests,
-            repository,
-            user,
-          },
-        });
-      } catch (error) {
-        if (!ignoreResult) {
-          setState({
-            type: "error",
-            message: formatRuntimeError(error, t("states.error")),
-          });
-        }
-      }
-    }
-
-    void loadDashboard();
-
-    return () => {
-      ignoreResult = true;
-    };
-  }, [createRuntime, readSession, t]);
-
-  return (
-    <section>
-      <PageHeader title={t("title")} subtitle={t("subtitle")} />
-      <DashboardContent state={state} />
-    </section>
-  );
-}
-
-async function loadRequestComments(
-  runtime: BatchPlaneRuntimePorts,
-  requests: Array<{ number: number }>,
-) {
-  return Promise.all(
-    requests.map((request) =>
-      runtime.approvals.listExecutionRequestComments({
-        issueNumber: request.number,
-      }),
-    ),
-  );
-}
-
-function DashboardContent({ state }: { state: DashboardState }) {
+export function DashboardContent({ state }: { state: DashboardState }) {
   const { t } = useTranslation("dashboard");
 
   if (state.type === "loading") {
@@ -219,7 +48,11 @@ function DashboardContent({ state }: { state: DashboardState }) {
   }
 
   if (state.type === "error") {
-    return <ErrorState message={state.message} />;
+    return (
+      <ErrorState
+        message={formatInspectionError(state.error, t, "states.error")}
+      />
+    );
   }
 
   return <LoadedDashboard summary={state.summary} />;
@@ -231,9 +64,7 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
     actionRequired: t("values.actionRequired"),
     ready: t("values.ready"),
   });
-  const pendingApprovals =
-    summary.pendingExecutionIssues.length +
-    summary.pendingRegistrationRequests.length;
+  const pendingApprovals = summary.pendingApprovals.length;
 
   return (
     <div className="space-y-4">
@@ -245,7 +76,7 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
                 {t("connection.title")}
               </h2>
               <p className="mt-2 text-sm text-bp-muted">
-                {summary.repository.owner}/{summary.repository.repo}
+                {summary.workspace.label}
               </p>
             </div>
             <span className="inline-flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
@@ -256,15 +87,15 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
           <dl className="mt-5 grid gap-4 sm:grid-cols-3">
             <DashboardFact
               label={t("connection.user")}
-              value={`@${summary.user.login}`}
+              value={`@${summary.workspace.currentUser}`}
             />
             <DashboardFact
               label={t("connection.defaultBranch")}
-              value={summary.defaultBranch}
+              value={summary.workspace.defaultRevision}
             />
             <DashboardFact
               label={t("connection.batches")}
-              value={summary.batches.length.toLocaleString()}
+              value={summary.batchCount.toLocaleString()}
             />
           </dl>
         </article>
@@ -273,24 +104,24 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
             {t("readiness.title")}
           </h2>
           <p className="mt-2 text-sm text-bp-muted">
-            {summary.installationStatus.installed
+            {summary.installation.installed
               ? t("readiness.installed")
               : t("readiness.missing", {
-                  count: summary.installationStatus.missingPaths.length,
+                  count: summary.installation.missingCount,
                 })}
           </p>
           <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100">
             <div
               className="h-full rounded-full bg-bp-control"
               style={{
-                width: `${calculateReadinessPercent(summary.installationStatus)}%`,
+                width: `${calculateReadinessPercent(summary.installation)}%`,
               }}
             />
           </div>
           <p className="mt-3 text-xs font-semibold text-bp-muted">
             {t("readiness.paths", {
-              present: summary.installationStatus.presentPaths.length,
-              total: summary.installationStatus.requiredPaths.length,
+              present: summary.installation.presentCount,
+              total: summary.installation.requiredCount,
             })}
           </p>
         </article>
@@ -326,28 +157,25 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
             </p>
           ) : (
             <ul className="mt-5 divide-y divide-slate-100">
-              {[
-                ...summary.pendingRegistrationRequests.map((request) => ({
-                  key: `registration-${request.number}`,
-                  meta: t("approvals.registration"),
-                  title: `#${request.number} ${request.title}`,
-                  url: request.url,
-                })),
-                ...summary.pendingExecutionIssues.map((issue) => ({
-                  key: `execution-${issue.number}`,
-                  meta: t("approvals.execution"),
-                  title: `#${issue.number} ${issue.title}`,
-                  url: issue.url,
-                })),
-              ]
+              {summary.pendingApprovals
+                .map((item) => ({
+                  key: item.kind + "-" + item.request.requestLocator,
+                  meta: t(
+                    item.kind === "EXECUTION"
+                      ? "approvals.execution"
+                      : "approvals.registration",
+                  ),
+                  title: item.request.sourceLabel + " " + item.title,
+                  url: item.request.sourceUrl,
+                }))
                 .slice(0, 4)
                 .map((item) => (
                   <li className="py-3" key={item.key}>
                     <a
                       className="text-sm font-semibold text-bp-graphite hover:text-bp-control"
                       href={item.url}
-                      rel="noreferrer"
                       target="_blank"
+                      rel="noreferrer"
                     >
                       {item.title}
                     </a>
@@ -377,7 +205,7 @@ function LoadedDashboard({ summary }: { summary: DashboardSummary }) {
               {summary.auditItems.map((item) => (
                 <li className="py-3" key={item.itemId}>
                   <p className="text-sm font-semibold text-bp-graphite">
-                    {item.summary}
+                    {formatAuditSummary(item, t)}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-bp-muted">
                     {item.actor} - {item.occurredAt}
@@ -448,17 +276,15 @@ function createDashboardCards(
   summary: DashboardSummary,
   values: { actionRequired: string; ready: string },
 ): DashboardCard[] {
-  const pendingApprovals =
-    summary.pendingExecutionIssues.length +
-    summary.pendingRegistrationRequests.length;
+  const pendingApprovals = summary.pendingApprovals.length;
 
   return [
     {
       icon: GitBranch,
       key: "repoReadiness",
-      tone: summary.installationStatus.installed ? "success" : "warning",
+      tone: summary.installation.installed ? "success" : "warning",
       to: "/lite/setup",
-      value: summary.installationStatus.installed
+      value: summary.installation.installed
         ? values.ready
         : values.actionRequired,
     },
@@ -473,15 +299,15 @@ function createDashboardCards(
       icon: AlertTriangle,
       key: "failedRuns",
       to: "/failures?type=failed",
-      tone: summary.failedRuns.length > 0 ? "danger" : "neutral",
-      value: summary.failedRuns.length,
+      tone: summary.failedRunCount > 0 ? "danger" : "neutral",
+      value: summary.failedRunCount,
     },
     {
       icon: ShieldAlert,
       key: "gateBlocked",
       to: "/failures?type=blocked",
-      tone: summary.gateBlockedRuns.length > 0 ? "warning" : "neutral",
-      value: summary.gateBlockedRuns.length,
+      tone: summary.gateBlockedRunCount > 0 ? "warning" : "neutral",
+      value: summary.gateBlockedRunCount,
     },
     {
       icon: History,
@@ -493,35 +319,57 @@ function createDashboardCards(
   ];
 }
 
-function calculateReadinessPercent(status: RuntimeInstallationStatus): number {
-  if (status.requiredPaths.length === 0) {
+function calculateReadinessPercent(
+  status: DashboardSummary["installation"],
+): number {
+  if (status.requiredCount === 0) {
     return 100;
   }
 
-  return Math.round(
-    (status.presentPaths.length / status.requiredPaths.length) * 100,
-  );
+  return Math.round((status.presentCount / status.requiredCount) * 100);
 }
 
-function isPendingExecutionApprovalIssue(
-  issue: RepositoryIssue,
-  comments: RepositoryIssueComment[],
-): boolean {
-  return (
-    parseExecutionApprovalRequest(issue, comments) !== null &&
-    ![
-      "dispatch-failed",
-      "dispatched",
-      "dispatching",
-      "gate-blocked",
-      "rejected",
-    ].some((label) => hasBatchPlaneLabel(issue.labels, label))
-  );
+function formatAuditSummary(
+  item: ExecutionAuditItem,
+  translate: TFunction,
+): string {
+  const key = item.execution?.sourceOnly
+    ? "SOURCE_RUN_OBSERVED"
+    : item.execution
+      ? "NATIVE_SCHEDULE_OBSERVED"
+      : item.type;
+  return translate(`audit:summaries.${key}`, {
+    ...toAuditSummaryValues(item, translate),
+    defaultValue: item.summary,
+  });
 }
 
-function hasBatchPlaneLabel(labels: string[], name: string): boolean {
-  return (
-    labels.includes(`batchplane:${name}`) ||
-    labels.includes(`batchtrail:${name}`)
-  );
+function toAuditSummaryValues(
+  item: ExecutionAuditItem,
+  translate: (key: string) => string,
+): Record<string, string | number> {
+  const gateResult = String(item.metadata?.gateResult ?? "");
+
+  return {
+    batchId: String(item.metadata?.batchId ?? item.subjectId),
+    conclusion: String(item.metadata?.conclusion ?? ""),
+    decision: String(item.metadata?.decision ?? ""),
+    followUpId: String(item.metadata?.followUpId ?? ""),
+    gateResult: gateResult
+      ? translate(`audit:values.gateResult.${gateResult}`)
+      : "",
+    pullNumber: Number(item.metadata?.pullNumber ?? 0),
+    reasonCode: String(item.metadata?.reasonCode ?? ""),
+    requestId: String(item.metadata?.requestId ?? item.subjectId),
+    reviewId: String(item.metadata?.reviewId ?? ""),
+    reviewStatus: String(item.metadata?.reviewStatus ?? ""),
+    runId: Number(item.metadata?.runId ?? 0),
+    runAttempt: Number(item.execution?.runAttempt ?? 1),
+    scheduleId: String(item.execution?.scheduleId ?? ""),
+    observation: item.execution?.observation
+      ? translate(`executions:nativeObservation.${item.execution.observation}`)
+      : "",
+    selfReview: String(item.metadata?.selfReview ?? ""),
+    status: String(item.metadata?.status ?? ""),
+  };
 }

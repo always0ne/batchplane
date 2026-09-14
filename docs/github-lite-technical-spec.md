@@ -513,8 +513,11 @@ to future Main/R2-B work.
 
 ## Execution Run Detail Contract
 
-The UI reads GitHub Actions run detail through the target repository API and
-maps it into `ExecutionRun`:
+Run and failure Pages use the provider-neutral `BatchPlaneClient` for execution
+inspection, on-demand logs and failure follow-up commands. The Lite adapter
+reads GitHub Actions through the target repository API and projects product
+execution records. React does not create the runtime, read tokens, parse Issue
+comments or infer business/Gate roles from provider job names:
 
 - list workflows and both manual `workflow_dispatch` and native `schedule` runs
 - when workflow lists are used for execution contexts, exclude workflows whose
@@ -533,7 +536,7 @@ run-name: BatchPlane ${{ inputs.batch_id }} ${{ inputs.request_id }}
 ```
 
 This makes the request correlation readable in GitHub Actions and recoverable
-by the Lite UI even without a server-side database.
+by the Lite adapter even without a server-side database.
 
 Run status mapping must distinguish control failure from business failure:
 
@@ -619,17 +622,17 @@ repository-backed audit evidence, not an immutable store independent of GitHub
 edit and deletion permissions. A browser may suppress its own duplicate click,
 but this is not a cross-client lock.
 
-The Lite runtime exposes `audit.listAuditTimeline({ limit })` by composing
-GitHub repository evidence rather than reading a database. The GitHub adapter
+The product client exposes `listAuditTimeline({ limit })`. Its Lite adapter
+composes GitHub repository evidence rather than reading a database. The adapter
 loads registration pull requests, execution request Issues and comments,
 manual and scheduled runs, and workflow metadata, then normalizes them into
 `AuditTimelineItem` rows with optional `sourceUrl` values. UI filtering is
 client-side for the first Lite implementation and uses normalized metadata keys
 such as `batchId`, `requestId`, `runId`, `status`, and `reasonCode`.
 
-The My Work screen is a UI aggregation over existing ports. It loads the
-current GitHub user, registration pull requests, execution request Issues and
-comments, and recent execution runs. Items are classified into approvals,
+The My Work screen uses the existing product `getMyWork` operation. Its Lite
+adapter loads the current GitHub user, registration pull requests, execution
+request Issues and comments, and recent execution runs. Items are classified into approvals,
 registrations, user requests, and failure follow-ups, then linked to the
 corresponding BatchPlane detail route. For failure follow-up: no valid record
 on a business-failed run routes the manual execution requester, or the scheduled
@@ -643,8 +646,34 @@ follow-up update`; and assigned `OPEN` or `INVESTIGATING` records may route as
 `Continue follow-up` without duplicating the same manager's review work.
 Gate-block revisions and ongoing records retain the `Gate blocked` label and
 context. Execution detail receives a neutral
-`reviewCapability` from the runtime and renders an ineligible state as compact
+`reviewCapability` from the product client and renders an ineligible state as compact
 text with a tooltip rather than performing GitHub permission lookup itself.
+
+## Execution Inspection UI Boundary
+
+Run, failure, audit and Dashboard routes depend on product operations. Their
+page-local queries synchronize with the current client and route; changing the
+display language does not refetch data or clear an unfinished explanation.
+Filtering and log search are presentation concerns. Provider error decoding,
+evidence correlation, permission verification and business-log segmentation
+remain in the Lite adapter.
+
+Explanation and manager-review commands run from user events and use actual
+command responses. A response for an old execution or client cannot update the
+newly displayed execution. Duplicate-click suppression is local interaction
+control, not a repository-wide lock. Direct refresh reads the provider again;
+an unavailable lookup is not presented as a successful empty list.
+
+Dashboard consumes the same actionable-request, verified-failure, Gate-block and
+audit projections as their destination screens. Its existing installation
+summary is an adapter dependency, not permission to move installation workflows
+or token management into shared UI. Related My Work and recent-execution links
+retain the exact product execution identity, including native schedule attempts
+and read-only historical source observations.
+
+This boundary changes code ownership, not R4 execution authority, failure-review
+policy or log retention. It adds no cache, result-synchronization command,
+cancellation command, background monitor or new failure state.
 
 Parsers must accept both BatchPlane and legacy BatchTrail evidence namespaces:
 `batchplane.io/v1` and `batchtrail.io/v1`, plus `batchplane:*` and

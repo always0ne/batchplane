@@ -1,11 +1,12 @@
-import { render, screen } from "@testing-library/react";
 import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
+import { RuntimeClientTestProvider } from "../../test/RuntimeClientTestProvider";
 
+import "../../i18n/i18n";
 import { writeRuntimeFixtureSelection } from "../../runtime/runtime-fixtures";
 import { DashboardPage } from "./DashboardPage";
-import "../../i18n/i18n";
 
 describe("DashboardPage", () => {
   beforeEach(() => {
@@ -17,7 +18,9 @@ describe("DashboardPage", () => {
 
     render(
       <MemoryRouter>
-        <DashboardPage />
+        <RuntimeClientTestProvider>
+          <DashboardPage />
+        </RuntimeClientTestProvider>
       </MemoryRouter>,
     );
 
@@ -48,7 +51,9 @@ describe("DashboardPage", () => {
   it("renders an empty state when no runtime session is available", async () => {
     render(
       <MemoryRouter>
-        <DashboardPage readSession={() => null} />
+        <RuntimeClientTestProvider readSession={() => null}>
+          <DashboardPage />
+        </RuntimeClientTestProvider>
       </MemoryRouter>,
     );
 
@@ -80,14 +85,16 @@ describe("DashboardPage", () => {
 
     render(
       <MemoryRouter>
-        <DashboardPage
+        <RuntimeClientTestProvider
           createRuntime={() => runtime}
           readSession={() => ({
             owner: "always0ne",
             repo: "batch",
             token: "fixture-token",
           })}
-        />
+        >
+          <DashboardPage />
+        </RuntimeClientTestProvider>
       </MemoryRouter>,
     );
 

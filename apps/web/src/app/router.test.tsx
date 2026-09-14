@@ -25,6 +25,27 @@ class RouterTestRequest extends NodeRequest {
 }
 
 const disconnectedClient = {
+  listExecutionRuns: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  getExecutionRun: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  getExecutionRunJobLog: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  createFailureFollowUp: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  reviewFailureFollowUp: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  listAuditTimeline: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  getDashboardSummary: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
   approveGovernedChange: async () => {
     throw new Error("Workspace is not connected.");
   },

@@ -4,21 +4,21 @@ import {
   type RouteObject,
 } from "react-router-dom";
 
-import { AuditPage } from "../features/audit/AuditPage";
-import { DashboardPage } from "../features/dashboard/DashboardPage";
-import { ExecutionRunDetailPage } from "../features/execution-requests/ExecutionRunDetailPage";
-import { ExecutionRunListPage } from "../features/execution-requests/ExecutionRunListPage";
 import { LiteSetupPage } from "../features/lite-setup/LiteSetupPage";
+import { ApprovalsPage } from "../pages/approvals/ApprovalsPage";
+import { GovernedChangeDetailPage } from "../pages/approvals/GovernedChangeDetailPage";
+import { AuditPage } from "../pages/audit/AuditPage";
 import { BatchDetailPage } from "../pages/batches/BatchDetailPage";
 import { BatchRegistrationPage } from "../pages/batches/BatchRegistrationPage";
 import { BatchesPage } from "../pages/batches/BatchesPage";
-import { ApprovalsPage } from "../pages/approvals/ApprovalsPage";
+import { DashboardPage } from "../pages/dashboard/DashboardPage";
 import { ExecutionRequestDetailPage } from "../pages/execution-requests/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../pages/execution-requests/ExecutionRequestPage";
+import { ExecutionRunDetailPage } from "../pages/execution-runs/ExecutionRunDetailPage";
+import { ExecutionRunListPage } from "../pages/execution-runs/ExecutionRunListPage";
 import { MyWorkPage } from "../pages/my-work/MyWorkPage";
 import { NotFoundPage } from "../pages/not-found/NotFoundPage";
 import { WorkspaceRequestsPage } from "../pages/requests/WorkspaceRequestsPage";
-import { GovernedChangeDetailPage } from "../pages/approvals/GovernedChangeDetailPage";
 import { RootLayout } from "./RootLayout";
 import { ScheduleChangeRedirect } from "./ScheduleChangeRedirect";
 

@@ -1,15 +1,15 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   WorkspaceNotConnectedError,
-  type CreateGovernedChangeResult,
   type BatchDetailResult,
   type BatchPlaneClient,
+  type CreateGovernedChangeResult,
 } from "@batchplane/ui-client";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import "../../i18n/i18n";
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
+import "../../i18n/i18n";
 import { BatchDetailPage } from "./BatchDetailPage";
 
 const activeDetail: BatchDetailResult = {
@@ -337,6 +337,13 @@ function createClient(
     listApprovalRequests: unsupported,
     listWorkspaceRequests: unsupported,
     getMyWork: unsupported,
+    listExecutionRuns: unsupported,
+    getExecutionRun: unsupported,
+    getExecutionRunJobLog: unsupported,
+    createFailureFollowUp: unsupported,
+    reviewFailureFollowUp: unsupported,
+    listAuditTimeline: unsupported,
+    getDashboardSummary: unsupported,
     ...overrides,
   } satisfies BatchPlaneClient;
 }

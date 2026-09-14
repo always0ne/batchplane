@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildFailureFollowUpComment,
   buildFailureFollowUpReviewComment,
-  parseFailureFollowUps,
   parseFailureFollowUpReviews,
-} from "./failure-follow-up-model";
+  parseFailureFollowUps,
+} from "./failure-follow-up-records.js";
 
 describe("failure follow-up model", () => {
   it("round-trips structured failure follow-up evidence", () => {

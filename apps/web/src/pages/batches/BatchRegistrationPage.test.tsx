@@ -1,20 +1,20 @@
 import {
+  WorkspaceNotConnectedError,
+  type BatchChangeDraft,
+  type BatchPlaneClient,
+} from "@batchplane/ui-client";
+import {
   act,
   fireEvent,
   render,
   screen,
   waitFor,
 } from "@testing-library/react";
-import {
-  WorkspaceNotConnectedError,
-  type BatchChangeDraft,
-  type BatchPlaneClient,
-} from "@batchplane/ui-client";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import "../../i18n/i18n";
 import { i18next } from "../../i18n/i18n";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BatchRegistrationPage } from "./BatchRegistrationPage";
 
@@ -456,6 +456,13 @@ function createClient(
     listApprovalRequests: unsupported,
     listWorkspaceRequests: unsupported,
     getMyWork: unsupported,
+    listExecutionRuns: unsupported,
+    getExecutionRun: unsupported,
+    getExecutionRunJobLog: unsupported,
+    createFailureFollowUp: unsupported,
+    reviewFailureFollowUp: unsupported,
+    listAuditTimeline: unsupported,
+    getDashboardSummary: unsupported,
     ...overrides,
   };
 }
