@@ -8,26 +8,31 @@ import type { WorkspaceInspectionState } from "./useWorkspaceInspection";
 
 type PolicyRequestState =
   | { type: "idle" }
-  | { type: "creating" }
-  | { type: "success"; result: WorkspacePolicyRequest }
-  | { type: "error"; error: unknown };
+  | { type: "creating"; revision: number }
+  | { type: "success"; result: WorkspacePolicyRequest; revision: number }
+  | { type: "error"; error: unknown; revision: number };
 
-export function useWorkspacePolicy(
-  inspection: WorkspaceInspectionState,
-  prepareRequest: () => void,
-) {
+export function useWorkspacePolicy(inspection: WorkspaceInspectionState) {
   const client = useBatchPlaneClient();
   const generation = useRef(0);
   const [state, setState] = useState<PolicyRequestState>({ type: "idle" });
   const [selectedMode, setSelectedMode] = useState<WorkspaceApprovalMode>();
+  const activeState =
+    state.type === "idle" || state.revision === inspection.revision
+      ? state
+      : { type: "idle" as const };
   const currentPolicy =
-    state.type === "success"
-      ? state.result.currentPolicy
+    activeState.type === "success"
+      ? activeState.result.currentPolicy
       : inspection.type === "loaded"
         ? inspection.data.policy
         : undefined;
   const mode =
-    selectedMode ?? currentPolicy?.approval.mode ?? "SELF_APPROVAL_BLOCKED";
+    inspection.type === "loaded"
+      ? (selectedMode ??
+        currentPolicy?.approval.mode ??
+        "SELF_APPROVAL_BLOCKED")
+      : "SELF_APPROVAL_BLOCKED";
 
   useEffect(() => {
     generation.current++;
@@ -39,19 +44,29 @@ export function useWorkspacePolicy(
   }, [client, inspection.revision]);
 
   async function request() {
+    if (inspection.type !== "loaded") {
+      return;
+    }
     const operation = ++generation.current;
+    const revision = inspection.revision;
     try {
-      prepareRequest();
-      setState({ type: "creating" });
+      setState({ type: "creating", revision });
       const result = await client.requestWorkspacePolicyChange({
         policy: { approval: { mode } },
       });
       if (generation.current === operation)
-        setState({ type: "success", result });
+        setState({ type: "success", result, revision });
     } catch (error) {
-      if (generation.current === operation) setState({ type: "error", error });
+      if (generation.current === operation)
+        setState({ type: "error", error, revision });
     }
   }
 
-  return { state, mode, setMode: setSelectedMode, currentPolicy, request };
+  return {
+    state: activeState,
+    mode,
+    setMode: setSelectedMode,
+    currentPolicy,
+    request,
+  };
 }

@@ -7,13 +7,11 @@ import { formatWorkspaceError } from "./workspace-errors";
 
 export function WorkspaceInstallation({
   inspection,
-  prepareRequest,
 }: {
   inspection: WorkspaceInspectionState;
-  prepareRequest: () => void;
 }) {
   const { t } = useTranslation("settings");
-  const request = useWorkspaceInstallation(inspection.revision, prepareRequest);
+  const request = useWorkspaceInstallation(inspection);
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -43,7 +41,11 @@ function InstallationStatus({
   request: ReturnType<typeof useWorkspaceInstallation>;
 }) {
   const { t } = useTranslation("settings");
-  const state = request.state;
+  const state =
+    request.state.type === "idle" ||
+    request.state.revision === inspection.revision
+      ? request.state
+      : { type: "idle" as const };
   if (state.type === "success")
     return (
       <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -76,30 +78,24 @@ function InstallationStatus({
         )}
       </p>
     );
-  if (state.type === "error" || inspection.type === "error") {
-    const error =
-      state.type === "error"
-        ? state.error
-        : inspection.type === "error"
-          ? inspection.error
-          : undefined;
+  if (inspection.type === "error") {
     return (
-      <div
-        role="alert"
-        className="mt-5 flex gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-      >
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-        <p className="min-w-0 break-words font-semibold">
-          {formatWorkspaceError(error, t)}
-        </p>
+      <div className="mt-5 space-y-3">
+        <WorkspaceInstallationError error={inspection.error} />
+        <UnavailableInstallationAction />
       </div>
     );
   }
+  if (state.type === "error")
+    return <WorkspaceInstallationError error={state.error} />;
   if (inspection.type !== "loaded")
     return (
-      <p className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
-        {t("installation.idle")}
-      </p>
+      <div className="mt-5 space-y-3">
+        <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
+          {t("installation.idle")}
+        </p>
+        <UnavailableInstallationAction />
+      </div>
     );
 
   const installation = inspection.data.installation;
@@ -133,19 +129,49 @@ function InstallationStatus({
         </ul>
       </div>
       {installation.availableRequest ? (
-        <Button
-          variant="primary"
-          className="w-full justify-center"
-          onClick={() => void request.request(variant)}
-        >
-          <FilePlus2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-          {t(
-            variant === "update"
-              ? "installation.createUpdateRequest"
-              : "installation.createRequest",
-          )}
-        </Button>
+        <span className="block">
+          <Button
+            variant="primary"
+            className="w-full justify-center"
+            disabled={inspection.type !== "loaded"}
+            onClick={() => void request.request(variant)}
+          >
+            <FilePlus2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {t(
+              variant === "update"
+                ? "installation.createUpdateRequest"
+                : "installation.createRequest",
+            )}
+          </Button>
+        </span>
       ) : null}
     </div>
+  );
+}
+
+function WorkspaceInstallationError({ error }: { error: unknown }) {
+  const { t } = useTranslation("settings");
+  return (
+    <div
+      role="alert"
+      className="flex gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+    >
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      <p className="min-w-0 break-words font-semibold">
+        {formatWorkspaceError(error, t)}
+      </p>
+    </div>
+  );
+}
+
+function UnavailableInstallationAction() {
+  const { t } = useTranslation("settings");
+  return (
+    <span className="block" title={t("installation.verifiedRequired")}>
+      <Button variant="primary" className="w-full justify-center" disabled>
+        <FilePlus2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+        {t("installation.createRequest")}
+      </Button>
+    </span>
   );
 }

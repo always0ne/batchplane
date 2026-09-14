@@ -41,7 +41,8 @@
     "installSuccess": "Installation request is ready for maintainer review. Installation remains unchanged until applied.",
     "updateSuccess": "Update request is ready for maintainer review. Installation remains unchanged until applied.",
     "createRequest": "Create installation request",
-    "createUpdateRequest": "Create update request"
+    "createUpdateRequest": "Create update request",
+    "verifiedRequired": "Check the current connection before creating a request."
   },
   "workspacePolicy": {
     "title": "Workspace policy",

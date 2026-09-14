@@ -86,7 +86,11 @@ Enter:
 - Repository: target GitHub repository name
 - Token: fine-grained token
 
-Choose `Save session`, then `Check connection`.
+Choose `Check connection` to save and verify the entered connection. A separate
+`Save session` is optional and does not verify connectivity. Editing, saving or
+clearing the connection invalidates the previous check. Check again before
+creating installation, update or policy requests; those actions do not save
+the connection for you.
 
 The connection check reads:
 

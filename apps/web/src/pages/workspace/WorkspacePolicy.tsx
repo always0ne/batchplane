@@ -20,13 +20,11 @@ const approvalModes: WorkspaceApprovalMode[] = [
 
 export function WorkspacePolicy({
   inspection,
-  prepareRequest,
 }: {
   inspection: WorkspaceInspectionState;
-  prepareRequest: () => void;
 }) {
   const { t } = useTranslation("settings");
-  const policy = useWorkspacePolicy(inspection, prepareRequest);
+  const policy = useWorkspacePolicy(inspection);
   const { state, mode, currentPolicy } = policy;
   const currentMode = currentPolicy?.approval.mode;
   const unavailable =
@@ -67,9 +65,7 @@ export function WorkspacePolicy({
           {t("workspacePolicy.modeLabel")}
           <select
             className="mt-2 w-full min-w-0 max-w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-            disabled={
-              inspection.type === "idle" || inspection.type === "checking"
-            }
+            disabled={inspection.type !== "loaded"}
             onChange={(event) =>
               policy.setMode(event.target.value as WorkspaceApprovalMode)
             }

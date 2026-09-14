@@ -249,13 +249,24 @@ it neither owns credentials nor generates or compares provider artifacts.
 The Lite adapter owns installation templates, inspection and setup/update/policy
 request creation. Runtime supplies the current connection and fixture selection.
 
-The GitHub connection form is intentionally Lite-specific. `app` composes it
-into the shared Page using an ordinary JSX prop. This is the approved credential
-boundary, not a dynamic form schema or a provider registry. The form owns the
-owner/repository/token draft and session-storage commands. No raw or masked
-token enters a shared Page, product-client model, URL, audit record or request.
-Main may supply its own connection presentation without changing the shared
-settings Page; R6 does not implement Main identity or multiple connections.
+The router points directly to `WorkspacePage` and supplies the Lite connection
+editor as an ordinary component prop. Do not insert a `LiteWorkspaceRoute`
+wrapper merely to assemble the editor. The editor owns the
+owner/repository/token draft, explicit session-storage commands and stored
+session presentation. The Page receives connection-change and check events,
+not credential state, separate form/summary slots or a `prepareRequest`
+callback. No raw or masked token enters a shared Page, product-client model,
+URL, audit record or product request. This is a bounded React composition
+contract, not a dynamic form schema, provider registry or additional Context.
+
+Connection check explicitly saves the draft and inspects that connection.
+Editing, saving, disconnecting or failing a check invalidates the previous
+inspection and related request results. Installation/update and policy
+commands operate only after a successful current inspection; neither command
+saves editor fields. Disable unavailable actions with a localized reason and
+guard their handlers as well. Obsolete in-flight results cannot restore
+verification or results after invalidation. This is an approved behavior change
+from the former save-before-request callback, not behavior-preserving renaming.
 
 - Keep connection verification, installation inspection and policy commands
   distinct. A request-created result is not an installed or applied result.
@@ -273,6 +284,37 @@ settings Page; R6 does not implement Main identity or multiple connections.
 
 Official composition reference:
 [React 18 JSX children and props](https://18.react.dev/learn/passing-props-to-a-component#passing-jsx-as-children).
+
+#### Workspace And Platform Extension Boundary
+
+Keep three different concepts separate: Lite/Main chooses the product runtime;
+Workspace is the business and policy context; a platform connection identifies
+an execution target environment. A connection editor is not a platform choice
+for the entire Workspace. Lite's browser GitHub session is not Main's engine
+credential-management implementation.
+
+The target UI has Workspace-level settings and a list of connections, with
+connection-specific editors and installation status. Multiple connections of
+the same or different platform types must not require copies of the Workspace
+Page. Main uses the common product client through Kotlin; the server selects
+the execution adapter, not React Router.
+
+When multi-Workspace functionality is implemented, scope queries and commands
+by Workspace and connection identity rather than a mutable global repository
+session. Use ordinary dynamic route parameters for the selected context, and
+keep identity independent of display names and ownership so transfer is not
+blocked by the UI. The server validates membership and permissions; URL IDs
+are not authority. Shared-connection ownership, transfer approval and history
+visibility need separate product decisions, not assumptions in React code.
+
+R6 still implements one session-storage connection at `/lite/setup`. It does
+not implement a connection list, multiple IDs, new routes, Main identity,
+Jenkins forms, sharing or transfer. Do not add fake identifiers, empty Pages or
+unused provider methods to imply readiness. The current single-session product
+client must still be extended in the multi-Workspace feature.
+
+Official routing reference:
+[React Router 6 dynamic segments](https://reactrouter.com/6.30.3/route/route#dynamic-segments).
 
 ### Application Composition
 

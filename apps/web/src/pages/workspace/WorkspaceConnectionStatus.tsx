@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { StatusRow } from "../../ui/StatusRow";
 import type { WorkspaceInspectionState } from "./useWorkspaceInspection";
@@ -6,12 +5,11 @@ import { formatWorkspaceError } from "./workspace-errors";
 
 export function WorkspaceConnectionStatus({
   state,
-  storedConnection,
 }: {
   state: WorkspaceInspectionState;
-  storedConnection: ReactNode;
 }) {
   const { t } = useTranslation("settings");
+
   if (state.type === "loaded")
     return (
       <dl className="mt-5 space-y-3 text-sm">
@@ -30,12 +28,14 @@ export function WorkspaceConnectionStatus({
         />
       </dl>
     );
+
   if (state.type === "checking")
     return (
       <p className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
         {t("session.checking")}
       </p>
     );
+
   if (state.type === "error")
     return (
       <p
@@ -45,5 +45,10 @@ export function WorkspaceConnectionStatus({
         {formatWorkspaceError(state.error, t)}
       </p>
     );
-  return storedConnection;
+
+  return (
+    <p className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-bp-muted">
+      {t("session.empty")}
+    </p>
+  );
 }

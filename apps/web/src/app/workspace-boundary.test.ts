@@ -43,13 +43,26 @@ describe("Workspace dependency boundaries", () => {
         /from ["'][^"']*(?:apps\/web|react|runtime-fixtures)/,
       );
     }
-    const composition = readFileSync(
-      resolve("src/app/LiteWorkspaceRoute.tsx"),
+    const page = readFileSync(
+      resolve("src/pages/workspace/WorkspacePage.tsx"),
       "utf8",
     );
-    expect(composition).toContain("<GitHubConnectionForm");
-    expect(composition).not.toMatch(
-      /inspectWorkspace\(|requestWorkspace(?:Installation|Update|PolicyChange)\(/,
+    const router = readFileSync(resolve("src/app/router.tsx"), "utf8");
+    const editor = readFileSync(
+      resolve("src/runtime/GitHubConnectionForm.tsx"),
+      "utf8",
     );
+    const session = readFileSync(
+      resolve("src/runtime/github-session.ts"),
+      "utf8",
+    );
+    expect(router).toContain("connectionEditor={LiteGitHubConnectionEditor}");
+    expect(router).not.toContain("LiteWorkspaceRoute");
+    expect(existsSync(resolve("src/app/LiteWorkspaceRoute.tsx"))).toBe(false);
+    expect(page).not.toMatch(
+      /token|GitHubSession|connectionForm|storedConnection|prepareRequest/,
+    );
+    expect(editor).toContain("GitHubSessionSummary");
+    expect(session).toContain("sessionStorage");
   });
 });

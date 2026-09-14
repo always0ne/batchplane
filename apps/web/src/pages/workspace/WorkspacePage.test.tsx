@@ -14,6 +14,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
+import type { WorkspaceConnectionEditorProps } from "../../client/workspace-connection-editor";
 import { i18next } from "../../i18n/i18n";
 import { deferred, inspectionTestClient } from "../../test/inspection-client";
 import { WorkspacePage } from "./WorkspacePage";
@@ -38,23 +39,23 @@ const sourceRequest = {
   label: "Request 71",
   sourceUrl: "https://example.test/requests/71",
 };
-const noPreparation = () => {};
+function TestConnectionEditor({
+  onCheckConnection,
+  onConnectionChanged,
+}: WorkspaceConnectionEditorProps) {
+  return (
+    <div>
+      <p>No active connection</p>
+      <button onClick={() => void onCheckConnection()}>
+        Inspect Workspace
+      </button>
+      <button onClick={onConnectionChanged}>Disconnect Workspace</button>
+    </div>
+  );
+}
 
 function Page() {
-  return (
-    <WorkspacePage
-      connectionForm={({ checkConnection, resetConnection }) => (
-        <div>
-          <button onClick={() => void checkConnection()}>
-            Inspect Workspace
-          </button>
-          <button onClick={resetConnection}>Disconnect Workspace</button>
-        </div>
-      )}
-      storedConnection={<p>No active connection</p>}
-      prepareRequest={noPreparation}
-    />
-  );
+  return <WorkspacePage connectionEditor={TestConnectionEditor} />;
 }
 
 function mount(client: ReturnType<typeof inspectionTestClient>) {
@@ -86,8 +87,8 @@ describe("shared Workspace page", () => {
       screen.getByRole("button", { name: "Create policy request" }),
     ).toBeDisabled();
     expect(
-      screen.queryByRole("button", { name: "Create installation request" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Create installation request" }),
+    ).toBeDisabled();
     expect(inspectWorkspace).not.toHaveBeenCalled();
   });
 

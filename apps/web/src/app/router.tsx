@@ -4,7 +4,6 @@ import {
   type RouteObject,
 } from "react-router-dom";
 
-import { LiteWorkspaceRoute } from "./LiteWorkspaceRoute";
 import { ApprovalsPage } from "../pages/approvals/ApprovalsPage";
 import { GovernedChangeDetailPage } from "../pages/approvals/GovernedChangeDetailPage";
 import { AuditPage } from "../pages/audit/AuditPage";
@@ -19,6 +18,8 @@ import { ExecutionRunListPage } from "../pages/execution-runs/ExecutionRunListPa
 import { MyWorkPage } from "../pages/my-work/MyWorkPage";
 import { NotFoundPage } from "../pages/not-found/NotFoundPage";
 import { WorkspaceRequestsPage } from "../pages/requests/WorkspaceRequestsPage";
+import { WorkspacePage } from "../pages/workspace/WorkspacePage";
+import { LiteGitHubConnectionEditor } from "../runtime/GitHubConnectionForm";
 import { RootLayout } from "./RootLayout";
 import { ScheduleChangeRedirect } from "./ScheduleChangeRedirect";
 
@@ -92,7 +93,13 @@ export const appRoutes: RouteObject[] = [
         element: <GovernedChangeDetailPage />,
       },
       { id: "audit", path: "audit", element: <AuditPage /> },
-      { id: "lite-setup", path: "lite/setup", element: <LiteWorkspaceRoute /> },
+      {
+        id: "lite-setup",
+        path: "lite/setup",
+        element: (
+          <WorkspacePage connectionEditor={LiteGitHubConnectionEditor} />
+        ),
+      },
       { id: "not-found", path: "*", element: <NotFoundPage /> },
     ],
   },

@@ -26,13 +26,28 @@ must not persist placeholder paths such as `new-batch.yml`.
 ## Installation Flow
 
 The shared Workspace screen consumes provider-neutral `BatchPlaneClient`
-operations. GitHub credentials belong to the Lite connection form, composed
-into the screen by `app`; they remain in session storage and never appear in
+operations. The router renders the Page directly with a Lite connection editor
+component; no setup-specific Route wrapper owns editor state. GitHub credentials
+belong to that editor; they remain in session storage and never appear in
 product contracts. Runtime supplies the active Lite connection. Installation
 templates, required-file inspection, managed-workflow comparison, and setup,
 update and policy request creation belong to `packages/github-lite`, not React
 Pages or features. The adapter returns product status and opaque source
 references for display; the Page does not interpret repository artifacts.
+
+The editor owns draft and stored-session presentation. Connection-change events
+invalidate inspection and command lifetimes. Check explicitly saves and then
+inspects the current connection. Installation/update/policy handlers require
+current verified inspection and do not save editor values or accept an opaque
+prepare callback. Editing, saving, disconnecting and check failures revoke the
+previous verification; stale asynchronous results cannot restore it. Language
+changes preserve editor and product state without refetching.
+
+Workspace policy and per-connection configuration are distinct product
+responsibilities. This single-session implementation does not establish
+multi-Workspace support or conflate Lite browser authentication with Main
+engine credentials. The future identity and UI boundaries are recorded in
+[Frontend Engineering Principles](./frontend-engineering-principles.md#workspace-and-platform-extension-boundary).
 
 Creating a setup, update or policy request returns the request evidence
 immediately. It does not change the applied installation or approval policy.

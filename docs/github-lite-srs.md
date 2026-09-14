@@ -37,6 +37,13 @@ OAuth and multiple Workspaces are separate scope.
 
 Saving a connection must not be reported as verified connectivity. Creating an
 installation/update request must not be reported as applied installation.
+Connection check explicitly saves and verifies the current editor values.
+Installation/update and policy requests require a successful current check and
+must not implicitly save connection fields. Editing owner, repository or token,
+explicitly saving, disconnecting or failing a check invalidates the previous
+verification and related command results. Unavailable commands have localized
+disabled reasons and handler-level guards. A later successful check restores
+only the commands allowed by that inspection's product capabilities.
 Policy requests must display current and requested modes separately until the
 source confirms application. Disconnecting or replacing the connection must
 prevent pending results from restoring the previous connection's screen state.

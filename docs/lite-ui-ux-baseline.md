@@ -174,6 +174,16 @@ backfill, new review policy, or stronger evidence retention.
 - Saving a connection is not verification. Creating an installation/update or
   policy request is not application. Keep the current and requested policy
   visible as distinct values, with the returned request's source link.
+- Connection check saves and verifies the visible editor values on this same
+  screen. Install/update/policy requests never save connection fields. Editing,
+  explicitly saving, disconnecting or a failed check invalidates the previous
+  verification and related request results; unavailable actions carry a compact
+  localized reason. A stale response must not re-enable them. Do not add a
+  mandatory extra screen or wizard step for this confirmation.
+- Keep credential inputs and their stored-session summary together. Workspace
+  policy remains a separate responsibility from connection installation status.
+  The single Lite editor must not imply that a future Workspace can contain
+  only one platform. Connection lists, sharing and transfers are separate scope.
 - Check save, connection check, disconnect, missing/partial installation,
   up-to-date installation, update request and policy request paths in English
   and Korean at desktop and mobile widths. Late results from an old connection

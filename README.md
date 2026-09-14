@@ -85,9 +85,12 @@ In `Workspace`, enter:
 - Repository: `batch`
 - Token: the fine-grained personal access token
 
-Use `Save session`, then `Check connection`. Tokens are stored in
-`sessionStorage` only. Connection check also inspects whether the repository has
-BatchPlane Lite installed.
+Use `Check connection` to save and verify the entered connection and inspect
+whether the repository has BatchPlane Lite installed. Tokens are stored in
+`sessionStorage` only. `Save session` alone does not verify connectivity.
+Editing or clearing the connection requires another successful check before
+creating installation, update or policy requests; those requests never save
+connection fields implicitly.
 
 If Lite is not installed, choose `Create installation request` in `Workspace`. The
 installation pull request adds:

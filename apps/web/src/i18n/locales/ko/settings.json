@@ -41,7 +41,8 @@
     "installSuccess": "설치 요청이 관리자 검토를 기다립니다. 적용 전까지 설치 상태는 바뀌지 않습니다.",
     "updateSuccess": "업데이트 요청이 관리자 검토를 기다립니다. 적용 전까지 설치 상태는 바뀌지 않습니다.",
     "createRequest": "설치 요청 생성",
-    "createUpdateRequest": "업데이트 요청 생성"
+    "createUpdateRequest": "업데이트 요청 생성",
+    "verifiedRequired": "요청을 생성하기 전에 현재 연결을 확인하세요."
   },
   "workspacePolicy": {
     "title": "Workspace 정책",

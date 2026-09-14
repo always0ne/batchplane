@@ -3,23 +3,19 @@ import type { FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/Button";
 import { StatusRow } from "../ui/StatusRow";
+import type { WorkspaceConnectionEditorProps } from "../client/workspace-connection-editor";
 import { redactGitHubToken } from "./github-session";
-import type { useGitHubConnection } from "./useGitHubConnection";
+import { useGitHubConnection } from "./useGitHubConnection";
 
 type Connection = ReturnType<typeof useGitHubConnection>;
 
-export function GitHubConnectionForm({
-  connection,
-  checkConnection,
-  resetConnection,
+export function LiteGitHubConnectionEditor({
   checking,
-}: {
-  connection: Connection;
-  checkConnection: () => Promise<void>;
-  resetConnection: () => void;
-  checking: boolean;
-}) {
+  onCheckConnection,
+  onConnectionChanged,
+}: WorkspaceConnectionEditorProps) {
   const { t } = useTranslation("settings");
+  const connection = useGitHubConnection();
   const canSubmit = Boolean(
     connection.owner.trim() &&
     connection.repo.trim() &&
@@ -28,26 +24,42 @@ export function GitHubConnectionForm({
 
   function saveSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    onConnectionChanged();
     try {
       connection.save();
-      resetConnection();
     } catch {
       // The connection owns the localized credential validation state.
     }
   }
 
   async function check() {
+    onConnectionChanged();
     try {
       connection.save();
     } catch {
       return;
     }
-    await checkConnection();
+    await onCheckConnection();
   }
 
   function clear() {
+    onConnectionChanged();
     connection.clear();
-    resetConnection();
+  }
+
+  function updateOwner(value: string) {
+    connection.setOwner(value);
+    onConnectionChanged();
+  }
+
+  function updateRepo(value: string) {
+    connection.setRepo(value);
+    onConnectionChanged();
+  }
+
+  function updateToken(value: string) {
+    connection.setToken(value);
+    onConnectionChanged();
   }
 
   return (
@@ -70,7 +82,7 @@ export function GitHubConnectionForm({
           <input
             autoComplete="off"
             className={inputClassName}
-            onChange={(event) => connection.setOwner(event.target.value)}
+            onChange={(event) => updateOwner(event.target.value)}
             placeholder="always0ne"
             value={connection.owner}
           />
@@ -80,7 +92,7 @@ export function GitHubConnectionForm({
           <input
             autoComplete="off"
             className={inputClassName}
-            onChange={(event) => connection.setRepo(event.target.value)}
+            onChange={(event) => updateRepo(event.target.value)}
             placeholder="batch"
             value={connection.repo}
           />
@@ -91,7 +103,7 @@ export function GitHubConnectionForm({
         <input
           autoComplete="off"
           className={inputClassName}
-          onChange={(event) => connection.setToken(event.target.value)}
+          onChange={(event) => updateToken(event.target.value)}
           placeholder="github_pat_..."
           type="password"
           value={connection.token}
@@ -100,7 +112,7 @@ export function GitHubConnectionForm({
       <p className="mt-3 text-sm text-bp-muted">{t("tokenPolicy")}</p>
       <div className="mt-5 flex flex-wrap gap-3">
         <span title={!canSubmit ? t("errors.requiredFields") : undefined}>
-          <Button variant="primary" disabled={!canSubmit} type="submit">
+          <Button disabled={!canSubmit} type="submit">
             <KeyRound className="h-4 w-4" aria-hidden="true" />
             {t("github.save")}
           </Button>
@@ -117,6 +129,7 @@ export function GitHubConnectionForm({
           <Button
             disabled={!canSubmit || checking}
             onClick={() => void check()}
+            variant="primary"
           >
             {checking ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -143,6 +156,7 @@ export function GitHubConnectionForm({
           </Button>
         </span>
       </div>
+      <GitHubSessionSummary connection={connection} />
     </form>
   );
 }
