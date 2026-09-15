@@ -7359,8 +7359,10 @@ var require_dist = __commonJS({
 });
 
 // src/index.ts
-import { appendFileSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+
+// src/gate-runtime.ts
+import { appendFileSync, readFileSync } from "node:fs";
 
 // ../../packages/github-lite/dist/github-types.js
 var GitHubLiteApiError = class extends Error {
@@ -9667,545 +9669,7 @@ function readOptionalRepositoryRolesArray(value) {
   return { ok: true, value };
 }
 
-// src/index.ts
-function verifyLiteInput(input) {
-  if (input.mode !== "lite") {
-    return {
-      result: "DENY",
-      reasonCode: "UNSUPPORTED_MODE",
-      message: "Only lite mode is scaffolded."
-    };
-  }
-  if (!input.batchId) {
-    return {
-      result: "DENY",
-      reasonCode: "BATCH_ID_REQUIRED",
-      message: "Batch ID is required."
-    };
-  }
-  if ((input.runAttempt ?? 1) > 1) {
-    return {
-      result: "DENY",
-      reasonCode: "RERUN_NOT_AUTHORIZED",
-      message: "GitHub Actions reruns are not authorized by BatchPlane. Create a new execution request or approved retry instead."
-    };
-  }
-  if (!input.requestId) {
-    return {
-      result: "DENY",
-      reasonCode: input.controllerReason || "EXECUTION_REQUEST_REQUIRED",
-      message: input.controllerReason ? `Native schedule controller denied this occurrence: ${input.controllerReason}.` : "Execution request evidence is required."
-    };
-  }
-  if (!input.requestDigest?.startsWith("sha256:")) {
-    return {
-      result: "DENY",
-      reasonCode: "REQUEST_DIGEST_REQUIRED",
-      message: "Approved request digest is required."
-    };
-  }
-  return input.eventName === "schedule" ? verifyNativeScheduleInput(input) : verifyManualGateInput(input);
-}
-function verifyManualGateInput(input) {
-  if (!input.approvalSource || !input.approvalRef) {
-    return deny(
-      "APPROVAL_EVIDENCE_REQUIRED",
-      "Approval evidence source and reference are required."
-    );
-  }
-  return {
-    result: "ALLOW",
-    message: "Manual execution request evidence is present."
-  };
-}
-function verifyNativeScheduleInput(input) {
-  if (!input.eventSchedule?.trim() || !input.repositoryId?.trim() || !isPositiveIntegerString(input.sourceRunId) || !Number.isInteger(input.runAttempt) || (input.runAttempt ?? 0) < 1 || !input.workflowPath?.trim() || !input.workflowRef?.trim() || !input.workflowSha?.trim()) {
-    return deny(
-      "NATIVE_SCHEDULE_CONTEXT_REQUIRED",
-      "GitHub schedule event, repository, Run, workflow path, ref, and SHA context are required."
-    );
-  }
-  return {
-    result: "ALLOW",
-    message: "Native schedule occurrence context is present."
-  };
-}
-async function verifyLiteAuthorization(input, verifyBatchRevision = verifyApprovedBatchRevision) {
-  const inputResult = verifyLiteInput(input);
-  if (inputResult.result === "DENY") {
-    return inputResult;
-  }
-  const expectedActor = input.expectedDispatcherActor ?? "github-actions[bot]";
-  if (input.eventName !== "schedule" && input.actor && input.actor !== expectedActor) {
-    return {
-      result: "DENY",
-      reasonCode: "DIRECT_DISPATCH_NOT_AUTHORIZED",
-      message: `Workflow actor ${input.actor} is not the BatchPlane dispatcher actor ${expectedActor}.`
-    };
-  }
-  if (!input.githubToken || !input.repository) {
-    return {
-      result: "DENY",
-      reasonCode: "GITHUB_EVIDENCE_LOOKUP_REQUIRED",
-      message: "GitHub token and repository are required to verify evidence."
-    };
-  }
-  const repository = parseRepository(input.repository);
-  const client = createGateGitHubClient({
-    apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
-    fetcher: input.fetcher ?? fetch,
-    owner: repository.owner,
-    repo: repository.repo,
-    token: input.githubToken
-  });
-  let evidence;
-  try {
-    evidence = await findGitHubApprovalEvidence({
-      client,
-      issueNumber: input.eventName === "schedule" ? parseNativeIssueNumber(input.issueNumber) : void 0,
-      loadApproval: input.eventName !== "schedule",
-      requestId: input.requestId ?? ""
-    });
-  } catch (error) {
-    return deny(
-      "GITHUB_EVIDENCE_LOOKUP_FAILED",
-      `GitHub evidence lookup failed: ${toErrorMessage(error)}`
-    );
-  }
-  if (!evidence.request) {
-    return deny(
-      "REQUEST_EVIDENCE_NOT_FOUND",
-      "Execution request Issue evidence was not found."
-    );
-  }
-  if (input.eventName === "schedule") {
-    const suppliedIssueNumber = Number(input.issueNumber);
-    if (!Number.isInteger(suppliedIssueNumber) || suppliedIssueNumber < 1 || evidence.issueNumber !== suppliedIssueNumber) {
-      return deny(
-        "NATIVE_SCHEDULE_ISSUE_MISMATCH",
-        "The schedule control Issue number does not identify the exact canonical request evidence."
-      );
-    }
-  }
-  if (evidence.request.requestId !== input.requestId || evidence.request.batchId !== input.batchId || evidence.request.requestDigest !== input.requestDigest) {
-    return deny(
-      "REQUEST_EVIDENCE_MISMATCH",
-      "Execution request evidence does not match workflow inputs."
-    );
-  }
-  if (evidence.request.status !== "REQUESTED") {
-    return deny(
-      "REQUEST_NOT_REQUESTED",
-      `Execution request status is ${evidence.request.status}.`
-    );
-  }
-  if (input.eventName !== "schedule" && input.approvalSource !== "issue") {
-    return deny(
-      "APPROVAL_SOURCE_NOT_SUPPORTED",
-      `Approval source ${input.approvalSource} is not supported.`
-    );
-  }
-  if (input.eventName !== "schedule" && input.approvalRef !== evidence.request.requestId) {
-    return deny(
-      "APPROVAL_REFERENCE_MISMATCH",
-      "Approval reference does not match the execution request."
-    );
-  }
-  const batchValidation = await validateBatchPolicyEvidence({
-    batchId: input.batchId,
-    client,
-    configPath: input.configPath,
-    inputRef: input.eventName === "schedule" ? input.workflowRef : input.ref,
-    eventSchedule: input.eventName === "schedule" ? input.eventSchedule : void 0,
-    actualWorkflowPath: input.eventName === "schedule" ? input.workflowPath : void 0,
-    actualWorkflowRef: input.eventName === "schedule" ? input.workflowRef : void 0,
-    repository,
-    request: evidence.request
-  });
-  if (batchValidation.result === "DENY") {
-    return batchValidation;
-  }
-  const authorization = input.eventName === "schedule" ? await verifyNativeScheduleAuthorization({
-    batch: await loadNativeScheduleBatch({ client, input }),
-    evidence,
-    input
-  }) : await verifyManualAuthorization({
-    client,
-    evidence,
-    input,
-    repository
-  });
-  if (authorization.result === "DENY") {
-    return authorization;
-  }
-  if (!input.workflowSha) {
-    return deny(
-      "WORKFLOW_SOURCE_SHA_REQUIRED",
-      "The immutable workflow source SHA is required to verify registered Batch artifacts."
-    );
-  }
-  const revisionValidation = await verifyBatchRevision({
-    batchId: input.batchId,
-    client: createGitHubLiteClient({
-      apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
-      fetcher: input.fetcher ?? fetch,
-      token: input.githubToken
-    }),
-    executionWorkflowSha: input.workflowSha,
-    expectedRevision: evidence.request.approvedBatchRevision,
-    repository
-  });
-  if (revisionValidation.controlStatus !== "VERIFIED") {
-    return deny(
-      revisionValidation.reasonCode,
-      revisionValidation.controlStatus === "UNKNOWN" ? "Approved Batch revision could not be verified." : "Batch revision does not match the latest approved governed change."
-    );
-  }
-  if (!isCommitSha(revisionValidation.verifiedSha)) {
-    return deny(
-      "VERIFIED_SHA_INVALID",
-      "Approved Batch revision did not resolve to an immutable commit SHA."
-    );
-  }
-  return {
-    result: "ALLOW",
-    verifiedSha: revisionValidation.verifiedSha,
-    message: authorization.message
-  };
-}
-async function verifyNativeScheduleAuthorization({
-  batch,
-  evidence,
-  input
-}) {
-  const request = evidence.request;
-  if (!request || !evidence.issueBody || !batch) {
-    return deny(
-      "NATIVE_SCHEDULE_REQUEST_UNVERIFIED",
-      "Native schedule request or its current Batch snapshot could not be verified."
-    );
-  }
-  const scheduleMapping = validateScheduleMapping({
-    request,
-    scheduleId: input.scheduleId
-  });
-  if (scheduleMapping.result === "DENY") {
-    return scheduleMapping;
-  }
-  const occurrence = request.schedule;
-  if (request.triggerType !== "SCHEDULE" || !occurrence || input.runAttempt !== 1 || occurrence.repositoryId !== input.repositoryId || occurrence.sourceRunId !== input.sourceRunId || occurrence.sourceRunAttempt !== input.runAttempt) {
-    return deny(
-      "NATIVE_SCHEDULE_OCCURRENCE_MISMATCH",
-      "Native schedule Run, attempt, repository, or occurrence evidence does not match the request."
-    );
-  }
-  const verifiedRequest = await verifyNativeScheduleRequestIssue(
-    evidence.issueBody,
-    {
-      approvedBatchRevision: request.approvedBatchRevision,
-      batch,
-      occurrence: {
-        definitionCommitSha: input.workflowSha ?? "",
-        definitionPath: `${input.configPath.replace(/\/+$/u, "")}/batches/${input.batchId}.yml`,
-        repositoryId: input.repositoryId ?? "",
-        scheduleId: input.scheduleId ?? "",
-        sourceRunAttempt: input.runAttempt ?? 0,
-        sourceRunId: input.sourceRunId ?? ""
-      },
-      requestDigest: input.requestDigest ?? "",
-      requestId: input.requestId ?? ""
-    }
-  );
-  if (!verifiedRequest) {
-    return deny(
-      "NATIVE_SCHEDULE_REQUEST_UNVERIFIED",
-      "Native schedule request marker, digest, source tuple, workflow, revision, or Batch snapshot does not match."
-    );
-  }
-  return {
-    message: "Native schedule occurrence and approved Batch revision evidence are verified.",
-    result: "ALLOW"
-  };
-}
-async function loadNativeScheduleBatch({
-  client,
-  input
-}) {
-  const ref = input.workflowSha?.trim();
-  if (!ref) return null;
-  const path = `${input.configPath.replace(/\/+$/u, "")}/batches/${input.batchId}.yml`;
-  try {
-    const file = await client.getFile(path, ref);
-    if (!file) return null;
-    return parseBatchDefinitionYaml(file.content);
-  } catch {
-    return null;
-  }
-}
-async function verifyManualAuthorization({
-  client,
-  evidence,
-  input,
-  repository
-}) {
-  const request = evidence.request;
-  const approval = evidence.approval;
-  if (!request || !approval) {
-    return deny(
-      "EXECUTION_REQUEST_NOT_APPROVED",
-      "Execution request does not have approved comment evidence."
-    );
-  }
-  if (approval.edited) {
-    return deny(
-      "APPROVAL_COMMENT_EDITED",
-      "Execution approval comment was edited after creation."
-    );
-  }
-  if (approval.commandDigest && approval.commandDigest !== request.requestDigest) {
-    return deny(
-      "REQUEST_DIGEST_MISMATCH",
-      "Approval command digest does not match execution request digest."
-    );
-  }
-  if (approval.requestDigest !== input.requestDigest || approval.requestDigest !== request.requestDigest) {
-    return deny(
-      "REQUEST_DIGEST_MISMATCH",
-      "Execution approval digest does not match execution request digest."
-    );
-  }
-  if (approval.approvalType === "SCHEDULE_DELEGATED") {
-    return deny(
-      "SCHEDULE_DELEGATED_APPROVAL_NOT_SUPPORTED",
-      "Delegated schedule approval evidence is historical and cannot authorize a new execution."
-    );
-  }
-  let workspaceApprovalMode;
-  try {
-    workspaceApprovalMode = await readWorkspaceApprovalMode({
-      client,
-      configPath: input.configPath,
-      ref: request.workflowRef || input.ref
-    });
-  } catch (error) {
-    return deny(
-      "WORKSPACE_POLICY_LOOKUP_FAILED",
-      `Workspace policy lookup failed: ${toErrorMessage(error)}`
-    );
-  }
-  if (approval.approvalType === "WORKSPACE_AUTO_APPROVED") {
-    return workspaceApprovalMode === "AUTO_APPROVE" ? {
-      message: "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
-      result: "ALLOW"
-    } : deny(
-      "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
-      "Workspace auto-approval evidence requires AUTO_APPROVE policy mode."
-    );
-  }
-  if (approval.approver === request.requestedBy && !allowsSelfApproval(workspaceApprovalMode)) {
-    return deny(
-      "SELF_APPROVAL_NOT_ALLOWED",
-      "Requester and approver must be different users."
-    );
-  }
-  const approverAuthorized = await verifyApproverAuthorization({
-    allowMissingRoleMapping: approval.approver === request.requestedBy && allowsSelfApproval(workspaceApprovalMode),
-    approver: approval.approver,
-    client,
-    configPath: input.configPath,
-    ref: request.workflowRef || input.ref,
-    repository
-  });
-  if (!approverAuthorized.allowed) {
-    return deny(
-      "APPROVER_NOT_AUTHORIZED",
-      approverAuthorized.message || `Approver @${approval.approver} is not authorized.`
-    );
-  }
-  return {
-    message: "Execution request, approval evidence, and batch policy are verified.",
-    result: "ALLOW"
-  };
-}
-function readGateInputFromEnv(env = process.env) {
-  const eventName = env.GITHUB_EVENT_NAME;
-  const eventSchedule = readNativeScheduleEvent(env);
-  const workflowPath = readWorkflowPath(env.GITHUB_WORKFLOW_REF ?? "");
-  const workflowRef = readWorkflowRef(env.GITHUB_WORKFLOW_REF ?? "");
-  const recordEvidence = readActionInput(env, "record-evidence") === "true";
-  return {
-    mode: readActionInput(env, "mode"),
-    batchId: readActionInput(env, "batch-id"),
-    configPath: readActionInput(env, "config-path") || ".batch-governance",
-    ref: readOptionalActionInput(env, "ref"),
-    ...eventName ? { eventName } : {},
-    ...eventSchedule ? { eventSchedule } : {},
-    ...env.GITHUB_REPOSITORY_ID ? { repositoryId: env.GITHUB_REPOSITORY_ID } : {},
-    ...env.GITHUB_RUN_ID ? { sourceRunId: env.GITHUB_RUN_ID } : {},
-    ...workflowPath ? { workflowPath } : {},
-    ...workflowRef ? { workflowRef } : {},
-    ...readOptionalActionInput(env, "issue-number") ? { issueNumber: readOptionalActionInput(env, "issue-number") } : {},
-    ...recordEvidence ? { recordEvidence } : {},
-    ...readOptionalActionInput(env, "controller-reason") ? { controllerReason: readOptionalActionInput(env, "controller-reason") } : {},
-    ...readOptionalActionInput(env, "gate-job-name") ? { gateJobName: readOptionalActionInput(env, "gate-job-name") } : {},
-    ...readOptionalActionInput(env, "gate-step-name") ? { gateStepName: readOptionalActionInput(env, "gate-step-name") } : {},
-    scheduleId: readOptionalActionInput(env, "schedule-id"),
-    requestId: readOptionalActionInput(env, "request-id"),
-    approvalSource: readOptionalActionInput(env, "approval-source"),
-    approvalRef: readOptionalActionInput(env, "approval-ref"),
-    requestDigest: readOptionalActionInput(env, "request-digest"),
-    runAttempt: readRunAttempt(env),
-    githubToken: readOptionalActionInput(env, "github-token") ?? env.GITHUB_TOKEN,
-    repository: env.GITHUB_REPOSITORY,
-    actor: env.GITHUB_ACTOR,
-    expectedDispatcherActor: readOptionalActionInput(env, "dispatcher-actor") ?? "github-actions[bot]",
-    apiBaseUrl: env.GITHUB_API_URL,
-    ...env.GITHUB_WORKFLOW_SHA ? { workflowSha: env.GITHUB_WORKFLOW_SHA } : {}
-  };
-}
-async function runGateFromEnv(env = process.env) {
-  const input = readGateInputFromEnv(env);
-  let result = await verifyLiteAuthorization(input);
-  if (input.recordEvidence) {
-    try {
-      await recordNativeScheduleGateDecision(input, result);
-    } catch (error) {
-      const message = `Gate decision evidence could not be recorded: ${toErrorMessage(error)}`;
-      if (result.result === "ALLOW") {
-        result = deny("GATE_EVIDENCE_RECORDING_FAILED", message);
-      } else {
-        console.error(message);
-      }
-    }
-  }
-  writeGateOutputs(result, env);
-  writeGateSummary(result, input, env);
-  writeGateLogRecord(result, input, env);
-  if (result.result === "DENY") {
-    console.error(`BatchPlane Gate denied execution: ${result.reasonCode}`);
-    console.error(result.message);
-    process.exitCode = 1;
-    return result;
-  }
-  console.log(`BatchPlane Gate allowed execution: ${result.message}`);
-  return result;
-}
-async function recordNativeScheduleGateDecision(input, result) {
-  if (input.eventName !== "schedule" || !input.issueNumber || !input.githubToken || !input.repository) {
-    throw new Error(
-      "Native Gate evidence requires issue, repository, and token inputs."
-    );
-  }
-  const issueNumber = Number(input.issueNumber);
-  if (!Number.isInteger(issueNumber) || issueNumber < 1) {
-    throw new Error("Native Gate evidence requires a positive Issue number.");
-  }
-  const { owner, repo } = parseRepository(input.repository);
-  const body = [
-    "## BatchPlane Native Schedule Gate",
-    "",
-    `- Decision: ${result.result}`,
-    `- Source Run: \`${input.sourceRunId ?? ""}\``,
-    `- Run attempt: ${input.runAttempt ?? "unavailable"}`,
-    `- Schedule ID: \`${input.scheduleId ?? ""}\``,
-    `- Reason: ${result.reasonCode ?? ""}`,
-    "",
-    "<!-- batchplane:gate-decision",
-    `allowed=${result.result === "ALLOW"}`,
-    `requestId=${input.requestId ?? ""}`,
-    `batchId=${input.batchId}`,
-    `requestDigest=${input.requestDigest ?? ""}`,
-    `scheduleId=${input.scheduleId ?? ""}`,
-    `repositoryId=${input.repositoryId ?? ""}`,
-    `sourceRunId=${input.sourceRunId ?? ""}`,
-    `sourceRunAttempt=${input.runAttempt ?? ""}`,
-    ...result.reasonCode ? [`reasonCode=${result.reasonCode}`] : [],
-    "-->"
-  ].join("\n");
-  const response = await (input.fetcher ?? fetch)(
-    `${(input.apiBaseUrl ?? "https://api.github.com").replace(/\/+$/u, "")}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`,
-    {
-      body: JSON.stringify({ body }),
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${input.githubToken}`,
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2022-11-28"
-      },
-      method: "POST"
-    }
-  );
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API request failed: ${response.status} ${await response.text()}`
-    );
-  }
-  const acknowledgement = await response.json();
-  if (!Number.isInteger(acknowledgement.id) || acknowledgement.id < 1) {
-    throw new Error(
-      "GitHub Gate decision write acknowledgement was missing a comment ID."
-    );
-  }
-}
-function readActionInput(env, name) {
-  const envKey = `INPUT_${name.toUpperCase()}`;
-  const fallbackKey = envKey.replaceAll("-", "_");
-  return (env[envKey] ?? env[fallbackKey] ?? "").trim();
-}
-function readOptionalActionInput(env, name) {
-  const value = readActionInput(env, name);
-  return value || void 0;
-}
-function readRunAttempt(env) {
-  const raw = env.GITHUB_RUN_ATTEMPT;
-  const value = raw ? Number(raw) : Number.NaN;
-  const valid = Number.isInteger(value) && value > 0;
-  if (env.GITHUB_EVENT_NAME === "schedule") {
-    return valid ? value : void 0;
-  }
-  return valid ? value : 1;
-}
-function isPositiveIntegerString(value) {
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0;
-}
-function readNativeScheduleEvent(env) {
-  const path = env.GITHUB_EVENT_PATH;
-  if (!path) return "";
-  try {
-    const value = JSON.parse(readFileSync(path, "utf8"));
-    return typeof value.schedule === "string" ? value.schedule : "";
-  } catch {
-    return "";
-  }
-}
-function readWorkflowPath(workflowRef) {
-  const marker = "/.github/workflows/";
-  const start = workflowRef.indexOf(marker);
-  const end = workflowRef.lastIndexOf("@");
-  return start >= 0 && end > start ? workflowRef.slice(start + 1, end) : "";
-}
-function readWorkflowRef(workflowRef) {
-  const separator = workflowRef.lastIndexOf("@");
-  const value = separator >= 0 ? workflowRef.slice(separator + 1) : "";
-  return value.replace(/^refs\/heads\//u, "").trim();
-}
-function isCommitSha(value) {
-  return /^[0-9a-f]{40}$/iu.test(value);
-}
-function deny(reasonCode, message) {
-  return {
-    message,
-    reasonCode,
-    result: "DENY"
-  };
-}
-function toErrorMessage(error) {
-  return error instanceof Error ? error.message : String(error);
-}
-function allowsSelfApproval(mode) {
-  return mode === "SELF_APPROVAL_ALLOWED" || mode === "AUTO_APPROVE";
-}
+// src/gate-evidence.ts
 async function findGitHubApprovalEvidence({
   client,
   issueNumber,
@@ -10229,372 +9693,6 @@ async function findGitHubApprovalEvidence({
     issueNumber: issue.number,
     request
   };
-}
-function parseNativeIssueNumber(value) {
-  const issueNumber = Number(value);
-  if (!Number.isInteger(issueNumber) || issueNumber < 1) {
-    throw new Error("NATIVE_SCHEDULE_ISSUE_MISMATCH");
-  }
-  return issueNumber;
-}
-async function validateBatchPolicyEvidence({
-  batchId,
-  client,
-  configPath,
-  eventSchedule,
-  actualWorkflowPath,
-  actualWorkflowRef,
-  inputRef,
-  repository,
-  request
-}) {
-  const effectiveConfigPath = configPath.replace(/\/+$/u, "");
-  const effectiveRef = inputRef || request.workflowRef;
-  const batchPath = `${effectiveConfigPath}/batches/${batchId}.yml`;
-  const batchFile = await client.getFile(batchPath, effectiveRef);
-  if (!batchFile) {
-    return deny(
-      "BATCH_NOT_FOUND",
-      `Batch definition was not found: ${batchPath} (${effectiveRef || "default ref"}).`
-    );
-  }
-  const snapshot = parseBatchDefinitionSnapshot(batchFile.content);
-  if (!snapshot) {
-    return deny(
-      "BATCH_DEFINITION_INVALID",
-      `Batch definition is invalid: ${batchPath}.`
-    );
-  }
-  if (snapshot.status !== "ACTIVE") {
-    return deny(
-      "BATCH_NOT_ACTIVE",
-      `Batch ${batchId} is ${snapshot.status} and cannot run.`
-    );
-  }
-  if (!snapshot.gateRequired) {
-    return deny(
-      "GATE_REQUIRED",
-      `Batch ${batchId} does not enforce BatchPlane Gate.`
-    );
-  }
-  if (request.workflowRef && snapshot.workflowRef) {
-    const requestRef = request.workflowRef.trim();
-    const registeredRef = snapshot.workflowRef.trim();
-    if (requestRef && registeredRef && requestRef !== registeredRef) {
-      return deny(
-        "REF_NOT_ALLOWED",
-        `Workflow ref ${requestRef} is not allowed for batch ${batchId}; expected ${registeredRef}.`
-      );
-    }
-  }
-  if (request.workflowPath && snapshot.workflowPath) {
-    const requestPath = request.workflowPath.trim();
-    const registeredPath = snapshot.workflowPath.trim();
-    if (requestPath && registeredPath && requestPath !== registeredPath) {
-      return deny(
-        "WORKFLOW_NOT_ALLOWED",
-        `Workflow path ${requestPath} is not registered for batch ${batchId}.`
-      );
-    }
-  }
-  if (actualWorkflowPath && snapshot.workflowPath !== actualWorkflowPath) {
-    return deny(
-      "WORKFLOW_NOT_ALLOWED",
-      `Running workflow ${actualWorkflowPath} is not registered for batch ${batchId}.`
-    );
-  }
-  if (actualWorkflowRef && snapshot.workflowRef !== actualWorkflowRef) {
-    return deny(
-      "REF_NOT_ALLOWED",
-      `Running workflow ref ${actualWorkflowRef} is not registered for batch ${batchId}.`
-    );
-  }
-  if (request.triggerType === "SCHEDULE") {
-    if (!request.scheduleId) {
-      return deny(
-        "SCHEDULE_NOT_MAPPED",
-        "Scheduled execution request does not contain a schedule identifier."
-      );
-    }
-    if (!snapshot.enabledScheduleIds.includes(request.scheduleId)) {
-      return deny(
-        "SCHEDULE_NOT_REGISTERED",
-        `Schedule ${request.scheduleId} is not enabled in batch ${batchId}.`
-      );
-    }
-    if (eventSchedule?.trim() && snapshot.enabledScheduleCronById.get(request.scheduleId) !== eventSchedule.trim()) {
-      return deny(
-        "NATIVE_SCHEDULE_CRON_MISMATCH",
-        "Native GitHub schedule expression does not match the registered schedule."
-      );
-    }
-  }
-  if (!effectiveRef) {
-    return deny(
-      "REQUEST_EVIDENCE_MISMATCH",
-      `Workflow ref information is missing for batch ${batchId} validation.`
-    );
-  }
-  if (repository.owner.trim() === "") {
-    return deny("UNKNOWN", "Repository owner is required for team validation.");
-  }
-  return { message: "Batch policy evidence is verified.", result: "ALLOW" };
-}
-async function readWorkspaceApprovalMode({
-  client,
-  configPath,
-  ref
-}) {
-  const effectiveRef = ref?.trim();
-  if (!effectiveRef) {
-    return "SELF_APPROVAL_BLOCKED";
-  }
-  const workspacePolicyPath2 = `${configPath.replace(/\/+$/u, "")}/workspace.yml`;
-  const workspacePolicyFile = await client.getFile(
-    workspacePolicyPath2,
-    effectiveRef
-  );
-  if (!workspacePolicyFile) {
-    return "SELF_APPROVAL_BLOCKED";
-  }
-  const parsed = parseGovernanceYaml(workspacePolicyFile.content);
-  if (!parsed.ok) {
-    throw new Error(
-      `Workspace policy YAML is invalid: ${workspacePolicyPath2}.`
-    );
-  }
-  const validated = validateWorkspacePolicyFile2(parsed.value);
-  if (!validated.ok) {
-    throw new Error(`Workspace policy is invalid: ${workspacePolicyPath2}.`);
-  }
-  return validated.value.spec.approval.mode;
-}
-function validateScheduleMapping({
-  request,
-  scheduleId
-}) {
-  if (!scheduleId) {
-    return { message: "Schedule mapping is not required.", result: "ALLOW" };
-  }
-  if (!request.scheduleId || request.scheduleId !== scheduleId) {
-    return deny(
-      "SCHEDULE_NOT_MAPPED",
-      `Schedule ${scheduleId} is not mapped to this execution request.`
-    );
-  }
-  return { message: "Schedule mapping is verified.", result: "ALLOW" };
-}
-async function verifyApproverAuthorization({
-  allowMissingRoleMapping,
-  approver,
-  client,
-  configPath,
-  ref,
-  repository
-}) {
-  const effectiveRef = ref?.trim();
-  if (!effectiveRef) {
-    return {
-      allowed: false,
-      message: "Workflow ref is required for approver authorization."
-    };
-  }
-  const roleMappingPath2 = `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`;
-  const roleMappingFile = await client.getFile(roleMappingPath2, effectiveRef);
-  if (!roleMappingFile) {
-    if (allowMissingRoleMapping) {
-      return { allowed: true };
-    }
-    return {
-      allowed: false,
-      message: `Role mapping file was not found: ${roleMappingPath2}.`
-    };
-  }
-  const selector = parseApproverSelectorFromRoleMappingFile(
-    roleMappingFile.content
-  );
-  if (!selector) {
-    return {
-      allowed: false,
-      message: `Role mapping file is invalid: ${roleMappingPath2}.`
-    };
-  }
-  const normalizedApprover = approver.trim().toLowerCase();
-  if (selector.githubUsers.length > 0) {
-    const hasUserMatch = selector.githubUsers.map((value) => value.toLowerCase()).includes(normalizedApprover);
-    if (hasUserMatch) {
-      return { allowed: true };
-    }
-  }
-  if (selector.repositoryRoles.length > 0) {
-    const permission = await client.getRepositoryPermissionForUser(approver);
-    const normalizedRoles = selector.repositoryRoles.map(
-      (value) => value.toLowerCase()
-    );
-    const actualRole = permission.roleName?.toLowerCase() ?? "";
-    const fallbackRole = permission.permission.toLowerCase();
-    if (normalizedRoles.includes(actualRole) || normalizedRoles.includes(fallbackRole)) {
-      return { allowed: true };
-    }
-  }
-  if (selector.githubTeams.length > 0) {
-    for (const teamSlug of selector.githubTeams) {
-      const membership = await client.getTeamMembershipForUser({
-        org: repository.owner,
-        teamSlug,
-        username: approver
-      });
-      if (membership?.state === "active") {
-        return { allowed: true };
-      }
-    }
-  }
-  return { allowed: false };
-}
-function createGateGitHubClient({
-  apiBaseUrl,
-  fetcher,
-  owner,
-  repo,
-  token
-}) {
-  async function request(path, options = {}) {
-    const response = await fetcher(`${apiBaseUrl.replace(/\/+$/, "")}${path}`, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "X-GitHub-Api-Version": "2022-11-28"
-      }
-    });
-    if (response.status === 404 && options.allowNotFound) {
-      return null;
-    }
-    if (!response.ok) {
-      throw new Error(
-        `GitHub API request failed: ${response.status} ${await response.text()}`
-      );
-    }
-    if (response.status === 204) {
-      return null;
-    }
-    return await response.json();
-  }
-  const repoPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-  return {
-    async getIssue(issueNumber) {
-      const issue = await request(
-        `${repoPath}/issues/${issueNumber}`,
-        { allowNotFound: true }
-      );
-      if (!issue || issue.pull_request) return null;
-      return { body: issue.body ?? "", number: issue.number };
-    },
-    async findExecutionRequestIssue(requestId) {
-      for (let page = 1; page <= 5; page += 1) {
-        const issues = await request(
-          `${repoPath}/issues?state=all&per_page=100&page=${page}`
-        );
-        if (!issues?.length) {
-          return null;
-        }
-        const issue = issues.find((candidate) => {
-          if (candidate.pull_request) {
-            return false;
-          }
-          const request2 = parseExecutionRequestEvidence(candidate.body ?? "");
-          return request2?.requestId === requestId;
-        });
-        if (issue) {
-          return {
-            body: issue.body ?? "",
-            number: issue.number
-          };
-        }
-      }
-      return null;
-    },
-    async listIssueComments(issueNumber) {
-      const comments = [];
-      for (let page = 1; page <= 5; page += 1) {
-        const response = await request(
-          `${repoPath}/issues/${issueNumber}/comments?per_page=100&page=${page}`
-        );
-        if (!response?.length) {
-          break;
-        }
-        comments.push(
-          ...response.map((comment) => ({
-            author: comment.user?.login?.trim() ?? "",
-            body: comment.body ?? "",
-            createdAt: comment.created_at ?? "",
-            updatedAt: comment.updated_at ?? ""
-          }))
-        );
-      }
-      return comments;
-    },
-    async getFile(path, ref) {
-      const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
-      const response = await request(
-        `${repoPath}/contents/${encodePath2(path)}${query}`,
-        { allowNotFound: true }
-      );
-      if (!response) {
-        return null;
-      }
-      if (response.encoding !== "base64" || !response.content) {
-        throw new Error(`Unsupported GitHub file encoding for ${path}.`);
-      }
-      return {
-        content: decodeBase642(response.content),
-        path: response.path ?? path
-      };
-    },
-    async getRepositoryPermissionForUser(username) {
-      const response = await request(
-        `${repoPath}/collaborators/${encodeURIComponent(username)}/permission`,
-        { allowNotFound: true }
-      );
-      if (!response) {
-        return {
-          permission: "none",
-          roleName: "none",
-          username
-        };
-      }
-      return {
-        permission: normalizePermissionValue(response.permission) ?? normalizePermissionValue(response.role_name) ?? "none",
-        roleName: normalizePermissionValue(response.role_name) ?? normalizePermissionValue(response.permission) ?? "none",
-        username: response.user?.login?.trim() || username
-      };
-    },
-    async getTeamMembershipForUser({
-      org,
-      teamSlug,
-      username
-    }) {
-      const response = await request(
-        `/orgs/${encodeURIComponent(org)}/teams/${encodeURIComponent(
-          teamSlug
-        )}/memberships/${encodeURIComponent(username)}`,
-        { allowNotFound: true }
-      );
-      if (!response) {
-        return null;
-      }
-      return {
-        role: response.role ?? "",
-        state: response.state ?? ""
-      };
-    }
-  };
-}
-function parseRepository(repository) {
-  const [owner, repo] = repository.split("/");
-  if (!owner || !repo) {
-    throw new Error("GITHUB_REPOSITORY must be in owner/repo form.");
-  }
-  return { owner, repo };
 }
 function parseExecutionRequestEvidence(issueBody) {
   const marker = parseBatchPlaneMarker(issueBody, "execution-request");
@@ -10792,6 +9890,287 @@ function isEditedComment(comment) {
   }
   return comment.createdAt !== comment.updatedAt;
 }
+function parseBatchPlaneMarker(body, kind) {
+  const marker = /* @__PURE__ */ new Map();
+  const match = body.match(
+    new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`)
+  );
+  if (!match?.[1]) {
+    return marker;
+  }
+  for (const line of match[1].split("\n")) {
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex < 0) {
+      continue;
+    }
+    marker.set(
+      line.slice(0, separatorIndex).trim(),
+      line.slice(separatorIndex + 1).trim()
+    );
+  }
+  return marker;
+}
+function readMarkdownField(body, label) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = body.match(new RegExp(`- ${escapedLabel}:\\s*(.+)`));
+  const value = match?.[1]?.trim() ?? "";
+  return value.replace(/^`|`$/g, "").trim();
+}
+
+// src/gate-batch-policy.ts
+async function validateBatchPolicyEvidence({
+  batchId,
+  client,
+  configPath,
+  eventSchedule,
+  actualWorkflowPath,
+  actualWorkflowRef,
+  inputRef,
+  repository,
+  request
+}) {
+  const effectiveConfigPath = configPath.replace(/\/+$/u, "");
+  const effectiveRef = inputRef || request.workflowRef;
+  const batchPath = `${effectiveConfigPath}/batches/${batchId}.yml`;
+  const batchFile = await client.getFile(batchPath, effectiveRef);
+  if (!batchFile) {
+    return deny(
+      "BATCH_NOT_FOUND",
+      `Batch definition was not found: ${batchPath} (${effectiveRef || "default ref"}).`
+    );
+  }
+  const snapshot = parseBatchDefinitionSnapshot(batchFile.content);
+  if (!snapshot) {
+    return deny(
+      "BATCH_DEFINITION_INVALID",
+      `Batch definition is invalid: ${batchPath}.`
+    );
+  }
+  if (snapshot.status !== "ACTIVE") {
+    return deny(
+      "BATCH_NOT_ACTIVE",
+      `Batch ${batchId} is ${snapshot.status} and cannot run.`
+    );
+  }
+  if (!snapshot.gateRequired) {
+    return deny(
+      "GATE_REQUIRED",
+      `Batch ${batchId} does not enforce BatchPlane Gate.`
+    );
+  }
+  if (request.workflowRef && snapshot.workflowRef) {
+    const requestRef = request.workflowRef.trim();
+    const registeredRef = snapshot.workflowRef.trim();
+    if (requestRef && registeredRef && requestRef !== registeredRef) {
+      return deny(
+        "REF_NOT_ALLOWED",
+        `Workflow ref ${requestRef} is not allowed for batch ${batchId}; expected ${registeredRef}.`
+      );
+    }
+  }
+  if (request.workflowPath && snapshot.workflowPath) {
+    const requestPath = request.workflowPath.trim();
+    const registeredPath = snapshot.workflowPath.trim();
+    if (requestPath && registeredPath && requestPath !== registeredPath) {
+      return deny(
+        "WORKFLOW_NOT_ALLOWED",
+        `Workflow path ${requestPath} is not registered for batch ${batchId}.`
+      );
+    }
+  }
+  if (actualWorkflowPath && snapshot.workflowPath !== actualWorkflowPath) {
+    return deny(
+      "WORKFLOW_NOT_ALLOWED",
+      `Running workflow ${actualWorkflowPath} is not registered for batch ${batchId}.`
+    );
+  }
+  if (actualWorkflowRef && snapshot.workflowRef !== actualWorkflowRef) {
+    return deny(
+      "REF_NOT_ALLOWED",
+      `Running workflow ref ${actualWorkflowRef} is not registered for batch ${batchId}.`
+    );
+  }
+  if (request.triggerType === "SCHEDULE") {
+    if (!request.scheduleId) {
+      return deny(
+        "SCHEDULE_NOT_MAPPED",
+        "Scheduled execution request does not contain a schedule identifier."
+      );
+    }
+    if (!snapshot.enabledScheduleIds.includes(request.scheduleId)) {
+      return deny(
+        "SCHEDULE_NOT_REGISTERED",
+        `Schedule ${request.scheduleId} is not enabled in batch ${batchId}.`
+      );
+    }
+    if (eventSchedule?.trim() && snapshot.enabledScheduleCronById.get(request.scheduleId) !== eventSchedule.trim()) {
+      return deny(
+        "NATIVE_SCHEDULE_CRON_MISMATCH",
+        "Native GitHub schedule expression does not match the registered schedule."
+      );
+    }
+  }
+  if (!effectiveRef) {
+    return deny(
+      "REQUEST_EVIDENCE_MISMATCH",
+      `Workflow ref information is missing for batch ${batchId} validation.`
+    );
+  }
+  if (repository.owner.trim() === "") {
+    return deny("UNKNOWN", "Repository owner is required for team validation.");
+  }
+  return { message: "Batch policy evidence is verified.", result: "ALLOW" };
+}
+function deny(reasonCode, message) {
+  return { message, reasonCode, result: "DENY" };
+}
+
+// src/gate-github-client.ts
+function createGateGitHubClient({
+  apiBaseUrl,
+  fetcher,
+  owner,
+  repo,
+  token
+}) {
+  async function request(path, options = {}) {
+    const response = await fetcher(`${apiBaseUrl.replace(/\/+$/, "")}${path}`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28"
+      }
+    });
+    if (response.status === 404 && options.allowNotFound) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(
+        `GitHub API request failed: ${response.status} ${await response.text()}`
+      );
+    }
+    if (response.status === 204) {
+      return null;
+    }
+    return await response.json();
+  }
+  const repoPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  return {
+    async getIssue(issueNumber) {
+      const issue = await request(
+        `${repoPath}/issues/${issueNumber}`,
+        { allowNotFound: true }
+      );
+      if (!issue || issue.pull_request) return null;
+      return { body: issue.body ?? "", number: issue.number };
+    },
+    async findExecutionRequestIssue(requestId) {
+      for (let page = 1; page <= 5; page += 1) {
+        const issues = await request(
+          `${repoPath}/issues?state=all&per_page=100&page=${page}`
+        );
+        if (!issues?.length) {
+          return null;
+        }
+        const issue = issues.find((candidate) => {
+          if (candidate.pull_request) {
+            return false;
+          }
+          const request2 = parseExecutionRequestEvidence(candidate.body ?? "");
+          return request2?.requestId === requestId;
+        });
+        if (issue) {
+          return {
+            body: issue.body ?? "",
+            number: issue.number
+          };
+        }
+      }
+      return null;
+    },
+    async listIssueComments(issueNumber) {
+      const comments = [];
+      for (let page = 1; page <= 5; page += 1) {
+        const response = await request(
+          `${repoPath}/issues/${issueNumber}/comments?per_page=100&page=${page}`
+        );
+        if (!response?.length) {
+          break;
+        }
+        comments.push(
+          ...response.map((comment) => ({
+            author: comment.user?.login?.trim() ?? "",
+            body: comment.body ?? "",
+            createdAt: comment.created_at ?? "",
+            updatedAt: comment.updated_at ?? ""
+          }))
+        );
+      }
+      return comments;
+    },
+    async getFile(path, ref) {
+      const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+      const response = await request(
+        `${repoPath}/contents/${encodePath2(path)}${query}`,
+        { allowNotFound: true }
+      );
+      if (!response) {
+        return null;
+      }
+      if (response.encoding !== "base64" || !response.content) {
+        throw new Error(`Unsupported GitHub file encoding for ${path}.`);
+      }
+      return {
+        content: decodeBase642(response.content),
+        path: response.path ?? path
+      };
+    },
+    async getRepositoryPermissionForUser(username) {
+      const response = await request(
+        `${repoPath}/collaborators/${encodeURIComponent(username)}/permission`,
+        { allowNotFound: true }
+      );
+      if (!response) {
+        return {
+          permission: "none",
+          roleName: "none",
+          username
+        };
+      }
+      return {
+        permission: normalizePermissionValue(response.permission) ?? normalizePermissionValue(response.role_name) ?? "none",
+        roleName: normalizePermissionValue(response.role_name) ?? normalizePermissionValue(response.permission) ?? "none",
+        username: response.user?.login?.trim() || username
+      };
+    },
+    async getTeamMembershipForUser({
+      org,
+      teamSlug,
+      username
+    }) {
+      const response = await request(
+        `/orgs/${encodeURIComponent(org)}/teams/${encodeURIComponent(
+          teamSlug
+        )}/memberships/${encodeURIComponent(username)}`,
+        { allowNotFound: true }
+      );
+      if (!response) {
+        return null;
+      }
+      return {
+        role: response.role ?? "",
+        state: response.state ?? ""
+      };
+    }
+  };
+}
+function parseRepository(repository) {
+  const [owner, repo] = repository.split("/");
+  if (!owner || !repo) {
+    throw new Error("GITHUB_REPOSITORY must be in owner/repo form.");
+  }
+  return { owner, repo };
+}
 function encodePath2(path) {
   return path.split("/").map((part) => encodeURIComponent(part)).join("/");
 }
@@ -10804,6 +10183,710 @@ function normalizePermissionValue(value) {
     return "";
   }
   return normalized;
+}
+
+// src/gate-input.ts
+function verifyLiteInput(input) {
+  if (input.mode !== "lite") {
+    return deny2("UNSUPPORTED_MODE", "Only lite mode is scaffolded.");
+  }
+  if (!input.batchId) {
+    return deny2("BATCH_ID_REQUIRED", "Batch ID is required.");
+  }
+  if ((input.runAttempt ?? 1) > 1) {
+    return deny2(
+      "RERUN_NOT_AUTHORIZED",
+      "GitHub Actions reruns are not authorized by BatchPlane. Create a new execution request or approved retry instead."
+    );
+  }
+  if (!input.requestId) {
+    return deny2(
+      input.controllerReason || "EXECUTION_REQUEST_REQUIRED",
+      input.controllerReason ? `Native schedule controller denied this occurrence: ${input.controllerReason}.` : "Execution request evidence is required."
+    );
+  }
+  if (!input.requestDigest?.startsWith("sha256:")) {
+    return deny2(
+      "REQUEST_DIGEST_REQUIRED",
+      "Approved request digest is required."
+    );
+  }
+  return input.eventName === "schedule" ? verifyNativeScheduleInput(input) : verifyManualGateInput(input);
+}
+function verifyManualGateInput(input) {
+  if (!input.approvalSource || !input.approvalRef) {
+    return deny2(
+      "APPROVAL_EVIDENCE_REQUIRED",
+      "Approval evidence source and reference are required."
+    );
+  }
+  return {
+    message: "Manual execution request evidence is present.",
+    result: "ALLOW"
+  };
+}
+function verifyNativeScheduleInput(input) {
+  if (!input.eventSchedule?.trim() || !input.repositoryId?.trim() || !isPositiveIntegerString(input.sourceRunId) || !Number.isInteger(input.runAttempt) || (input.runAttempt ?? 0) < 1 || !input.workflowPath?.trim() || !input.workflowRef?.trim() || !input.workflowSha?.trim()) {
+    return deny2(
+      "NATIVE_SCHEDULE_CONTEXT_REQUIRED",
+      "GitHub schedule event, repository, Run, workflow path, ref, and SHA context are required."
+    );
+  }
+  return {
+    message: "Native schedule occurrence context is present.",
+    result: "ALLOW"
+  };
+}
+function isPositiveIntegerString(value) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0;
+}
+function deny2(reasonCode, message) {
+  return { message, reasonCode, result: "DENY" };
+}
+
+// src/gate-manual-authorization.ts
+async function verifyManualAuthorization({
+  client,
+  evidence,
+  input,
+  repository
+}) {
+  const request = evidence.request;
+  const approval = evidence.approval;
+  if (!request || !approval) {
+    return deny3(
+      "EXECUTION_REQUEST_NOT_APPROVED",
+      "Execution request does not have approved comment evidence."
+    );
+  }
+  if (approval.edited) {
+    return deny3(
+      "APPROVAL_COMMENT_EDITED",
+      "Execution approval comment was edited after creation."
+    );
+  }
+  if (approval.commandDigest && approval.commandDigest !== request.requestDigest) {
+    return deny3(
+      "REQUEST_DIGEST_MISMATCH",
+      "Approval command digest does not match execution request digest."
+    );
+  }
+  if (approval.requestDigest !== input.requestDigest || approval.requestDigest !== request.requestDigest) {
+    return deny3(
+      "REQUEST_DIGEST_MISMATCH",
+      "Execution approval digest does not match execution request digest."
+    );
+  }
+  if (approval.approvalType === "SCHEDULE_DELEGATED") {
+    return deny3(
+      "SCHEDULE_DELEGATED_APPROVAL_NOT_SUPPORTED",
+      "Delegated schedule approval evidence is historical and cannot authorize a new execution."
+    );
+  }
+  let workspaceApprovalMode;
+  try {
+    workspaceApprovalMode = await readWorkspaceApprovalMode({
+      client,
+      configPath: input.configPath,
+      ref: request.workflowRef || input.ref
+    });
+  } catch (error) {
+    return deny3(
+      "WORKSPACE_POLICY_LOOKUP_FAILED",
+      `Workspace policy lookup failed: ${toErrorMessage(error)}`
+    );
+  }
+  if (approval.approvalType === "WORKSPACE_AUTO_APPROVED") {
+    return workspaceApprovalMode === "AUTO_APPROVE" ? {
+      message: "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
+      result: "ALLOW"
+    } : deny3(
+      "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
+      "Workspace auto-approval evidence requires AUTO_APPROVE policy mode."
+    );
+  }
+  if (approval.approver === request.requestedBy && !allowsSelfApproval(workspaceApprovalMode)) {
+    return deny3(
+      "SELF_APPROVAL_NOT_ALLOWED",
+      "Requester and approver must be different users."
+    );
+  }
+  const approverAuthorized = await verifyApproverAuthorization({
+    allowMissingRoleMapping: approval.approver === request.requestedBy && allowsSelfApproval(workspaceApprovalMode),
+    approver: approval.approver,
+    client,
+    configPath: input.configPath,
+    ref: request.workflowRef || input.ref,
+    repository
+  });
+  if (!approverAuthorized.allowed) {
+    return deny3(
+      "APPROVER_NOT_AUTHORIZED",
+      approverAuthorized.message || `Approver @${approval.approver} is not authorized.`
+    );
+  }
+  return {
+    message: "Execution request, approval evidence, and batch policy are verified.",
+    result: "ALLOW"
+  };
+}
+async function readWorkspaceApprovalMode({
+  client,
+  configPath,
+  ref
+}) {
+  const effectiveRef = ref?.trim();
+  if (!effectiveRef) {
+    return "SELF_APPROVAL_BLOCKED";
+  }
+  const workspacePolicyPath2 = `${configPath.replace(/\/+$/u, "")}/workspace.yml`;
+  const workspacePolicyFile = await client.getFile(
+    workspacePolicyPath2,
+    effectiveRef
+  );
+  if (!workspacePolicyFile) {
+    return "SELF_APPROVAL_BLOCKED";
+  }
+  const parsed = parseGovernanceYaml(workspacePolicyFile.content);
+  if (!parsed.ok) {
+    throw new Error(
+      `Workspace policy YAML is invalid: ${workspacePolicyPath2}.`
+    );
+  }
+  const validated = validateWorkspacePolicyFile2(parsed.value);
+  if (!validated.ok) {
+    throw new Error(`Workspace policy is invalid: ${workspacePolicyPath2}.`);
+  }
+  return validated.value.spec.approval.mode;
+}
+async function verifyApproverAuthorization({
+  allowMissingRoleMapping,
+  approver,
+  client,
+  configPath,
+  ref,
+  repository
+}) {
+  const effectiveRef = ref?.trim();
+  if (!effectiveRef) {
+    return {
+      allowed: false,
+      message: "Workflow ref is required for approver authorization."
+    };
+  }
+  const roleMappingPath2 = `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`;
+  const roleMappingFile = await client.getFile(roleMappingPath2, effectiveRef);
+  if (!roleMappingFile) {
+    if (allowMissingRoleMapping) {
+      return { allowed: true };
+    }
+    return {
+      allowed: false,
+      message: `Role mapping file was not found: ${roleMappingPath2}.`
+    };
+  }
+  const selector = parseApproverSelectorFromRoleMappingFile(
+    roleMappingFile.content
+  );
+  if (!selector) {
+    return {
+      allowed: false,
+      message: `Role mapping file is invalid: ${roleMappingPath2}.`
+    };
+  }
+  const normalizedApprover = approver.trim().toLowerCase();
+  if (selector.githubUsers.length > 0) {
+    const hasUserMatch = selector.githubUsers.map((value) => value.toLowerCase()).includes(normalizedApprover);
+    if (hasUserMatch) {
+      return { allowed: true };
+    }
+  }
+  if (selector.repositoryRoles.length > 0) {
+    const permission = await client.getRepositoryPermissionForUser(approver);
+    const normalizedRoles = selector.repositoryRoles.map(
+      (value) => value.toLowerCase()
+    );
+    const actualRole = permission.roleName?.toLowerCase() ?? "";
+    const fallbackRole = permission.permission.toLowerCase();
+    if (normalizedRoles.includes(actualRole) || normalizedRoles.includes(fallbackRole)) {
+      return { allowed: true };
+    }
+  }
+  if (selector.githubTeams.length > 0) {
+    for (const teamSlug of selector.githubTeams) {
+      const membership = await client.getTeamMembershipForUser({
+        org: repository.owner,
+        teamSlug,
+        username: approver
+      });
+      if (membership?.state === "active") {
+        return { allowed: true };
+      }
+    }
+  }
+  return { allowed: false };
+}
+function allowsSelfApproval(mode) {
+  return mode === "SELF_APPROVAL_ALLOWED" || mode === "AUTO_APPROVE";
+}
+function deny3(reasonCode, message) {
+  return { message, reasonCode, result: "DENY" };
+}
+function toErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+// src/gate-native-authorization.ts
+async function verifyNativeScheduleAuthorization({
+  batch,
+  evidence,
+  input
+}) {
+  const request = evidence.request;
+  if (!request || !evidence.issueBody || !batch) {
+    return deny4(
+      "NATIVE_SCHEDULE_REQUEST_UNVERIFIED",
+      "Native schedule request or its current Batch snapshot could not be verified."
+    );
+  }
+  const scheduleMapping = validateScheduleMapping({
+    request,
+    scheduleId: input.scheduleId
+  });
+  if (scheduleMapping.result === "DENY") {
+    return scheduleMapping;
+  }
+  const occurrence = request.schedule;
+  if (request.triggerType !== "SCHEDULE" || !occurrence || input.runAttempt !== 1 || occurrence.repositoryId !== input.repositoryId || occurrence.sourceRunId !== input.sourceRunId || occurrence.sourceRunAttempt !== input.runAttempt) {
+    return deny4(
+      "NATIVE_SCHEDULE_OCCURRENCE_MISMATCH",
+      "Native schedule Run, attempt, repository, or occurrence evidence does not match the request."
+    );
+  }
+  const verifiedRequest = await verifyNativeScheduleRequestIssue(
+    evidence.issueBody,
+    {
+      approvedBatchRevision: request.approvedBatchRevision,
+      batch,
+      occurrence: {
+        definitionCommitSha: input.workflowSha ?? "",
+        definitionPath: `${input.configPath.replace(/\/+$/u, "")}/batches/${input.batchId}.yml`,
+        repositoryId: input.repositoryId ?? "",
+        scheduleId: input.scheduleId ?? "",
+        sourceRunAttempt: input.runAttempt ?? 0,
+        sourceRunId: input.sourceRunId ?? ""
+      },
+      requestDigest: input.requestDigest ?? "",
+      requestId: input.requestId ?? ""
+    }
+  );
+  if (!verifiedRequest) {
+    return deny4(
+      "NATIVE_SCHEDULE_REQUEST_UNVERIFIED",
+      "Native schedule request marker, digest, source tuple, workflow, revision, or Batch snapshot does not match."
+    );
+  }
+  return {
+    message: "Native schedule occurrence and approved Batch revision evidence are verified.",
+    result: "ALLOW"
+  };
+}
+async function loadNativeScheduleBatch({
+  client,
+  input
+}) {
+  const ref = input.workflowSha?.trim();
+  if (!ref) return null;
+  const path = `${input.configPath.replace(/\/+$/u, "")}/batches/${input.batchId}.yml`;
+  try {
+    const file = await client.getFile(path, ref);
+    if (!file) return null;
+    return parseBatchDefinitionYaml(file.content);
+  } catch {
+    return null;
+  }
+}
+function validateScheduleMapping({
+  request,
+  scheduleId
+}) {
+  if (!scheduleId) {
+    return { message: "Schedule mapping is not required.", result: "ALLOW" };
+  }
+  if (!request.scheduleId || request.scheduleId !== scheduleId) {
+    return deny4(
+      "SCHEDULE_NOT_MAPPED",
+      `Schedule ${scheduleId} is not mapped to this execution request.`
+    );
+  }
+  return { message: "Schedule mapping is verified.", result: "ALLOW" };
+}
+function deny4(reasonCode, message) {
+  return { message, reasonCode, result: "DENY" };
+}
+
+// src/gate-authorization.ts
+async function verifyLiteAuthorization(input, verifyBatchRevision = verifyApprovedBatchRevision) {
+  const inputResult = verifyLiteInput(input);
+  if (inputResult.result === "DENY") {
+    return inputResult;
+  }
+  const requestContext = createRequestContext(input);
+  if ("result" in requestContext) {
+    return requestContext;
+  }
+  const evidence = await loadApprovalEvidence(input, requestContext.client);
+  if ("result" in evidence) {
+    return evidence;
+  }
+  const request = verifyRequestEvidence(input, evidence);
+  if ("result" in request) {
+    return request;
+  }
+  const batchValidation = await validateBatchPolicyEvidence({
+    batchId: input.batchId,
+    client: requestContext.client,
+    configPath: input.configPath,
+    inputRef: input.eventName === "schedule" ? input.workflowRef : input.ref,
+    eventSchedule: input.eventName === "schedule" ? input.eventSchedule : void 0,
+    actualWorkflowPath: input.eventName === "schedule" ? input.workflowPath : void 0,
+    actualWorkflowRef: input.eventName === "schedule" ? input.workflowRef : void 0,
+    repository: requestContext.repository,
+    request
+  });
+  if (batchValidation.result === "DENY") {
+    return batchValidation;
+  }
+  const authorization = input.eventName === "schedule" ? await verifyNativeScheduleAuthorization({
+    batch: await loadNativeScheduleBatch({
+      client: requestContext.client,
+      input
+    }),
+    evidence,
+    input
+  }) : await verifyManualAuthorization({
+    client: requestContext.client,
+    evidence,
+    input,
+    repository: requestContext.repository
+  });
+  if (authorization.result === "DENY") {
+    return authorization;
+  }
+  return verifyApprovedRevision({
+    authorization,
+    input,
+    repository: requestContext.repository,
+    request,
+    token: requestContext.token,
+    verifyBatchRevision
+  });
+}
+function createRequestContext(input) {
+  const expectedActor = input.expectedDispatcherActor ?? "github-actions[bot]";
+  if (input.eventName !== "schedule" && input.actor && input.actor !== expectedActor) {
+    return deny5(
+      "DIRECT_DISPATCH_NOT_AUTHORIZED",
+      `Workflow actor ${input.actor} is not the BatchPlane dispatcher actor ${expectedActor}.`
+    );
+  }
+  if (!input.githubToken || !input.repository) {
+    return deny5(
+      "GITHUB_EVIDENCE_LOOKUP_REQUIRED",
+      "GitHub token and repository are required to verify evidence."
+    );
+  }
+  const repository = parseRepository(input.repository);
+  return {
+    client: createGateGitHubClient({
+      apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
+      fetcher: input.fetcher ?? fetch,
+      owner: repository.owner,
+      repo: repository.repo,
+      token: input.githubToken
+    }),
+    repository,
+    token: input.githubToken
+  };
+}
+async function loadApprovalEvidence(input, client) {
+  try {
+    return await findGitHubApprovalEvidence({
+      client,
+      issueNumber: input.eventName === "schedule" ? parseNativeIssueNumber(input.issueNumber) : void 0,
+      loadApproval: input.eventName !== "schedule",
+      requestId: input.requestId ?? ""
+    });
+  } catch (error) {
+    return deny5(
+      "GITHUB_EVIDENCE_LOOKUP_FAILED",
+      `GitHub evidence lookup failed: ${toErrorMessage2(error)}`
+    );
+  }
+}
+function verifyRequestEvidence(input, evidence) {
+  const request = evidence.request;
+  if (!request) {
+    return deny5(
+      "REQUEST_EVIDENCE_NOT_FOUND",
+      "Execution request Issue evidence was not found."
+    );
+  }
+  if (input.eventName === "schedule") {
+    const suppliedIssueNumber = Number(input.issueNumber);
+    if (!Number.isInteger(suppliedIssueNumber) || suppliedIssueNumber < 1 || evidence.issueNumber !== suppliedIssueNumber) {
+      return deny5(
+        "NATIVE_SCHEDULE_ISSUE_MISMATCH",
+        "The schedule control Issue number does not identify the exact canonical request evidence."
+      );
+    }
+  }
+  if (request.requestId !== input.requestId || request.batchId !== input.batchId || request.requestDigest !== input.requestDigest) {
+    return deny5(
+      "REQUEST_EVIDENCE_MISMATCH",
+      "Execution request evidence does not match workflow inputs."
+    );
+  }
+  if (request.status !== "REQUESTED") {
+    return deny5(
+      "REQUEST_NOT_REQUESTED",
+      `Execution request status is ${request.status}.`
+    );
+  }
+  if (input.eventName !== "schedule" && input.approvalSource !== "issue") {
+    return deny5(
+      "APPROVAL_SOURCE_NOT_SUPPORTED",
+      `Approval source ${input.approvalSource} is not supported.`
+    );
+  }
+  if (input.eventName !== "schedule" && input.approvalRef !== request.requestId) {
+    return deny5(
+      "APPROVAL_REFERENCE_MISMATCH",
+      "Approval reference does not match the execution request."
+    );
+  }
+  return request;
+}
+async function verifyApprovedRevision({
+  authorization,
+  input,
+  repository,
+  request,
+  token,
+  verifyBatchRevision
+}) {
+  if (!input.workflowSha) {
+    return deny5(
+      "WORKFLOW_SOURCE_SHA_REQUIRED",
+      "The immutable workflow source SHA is required to verify registered Batch artifacts."
+    );
+  }
+  const revisionValidation = await verifyBatchRevision({
+    batchId: input.batchId,
+    client: createGitHubLiteClient({
+      apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
+      fetcher: input.fetcher ?? fetch,
+      token
+    }),
+    executionWorkflowSha: input.workflowSha,
+    expectedRevision: request.approvedBatchRevision,
+    repository
+  });
+  if (revisionValidation.controlStatus !== "VERIFIED") {
+    return deny5(
+      revisionValidation.reasonCode,
+      revisionValidation.controlStatus === "UNKNOWN" ? "Approved Batch revision could not be verified." : "Batch revision does not match the latest approved governed change."
+    );
+  }
+  if (!isCommitSha(revisionValidation.verifiedSha)) {
+    return deny5(
+      "VERIFIED_SHA_INVALID",
+      "Approved Batch revision did not resolve to an immutable commit SHA."
+    );
+  }
+  return {
+    result: "ALLOW",
+    verifiedSha: revisionValidation.verifiedSha,
+    message: authorization.message
+  };
+}
+function parseNativeIssueNumber(value) {
+  const issueNumber = Number(value);
+  if (!Number.isInteger(issueNumber) || issueNumber < 1) {
+    throw new Error("NATIVE_SCHEDULE_ISSUE_MISMATCH");
+  }
+  return issueNumber;
+}
+function isCommitSha(value) {
+  return /^[0-9a-f]{40}$/iu.test(value);
+}
+function deny5(reasonCode, message) {
+  return { message, reasonCode, result: "DENY" };
+}
+function toErrorMessage2(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+// src/gate-runtime.ts
+function readGateInputFromEnv(env = process.env) {
+  const eventName = env.GITHUB_EVENT_NAME;
+  const eventSchedule = readNativeScheduleEvent(env);
+  const workflowPath = readWorkflowPath(env.GITHUB_WORKFLOW_REF ?? "");
+  const workflowRef = readWorkflowRef(env.GITHUB_WORKFLOW_REF ?? "");
+  const recordEvidence = readActionInput(env, "record-evidence") === "true";
+  return {
+    mode: readActionInput(env, "mode"),
+    batchId: readActionInput(env, "batch-id"),
+    configPath: readActionInput(env, "config-path") || ".batch-governance",
+    ref: readOptionalActionInput(env, "ref"),
+    ...eventName ? { eventName } : {},
+    ...eventSchedule ? { eventSchedule } : {},
+    ...env.GITHUB_REPOSITORY_ID ? { repositoryId: env.GITHUB_REPOSITORY_ID } : {},
+    ...env.GITHUB_RUN_ID ? { sourceRunId: env.GITHUB_RUN_ID } : {},
+    ...workflowPath ? { workflowPath } : {},
+    ...workflowRef ? { workflowRef } : {},
+    ...readOptionalActionInput(env, "issue-number") ? { issueNumber: readOptionalActionInput(env, "issue-number") } : {},
+    ...recordEvidence ? { recordEvidence } : {},
+    ...readOptionalActionInput(env, "controller-reason") ? { controllerReason: readOptionalActionInput(env, "controller-reason") } : {},
+    ...readOptionalActionInput(env, "gate-job-name") ? { gateJobName: readOptionalActionInput(env, "gate-job-name") } : {},
+    ...readOptionalActionInput(env, "gate-step-name") ? { gateStepName: readOptionalActionInput(env, "gate-step-name") } : {},
+    scheduleId: readOptionalActionInput(env, "schedule-id"),
+    requestId: readOptionalActionInput(env, "request-id"),
+    approvalSource: readOptionalActionInput(env, "approval-source"),
+    approvalRef: readOptionalActionInput(env, "approval-ref"),
+    requestDigest: readOptionalActionInput(env, "request-digest"),
+    runAttempt: readRunAttempt(env),
+    githubToken: readOptionalActionInput(env, "github-token") ?? env.GITHUB_TOKEN,
+    repository: env.GITHUB_REPOSITORY,
+    actor: env.GITHUB_ACTOR,
+    expectedDispatcherActor: readOptionalActionInput(env, "dispatcher-actor") ?? "github-actions[bot]",
+    apiBaseUrl: env.GITHUB_API_URL,
+    ...env.GITHUB_WORKFLOW_SHA ? { workflowSha: env.GITHUB_WORKFLOW_SHA } : {}
+  };
+}
+async function runGateFromEnv(env = process.env) {
+  const input = readGateInputFromEnv(env);
+  let result = await verifyLiteAuthorization(input);
+  if (input.recordEvidence) {
+    try {
+      await recordNativeScheduleGateDecision(input, result);
+    } catch (error) {
+      const message = `Gate decision evidence could not be recorded: ${toErrorMessage3(error)}`;
+      if (result.result === "ALLOW") {
+        result = deny6("GATE_EVIDENCE_RECORDING_FAILED", message);
+      } else {
+        console.error(message);
+      }
+    }
+  }
+  writeGateOutputs(result, env);
+  writeGateSummary(result, input, env);
+  writeGateLogRecord(result, input, env);
+  if (result.result === "DENY") {
+    console.error(`BatchPlane Gate denied execution: ${result.reasonCode}`);
+    console.error(result.message);
+    process.exitCode = 1;
+    return result;
+  }
+  console.log(`BatchPlane Gate allowed execution: ${result.message}`);
+  return result;
+}
+async function recordNativeScheduleGateDecision(input, result) {
+  if (input.eventName !== "schedule" || !input.issueNumber || !input.githubToken || !input.repository) {
+    throw new Error(
+      "Native Gate evidence requires issue, repository, and token inputs."
+    );
+  }
+  const issueNumber = Number(input.issueNumber);
+  if (!Number.isInteger(issueNumber) || issueNumber < 1) {
+    throw new Error("Native Gate evidence requires a positive Issue number.");
+  }
+  const { owner, repo } = parseRepository(input.repository);
+  const body = [
+    "## BatchPlane Native Schedule Gate",
+    "",
+    `- Decision: ${result.result}`,
+    `- Source Run: \`${input.sourceRunId ?? ""}\``,
+    `- Run attempt: ${input.runAttempt ?? "unavailable"}`,
+    `- Schedule ID: \`${input.scheduleId ?? ""}\``,
+    `- Reason: ${result.reasonCode ?? ""}`,
+    "",
+    "<!-- batchplane:gate-decision",
+    `allowed=${result.result === "ALLOW"}`,
+    `requestId=${input.requestId ?? ""}`,
+    `batchId=${input.batchId}`,
+    `requestDigest=${input.requestDigest ?? ""}`,
+    `scheduleId=${input.scheduleId ?? ""}`,
+    `repositoryId=${input.repositoryId ?? ""}`,
+    `sourceRunId=${input.sourceRunId ?? ""}`,
+    `sourceRunAttempt=${input.runAttempt ?? ""}`,
+    ...result.reasonCode ? [`reasonCode=${result.reasonCode}`] : [],
+    "-->"
+  ].join("\n");
+  const response = await (input.fetcher ?? fetch)(
+    `${(input.apiBaseUrl ?? "https://api.github.com").replace(/\/+$/u, "")}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`,
+    {
+      body: JSON.stringify({ body }),
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${input.githubToken}`,
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28"
+      },
+      method: "POST"
+    }
+  );
+  if (!response.ok) {
+    throw new Error(
+      `GitHub API request failed: ${response.status} ${await response.text()}`
+    );
+  }
+  const acknowledgement = await response.json();
+  if (!Number.isInteger(acknowledgement.id) || acknowledgement.id < 1) {
+    throw new Error(
+      "GitHub Gate decision write acknowledgement was missing a comment ID."
+    );
+  }
+}
+function readActionInput(env, name) {
+  const envKey = `INPUT_${name.toUpperCase()}`;
+  const fallbackKey = envKey.replaceAll("-", "_");
+  return (env[envKey] ?? env[fallbackKey] ?? "").trim();
+}
+function readOptionalActionInput(env, name) {
+  const value = readActionInput(env, name);
+  return value || void 0;
+}
+function readRunAttempt(env) {
+  const raw = env.GITHUB_RUN_ATTEMPT;
+  const value = raw ? Number(raw) : Number.NaN;
+  const valid = Number.isInteger(value) && value > 0;
+  if (env.GITHUB_EVENT_NAME === "schedule") {
+    return valid ? value : void 0;
+  }
+  return valid ? value : 1;
+}
+function readNativeScheduleEvent(env) {
+  const path = env.GITHUB_EVENT_PATH;
+  if (!path) return "";
+  try {
+    const value = JSON.parse(readFileSync(path, "utf8"));
+    return typeof value.schedule === "string" ? value.schedule : "";
+  } catch {
+    return "";
+  }
+}
+function readWorkflowPath(workflowRef) {
+  const marker = "/.github/workflows/";
+  const start = workflowRef.indexOf(marker);
+  const end = workflowRef.lastIndexOf("@");
+  return start >= 0 && end > start ? workflowRef.slice(start + 1, end) : "";
+}
+function readWorkflowRef(workflowRef) {
+  const separator = workflowRef.lastIndexOf("@");
+  const value = separator >= 0 ? workflowRef.slice(separator + 1) : "";
+  return value.replace(/^refs\/heads\//u, "").trim();
 }
 function writeGateOutputs(result, env) {
   const outputPath = env.GITHUB_OUTPUT;
@@ -10869,32 +10952,14 @@ function writeGateLogRecord(result, input, env) {
 function escapeOutputValue(value) {
   return value.replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
-function parseBatchPlaneMarker(body, kind) {
-  const marker = /* @__PURE__ */ new Map();
-  const match = body.match(
-    new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`)
-  );
-  if (!match?.[1]) {
-    return marker;
-  }
-  for (const line of match[1].split("\n")) {
-    const separatorIndex = line.indexOf("=");
-    if (separatorIndex < 0) {
-      continue;
-    }
-    marker.set(
-      line.slice(0, separatorIndex).trim(),
-      line.slice(separatorIndex + 1).trim()
-    );
-  }
-  return marker;
+function deny6(reasonCode, message) {
+  return { message, reasonCode, result: "DENY" };
 }
-function readMarkdownField(body, label) {
-  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = body.match(new RegExp(`- ${escapedLabel}:\\s*(.+)`));
-  const value = match?.[1]?.trim() ?? "";
-  return value.replace(/^`|`$/g, "").trim();
+function toErrorMessage3(error) {
+  return error instanceof Error ? error.message : String(error);
 }
+
+// src/index.ts
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   await runGateFromEnv();
 }

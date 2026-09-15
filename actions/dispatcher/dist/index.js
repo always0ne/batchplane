@@ -9395,211 +9395,16 @@ function bypassed() {
   return { controlStatus: "BYPASSED", reasonCode: "UNAPPROVED_BATCH_REVISION" };
 }
 
-// src/index.ts
-var dispatcherLabels = {
-  dispatched: {
-    color: "16A34A",
-    description: "BatchPlane dispatcher completed workflow dispatch",
-    name: "batchplane:dispatched"
-  },
-  dispatchFailed: {
-    color: "DC2626",
-    description: "BatchPlane dispatcher failed workflow dispatch",
-    name: "batchplane:dispatch-failed"
-  },
-  dispatching: {
-    color: "2563EB",
-    description: "BatchPlane dispatcher is processing this execution request",
-    name: "batchplane:dispatching"
-  }
-};
+// src/dispatcher-command.ts
 function parseDispatcherCommand(commentBody) {
-  if (commentBody.startsWith("/bgcp approve ")) {
-    return "approve";
-  }
-  if (commentBody.startsWith("/bgcp retry-dispatch ")) {
-    return "retry-dispatch";
-  }
+  if (commentBody.startsWith("/bgcp approve ")) return "approve";
+  if (commentBody.startsWith("/bgcp retry-dispatch ")) return "retry-dispatch";
   return "ignore";
 }
+
+// src/dispatcher-evidence.ts
 function isActionableApprovalComment(commentBody) {
   return parseDispatcherCommand(commentBody) === "approve" && parseExecutionApprovalEvidence(commentBody)?.decision === "APPROVED";
-}
-async function dispatchApprovedExecutionRequest({
-  apiBaseUrl = "https://api.github.com",
-  commentId,
-  fetcher = fetch,
-  githubToken,
-  issueNumber,
-  now = /* @__PURE__ */ new Date(),
-  owner,
-  repo,
-  verifyBatchRevision
-}) {
-  const client = createDispatcherGitHubClient({
-    apiBaseUrl,
-    fetcher,
-    owner,
-    repo,
-    token: githubToken
-  });
-  const [issue, commandComment, issueComments] = await Promise.all([
-    client.getIssue(issueNumber),
-    client.getIssueComment(commentId),
-    client.listIssueComments(issueNumber)
-  ]);
-  const command = parseDispatcherCommand(commandComment.body);
-  if (command === "ignore") {
-    return {
-      message: "Comment is not a BatchPlane dispatcher command.",
-      reasonCode: "IGNORED_COMMENT",
-      status: "ignored"
-    };
-  }
-  if (command === "approve" && !isActionableApprovalComment(commandComment.body)) {
-    return {
-      message: "Comment is not actionable BatchPlane approval evidence.",
-      reasonCode: "IGNORED_COMMENT",
-      status: "ignored"
-    };
-  }
-  const approvalCommentBody = command === "retry-dispatch" ? findRetryApprovalCommentBody({
-    commandCommentBody: commandComment.body,
-    issueBody: issue.body,
-    issueComments
-  }) ?? commandComment.body : commandComment.body;
-  const verification = verifyDispatcherEvidence({
-    approvalCommentBody,
-    issueBody: issue.body,
-    now
-  });
-  if (!verification.ok) {
-    await client.createIssueComment(
-      issueNumber,
-      buildDispatchFailureComment(
-        verification.message,
-        verification.reasonCode
-      )
-    );
-    return {
-      message: verification.message,
-      reasonCode: verification.reasonCode,
-      status: "failed"
-    };
-  }
-  const revision = await resolveApprovedBatchRevision({
-    apiBaseUrl,
-    batchId: verification.request.batchId,
-    expectedRevision: verification.request.approvedBatchRevision,
-    fetcher,
-    githubToken,
-    owner,
-    repo,
-    verifyBatchRevision
-  });
-  if (revision.controlStatus !== "VERIFIED") {
-    const reasonCode = revision.reasonCode;
-    const message = revision.controlStatus === "UNKNOWN" ? "Approved Batch revision could not be verified before workflow dispatch." : "Batch revision does not match the latest approved governed change.";
-    await client.createIssueComment(
-      issueNumber,
-      buildDispatchFailureComment(
-        message,
-        reasonCode,
-        verification.dispatchPlan
-      )
-    );
-    return {
-      dispatchPlan: verification.dispatchPlan,
-      message,
-      reasonCode,
-      status: "failed"
-    };
-  }
-  if (command === "retry-dispatch") {
-    const retryState = verifyRetryDispatchState({
-      comments: issueComments,
-      dispatchPlan: verification.dispatchPlan,
-      labels: issue.labels
-    });
-    if (!retryState.ok) {
-      await client.createIssueComment(
-        issueNumber,
-        buildDispatchFailureComment(
-          retryState.message,
-          retryState.reasonCode,
-          verification.dispatchPlan
-        )
-      );
-      return {
-        dispatchPlan: verification.dispatchPlan,
-        message: retryState.message,
-        reasonCode: retryState.reasonCode,
-        status: "failed"
-      };
-    }
-  }
-  const dispatchState = findExistingDispatchState({
-    comments: issueComments,
-    dispatchPlan: verification.dispatchPlan,
-    labels: issue.labels
-  });
-  if (dispatchState.handled) {
-    return {
-      dispatchPlan: verification.dispatchPlan,
-      message: dispatchState.message,
-      reasonCode: dispatchState.reasonCode,
-      status: "ignored"
-    };
-  }
-  await client.ensureLabels([
-    dispatcherLabels.dispatching,
-    dispatcherLabels.dispatched,
-    dispatcherLabels.dispatchFailed
-  ]);
-  if (command === "retry-dispatch") {
-    await removeDispatchFailedLabels(client, issueNumber);
-  }
-  await client.addIssueLabels(issueNumber, [dispatcherLabels.dispatching.name]);
-  await client.createIssueComment(
-    issueNumber,
-    buildDispatchingComment(verification.dispatchPlan)
-  );
-  try {
-    await client.dispatchWorkflow(verification.dispatchPlan);
-  } catch (error) {
-    await client.addIssueLabels(issueNumber, [
-      dispatcherLabels.dispatchFailed.name
-    ]);
-    await client.removeIssueLabel(
-      issueNumber,
-      dispatcherLabels.dispatching.name
-    );
-    await client.createIssueComment(
-      issueNumber,
-      buildDispatchFailureComment(
-        error instanceof Error ? error.message : String(error),
-        "WORKFLOW_DISPATCH_FAILED",
-        verification.dispatchPlan
-      )
-    );
-    return {
-      dispatchPlan: verification.dispatchPlan,
-      message: error instanceof Error ? error.message : String(error),
-      reasonCode: "WORKFLOW_DISPATCH_FAILED",
-      status: "failed"
-    };
-  }
-  await removeDispatchFailedLabels(client, issueNumber);
-  await client.addIssueLabels(issueNumber, [dispatcherLabels.dispatched.name]);
-  await client.removeIssueLabel(issueNumber, dispatcherLabels.dispatching.name);
-  await client.createIssueComment(
-    issueNumber,
-    buildDispatchSuccessComment(verification.dispatchPlan)
-  );
-  return {
-    dispatchPlan: verification.dispatchPlan,
-    status: "dispatched"
-  };
 }
 function verifyDispatcherEvidence({
   approvalCommentBody,
@@ -9717,35 +9522,6 @@ function parseExecutionRequestEvidence(issueBody) {
     workflowRef: workflow.ref
   };
 }
-async function resolveApprovedBatchRevision({
-  apiBaseUrl,
-  batchId,
-  expectedRevision,
-  fetcher,
-  githubToken,
-  owner,
-  repo,
-  verifyBatchRevision
-}) {
-  if (verifyBatchRevision) {
-    return verifyBatchRevision({ batchId, expectedRevision });
-  }
-  return verifyApprovedBatchRevision({
-    batchId,
-    client: createGitHubLiteClient({ apiBaseUrl, fetcher, token: githubToken }),
-    expectedRevision,
-    repository: { owner, repo }
-  });
-}
-function readApprovedBatchRevision(payload) {
-  if (!payload || typeof payload !== "object") return null;
-  const spec = payload.spec;
-  const revision = spec && typeof spec === "object" ? spec.approvedBatchRevision : null;
-  if (!revision || typeof revision !== "object") return null;
-  const governedChangeId = revision.governedChangeId;
-  const targetRevisionDigest = revision.targetRevisionDigest;
-  return typeof governedChangeId === "string" && governedChangeId.trim() && typeof targetRevisionDigest === "string" && targetRevisionDigest.startsWith("sha256:") ? { governedChangeId, targetRevisionDigest } : null;
-}
 function parseExecutionApprovalEvidence(commentBody) {
   const marker = parseBatchPlaneMarker(commentBody, "execution-approval") ?? /* @__PURE__ */ new Map();
   const decision = marker.get("decision");
@@ -9777,6 +9553,77 @@ function parseDispatcherStatusEvidence(commentBody) {
     requestId,
     status
   };
+}
+function buildDispatchingComment(dispatchPlan) {
+  return [
+    "## BatchPlane Dispatch",
+    "",
+    "- Status: DISPATCHING",
+    `- Request ID: \`${dispatchPlan.requestId}\``,
+    `- Batch ID: \`${dispatchPlan.batchId}\``,
+    `- Workflow: \`${dispatchPlan.workflowPath}\``,
+    `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
+    `- Request digest: \`${dispatchPlan.requestDigest}\``,
+    "",
+    "<!-- batchplane:bgcp:dispatcher",
+    "status=DISPATCHING",
+    `requestId=${dispatchPlan.requestId}`,
+    `batchId=${dispatchPlan.batchId}`,
+    `requestDigest=${dispatchPlan.requestDigest}`,
+    "-->"
+  ].join("\n");
+}
+function buildDispatchSuccessComment(dispatchPlan) {
+  return [
+    "## BatchPlane Dispatch",
+    "",
+    "- Status: DISPATCHED",
+    `- Request ID: \`${dispatchPlan.requestId}\``,
+    `- Batch ID: \`${dispatchPlan.batchId}\``,
+    `- Workflow: \`${dispatchPlan.workflowPath}\``,
+    `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
+    `- Request digest: \`${dispatchPlan.requestDigest}\``,
+    "",
+    "<!-- batchplane:bgcp:dispatcher",
+    "status=DISPATCHED",
+    `requestId=${dispatchPlan.requestId}`,
+    `batchId=${dispatchPlan.batchId}`,
+    `requestDigest=${dispatchPlan.requestDigest}`,
+    "-->"
+  ].join("\n");
+}
+function buildDispatchFailureComment(message, reasonCode, dispatchPlan) {
+  return [
+    "## BatchPlane Dispatch",
+    "",
+    "- Status: DISPATCH_FAILED",
+    `- Reason code: ${reasonCode}`,
+    `- Message: ${message}`,
+    ...dispatchPlan ? [
+      `- Request ID: \`${dispatchPlan.requestId}\``,
+      `- Batch ID: \`${dispatchPlan.batchId}\``,
+      `- Request digest: \`${dispatchPlan.requestDigest}\``
+    ] : [],
+    "",
+    "<!-- batchplane:bgcp:dispatcher",
+    "status=DISPATCH_FAILED",
+    `reasonCode=${reasonCode}`,
+    ...dispatchPlan ? [
+      `requestId=${dispatchPlan.requestId}`,
+      `batchId=${dispatchPlan.batchId}`,
+      `requestDigest=${dispatchPlan.requestDigest}`
+    ] : [],
+    "-->"
+  ].join("\n");
+}
+function readApprovedBatchRevision(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  const spec = payload.spec;
+  const revision = spec && typeof spec === "object" ? spec.approvedBatchRevision : null;
+  if (!revision || typeof revision !== "object") return null;
+  const governedChangeId = revision.governedChangeId;
+  const targetRevisionDigest = revision.targetRevisionDigest;
+  return typeof governedChangeId === "string" && governedChangeId.trim() && typeof targetRevisionDigest === "string" && targetRevisionDigest.startsWith("sha256:") ? { governedChangeId, targetRevisionDigest } : null;
 }
 function parseBatchPlaneMarker(body, kind) {
   const marker = /* @__PURE__ */ new Map();
@@ -9863,6 +9710,25 @@ function isExpired(expiresAt, now) {
   }
   return expiresAtTime <= now.getTime();
 }
+
+// src/dispatcher-github-client.ts
+var dispatcherLabels = {
+  dispatched: {
+    color: "16A34A",
+    description: "BatchPlane dispatcher completed workflow dispatch",
+    name: "batchplane:dispatched"
+  },
+  dispatchFailed: {
+    color: "DC2626",
+    description: "BatchPlane dispatcher failed workflow dispatch",
+    name: "batchplane:dispatch-failed"
+  },
+  dispatching: {
+    color: "2563EB",
+    description: "BatchPlane dispatcher is processing this execution request",
+    name: "batchplane:dispatching"
+  }
+};
 function createDispatcherGitHubClient({
   apiBaseUrl,
   fetcher,
@@ -9981,6 +9847,19 @@ function createDispatcherGitHubClient({
 function getWorkflowId(workflowPath) {
   return workflowPath.replace(/^\.github\/workflows\//, "");
 }
+var GitHubApiRequestError = class extends Error {
+  status;
+  constructor(message, status) {
+    super(message);
+    this.name = "GitHubApiRequestError";
+    this.status = status;
+  }
+};
+function isGitHubApiStatus(error, status) {
+  return error instanceof GitHubApiRequestError && error.status === status;
+}
+
+// src/dispatcher-dispatch-state.ts
 function findExistingDispatchState({
   comments,
   dispatchPlan,
@@ -10063,11 +9942,6 @@ function verifyRetryDispatchState({
     reasonCode: "RETRY_DISPATCH_NOT_ALLOWED"
   };
 }
-function findLatestDispatcherStatus(comments, dispatchPlan) {
-  return comments.slice().reverse().map(parseDispatcherStatusEvidence).find(
-    (status) => status ? status.requestId === dispatchPlan.requestId && status.batchId === dispatchPlan.batchId && status.requestDigest === dispatchPlan.requestDigest : false
-  ) ?? null;
-}
 function findRetryApprovalCommentBody({
   commandCommentBody,
   issueBody,
@@ -10083,9 +9957,6 @@ function findRetryApprovalCommentBody({
     return approval?.decision === "APPROVED" && approval.requestId === request.requestId && approval.batchId === request.batchId && approval.requestDigest === request.requestDigest;
   }) ?? null;
 }
-function hasBatchPlaneLabel2(labels, name) {
-  return labels.includes(`batchplane:${name}`) || labels.includes(`batchtrail:${name}`);
-}
 async function removeDispatchFailedLabels(client, issueNumber) {
   await client.removeIssueLabel(
     issueNumber,
@@ -10093,90 +9964,283 @@ async function removeDispatchFailedLabels(client, issueNumber) {
   );
   await client.removeIssueLabel(issueNumber, "batchtrail:dispatch-failed");
 }
-function buildDispatchingComment(dispatchPlan) {
-  return [
-    "## BatchPlane Dispatch",
-    "",
-    "- Status: DISPATCHING",
-    `- Request ID: \`${dispatchPlan.requestId}\``,
-    `- Batch ID: \`${dispatchPlan.batchId}\``,
-    `- Workflow: \`${dispatchPlan.workflowPath}\``,
-    `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
-    `- Request digest: \`${dispatchPlan.requestDigest}\``,
-    "",
-    "<!-- batchplane:bgcp:dispatcher",
-    "status=DISPATCHING",
-    `requestId=${dispatchPlan.requestId}`,
-    `batchId=${dispatchPlan.batchId}`,
-    `requestDigest=${dispatchPlan.requestDigest}`,
-    "-->"
-  ].join("\n");
+function findLatestDispatcherStatus(comments, dispatchPlan) {
+  return comments.slice().reverse().map(parseDispatcherStatusEvidence).find(
+    (status) => status ? status.requestId === dispatchPlan.requestId && status.batchId === dispatchPlan.batchId && status.requestDigest === dispatchPlan.requestDigest : false
+  ) ?? null;
 }
-function buildDispatchSuccessComment(dispatchPlan) {
-  return [
-    "## BatchPlane Dispatch",
-    "",
-    "- Status: DISPATCHED",
-    `- Request ID: \`${dispatchPlan.requestId}\``,
-    `- Batch ID: \`${dispatchPlan.batchId}\``,
-    `- Workflow: \`${dispatchPlan.workflowPath}\``,
-    `- Workflow ref: \`${dispatchPlan.workflowRef}\``,
-    `- Request digest: \`${dispatchPlan.requestDigest}\``,
-    "",
-    "<!-- batchplane:bgcp:dispatcher",
-    "status=DISPATCHED",
-    `requestId=${dispatchPlan.requestId}`,
-    `batchId=${dispatchPlan.batchId}`,
-    `requestDigest=${dispatchPlan.requestDigest}`,
-    "-->"
-  ].join("\n");
+function hasBatchPlaneLabel2(labels, name) {
+  return labels.includes(`batchplane:${name}`) || labels.includes(`batchtrail:${name}`);
 }
-function buildDispatchFailureComment(message, reasonCode, dispatchPlan) {
-  return [
-    "## BatchPlane Dispatch",
-    "",
-    "- Status: DISPATCH_FAILED",
-    `- Reason code: ${reasonCode}`,
-    `- Message: ${message}`,
-    ...dispatchPlan ? [
-      `- Request ID: \`${dispatchPlan.requestId}\``,
-      `- Batch ID: \`${dispatchPlan.batchId}\``,
-      `- Request digest: \`${dispatchPlan.requestDigest}\``
-    ] : [],
-    "",
-    "<!-- batchplane:bgcp:dispatcher",
-    "status=DISPATCH_FAILED",
-    `reasonCode=${reasonCode}`,
-    ...dispatchPlan ? [
-      `requestId=${dispatchPlan.requestId}`,
-      `batchId=${dispatchPlan.batchId}`,
-      `requestDigest=${dispatchPlan.requestDigest}`
-    ] : [],
-    "-->"
-  ].join("\n");
-}
-var GitHubApiRequestError = class extends Error {
-  status;
-  constructor(message, status) {
-    super(message);
-    this.name = "GitHubApiRequestError";
-    this.status = status;
+
+// src/dispatcher-dispatch-use-case.ts
+async function dispatchApprovedExecutionRequest(input) {
+  const now = input.now === void 0 ? /* @__PURE__ */ new Date() : input.now;
+  const preparation = await prepareDispatch(input, now);
+  if ("status" in preparation) {
+    return preparation;
   }
-};
-function isGitHubApiStatus(error, status) {
-  return error instanceof GitHubApiRequestError && error.status === status;
+  if (preparation.command === "retry-dispatch") {
+    const retryResult = await verifyAndRecordRetryState(preparation);
+    if (retryResult) {
+      return retryResult;
+    }
+  }
+  const dispatchState = findExistingDispatchState({
+    comments: preparation.issueComments,
+    dispatchPlan: preparation.dispatchPlan,
+    labels: preparation.issue.labels
+  });
+  if (dispatchState.handled) {
+    return {
+      dispatchPlan: preparation.dispatchPlan,
+      message: dispatchState.message,
+      reasonCode: dispatchState.reasonCode,
+      status: "ignored"
+    };
+  }
+  await markDispatching(preparation);
+  try {
+    await preparation.client.dispatchWorkflow(preparation.dispatchPlan);
+  } catch (error) {
+    return recordWorkflowDispatchFailure(preparation, error);
+  }
+  await markDispatchSucceeded(preparation);
+  return {
+    dispatchPlan: preparation.dispatchPlan,
+    status: "dispatched"
+  };
 }
-async function runDispatcherFromEnv() {
-  const repository = getEnv("GITHUB_REPOSITORY");
+async function prepareDispatch(input, now) {
+  const apiBaseUrl = input.apiBaseUrl === void 0 ? "https://api.github.com" : input.apiBaseUrl;
+  const fetcher = input.fetcher === void 0 ? fetch : input.fetcher;
+  const client = createDispatcherGitHubClient({
+    apiBaseUrl,
+    fetcher,
+    owner: input.owner,
+    repo: input.repo,
+    token: input.githubToken
+  });
+  const [issue, commandComment, issueComments] = await Promise.all([
+    client.getIssue(input.issueNumber),
+    client.getIssueComment(input.commentId),
+    client.listIssueComments(input.issueNumber)
+  ]);
+  const command = parseDispatcherCommand(commandComment.body);
+  if (command === "ignore") {
+    return {
+      message: "Comment is not a BatchPlane dispatcher command.",
+      reasonCode: "IGNORED_COMMENT",
+      status: "ignored"
+    };
+  }
+  if (command === "approve" && !isActionableApprovalComment(commandComment.body)) {
+    return {
+      message: "Comment is not actionable BatchPlane approval evidence.",
+      reasonCode: "IGNORED_COMMENT",
+      status: "ignored"
+    };
+  }
+  const approvalCommentBody = selectApprovalCommentBody({
+    command,
+    commandCommentBody: commandComment.body,
+    issueBody: issue.body,
+    issueComments
+  });
+  const verification = verifyDispatcherEvidence({
+    approvalCommentBody,
+    issueBody: issue.body,
+    now
+  });
+  if (!verification.ok) {
+    return recordVerificationFailure({
+      client,
+      issueNumber: input.issueNumber,
+      verification
+    });
+  }
+  const revision = await resolveApprovedBatchRevision({
+    apiBaseUrl,
+    batchId: verification.request.batchId,
+    expectedRevision: verification.request.approvedBatchRevision,
+    fetcher,
+    input
+  });
+  if (revision.controlStatus !== "VERIFIED") {
+    return recordRevisionVerificationFailure({
+      client,
+      dispatchPlan: verification.dispatchPlan,
+      issueNumber: input.issueNumber,
+      revision
+    });
+  }
+  return {
+    client,
+    command,
+    dispatchPlan: verification.dispatchPlan,
+    issue,
+    issueComments,
+    issueNumber: input.issueNumber
+  };
+}
+function selectApprovalCommentBody({
+  command,
+  commandCommentBody,
+  issueBody,
+  issueComments
+}) {
+  return command === "retry-dispatch" ? findRetryApprovalCommentBody({
+    commandCommentBody,
+    issueBody,
+    issueComments
+  }) ?? commandCommentBody : commandCommentBody;
+}
+async function recordVerificationFailure({
+  client,
+  issueNumber,
+  verification
+}) {
+  await client.createIssueComment(
+    issueNumber,
+    buildDispatchFailureComment(verification.message, verification.reasonCode)
+  );
+  return {
+    message: verification.message,
+    reasonCode: verification.reasonCode,
+    status: "failed"
+  };
+}
+async function resolveApprovedBatchRevision({
+  apiBaseUrl,
+  batchId,
+  expectedRevision,
+  fetcher,
+  input
+}) {
+  if (input.verifyBatchRevision) {
+    return input.verifyBatchRevision({ batchId, expectedRevision });
+  }
+  return verifyApprovedBatchRevision({
+    batchId,
+    client: createGitHubLiteClient({
+      apiBaseUrl,
+      fetcher,
+      token: input.githubToken
+    }),
+    expectedRevision,
+    repository: { owner: input.owner, repo: input.repo }
+  });
+}
+async function recordRevisionVerificationFailure({
+  client,
+  dispatchPlan,
+  issueNumber,
+  revision
+}) {
+  const reasonCode = revision.reasonCode;
+  const message = revision.controlStatus === "UNKNOWN" ? "Approved Batch revision could not be verified before workflow dispatch." : "Batch revision does not match the latest approved governed change.";
+  await client.createIssueComment(
+    issueNumber,
+    buildDispatchFailureComment(message, reasonCode, dispatchPlan)
+  );
+  return {
+    dispatchPlan,
+    message,
+    reasonCode,
+    status: "failed"
+  };
+}
+async function verifyAndRecordRetryState(context) {
+  const retryState = verifyRetryDispatchState({
+    comments: context.issueComments,
+    dispatchPlan: context.dispatchPlan,
+    labels: context.issue.labels
+  });
+  if (!retryState.ok) {
+    await context.client.createIssueComment(
+      context.issueNumber,
+      buildDispatchFailureComment(
+        retryState.message,
+        retryState.reasonCode,
+        context.dispatchPlan
+      )
+    );
+    return {
+      dispatchPlan: context.dispatchPlan,
+      message: retryState.message,
+      reasonCode: retryState.reasonCode,
+      status: "failed"
+    };
+  }
+  return null;
+}
+async function markDispatching(context) {
+  await context.client.ensureLabels([
+    dispatcherLabels.dispatching,
+    dispatcherLabels.dispatched,
+    dispatcherLabels.dispatchFailed
+  ]);
+  if (context.command === "retry-dispatch") {
+    await removeDispatchFailedLabels(context.client, context.issueNumber);
+  }
+  await context.client.addIssueLabels(context.issueNumber, [
+    dispatcherLabels.dispatching.name
+  ]);
+  await context.client.createIssueComment(
+    context.issueNumber,
+    buildDispatchingComment(context.dispatchPlan)
+  );
+}
+async function recordWorkflowDispatchFailure(context, error) {
+  await context.client.addIssueLabels(context.issueNumber, [
+    dispatcherLabels.dispatchFailed.name
+  ]);
+  await context.client.removeIssueLabel(
+    context.issueNumber,
+    dispatcherLabels.dispatching.name
+  );
+  await context.client.createIssueComment(
+    context.issueNumber,
+    buildDispatchFailureComment(
+      error instanceof Error ? error.message : String(error),
+      "WORKFLOW_DISPATCH_FAILED",
+      context.dispatchPlan
+    )
+  );
+  return {
+    dispatchPlan: context.dispatchPlan,
+    message: error instanceof Error ? error.message : String(error),
+    reasonCode: "WORKFLOW_DISPATCH_FAILED",
+    status: "failed"
+  };
+}
+async function markDispatchSucceeded(context) {
+  await removeDispatchFailedLabels(context.client, context.issueNumber);
+  await context.client.addIssueLabels(context.issueNumber, [
+    dispatcherLabels.dispatched.name
+  ]);
+  await context.client.removeIssueLabel(
+    context.issueNumber,
+    dispatcherLabels.dispatching.name
+  );
+  await context.client.createIssueComment(
+    context.issueNumber,
+    buildDispatchSuccessComment(context.dispatchPlan)
+  );
+}
+
+// src/dispatcher-runtime.ts
+async function runDispatcherFromEnvironment(dispatch) {
+  const repository = requiredEnvironmentValue("GITHUB_REPOSITORY");
   const [owner, repo] = repository.split("/");
   if (!owner || !repo) {
     throw new Error("GITHUB_REPOSITORY must be in owner/repo form.");
   }
-  const result = await dispatchApprovedExecutionRequest({
+  const result = await dispatch({
     apiBaseUrl: process.env["GITHUB_API_URL"],
-    commentId: parseRequiredNumberInput("comment-id"),
-    githubToken: getInput("github-token"),
-    issueNumber: parseRequiredNumberInput("issue-number"),
+    commentId: requiredNumberInput("comment-id"),
+    githubToken: requiredActionInput("github-token"),
+    issueNumber: requiredNumberInput("issue-number"),
     owner,
     repo
   });
@@ -10184,34 +10248,34 @@ async function runDispatcherFromEnv() {
     throw new Error(`${result.reasonCode}: ${result.message}`);
   }
 }
-function parseRequiredNumberInput(name) {
-  const value = Number.parseInt(getInput(name), 10);
+function requiredNumberInput(name) {
+  const value = Number.parseInt(requiredActionInput(name), 10);
   if (!Number.isInteger(value) || value <= 0) {
     throw new Error(`Input ${name} must be a positive integer.`);
   }
   return value;
 }
-function getInput(name) {
+function requiredActionInput(name) {
   const key = `INPUT_${name.toUpperCase()}`;
   const normalizedKey = key.replaceAll("-", "_");
   const value = process.env[key] ?? process.env[normalizedKey] ?? "";
-  if (!value.trim()) {
-    throw new Error(`Input ${name} is required.`);
-  }
+  if (!value.trim()) throw new Error(`Input ${name} is required.`);
   return value.trim();
 }
-function getEnv(name) {
+function requiredEnvironmentValue(name) {
   const value = process.env[name];
-  if (!value?.trim()) {
-    throw new Error(`${name} is required.`);
-  }
+  if (!value?.trim()) throw new Error(`${name} is required.`);
   return value.trim();
 }
+
+// src/index.ts
 if (process.env["GITHUB_ACTIONS"] === "true" && process.env["BATCHTRAIL_DISPATCHER_DISABLE_AUTO_RUN"] !== "true") {
-  void runDispatcherFromEnv().catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
-  });
+  void runDispatcherFromEnvironment(dispatchApprovedExecutionRequest).catch(
+    (error) => {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+  );
 }
 export {
   dispatchApprovedExecutionRequest,

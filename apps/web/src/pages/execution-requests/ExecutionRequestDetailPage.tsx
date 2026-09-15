@@ -1,24 +1,14 @@
-import type {
-  ExecutionAttempt,
-  ExecutionRequest,
-  ExecutionRequestCapability,
-} from "@batchplane/ui-client";
-import {
-  Activity,
-  CheckCircle2,
-  ExternalLink,
-  FileText,
-  RefreshCw,
-  XCircle,
-} from "lucide-react";
+import type { ExecutionAttempt, ExecutionRequest } from "@batchplane/ui-client";
 import { useMemo } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import { ExecutionApprovalActions } from "../../features/execution-approval/ExecutionApprovalActions";
-import { formatGateReasonDisplay } from "../../i18n/display-keys";
-import { PageHeader } from "../../ui/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
+import { ExecutionRequestContent } from "./ExecutionRequestContent";
+import { ExecutionRequestDecision } from "./ExecutionRequestDecision";
+import { ExecutionRequestEvidence } from "./ExecutionRequestEvidence";
+import { ExecutionRequestDetailHeader } from "./ExecutionRequestDetailHeader";
+import { ExecutionRequestDetailStatus } from "./ExecutionRequestDetailStatus";
 import { useExecutionRequestDetail } from "./useExecutionRequestDetail";
 
 export function ExecutionRequestDetailPage() {
@@ -84,149 +74,37 @@ export function ExecutionRequestDetailPage() {
 
   return (
     <section className="min-w-0">
-      <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
-        <PageHeader
-          title={t("detail.title")}
-          subtitle={t(
-            scheduled ? "detail.nativeScheduleSubtitle" : "detail.subtitle",
-            { requestId: request.requestId },
-          )}
-        />
-        <div className="flex min-w-0 flex-wrap gap-2">
-          <Link
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-            to={scheduled ? "/requests" : "/approvals"}
-          >
-            {t(
-              scheduled
-                ? "detail.actions.backToRequestInventory"
-                : "detail.actions.backToApprovals",
-            )}
-          </Link>
-          {attempt ? (
-            <Link
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-              to={`/execution-runs/${encodeURIComponent(attempt.attemptLocator)}`}
-            >
-              <Activity className="h-4 w-4" aria-hidden="true" />
-              {t("detail.actions.openRunDetail")}
-            </Link>
-          ) : null}
-          {request.sourceUrl ? (
-            <a
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-              href={request.sourceUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              {t("detail.actions.openSourceRequest")}
-            </a>
-          ) : null}
-          <button
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-            disabled={isBusy}
-            onClick={detail.refresh}
-            type="button"
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            {t("detail.actions.refresh")}
-          </button>
-        </div>
-      </div>
-
-      {detail.completedAction ? (
-        <p
-          className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800"
-          role="status"
-        >
-          {t(
-            `detail.result.${detail.completedAction === "approve" ? "approved" : "rejected"}`,
-            { requestId: request.requestId },
-          )}
-        </p>
-      ) : null}
-      {detail.actionError ? (
-        <p
-          className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800"
-          role="alert"
-        >
-          {detail.actionError.message || t("detail.result.failed")}
-        </p>
-      ) : null}
-      {postCreateError ? (
-        <p
-          className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900"
-          role="alert"
-        >
-          {t("states.autoApprovalEvidenceMissing")}
-        </p>
-      ) : null}
-      {detail.state.readState === "pending" ? (
-        <p className="mt-4 text-sm font-medium text-amber-800" role="status">
-          {t("detail.states.pending")}
-        </p>
-      ) : null}
-      {detail.state.readState === "unavailable" ? (
-        <p className="mt-4 text-sm font-medium text-red-800" role="alert">
-          {t("detail.states.unavailable")}
-        </p>
-      ) : null}
+      <ExecutionRequestDetailHeader
+        attempt={attempt}
+        isBusy={isBusy}
+        onRefresh={detail.refresh}
+        request={request}
+      />
+      <ExecutionRequestDetailStatus
+        actionErrorMessage={
+          detail.actionError ? detail.actionError.message : undefined
+        }
+        completedAction={detail.completedAction}
+        pendingRead={detail.state.readState === "pending"}
+        postCreateError={postCreateError}
+        requestId={request.requestId}
+        unavailableRead={detail.state.readState === "unavailable"}
+      />
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]">
-        <div className="min-w-0 space-y-4">
-          <RequestSummary request={request} />
-          <DecisionMaterial request={request} />
-          <CanonicalPayload request={request} />
-        </div>
+        <ExecutionRequestContent request={request} />
         <aside className="min-w-0 space-y-4">
-          <GovernanceChecks request={request} />
-          <DispatcherEvidence attempt={attempt} request={request} />
-          {canAct ? (
-            <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-bp-graphite">
-                {t("detail.actions.title")}
-              </h2>
-              <p className="mt-2 text-sm text-bp-muted">
-                {t("detail.actions.note")}
-              </p>
-              {request.approvalNotice?.kind === "SELF_APPROVAL_ALLOWED" ? (
-                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
-                  {t("detail.values.selfApprovalAllowed", {
-                    mode: request.approvalNotice.mode,
-                  })}
-                </p>
-              ) : null}
-              <ExecutionApprovalActions
-                approveDisabled={!request.capability.canApprove}
-                approveDisabledReason={approvalUnavailableReason(
-                  request.capability,
-                  t,
-                )}
-                approveLabel={t("detail.actions.approve")}
-                disabled={isBusy}
-                isApproving={detail.runningAction === "approve"}
-                isRejecting={detail.runningAction === "reject"}
-                onApprove={() => void detail.applyAction("approve")}
-                onReject={(reason) => void detail.applyAction("reject", reason)}
-                rejectDisabled={!request.capability.canReject}
-                rejectLabel={t("detail.actions.reject")}
-              />
-            </article>
-          ) : !scheduled ? (
-            <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-bp-graphite">
-                {t("detail.actions.closedTitle")}
-              </h2>
-              <p className="mt-2 text-sm font-semibold text-bp-muted">
-                {t(
-                  scheduled
-                    ? "detail.statusHelp.SCHEDULE_RECORDED"
-                    : `detail.statusHelp.${request.status}`,
-                )}
-              </p>
-            </article>
-          ) : null}
+          <ExecutionRequestEvidence attempt={attempt} request={request} />
+          <ExecutionRequestDecision
+            canAct={canAct}
+            isBusy={isBusy}
+            onAction={(action, reason) =>
+              void detail.applyAction(action, reason)
+            }
+            request={request}
+            runningAction={detail.runningAction}
+            scheduled={scheduled}
+          />
         </aside>
       </div>
     </section>
@@ -287,359 +165,4 @@ function attemptTimestamp(attempt: ExecutionAttempt): number {
   const value = attempt.completedAt ?? attempt.startedAt;
   const timestamp = value ? Date.parse(value) : Number.NaN;
   return Number.isNaN(timestamp) ? 0 : timestamp;
-}
-
-function RequestSummary({ request }: { request: ExecutionRequest }) {
-  const { t } = useTranslation("executionRequests");
-  return (
-    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex items-center gap-2">
-          <FileText
-            className="h-5 w-5 shrink-0 text-bp-git"
-            aria-hidden="true"
-          />
-          <h2 className="break-words text-lg font-semibold text-bp-graphite">
-            {request.title}
-          </h2>
-        </div>
-        <StatusBadge
-          scheduled={request.triggerType === "SCHEDULE"}
-          status={request.status}
-        />
-      </div>
-      <dl className="mt-5 grid min-w-0 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <Fact
-          label={t("detail.fields.repository")}
-          value={request.workspaceLabel}
-        />
-        <Fact label={t("detail.fields.batchId")} value={request.batchId} />
-        <Fact
-          label={t("detail.fields.requestedBy")}
-          value={request.requestedBy ? `@${request.requestedBy}` : "-"}
-        />
-        <Fact
-          label={t("detail.fields.requestedAt")}
-          value={request.requestedAt || "-"}
-        />
-        <Fact
-          label={t("detail.fields.expiresAt")}
-          value={request.expiresAt || "-"}
-        />
-        <Fact
-          label={t("detail.fields.issueState")}
-          value={request.sourceState}
-        />
-        <Fact
-          label={t("detail.fields.workflow")}
-          value={
-            request.executionTarget
-              ? `${request.executionTarget.targetName}@${request.executionTarget.targetRevision}`
-              : "-"
-          }
-        />
-        <Fact
-          label={t("detail.fields.requestDigest")}
-          value={request.evidence.requestDigest}
-        />
-      </dl>
-    </article>
-  );
-}
-
-function DecisionMaterial({ request }: { request: ExecutionRequest }) {
-  const { t } = useTranslation("executionRequests");
-  return (
-    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bp-graphite">
-        {t("detail.material.title")}
-      </h2>
-      <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="min-w-0 space-y-4">
-          <TextBlock
-            label={t("detail.fields.reason")}
-            value={request.reason || "-"}
-          />
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase text-bp-muted">
-              {t("detail.fields.command")}
-            </p>
-            <pre className="mt-2 max-h-36 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md bg-bp-graphite p-3 text-xs leading-5 text-white">
-              {request.executionTarget?.command || "-"}
-            </pre>
-          </div>
-        </div>
-        <dl className="grid min-w-0 gap-3 text-sm">
-          <Fact
-            label={t("detail.fields.approvedBatchRevision")}
-            value={formatApprovedBatchRevision(request)}
-          />
-          {request.evidence.sourceChange ? (
-            <LinkedFact
-              label={t("detail.fields.sourceChange")}
-              to={`/approvals/registration/${encodeURIComponent(request.evidence.sourceChange.requestLocator)}`}
-              value={request.evidence.sourceChange.label}
-            />
-          ) : null}
-          <Fact
-            label={t("detail.fields.environment")}
-            value={request.batch.environment || "-"}
-          />
-          <Fact
-            label={t("detail.fields.runsOn")}
-            value={request.executionTarget?.executionEnvironment || "-"}
-          />
-          <Fact
-            label={t("detail.fields.artifact")}
-            value={request.executionTarget?.executionFile?.location || "-"}
-          />
-        </dl>
-      </div>
-    </article>
-  );
-}
-
-function GovernanceChecks({ request }: { request: ExecutionRequest }) {
-  const { t } = useTranslation("executionRequests");
-  const gateRequired = request.batch.gateRequired === true;
-  return (
-    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bp-graphite">
-        {t("detail.governance.title")}
-      </h2>
-      <ul className="mt-4 space-y-2 text-sm">
-        <CheckRow
-          ok={gateRequired}
-          text={
-            gateRequired
-              ? t("detail.governance.gateRequired")
-              : t("detail.governance.gateMissing")
-          }
-        />
-        <CheckRow
-          ok={Boolean(request.evidence.requestDigest)}
-          text={t("detail.governance.digest")}
-        />
-        <CheckRow
-          ok={request.requestedBy !== ""}
-          text={t("detail.governance.requester")}
-        />
-      </ul>
-    </article>
-  );
-}
-
-function DispatcherEvidence({
-  attempt,
-  request,
-}: {
-  attempt: ExecutionAttempt | null;
-  request: ExecutionRequest;
-}) {
-  const { t } = useTranslation("executionRequests");
-  const scheduled = request.triggerType === "SCHEDULE";
-  const gateEvidence = request.gateDecision
-    ? `${request.gateDecision.allowed ? t("detail.dispatcher.gateAllowed") : t("detail.dispatcher.gateBlocked")} ${formatGateReasonDisplay(request.gateDecision.reasonCode, t, t("detail.dispatcher.none"))}`
-    : "";
-  const approvalEvidence = request.approvalDecision
-    ? `${request.approvalDecision.decision} by @${request.approvalDecision.actor}${request.approvalDecision.reason ? `: ${request.approvalDecision.reason}` : ""}`
-    : t("detail.dispatcher.none");
-  return (
-    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bp-graphite">
-        {t(
-          scheduled
-            ? "detail.dispatcher.nativeScheduleTitle"
-            : "detail.dispatcher.title",
-        )}
-      </h2>
-      <p className="mt-2 text-sm text-bp-muted">
-        {t(
-          scheduled
-            ? "detail.dispatcher.nativeScheduleEvidence"
-            : "detail.dispatcher.noBrowserDispatch",
-        )}
-      </p>
-      <dl className="mt-4 grid min-w-0 gap-3 text-sm">
-        <Fact
-          label={t("detail.dispatcher.status")}
-          value={
-            request.triggerType === "SCHEDULE"
-              ? t("detail.status.SCHEDULE_RECORDED")
-              : t(`detail.status.${request.status}`)
-          }
-        />
-        {!scheduled ? (
-          <>
-            <Fact
-              label={t("detail.dispatcher.dispatcherEvidence")}
-              value={
-                request.dispatcher
-                  ? `${request.dispatcher.status} @ ${request.dispatcher.createdAt}`
-                  : t("detail.dispatcher.none")
-              }
-            />
-            <Fact
-              label={t("detail.dispatcher.approvalEvidence")}
-              value={approvalEvidence}
-            />
-          </>
-        ) : null}
-        {gateEvidence ? (
-          <Fact
-            label={t("detail.dispatcher.gateEvidence")}
-            value={gateEvidence}
-          />
-        ) : null}
-        <div className="min-w-0 rounded-md bg-slate-50 px-3 py-2">
-          <dt className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
-            {t("detail.dispatcher.workflowRun")}
-          </dt>
-          <dd className="mt-1 min-w-0 break-words text-xs font-semibold text-bp-graphite">
-            {attempt ? (
-              <Link
-                className="break-all font-mono text-bp-control underline"
-                to={`/execution-runs/${encodeURIComponent(attempt.attemptLocator)}`}
-              >
-                {attempt.sourceLabel} {t(`runDetail.status.${attempt.status}`)}
-              </Link>
-            ) : request.attempts.type === "unavailable" ? (
-              t("detail.dispatcher.workflowRunUnavailable")
-            ) : (
-              t("detail.dispatcher.noWorkflowRun")
-            )}
-          </dd>
-        </div>
-      </dl>
-      {!scheduled ? (
-        <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bp-muted">
-          {t(`detail.statusHelp.${request.status}`)}
-        </p>
-      ) : null}
-    </article>
-  );
-}
-
-function CanonicalPayload({ request }: { request: ExecutionRequest }) {
-  const { t } = useTranslation("executionRequests");
-  return (
-    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-bold text-bp-graphite">
-        {t("detail.payload.title")}
-      </h2>
-      <pre className="mt-4 max-h-96 max-w-full overflow-auto rounded-md bg-bp-graphite p-4 text-xs leading-6 text-white">
-        <code>{request.evidence.canonicalPayload || "-"}</code>
-      </pre>
-    </article>
-  );
-}
-
-function approvalUnavailableReason(
-  capability: ExecutionRequestCapability,
-  t: (key: string) => string,
-): string {
-  return capability.approveUnavailableReason === "SELF_APPROVAL_BLOCKED"
-    ? t("detail.values.selfApprovalBlocked")
-    : "";
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-md bg-slate-50 px-3 py-2">
-      <dt className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
-        {label}
-      </dt>
-      <dd className="mt-1 break-all font-mono text-xs font-semibold text-bp-graphite">
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function LinkedFact({
-  label,
-  to,
-  value,
-}: {
-  label: string;
-  to: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-md bg-slate-50 px-3 py-2">
-      <dt className="text-xs font-semibold uppercase tracking-normal text-bp-muted">
-        {label}
-      </dt>
-      <dd className="mt-1 min-w-0">
-        <Link
-          className="break-all font-mono text-xs font-semibold text-bp-control underline"
-          to={to}
-        >
-          {value}
-        </Link>
-      </dd>
-    </div>
-  );
-}
-
-function formatApprovedBatchRevision(request: ExecutionRequest): string {
-  const revision = request.evidence.approvedBatchRevision;
-  return revision
-    ? `${revision.governedChangeId} (${revision.targetRevisionDigest})`
-    : "-";
-}
-
-function TextBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-xs font-semibold uppercase text-bp-muted">{label}</p>
-      <p className="mt-1 break-words text-sm font-medium text-bp-graphite">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function CheckRow({ ok, text }: { ok: boolean; text: string }) {
-  const Icon = ok ? CheckCircle2 : XCircle;
-  return (
-    <li
-      className={`flex min-w-0 items-start gap-2 ${ok ? "text-bp-graphite" : "text-red-800"}`}
-    >
-      <Icon
-        className={`mt-0.5 h-4 w-4 shrink-0 ${ok ? "text-emerald-700" : "text-red-700"}`}
-        aria-hidden="true"
-      />
-      <span className="break-words font-semibold">{text}</span>
-    </li>
-  );
-}
-
-function StatusBadge({
-  scheduled,
-  status,
-}: {
-  scheduled: boolean;
-  status: ExecutionRequest["status"];
-}) {
-  const { t } = useTranslation("executionRequests");
-  const displayStatus = scheduled ? "SCHEDULE_RECORDED" : status;
-  return (
-    <span
-      className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${
-        scheduled ? "bg-slate-100 text-slate-700" : statusPalette(status)
-      }`}
-      title={t(`detail.statusHelp.${displayStatus}`)}
-    >
-      {t(`detail.status.${displayStatus}`)}
-    </span>
-  );
-}
-
-function statusPalette(status: ExecutionRequest["status"]): string {
-  if (status === "REQUESTED") return "bg-amber-50 text-amber-800";
-  if (status === "APPROVED" || status === "DISPATCHING")
-    return "bg-sky-50 text-sky-800";
-  if (status === "DISPATCHED") return "bg-emerald-50 text-emerald-800";
-  return "bg-red-50 text-red-800";
 }

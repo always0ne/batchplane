@@ -26,13 +26,16 @@ describe("getCronPreview", () => {
     const preview = getCronPreview(
       "0 9 * * *",
       "Asia/Seoul",
-      2,
       new Date("2026-05-13T00:00:00.000Z"),
     );
 
     expect(preview.ok).toBe(true);
     expect(
       preview.ok ? preview.dates.map((date) => date.toISOString()) : [],
-    ).toEqual(["2026-05-14T00:00:00.000Z", "2026-05-15T00:00:00.000Z"]);
+    ).toEqual([
+      "2026-05-14T00:00:00.000Z",
+      "2026-05-15T00:00:00.000Z",
+      "2026-05-16T00:00:00.000Z",
+    ]);
   });
 });

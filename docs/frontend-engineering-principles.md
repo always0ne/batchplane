@@ -364,6 +364,25 @@ wrapper mechanics only when the current behavioral coverage is identified.
 Legacy external evidence readers and API versions are not dead merely because
 their name contains `legacy`.
 
+### R7 Readability Ownership
+
+Execution request Pages retain route input, query lifetime, form-session state
+and navigation. Page-local components own the form, parameter rows, request
+review, detail commands and evidence regions. Use the existing Button and
+ButtonLink for matching controls; preserve explicit submit semantics and
+accessible names and dimensions for icon-only controls. Extracting a region
+must not introduce a new state owner or a generic form/controller layer.
+
+The Batch form's cron preview and its deterministic timezone tests live together
+under `pages/batches`. A retired schedule screen must not retain a separate
+implementation that passes tests while the active form uses untested code.
+
+Action entry points separate environment input/output, authorization or dispatch
+orchestration, GitHub transport, and evidence parsing. Keep each Action's real
+checks and side-effect order visible; do not replace them with a configurable
+verification pipeline or split every helper into a file. A structural extraction
+does not authorize new policy, retries, evidence formats, or public APIs.
+
 ### Package Entry Points
 
 Internal packages resolve through pnpm workspace links and their `package.json`
