@@ -3,7 +3,7 @@
   "subtitle": "Workflow run과 후속 확인 증적을 조회합니다.",
   "approveCommand": "/bgcp approve requestDigest=...",
   "actions": {
-    "githubRun": "GitHub run",
+    "githubRun": "원본 실행",
     "openRun": "Run 열기",
     "openSetup": "Workspace 열기",
     "refresh": "새로고침"
@@ -12,7 +12,7 @@
     "completedAt": "완료",
     "requestId": "Request ID",
     "runId": "Run ID",
-    "workflow": "Workflow"
+    "workflow": "실행 대상"
   },
   "filters": {
     "active": "진행 중",

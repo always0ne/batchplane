@@ -1,5 +1,17 @@
 # Lite UI/UX Baseline
 
+## Platform Input Boundaries
+
+Separating business metadata from platform execution settings must preserve the
+operator's single Batch registration/change journey: one Page, one draft flow,
+one preview and one governed request. A platform-specific input component is
+not a second setup wizard. Existing command, runner/custom labels, execution
+file, revision and schedule controls remain available, and Batch detail and
+execution requests continue to show what will run and where. Shared surfaces
+must not assume GitHub Actions is the only platform or decode workflow/YAML
+data themselves. Use ordinary named React components and typed props rather
+than a generic JSON form engine. No visual redesign is implied by this boundary.
+
 This document defines the UI/UX baseline for BatchPlane Lite screens.
 Every screen PR should check its scope against this baseline before review.
 

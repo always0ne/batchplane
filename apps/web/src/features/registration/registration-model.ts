@@ -1,18 +1,19 @@
-import {
-  formatYamlDiagnostics,
-  parseYamlDocument,
-  serializeYamlDocument,
-} from "@batchplane/domain";
 import type {
   BatchSchedule,
-  BatchDefinition,
   BatchStatus,
   Criticality,
-  RunnerLabel,
-  YamlValue,
 } from "@batchplane/domain";
 
-import { buildBatchWorkflowYaml as buildCanonicalBatchWorkflowYaml } from "@batchplane/github-lite";
+import {
+  buildBatchWorkflowYaml as buildCanonicalBatchWorkflowYaml,
+  formatGovernanceYamlDiagnostics,
+  parseGovernanceYaml,
+  stringifyGovernanceYaml,
+  type GovernanceYamlValue,
+  type GitHubBatchDefinition,
+} from "@batchplane/github-lite";
+
+type RunnerLabel = NonNullable<GitHubBatchDefinition["execution"]>["runsOn"];
 
 export type BatchRegistrationFormValues = {
   batchId: string;
@@ -54,7 +55,7 @@ export const defaultBatchRegistrationValues: BatchRegistrationFormValues = {
 };
 
 export function toBatchRegistrationFormValues(
-  definition: BatchDefinition,
+  definition: GitHubBatchDefinition,
 ): BatchRegistrationFormValues {
   return {
     batchId: definition.batchId,
@@ -73,7 +74,7 @@ export function toBatchRegistrationFormValues(
 export function toBatchDefinition(
   values: BatchRegistrationFormValues,
   options: BatchDefinitionOptions = {},
-): BatchDefinition {
+): GitHubBatchDefinition {
   const batchId = values.batchId.trim();
   const command = values.runCommand.trim();
 
@@ -143,9 +144,9 @@ export function getBatchArtifactPath(
 }
 
 export function serializeBatchDefinitionYaml(
-  definition: BatchDefinition,
+  definition: GitHubBatchDefinition,
 ): string {
-  return serializeYamlDocument({
+  return stringifyGovernanceYaml({
     apiVersion: "batchplane.io/v1",
     kind: "BatchDefinition",
     metadata: {
@@ -183,7 +184,7 @@ export function serializeBatchDefinitionYaml(
 }
 
 export function buildBatchWorkflowYaml(
-  definition: BatchDefinition,
+  definition: GitHubBatchDefinition,
   runCommand: string,
   runnerLabel: string,
 ): string {
@@ -199,12 +200,12 @@ export function buildBatchWorkflowYaml(
   });
 }
 
-export function parseBatchDefinitionYaml(yaml: string): BatchDefinition {
-  const result = parseYamlDocument(yaml);
+export function parseBatchDefinitionYaml(yaml: string): GitHubBatchDefinition {
+  const result = parseGovernanceYaml(yaml);
 
   if (!result.ok) {
     throw new Error(
-      `Invalid BatchPlane YAML: ${formatYamlDiagnostics(result.diagnostics)}`,
+      `Invalid BatchPlane YAML: ${formatGovernanceYamlDiagnostics(result.diagnostics)}`,
     );
   }
 
@@ -247,7 +248,7 @@ export function parseBatchDefinitionYaml(yaml: string): BatchDefinition {
 }
 
 export function validateBatchRegistration(
-  definition: BatchDefinition,
+  definition: GitHubBatchDefinition,
 ): string[] {
   const missingFields: string[] = [];
 
@@ -289,7 +290,7 @@ export function createRegistrationBranchName(
 }
 
 export function buildRegistrationPullRequestTitle(
-  definition: BatchDefinition,
+  definition: GitHubBatchDefinition,
   mode: RegistrationRequestMode = "create",
 ) {
   const verb =
@@ -299,7 +300,7 @@ export function buildRegistrationPullRequestTitle(
 }
 
 export function buildRegistrationPullRequestBody(
-  definition: BatchDefinition,
+  definition: GitHubBatchDefinition,
   mode: RegistrationRequestMode = "create",
   schedules: BatchSchedule[] = [],
   deletedSchedules: BatchSchedule[] = [],
@@ -415,15 +416,15 @@ function getRegistrationRequestSummary(mode: RegistrationRequestMode): string {
 }
 
 function asYamlRecord(
-  value: YamlValue | undefined,
-): Record<string, YamlValue | undefined> {
+  value: GovernanceYamlValue | undefined,
+): Record<string, GovernanceYamlValue | undefined> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value
     : {};
 }
 
 function readYamlString(
-  record: Record<string, YamlValue | undefined>,
+  record: Record<string, GovernanceYamlValue | undefined>,
   key: string,
 ): string {
   const value = record[key];
@@ -436,7 +437,7 @@ function readYamlString(
 }
 
 function readYamlRunnerLabel(
-  record: Record<string, YamlValue | undefined>,
+  record: Record<string, GovernanceYamlValue | undefined>,
   key: string,
 ): RunnerLabel | "" {
   const value = record[key];
@@ -456,14 +457,14 @@ function readYamlRunnerLabel(
 }
 
 function readYamlBoolean(
-  record: Record<string, YamlValue | undefined>,
+  record: Record<string, GovernanceYamlValue | undefined>,
   key: string,
 ): boolean {
   return record[key] === true;
 }
 
 function readYamlSchedules(
-  record: Record<string, YamlValue | undefined>,
+  record: Record<string, GovernanceYamlValue | undefined>,
   key: string,
 ): BatchSchedule[] {
   const value = record[key];

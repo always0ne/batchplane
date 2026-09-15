@@ -1,20 +1,20 @@
+import type { ExecutionRun } from "@batchplane/domain";
+import { buildExecutionRequestIssue } from "./execution-request-evidence.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 import type {
-  BatchDefinition,
   BatchPlaneRuntimePorts,
-  ExecutionRun,
   RepositoryIssue,
   RepositoryPullRequest,
-} from "@batchplane/domain";
-import {
-  buildExecutionRequestIssue,
-  governedChangeEvidenceVersion,
-  type GovernedChangeRequestEvidence,
-} from "@batchplane/domain";
+} from "./github-runtime-contracts.js";
 import { isExecutionRequestCreationUnavailableError } from "@batchplane/ui-client";
 import { describe, expect, it, vi } from "vitest";
 
 import { createGitHubLiteExecutionApprovalClient } from "./execution-approval-client.js";
-import { buildGovernedChangeRequestBody } from "./governed-change-evidence.js";
+import {
+  buildGovernedChangeRequestBody,
+  governedChangeEvidenceVersion,
+  type GovernedChangeRequestEvidence,
+} from "./governed-change-evidence.js";
 
 const draft = {
   approvedBatchRevision: {
@@ -26,13 +26,17 @@ const draft = {
     criticality: "HIGH",
     domain: "payments",
     environment: "PROD",
-    execution: { command: "echo close", runsOn: "ubuntu-latest" },
+    executionTarget: {
+      command: "echo close",
+      executionEnvironment: "ubuntu-latest",
+      platformName: "GitHub Actions",
+      targetName: ".github/workflows/payment.daily-close.yml",
+      targetRevision: "main",
+    },
     gateRequired: true,
     name: "Daily Close",
     owner: "ops",
     status: "ACTIVE" as const,
-    workflowPath: ".github/workflows/payment.daily-close.yml",
-    workflowRef: "main",
   },
   creationCapability: { canCreate: true, unavailableReasons: [] },
   requestId: "btr-20260911090000-payment.daily-close-abcdefgh",
@@ -89,7 +93,7 @@ describe("GitHub Lite execution approval client", () => {
         expiresAt: "2026-09-11T10:00:00.000Z",
         parameters: [],
         reason: "Close after reconciliation.",
-        workflowRef: "main",
+        targetRevision: "main",
       })
       .then(
         () => {
@@ -102,26 +106,73 @@ describe("GitHub Lite execution approval client", () => {
     expect(runtime.executions.createExecutionRequest).not.toHaveBeenCalled();
   });
 
-  it("previews from the loaded draft without another runtime read", async () => {
-    const runtime = createRuntime();
+  it("uses the authoritative GitHub execution shape for preview and creation", async () => {
+    const authoritative = {
+      ...batchDefinition(),
+      execution: {
+        artifactPath: "vendor/releases/close.jar",
+        command: "./close --settle",
+        runsOn: ["self-hosted", "linux"],
+      },
+    };
+    const createExecutionRequest = vi
+      .fn()
+      .mockImplementation(async ({ body }) => ({
+        ...createIssue(),
+        body,
+      }));
+    const runtime = createRuntime({
+      batchDefinitions: [authoritative],
+      createExecutionRequest,
+    });
     const client = createGitHubLiteExecutionApprovalClient({ runtime });
 
-    await expect(
-      client.previewExecutionRequest({
-        draft,
-        expiresAt: "2026-09-11T10:00:00.000Z",
-        parameters: [],
-        reason: "Close after reconciliation.",
-        workflowRef: "main",
-      }),
-    ).resolves.toMatchObject({
+    const input = {
+      draft: {
+        ...draft,
+        batch: {
+          ...draft.batch,
+          executionTarget: {
+            ...draft.batch.executionTarget!,
+            command: "display-only command must not be used",
+            executionEnvironment: "display-only runner must not be used",
+          },
+        },
+      },
+      expiresAt: "2026-09-11T10:00:00.000Z",
+      parameters: [],
+      reason: "Close after reconciliation.",
+      targetRevision: "release/2026-09",
+    };
+    const preview = await client.previewExecutionRequest(input);
+    expect(preview).toMatchObject({
       request: {
         batchId: "payment.daily-close",
         evidence: { approvedBatchRevision: draft.approvedBatchRevision },
         requestId: draft.requestId,
       },
     });
-    expect(runtime.settings.getRepository).not.toHaveBeenCalled();
+    const previewPayload = JSON.parse(
+      preview.request.evidence.canonicalPayload ?? "{}",
+    ) as { spec?: { execution?: unknown; workflow?: unknown } };
+    expect(previewPayload.spec?.execution).toEqual({
+      artifactPath: "vendor/releases/close.jar",
+      command: "./close --settle",
+      gateRequired: true,
+      runsOn: ["self-hosted", "linux"],
+    });
+    expect(previewPayload.spec?.workflow).toEqual({
+      path: ".github/workflows/payment.daily-close.yml",
+      ref: "release/2026-09",
+    });
+    await client.createExecutionRequest(input);
+    const createdPayload = JSON.parse(
+      String(createExecutionRequest.mock.calls[0]?.[0]?.body)
+        .split("```json\n")[1]!
+        .split("\n```")[0]!,
+    ) as { spec?: { execution?: unknown; workflow?: unknown } };
+    expect(createdPayload.spec).toMatchObject(previewPayload.spec ?? {});
+    expect(runtime.settings.getRepository).toHaveBeenCalled();
     expect(runtime.executions.getApprovedBatchRevision).not.toHaveBeenCalled();
   });
 
@@ -137,7 +188,7 @@ describe("GitHub Lite execution approval client", () => {
       expiresAt: "2026-09-11T10:00:00.000Z",
       parameters: [],
       reason: "Close after reconciliation.",
-      workflowRef: "main",
+      targetRevision: "main",
     });
 
     expect(result.request.status).toBe("APPROVED");
@@ -412,7 +463,7 @@ describe("GitHub Lite execution approval client", () => {
         expiresAt: "2026-09-11T10:00:00.000Z",
         parameters: [],
         reason: "Close after reconciliation.",
-        workflowRef: "main",
+        targetRevision: "main",
       }),
     ).resolves.toMatchObject({
       postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" },
@@ -434,7 +485,7 @@ function createRuntime({
   executionRuns = [],
   workspaceApprovalMode = "AUTO_APPROVE",
 }: {
-  batchDefinitions?: BatchDefinition[];
+  batchDefinitions?: GitHubBatchDefinition[];
   createExecutionRequest?: ReturnType<typeof vi.fn>;
   executionRuns?: ExecutionRun[];
   getExecutionRequestIssue?: ReturnType<typeof vi.fn>;
@@ -477,7 +528,7 @@ function createRuntime({
   } as unknown as BatchPlaneRuntimePorts;
 }
 
-function batchDefinition(): BatchDefinition {
+function batchDefinition(): GitHubBatchDefinition {
   return {
     batchId: "payment.daily-close",
     criticality: "HIGH",

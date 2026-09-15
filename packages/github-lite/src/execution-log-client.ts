@@ -1,5 +1,6 @@
-import type { ExecutionPort, ExecutionRunJobLog } from "@batchplane/domain";
-import type { GitHubWorkflowJobLog } from "./index.js";
+import type { ExecutionRunJobLog } from "@batchplane/domain";
+import type { GitHubWorkflowJobLog } from "./github-types.js";
+import type { ExecutionPort } from "./github-runtime-contracts.js";
 import type { ExecutionInspectionContext } from "./inspection-context.js";
 
 export function createGitHubLiteExecutionLogClient({

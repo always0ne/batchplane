@@ -1,7 +1,7 @@
 import type {
-  SettingsPort,
   RuntimeInstallationStatus,
-} from "@batchplane/domain";
+  SettingsPort,
+} from "./github-runtime-contracts.js";
 import { WorkspaceSettingsError } from "@batchplane/ui-client";
 import { describe, expect, it, vi } from "vitest";
 import { GitHubLiteApiError } from "./index.js";

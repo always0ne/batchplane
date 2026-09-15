@@ -1,25 +1,48 @@
-import type {
-  BatchDefinition,
-  BatchSchedule,
-  DeletedBatchArchiveResult,
-} from "@batchplane/domain";
+import type { BatchDefinition, BatchSchedule } from "@batchplane/domain";
 
 export type BatchScheduleDisplay = BatchSchedule & {
   generatedCron: string;
 };
 
+export type BatchExecutionTarget = {
+  command?: string;
+  executionEnvironment?: string;
+  executionFile?: {
+    location: string;
+    name: string;
+  };
+  platformName: string;
+  targetName: string;
+  targetRevision: string;
+};
+
 export type BatchDetailDefinition = Omit<BatchDefinition, "schedules"> & {
+  executionTarget?: BatchExecutionTarget;
   schedules?: BatchScheduleDisplay[];
 };
 
+export type BatchDetailArchiveSourceRequest = {
+  locator: string;
+  number?: number;
+  url: string;
+};
+
 export type BatchDetailArchiveResult =
-  | Exclude<DeletedBatchArchiveResult, { status: "VERIFIED" }>
+  | {
+      sourceRequest: BatchDetailArchiveSourceRequest;
+      status: "UNAVAILABLE";
+      unavailableReason:
+        | "LEGACY_OR_MALFORMED_EVIDENCE"
+        | "REQUEST_EVIDENCE_MISMATCH"
+        | "REQUEST_EVIDENCE_UNVERIFIED"
+        | "BASE_REVISION_UNAVAILABLE"
+        | "BATCH_DEFINITION_NOT_FOUND"
+        | "BATCH_DEFINITION_DIGEST_MISMATCH"
+        | "BATCH_DEFINITION_MALFORMED";
+    }
   | {
       batch: BatchDetailDefinition;
-      sourceRequest: Extract<
-        DeletedBatchArchiveResult,
-        { status: "VERIFIED" }
-      >["sourceRequest"];
+      sourceRequest: BatchDetailArchiveSourceRequest;
       status: "VERIFIED";
     };
 

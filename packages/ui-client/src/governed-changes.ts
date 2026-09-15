@@ -1,36 +1,25 @@
 import type {
   BatchSchedule,
-  BatchStatus,
-  Criticality,
   GovernedChangeDecision,
   GovernedChangeDecisionSource,
   GovernedChangeType,
 } from "@batchplane/domain";
+import type { GitHubActionsExecutionSettings } from "./github-actions-execution.js";
+
+export type BatchChangeBusinessInput = Pick<
+  import("@batchplane/domain").BatchDefinition,
+  | "batchId"
+  | "criticality"
+  | "domain"
+  | "environment"
+  | "name"
+  | "owner"
+  | "status"
+>;
 
 export type BatchChangeDraft = {
-  artifact?: {
-    bytes: Uint8Array;
-    fileName: string;
-  };
-  /** Internal remediation intent; not editable in ordinary Batch forms. */
-  removeExistingArtifact?: boolean;
-  batch: {
-    existingArtifact?: {
-      fileName: string;
-      locator: string;
-    };
-    artifactFileName?: string;
-    batchId: string;
-    criticality: Criticality;
-    domain: string;
-    environment: string;
-    name: string;
-    owner: string;
-    runCommand: string;
-    runnerLabel: string;
-    status: BatchStatus;
-    workflowRef: string;
-  };
+  batch: BatchChangeBusinessInput;
+  execution: GitHubActionsExecutionSettings;
   /** Authenticated requester used only when a user leaves owner blank. */
   defaultOwner?: string;
   governedChangeId?: string;

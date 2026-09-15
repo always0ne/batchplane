@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchplane/domain";
+} from "./github-runtime-contracts.js";
 
 import {
   deriveRegistrationFilePaths,

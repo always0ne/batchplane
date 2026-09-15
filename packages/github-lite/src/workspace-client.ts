@@ -2,7 +2,7 @@ import type {
   RepositoryPullRequest,
   RuntimeInstallationStatus,
   SettingsPort,
-} from "@batchplane/domain";
+} from "./github-runtime-contracts.js";
 import {
   WorkspaceSettingsError,
   type BatchPlaneClient,

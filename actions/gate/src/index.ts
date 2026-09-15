@@ -3,13 +3,12 @@ import { pathToFileURL } from "node:url";
 import {
   createGitHubLiteClient,
   parseBatchDefinitionYaml,
+  parseGovernanceYaml,
+  type GitHubBatchDefinition,
   verifyApprovedBatchRevision,
   verifyNativeScheduleRequestIssue,
 } from "@batchplane/github-lite";
-
 import {
-  parseYamlDocument,
-  type RoleMappingFile,
   type WorkspaceApprovalMode,
   validateBatchDefinitionFile,
   validateRoleMappingFile,
@@ -360,7 +359,7 @@ async function verifyNativeScheduleAuthorization({
   evidence,
   input,
 }: {
-  batch: import("@batchplane/domain").BatchDefinition | null;
+  batch: GitHubBatchDefinition | null;
   evidence: GateEvidence;
   input: GateInput;
 }): Promise<GateResult> {
@@ -434,7 +433,7 @@ async function loadNativeScheduleBatch({
 }: {
   client: GateGitHubClient;
   input: GateInput;
-}): Promise<import("@batchplane/domain").BatchDefinition | null> {
+}): Promise<GitHubBatchDefinition | null> {
   const ref = input.workflowSha?.trim();
   if (!ref) return null;
   const path = `${input.configPath.replace(/\/+$/u, "")}/batches/${input.batchId}.yml`;
@@ -1112,7 +1111,7 @@ async function readWorkspaceApprovalMode({
     return "SELF_APPROVAL_BLOCKED";
   }
 
-  const parsed = parseYamlDocument(workspacePolicyFile.content);
+  const parsed = parseGovernanceYaml(workspacePolicyFile.content);
 
   if (!parsed.ok) {
     throw new Error(
@@ -1553,7 +1552,7 @@ function parseExecutionApprovalEvidence(
 function parseBatchDefinitionSnapshot(
   content: string,
 ): BatchDefinitionSnapshot | null {
-  const parsed = parseYamlDocument(content);
+  const parsed = parseGovernanceYaml(content);
 
   if (!parsed.ok) {
     return null;
@@ -1587,7 +1586,7 @@ function parseBatchDefinitionSnapshot(
 function parseApproverSelectorFromRoleMappingFile(
   content: string,
 ): ApproverSelectorSnapshot | null {
-  const parsed = parseYamlDocument(content);
+  const parsed = parseGovernanceYaml(content);
 
   if (!parsed.ok) {
     return null;
@@ -1599,7 +1598,7 @@ function parseApproverSelectorFromRoleMappingFile(
     return null;
   }
 
-  const approver = (validated.value as RoleMappingFile).spec.roles.approver;
+  const approver = validated.value.spec.roles.approver;
 
   return {
     githubTeams: approver.githubTeams ?? [],

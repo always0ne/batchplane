@@ -1,16 +1,14 @@
-import {
-  createGovernedChangeRequestDigest,
-  createTargetRevisionDigest,
-  type BatchDefinition,
-  type GovernedChangeArtifact,
-} from "@batchplane/domain";
 import { sha256BytesHex } from "@batchplane/digest";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
 import {
   getBatchDefinitionPath,
   parseBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
 import {
+  createGovernedChangeRequestDigest,
+  createTargetRevisionDigest,
+  type GovernedChangeArtifact,
   parseGovernedChangeDecisionEvidence,
   parseGovernedChangeRequestEvidence,
   parseGovernedChangeWithdrawalEvidence,
@@ -26,7 +24,7 @@ import type {
   GitHubLiteClient,
   GitHubPullRequest,
   RepoRef,
-} from "./index.js";
+} from "./github-types.js";
 
 export type ApprovedBatchRevisionBinding = {
   governedChangeId: string;
@@ -50,7 +48,7 @@ export type ApprovedBatchRevisionResult =
 
 export type LastApprovedBatchRevisionResult =
   | {
-      batch: BatchDefinition;
+      batch: GitHubBatchDefinition;
       artifact?: { bytes: Uint8Array; fileName: string };
       approvedRevision: ApprovedBatchRevisionBinding;
       status: "VERIFIED";

@@ -8,7 +8,7 @@ import type {
   GitHubLiteClient,
   GitHubWorkflowJob,
   GitHubWorkflowRun,
-} from "./index.js";
+} from "./github-types.js";
 import {
   loadExecutionApprovalRequests,
   type ExecutionRequestForRun,

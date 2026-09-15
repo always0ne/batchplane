@@ -1,11 +1,13 @@
-import type { BatchControl } from "@batchplane/ui-client";
-import type { BatchDefinition } from "@batchplane/domain";
+import type {
+  BatchControl,
+  BatchDetailDefinition,
+} from "@batchplane/ui-client";
 import { Play } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button, ButtonLink } from "../../ui/Button";
 
-type Props = { batch: BatchDefinition; control: BatchControl };
+type Props = { batch: BatchDetailDefinition; control: BatchControl };
 
 export function BatchExecutionRequestAction({ batch, control }: Props) {
   const { t } = useTranslation("batches");
@@ -47,7 +49,7 @@ export function BatchExecutionRequestAction({ batch, control }: Props) {
 }
 
 function getExecutionBlockReason(
-  batch: BatchDefinition,
+  batch: BatchDetailDefinition,
   control: BatchControl,
   t: (key: string) => string,
 ): string | null {
@@ -56,7 +58,7 @@ function getExecutionBlockReason(
   if (control.status === "UNKNOWN") return t("execution.errors.controlUnknown");
   if (batch.status !== "ACTIVE") return t("execution.errors.inactive");
   if (!batch.gateRequired) return t("execution.errors.gateRequired");
-  if (!batch.execution?.command.trim())
+  if (!batch.executionTarget?.command?.trim())
     return t("execution.errors.missingCommand");
   return null;
 }

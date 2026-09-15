@@ -14,7 +14,7 @@ import {
   buildFailureFollowUpComment,
   buildFailureFollowUpReviewComment,
 } from "./failure-follow-up-records.js";
-import type { GitHubIssueComment } from "./index.js";
+import type { GitHubIssueComment } from "./github-types.js";
 import {
   loadWorkspacePolicy,
   type ExecutionInspectionContext,

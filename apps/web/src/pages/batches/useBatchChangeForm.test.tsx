@@ -1,10 +1,83 @@
 import { act, renderHook } from "@testing-library/react";
 import type { BatchChangeDraft } from "@batchplane/ui-client";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { useBatchChangeForm } from "./useBatchChangeForm";
 
 describe("useBatchChangeForm", () => {
+  it("keeps execution settings and upload bytes in the same draft without changing business metadata or the command", async () => {
+    const initialDraft = draft({
+      governedChangeId: "bgc-existing",
+      mode: "change",
+      execution: {
+        command: " ./scripts/close.sh ",
+        existingFile: {
+          fileName: "close.sh",
+          locator: "scripts/close.sh",
+        },
+        platform: "GITHUB_ACTIONS",
+        ref: " release/approved ",
+        runnerLabel: " self-hosted, linux, payments ",
+      },
+    });
+    const { result } = renderHook(() =>
+      useBatchChangeForm({
+        initialDraft,
+        mode: "change",
+        targetBatchId: "payment.daily-close",
+      }),
+    );
+    const bytes = new Uint8Array([0, 1, 255]);
+    const file = new File([bytes], "replacement.jar");
+    Object.defineProperty(file, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(bytes.buffer),
+    });
+
+    await act(async () => {
+      await result.current.selectArtifact(file);
+    });
+
+    expect(result.current.draft).toMatchObject({
+      batch: initialDraft.batch,
+      execution: {
+        command: "./scripts/close.sh",
+        existingFile: initialDraft.execution.existingFile,
+        platform: "GITHUB_ACTIONS",
+        ref: "release/approved",
+        runnerLabel: "self-hosted, linux, payments",
+        upload: { bytes, fileName: "replacement.jar" },
+      },
+      governedChangeId: "bgc-existing",
+      mode: "change",
+      targetBatchId: "payment.daily-close",
+    });
+    expect(initialDraft.execution.upload).toBeUndefined();
+    expect(result.current.execution.command).toBe(" ./scripts/close.sh ");
+  });
+
+  it("requires an explicit command after an upload", async () => {
+    const initialDraft = draft();
+    initialDraft.execution.command = "";
+    const { result } = renderHook(() =>
+      useBatchChangeForm({
+        initialDraft,
+        mode: "create",
+        targetBatchId: "",
+      }),
+    );
+    const file = new File(["binary"], "batch.jar");
+    Object.defineProperty(file, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(new ArrayBuffer(1)),
+    });
+
+    await act(async () => {
+      await result.current.selectArtifact(file);
+    });
+
+    expect(result.current.draft.execution.command).toBe("");
+    expect(result.current.missingFields).toContain("execution.command");
+  });
+
   it("assigns schedule keys before the state update", () => {
     const { result } = renderHook(() =>
       useBatchChangeForm({
@@ -93,10 +166,13 @@ function draft(overrides: Partial<BatchChangeDraft> = {}): BatchChangeDraft {
       environment: "PROD",
       name: "Daily close",
       owner: "ops-team",
-      runCommand: "echo close",
-      runnerLabel: "ubuntu-latest",
       status: "ACTIVE",
-      workflowRef: "main",
+    },
+    execution: {
+      command: "echo close",
+      platform: "GITHUB_ACTIONS",
+      ref: "main",
+      runnerLabel: "ubuntu-latest",
     },
     mode: "create",
     schedules: [],

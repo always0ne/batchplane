@@ -1,5 +1,4 @@
 export {
-  addHours,
   buildExecutionApprovalComment,
   buildExecutionRequestIssue,
   createExecutionRequestId,
@@ -7,4 +6,8 @@ export {
   type ExecutionRequestIssue,
   type ExecutionRequestParameterInput,
   type ExecutionRequestPayload,
-} from "@batchplane/domain";
+} from "@batchplane/github-lite";
+
+export function addHours(date: Date, hours: number): Date {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}

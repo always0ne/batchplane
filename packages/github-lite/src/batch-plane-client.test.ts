@@ -1,4 +1,3 @@
-import type { BatchDefinition } from "@batchplane/domain";
 import { GitHubLiteApiError } from "./index.js";
 import { describe, expect, it, vi } from "vitest";
 
@@ -6,8 +5,9 @@ import {
   createGitHubLiteBatchReadClient,
   type GitHubLiteBatchReadClientDependencies,
 } from "./batch-plane-client.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
-const batch: BatchDefinition = {
+const batch: GitHubBatchDefinition = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
   domain: "payments",

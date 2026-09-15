@@ -42,7 +42,7 @@
     "schedules": "Schedules",
     "deletedSchedules": "Pending schedule deletions",
     "timezone": "Timezone",
-    "workflow": "Workflow"
+    "workflow": "Execution target"
   },
   "context": {
     "executionTitle": "Execution context"

@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 import { RuntimeClientTestProvider } from "../../test/RuntimeClientTestProvider";
 
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import type { BatchPlaneRuntimePorts } from "@batchplane/github-lite";
 import {
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
@@ -101,7 +101,7 @@ describe("ExecutionRunListPage", () => {
     );
     expect(
       screen
-        .getAllByRole("link", { name: "GitHub run" })
+        .getAllByRole("link", { name: "Source run" })
         .map((link) => link.getAttribute("href")),
     ).toEqual(
       expect.arrayContaining([
@@ -344,7 +344,10 @@ describe("ExecutionRunListPage", () => {
       "/execution-runs/900?runAttempt=1",
       "/execution-runs/900?runAttempt=2",
     ]);
-    expect(screen.getAllByText("Source run")).toHaveLength(2);
+    const sourceRunBadges = screen.getAllByText("Source run", {
+      selector: "li span",
+    });
+    expect(sourceRunBadges).toHaveLength(2);
     expect(
       screen.queryByText("Batch command failed after Gate allowed the run."),
     ).not.toBeInTheDocument();

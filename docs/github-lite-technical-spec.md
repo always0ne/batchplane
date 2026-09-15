@@ -180,6 +180,27 @@ auditable.
 
 ## Batch Definition
 
+The repository document is a GitHub Lite persistence and execution contract,
+not the shared product `BatchDefinition`. Product identity, ownership, business
+status and schedules are independent from GitHub workflow/ref/runner fields.
+The Lite adapter maps the typed platform settings into this document and the
+generated workflow. Product UI receives execution information for display and
+does not parse repository YAML or choose its authority from displayed values.
+
+Registration and change compose shared business inputs with typed GitHub
+execution settings in one Page and one preview/submission flow. Platform fields
+are not hidden in an arbitrary JSON map or collected through imperative form
+refs. Detail and execution-request surfaces preserve platform, command, runner,
+revision and artifact information. Platform input ownership does not introduce
+a second Lite/Main screen or a generic form framework.
+
+The UI client may define the typed input contract of the currently supported
+GitHub Actions platform. This is not a REST DTO or a repository file schema.
+Runner labels remain explicitly platform-specific editing data; renaming them
+to a generic environment field does not make their semantics portable. Display
+models retain the execution file name and location without interpreting them
+as authorization evidence.
+
 The batch definition is serialized as deterministic YAML:
 
 ```yaml
@@ -201,6 +222,31 @@ spec:
 ```
 
 `gateRequired` is always `true` for Lite-registered batches.
+
+### Governance YAML
+
+Governance YAML syntax is read through the public `yaml` v2 document API, with
+line/column diagnostics. Valid quoted scalars, block sequences, multiline
+strings, comments and indentation follow YAML syntax instead of a hand-written
+two-space-only parser. Parsed documents still pass the appropriate file schema
+and current authorization/Gate checks. Successful parsing never authorizes work.
+Web and Action consumers use the same governance parsing implementation rather
+than a fallback parser with a different interpretation.
+
+Newly requested governance content is serialized through the public library
+API with deterministic output options. API versions, fields and evidence meaning
+remain unchanged; quoting and sequence layout need not reproduce the previous
+serializer's byte layout. Existing repository files, Issues and pull requests
+are never automatically reformatted by this refactor. Approval verification
+continues to hash original artifact bytes, not a parsed-and-reserialized copy.
+Pure formatting is not a business change, and historical requests must remain
+verifiable without regeneration. Workflow templates, cron conversion and the
+canonical JSON digest algorithm are separate and are not rewritten here.
+
+The checked-in Node 24 Action bundles remain self-contained. Their ESM build
+provides Node's `createRequire(import.meta.url)` for bundled CommonJS dependencies
+used by `yaml`; runners do not install workspace packages before executing an
+Action. Bundle execution and rebuild parity are both part of local verification.
 
 ## Generated Batch Workflow
 

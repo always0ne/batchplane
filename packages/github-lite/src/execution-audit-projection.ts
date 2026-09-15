@@ -1,11 +1,10 @@
-import type {
-  AuditTimelineItem,
-  FailureFollowUp,
-  RepositoryIssueComment,
-  RepositoryPullRequest,
-} from "@batchplane/domain";
+import type { AuditTimelineItem, FailureFollowUp } from "@batchplane/domain";
 import type { ExecutionAuditItem } from "@batchplane/ui-client";
 import type { ExecutionRunFacts } from "./execution-run-projection.js";
+import type {
+  RepositoryIssueComment,
+  RepositoryPullRequest,
+} from "./github-runtime-contracts.js";
 import type { ExecutionRequestForRun } from "./inspection-context.js";
 import {
   deriveRegistrationReviewState,
@@ -229,8 +228,8 @@ export function toInspectedRunAuditItem(
     itemId: native
       ? `native-schedule-run-${run.runId}`
       : sourceOnly
-        ? `source-run-${run.workflowRunId}-${run.runAttempt}`
-        : `workflow-run-${run.workflowRunId}`,
+        ? `source-run-${run.runId}-${run.runAttempt}`
+        : `workflow-run-${run.runId}`,
     occurredAt: run.observedAt ?? run.completedAt ?? run.startedAt ?? "",
     sourceUrl: run.workflowRunUrl,
     subjectId: run.runId,
@@ -238,14 +237,14 @@ export function toInspectedRunAuditItem(
     summary: native
       ? `Native schedule ${observation.toLowerCase()} for ${run.batchId}`
       : sourceOnly
-        ? `Source run ${run.workflowRunId} attempt ${run.runAttempt}: unconfirmed`
+        ? `Source run ${run.runId} attempt ${run.runAttempt}: unconfirmed`
         : `Workflow run ${run.sourceConclusion ?? run.sourceStatus} for ${run.batchId || run.workflowName}`,
     type: "RUN_COMPLETED",
     ...(execution ? { execution } : {}),
     metadata: compactAuditMetadata({
       batchId: run.batchId,
       requestId: run.requestId,
-      runId: Number(run.workflowRunId),
+      runId: Number(native ? run.workflowRunId : run.runId),
       runAttempt: run.runAttempt,
       workflowPath: run.workflowPath,
       status: run.sourceStatus,

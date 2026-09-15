@@ -1,7 +1,7 @@
 import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchplane/domain";
+} from "./github-runtime-contracts.js";
 
 import { isRegistrationApprovalRequest } from "./execution-approval-legacy.js";
 

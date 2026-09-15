@@ -49,19 +49,19 @@ const deletedScheduleDefinition: BatchSchedule = {
 describe("registration model", () => {
   it("serializes a batch definition as deterministic YAML", () => {
     expect(serializeBatchDefinitionYaml(definition)).toContain(
-      '  id: "payment.daily-close"',
+      "  id: payment.daily-close",
     );
     expect(serializeBatchDefinitionYaml(definition)).toContain(
-      '    path: ".github/workflows/payment.daily-close.yml"',
+      "    path: .github/workflows/payment.daily-close.yml",
     );
     expect(serializeBatchDefinitionYaml(definition)).toContain(
       "  gateRequired: true",
     );
     expect(serializeBatchDefinitionYaml(definition)).toContain(
-      '    runsOn: "ubuntu-latest"',
+      "    runsOn: ubuntu-latest",
     );
     expect(serializeBatchDefinitionYaml(definition)).toContain(
-      '    command: "./scripts/daily-close.sh"',
+      "    command: ./scripts/daily-close.sh",
     );
   });
 

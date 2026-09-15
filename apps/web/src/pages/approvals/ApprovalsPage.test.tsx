@@ -18,6 +18,30 @@ import { ApprovalsPage } from "./ApprovalsPage";
 const session = { owner: "always0ne", repo: "batch", token: "fixture-token" };
 
 describe("ApprovalsPage", () => {
+  it.each([false, undefined])(
+    "does not infer Gate evidence from an execution target when gateRequired is %s",
+    async (gateRequired) => {
+      const inventory = approvalInventory();
+      const item = inventory.requests[0];
+      if (!item || item.kind !== "EXECUTION") {
+        throw new Error("Expected an execution approval request fixture.");
+      }
+      item.request.batch.gateRequired = gateRequired;
+      renderPage({
+        ...runtimeClient("approval-pending"),
+        listApprovalRequests: async () => inventory,
+      });
+
+      expect(await screen.findByText("Non-compliant")).toBeInTheDocument();
+      expect(
+        screen.getByText(".github/workflows/payment.daily-close.yml@main"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText("Required before batch command"),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("shows execution judgment context for approval-actionable requests", async () => {
     renderPage(runtimeClient("approval-pending"));
 
@@ -240,6 +264,7 @@ function approvalInventory(): ApprovalRequestInventory {
             criticality: "HIGH",
             domain: "payments",
             environment: "PROD",
+            gateRequired: true,
             name: "Daily Close",
             owner: "ops-team",
           },
@@ -250,10 +275,12 @@ function approvalInventory(): ApprovalRequestInventory {
             canonicalPayload: null,
             requestDigest: "sha256:request",
           },
-          execution: {
+          executionTarget: {
             command: "echo mock batch",
-            gateRequired: true,
-            runsOn: "ubuntu-latest",
+            executionEnvironment: "ubuntu-latest",
+            platformName: "GitHub Actions",
+            targetName: ".github/workflows/payment.daily-close.yml",
+            targetRevision: "main",
           },
           expiresAt: "2026-06-01T01:00:00.000Z",
           reason: "Close payments.",
@@ -268,10 +295,6 @@ function approvalInventory(): ApprovalRequestInventory {
           triggerType: "MANUAL",
           updatedAt: "2026-06-01T00:00:00.000Z",
           workspaceLabel: "always0ne/batch",
-          workflow: {
-            path: ".github/workflows/payment.daily-close.yml",
-            ref: "main",
-          },
         },
         targetLabel: "payment.daily-close",
         title: "Run batch payment.daily-close (requested)",

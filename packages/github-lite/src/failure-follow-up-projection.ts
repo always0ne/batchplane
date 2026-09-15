@@ -2,14 +2,14 @@ import type {
   FailureFollowUp,
   FailureFollowUpReviewCapability,
   FailureFollowUpReviewDecision,
-  RepositoryIssueComment,
   WorkspacePolicy,
 } from "@batchplane/domain";
+import type { RepositoryIssueComment } from "./github-runtime-contracts.js";
 import {
   parseFailureFollowUpReviews,
   parseFailureFollowUps,
 } from "./failure-follow-up-records.js";
-import type { GitHubLiteClient } from "./index.js";
+import type { GitHubLiteClient } from "./github-types.js";
 import {
   loadWorkspacePolicy,
   type ExecutionRequestForRun,

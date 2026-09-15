@@ -1,19 +1,4 @@
 import { sha256BytesHex } from "@batchplane/digest";
-import type {
-  ApprovedBatchRevision,
-  BatchDefinition,
-  BatchPlaneRuntimePorts,
-  DeletedBatchArchiveResult,
-  DeletedBatchArchiveSourceRequest,
-  DeletedBatchArchiveUnavailableReason,
-  GovernedChangeFilePreviewStatus,
-  RepositoryFile,
-  RepositoryIssue,
-  RepositoryIssueComment,
-  RepositoryPullRequest,
-  RepositoryPullRequestFile,
-} from "@batchplane/domain";
-import { isCanonicalBatchId } from "@batchplane/domain";
 import {
   createGitHubLiteAuditClient,
   createGitHubLiteClient,
@@ -22,9 +7,11 @@ import {
   createGitHubLiteFailureFollowUpClient,
   getBatchDefinitionPath,
   hasAuthoritativeGovernedChangeRequest,
+  isCanonicalBatchId,
   parseBatchDefinitionYaml as parseGovernedBatchDefinitionYaml,
   parseGovernedChangeRequestEvidence,
   verifyApprovedBatchRevision,
+  type ApprovedBatchRevision,
   type GitHubFile,
   type GitHubIssue,
   type GitHubIssueComment,
@@ -32,6 +19,16 @@ import {
   type GitHubLiteClientOptions,
   type GitHubPullRequest,
   type GitHubPullRequestFile,
+  type GitHubBatchDefinition,
+  type BatchPlaneRuntimePorts,
+  type DeletedBatchArchiveResult,
+  type DeletedBatchArchiveUnavailableReason,
+  type GovernedChangeFilePreviewStatus,
+  type RepositoryFile,
+  type RepositoryIssue,
+  type RepositoryIssueComment,
+  type RepositoryPullRequest,
+  type RepositoryPullRequestFile,
 } from "@batchplane/github-lite";
 
 import { loadWorkspacePolicy } from "@batchplane/github-lite";
@@ -51,6 +48,9 @@ export type GitHubLiteRuntimeOptions = {
   client?: GitHubLiteClient;
   fetcher?: GitHubLiteClientOptions["fetcher"];
 };
+
+type DeletedBatchArchiveSourceRequest =
+  DeletedBatchArchiveResult["sourceRequest"];
 
 export function createGitHubLiteRuntime(
   session: GitHubSession,
@@ -730,7 +730,7 @@ async function inspectDeletedBatchRequest({
     );
   }
 
-  let batch: BatchDefinition;
+  let batch: GitHubBatchDefinition;
 
   try {
     batch = parseGovernedBatchDefinitionYaml(baseFile.content);
@@ -922,7 +922,7 @@ function toRepositoryFile(
 }
 
 function isLoadedBatchDefinition(
-  definition: BatchDefinition | null,
-): definition is BatchDefinition {
+  definition: GitHubBatchDefinition | null,
+): definition is GitHubBatchDefinition {
   return Boolean(definition?.batchId);
 }

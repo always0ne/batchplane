@@ -2,23 +2,23 @@ import {
   authorizeGovernedChangeApproval,
   authorizeGovernedChangeRejection,
   authorizeGovernedChangeCreation,
-  createGovernedChangeRequestDigest,
-  parseYamlDocument,
   resolveAutoApproval,
-  serializeYamlDocument,
   validateRejectionReason,
-  type GovernedChangeRequestEvidence,
 } from "@batchplane/domain";
 import {
   buildGovernedChangeDecisionBody,
+  createGovernedChangeRequestDigest,
   buildGovernedChangeRequestBody,
   buildGovernedChangeWithdrawalBody,
   buildUnverifiedGovernedChangeDispositionBody,
   parseGovernedChangeRequestEvidence,
-  type GitHubLiteClient,
-  type GitHubPullRequest,
-  type RepoRef,
-} from "./index.js";
+  type GovernedChangeRequestEvidence,
+} from "./governed-change-evidence.js";
+import type {
+  GitHubLiteClient,
+  GitHubPullRequest,
+  RepoRef,
+} from "./github-types.js";
 import type {
   BatchChangeDraft,
   BatchChangeBlocker,
@@ -33,6 +33,11 @@ import {
   getBatchDefinitionPath,
   parseBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
+import {
+  parseGovernanceYaml,
+  stringifyGovernanceYaml,
+  type GovernanceYamlValue,
+} from "./governance-yaml.js";
 import {
   assertPreparedChangeTargets,
   createPreparedChangeArtifactEvidence,
@@ -111,9 +116,11 @@ async function loadBatchChangeDraft(
 ) {
   if (mode === "create") {
     const user = await client.getCurrentUser();
+    const empty = createEmptyBatchDraft();
     return {
-      batch: { ...createEmptyBatchDraft(), owner: user.login },
+      batch: { ...empty.batch, owner: user.login },
       defaultOwner: user.login,
+      execution: empty.execution,
       governedChangeId: createGovernedChangeId("new-batch"),
       mode,
       schedules: [],
@@ -131,12 +138,13 @@ async function loadBatchChangeDraft(
 
   if (!batch) throw new Error("The governed batch could not be found.");
   const draft = toBatchChangeDraft(batch);
-  const owner = draft.owner.trim() || fallbackOwner;
+  const owner = draft.batch.owner.trim() || fallbackOwner;
 
   return {
-    batch: { ...draft, owner },
+    batch: { ...draft.batch, owner },
     defaultOwner: fallbackOwner,
     governedChangeId: createGovernedChangeId(batch.batchId),
+    execution: draft.execution,
     mode,
     schedules: batch.schedules ?? [],
     targetBatchId: batch.batchId,
@@ -158,7 +166,7 @@ async function loadExistingBatchDraftDefinition(
       path: getBatchDefinitionPath(batchId),
       ref: repo.defaultBranch,
     });
-    const parsed = file ? parseYamlDocument(file.content) : undefined;
+    const parsed = file ? parseGovernanceYaml(file.content) : undefined;
     const document = parsed?.ok ? parsed.value : undefined;
     const spec = isYamlRecord(document) ? document.spec : undefined;
 
@@ -172,7 +180,7 @@ async function loadExistingBatchDraftDefinition(
     }
 
     return parseBatchDefinitionYaml(
-      serializeYamlDocument({
+      stringifyGovernanceYaml({
         ...document,
         spec: { ...spec, owner: fallbackOwner },
       }),
@@ -182,7 +190,7 @@ async function loadExistingBatchDraftDefinition(
 
 function isYamlRecord(
   value: unknown,
-): value is Record<string, import("@batchplane/domain").YamlValue | undefined> {
+): value is Record<string, GovernanceYamlValue | undefined> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -361,19 +369,22 @@ async function requestBatchRemediation(
   const currentDraft = current ? toBatchChangeDraft(current) : undefined;
 
   return createBatchChangeRequest(context, {
-    ...(historical.artifact ? { artifact: historical.artifact } : {}),
-    batch: {
-      ...historicalDraft,
-      ...(currentDraft?.existingArtifact
-        ? { existingArtifact: currentDraft.existingArtifact }
+    batch: historicalDraft.batch,
+    execution: {
+      ...historicalDraft.execution,
+      ...(historical.artifact ? { upload: historical.artifact } : {}),
+      ...(currentDraft?.execution.existingFile
+        ? { existingFile: currentDraft.execution.existingFile }
+        : {}),
+      ...(current &&
+      !historical.artifact &&
+      currentDraft?.execution.existingFile
+        ? { removeExistingArtifact: true }
         : {}),
     },
     governedChangeId: createGovernedChangeId(input.batchId),
     mode: current ? "change" : "create",
     remediation: "RESTORE_LAST_APPROVED",
-    ...(current && !historical.artifact && currentDraft?.existingArtifact
-      ? { removeExistingArtifact: true }
-      : {}),
     schedules: historical.batch.schedules ?? [],
     ...(current ? { targetBatchId: input.batchId } : {}),
   });
@@ -862,18 +873,26 @@ function assertChangeBatchIdentity(draft: BatchChangeDraft): void {
   }
 }
 
-function createEmptyBatchDraft(): BatchChangeDraft["batch"] {
+function createEmptyBatchDraft(): Pick<
+  BatchChangeDraft,
+  "batch" | "execution"
+> {
   return {
-    batchId: "",
-    criticality: "MEDIUM",
-    domain: "",
-    environment: "PROD",
-    name: "",
-    owner: "",
-    runCommand: "",
-    runnerLabel: "ubuntu-latest",
-    status: "ACTIVE",
-    workflowRef: "main",
+    batch: {
+      batchId: "",
+      criticality: "MEDIUM",
+      domain: "",
+      environment: "PROD",
+      name: "",
+      owner: "",
+      status: "ACTIVE",
+    },
+    execution: {
+      command: "",
+      platform: "GITHUB_ACTIONS",
+      ref: "main",
+      runnerLabel: "ubuntu-latest",
+    },
   };
 }
 

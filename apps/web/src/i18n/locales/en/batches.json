@@ -98,15 +98,15 @@
       "title": "Requests"
     },
     "workflow": {
-      "title": "Workflow target",
-      "path": "Workflow path",
-      "ref": "Workflow ref",
-      "runtime": "Runtime adapter",
+      "title": "Execution target",
+      "path": "Target",
+      "ref": "Target revision",
+      "runtime": "Platform",
       "runtimeGithubActions": "GitHub Actions / BatchPlane Lite"
     },
     "executionSpec": {
       "title": "Execution spec",
-      "runsOn": "Runs on",
+      "runsOn": "Execution environment",
       "command": "Batch command",
       "artifactPath": "Execution file",
       "noArtifact": "No uploaded execution file",

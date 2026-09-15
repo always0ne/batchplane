@@ -1,4 +1,4 @@
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import type { BatchPlaneRuntimePorts } from "./github-runtime-contracts.js";
 import {
   isBusinessFailure,
   type BatchPlaneClient,

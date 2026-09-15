@@ -1,10 +1,3 @@
-import {
-  buildExecutionRequestIssue,
-  createExecutionRequestId,
-  type BatchDefinition,
-  type BatchPlaneRuntimePorts,
-  type ExecutionRun,
-} from "@batchplane/domain";
 import { ExecutionRequestCreationUnavailableError } from "@batchplane/ui-client";
 import type {
   ApprovalRequestInventory,
@@ -33,6 +26,13 @@ import {
   parseRegistrationRequestSummary,
 } from "./registration-approval-legacy.js";
 import { parseGovernedChangeRequestEvidence } from "./governed-change-evidence.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import type { BatchPlaneRuntimePorts } from "./github-runtime-contracts.js";
+import type { GitHubExecutionRun } from "./github-runtime-contracts.js";
+import {
+  buildExecutionRequestIssue,
+  createExecutionRequestId,
+} from "./execution-request-evidence.js";
 
 type ExecutionApprovalClient = Pick<
   BatchPlaneClient,
@@ -93,14 +93,14 @@ export function createGitHubLiteExecutionApprovalClient({
     async previewExecutionRequest(input) {
       return {
         request: projectPreview(
-          await buildRequestIssue(input),
+          await buildRequestIssue(runtime, input),
           input.draft.workspaceLabel,
         ),
       };
     },
 
     async createExecutionRequest(input) {
-      const issue = await buildRequestIssue(input);
+      const issue = await buildRequestIssue(runtime, input);
       const created = await runtime.executions.createExecutionRequest({
         body: issue.body,
         labels: issue.labels,
@@ -310,7 +310,10 @@ export function createGitHubLiteExecutionApprovalClient({
   };
 }
 
-function buildRequestIssue(input: ExecutionRequestInput) {
+async function buildRequestIssue(
+  runtime: BatchPlaneRuntimePorts,
+  input: ExecutionRequestInput,
+) {
   if (!input.draft.creationCapability.canCreate) {
     throw new ExecutionRequestCreationUnavailableError(
       input.draft.creationCapability.unavailableReasons,
@@ -323,16 +326,27 @@ function buildRequestIssue(input: ExecutionRequestInput) {
       "The execution request expiry must be after its requested time.",
     );
 
+  const repository = await runtime.settings.getRepository();
+  const batches = await runtime.batches.listBatchDefinitions({
+    ref: repository.defaultBranch,
+  });
+  const batch = batches.find(
+    (candidate) => candidate.batchId === input.draft.batch.batchId,
+  );
+  if (!batch) {
+    throw new Error("The authoritative batch definition is unavailable.");
+  }
+
   return buildExecutionRequestIssue({
     approvedBatchRevision: input.draft.approvedBatchRevision,
-    batch: toBatchDefinition(input.draft),
+    batch,
     expiresAt,
     parameters: input.parameters,
     reason: input.reason,
     requestId: input.draft.requestId,
     requestedAt,
     requestedBy: input.draft.requestedBy,
-    workflowRef: input.workflowRef,
+    workflowRef: input.targetRevision,
   });
 }
 
@@ -615,6 +629,9 @@ function projectRequest(
       criticality: request.canonicalPayload?.spec.batch.criticality ?? "",
       domain: request.canonicalPayload?.spec.batch.domain ?? "",
       environment: request.canonicalPayload?.spec.batch.environment ?? "",
+      ...(request.canonicalPayload?.spec.batch.gateRequired !== undefined
+        ? { gateRequired: request.canonicalPayload.spec.batch.gateRequired }
+        : {}),
       name: request.canonicalPayload?.spec.batch.name ?? "",
       owner: request.canonicalPayload?.spec.batch.owner ?? "",
     },
@@ -632,7 +649,9 @@ function projectRequest(
       requestDigest: request.requestDigest,
       ...(sourceChange ? { sourceChange } : {}),
     },
-    ...(request.execution ? { execution: request.execution } : {}),
+    ...(toExecutionTargetForRequest(request)
+      ? { executionTarget: toExecutionTargetForRequest(request) }
+      : {}),
     expiresAt: request.expiresAt,
     ...(request.gateDecision ? { gateDecision: request.gateDecision } : {}),
     reason: request.reason,
@@ -648,7 +667,6 @@ function projectRequest(
     title: `#${request.issue.number} ${request.issue.title}`,
     triggerType: request.triggerType,
     updatedAt: request.issue.updatedAt ?? "",
-    ...(request.workflow ? { workflow: request.workflow } : {}),
     workspaceLabel: workspace,
   };
 }
@@ -715,7 +733,9 @@ function approvalNoticeFor(
 }
 
 function toAttempt(
-  run: ExecutionRun & { nativeSchedule?: ExecutionAttempt["nativeSchedule"] },
+  run: GitHubExecutionRun & {
+    nativeSchedule?: ExecutionAttempt["nativeSchedule"];
+  },
 ): ExecutionAttempt {
   return {
     ...(run.actor ? { actor: run.actor } : {}),
@@ -730,10 +750,14 @@ function toAttempt(
     ...(run.workflowRunUrl ? { sourceUrl: run.workflowRunUrl } : {}),
     ...(run.startedAt ? { startedAt: run.startedAt } : {}),
     status: run.status,
-    workflow: {
-      ...(run.workflowName ? { name: run.workflowName } : {}),
-      ...(run.workflowPath ? { path: run.workflowPath } : {}),
-    },
+    ...(run.workflowPath || run.workflowName
+      ? {
+          executionTarget: {
+            ...(run.workflowPath ? { location: run.workflowPath } : {}),
+            ...(run.workflowName ? { name: run.workflowName } : {}),
+          },
+        }
+      : {}),
   };
 }
 
@@ -803,7 +827,7 @@ function toGovernedChangeKind(
 }
 
 function failureFollowUpWorkItems(
-  runs: ExecutionRun[],
+  runs: GitHubExecutionRun[],
   requests: ExecutionRequestInventoryItem[],
   actor: string,
 ): MyWorkItem[] {
@@ -914,23 +938,23 @@ function requireParsedRequest(
   return request;
 }
 
-function toDraftBatch(batch: BatchDefinition): ExecutionRequestDraft["batch"] {
+function toDraftBatch(
+  batch: GitHubBatchDefinition,
+): ExecutionRequestDraft["batch"] {
   return {
     batchId: batch.batchId,
     criticality: batch.criticality,
     domain: batch.domain,
     environment: batch.environment,
-    ...(batch.execution ? { execution: batch.execution } : {}),
+    ...(batch.execution ? { executionTarget: toExecutionTarget(batch) } : {}),
     gateRequired: batch.gateRequired,
     name: batch.name,
     owner: batch.owner,
     status: batch.status,
-    workflowPath: batch.workflow.path,
-    workflowRef: batch.workflow.ref,
   };
 }
 
-function creationCapabilityFor(batch: BatchDefinition) {
+function creationCapabilityFor(batch: GitHubBatchDefinition) {
   const unavailableReasons = [
     ...(batch.status !== "ACTIVE" ? (["BATCH_INACTIVE"] as const) : []),
     ...(!batch.gateRequired ? (["GATE_NOT_REQUIRED"] as const) : []),
@@ -949,18 +973,54 @@ function workspaceLabel(repository: { owner: string; repo: string }) {
   return `${repository.owner}/${repository.repo}`;
 }
 
-function toBatchDefinition(draft: ExecutionRequestDraft): BatchDefinition {
+function toExecutionTarget(batch: GitHubBatchDefinition) {
+  const execution = batch.execution;
+  if (!execution) return undefined;
+
   return {
-    batchId: draft.batch.batchId,
-    criticality: draft.batch.criticality as BatchDefinition["criticality"],
-    domain: draft.batch.domain,
-    environment: draft.batch.environment,
-    ...(draft.batch.execution ? { execution: draft.batch.execution } : {}),
-    gateRequired: draft.batch.gateRequired,
-    name: draft.batch.name,
-    owner: draft.batch.owner,
-    status: draft.batch.status,
-    workflow: { path: draft.batch.workflowPath, ref: draft.batch.workflowRef },
+    command: execution.command,
+    executionEnvironment: Array.isArray(execution.runsOn)
+      ? execution.runsOn.join(", ")
+      : execution.runsOn,
+    ...(execution.artifactPath
+      ? {
+          executionFile: {
+            location: execution.artifactPath,
+            name:
+              execution.artifactPath.split("/").at(-1) ??
+              execution.artifactPath,
+          },
+        }
+      : {}),
+    platformName: "GitHub Actions",
+    targetName: batch.workflow.path,
+    targetRevision: batch.workflow.ref,
+  };
+}
+
+function toExecutionTargetForRequest(request: ExecutionApprovalRequest) {
+  if (!request.execution || !request.workflow) return undefined;
+
+  const { execution, workflow } = request;
+
+  return {
+    command: execution.command,
+    executionEnvironment: Array.isArray(execution.runsOn)
+      ? execution.runsOn.join(", ")
+      : execution.runsOn,
+    ...(execution.artifactPath
+      ? {
+          executionFile: {
+            location: execution.artifactPath,
+            name:
+              execution.artifactPath.split("/").at(-1) ??
+              execution.artifactPath,
+          },
+        }
+      : {}),
+    platformName: "GitHub Actions",
+    targetName: workflow.path,
+    targetRevision: workflow.ref,
   };
 }
 

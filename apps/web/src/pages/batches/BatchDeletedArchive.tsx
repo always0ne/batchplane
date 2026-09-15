@@ -73,11 +73,11 @@ export function BatchDeletedArchive({
           <dl className="mt-3 space-y-3 text-sm">
             <BatchDetailFact
               label={t("detail.workflow.path")}
-              value={archive.batch.workflow.path}
+              value={archive.batch.executionTarget?.targetName ?? "-"}
             />
             <BatchDetailFact
               label={t("detail.workflow.ref")}
-              value={archive.batch.workflow.ref}
+              value={archive.batch.executionTarget?.targetRevision ?? "-"}
             />
           </dl>
         </section>

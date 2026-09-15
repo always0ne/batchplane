@@ -1,22 +1,22 @@
+import type { WorkspacePolicy } from "@batchplane/domain";
+import { defaultWorkspacePolicy } from "@batchplane/domain";
+import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
+import {
+  formatGovernanceYamlDiagnostics,
+  parseGovernanceYaml,
+} from "./governance-yaml.js";
+import { validateWorkspacePolicyFile } from "./governance-schema.js";
 import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
-  WorkspacePolicy,
-} from "@batchplane/domain";
-import {
-  defaultWorkspacePolicy,
-  formatYamlDiagnostics,
-  parseYamlDocument,
-  validateWorkspacePolicyFile,
-} from "@batchplane/domain";
-import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
+} from "./github-runtime-contracts.js";
 import type {
   GitHubIssue,
   GitHubIssueComment,
   GitHubLiteClient,
   GitHubPullRequest,
-} from "./index.js";
+} from "./github-types.js";
 
 export type RuntimeRepositoryRef = { owner: string; repo: string };
 export type ExecutionRequestForRun = NonNullable<
@@ -74,10 +74,10 @@ export async function loadExecutionApprovalRequests(
 }
 
 export function parseWorkspacePolicyFile(content: string): WorkspacePolicy {
-  const parsed = parseYamlDocument(content);
+  const parsed = parseGovernanceYaml(content);
 
   if (!parsed.ok) {
-    throw new Error(formatYamlDiagnostics(parsed.diagnostics));
+    throw new Error(formatGovernanceYamlDiagnostics(parsed.diagnostics));
   }
 
   const validated = validateWorkspacePolicyFile(parsed.value);

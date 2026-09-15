@@ -5,13 +5,11 @@ import type { BatchChangeDraft } from "@batchplane/ui-client";
 import {
   buildGovernedChangeRequestBody,
   buildGovernedChangeDecisionBody,
+  createGovernedChangeRequestDigest,
+  createTargetRevisionDigest,
   parseGovernedChangeDecisionEvidence,
   parseGovernedChangeRequestEvidence,
 } from "@batchplane/github-lite";
-import {
-  createGovernedChangeRequestDigest,
-  createTargetRevisionDigest,
-} from "@batchplane/domain";
 import { sha256BytesHex } from "@batchplane/digest";
 import {
   getBatchDefinitionPath,
@@ -41,10 +39,13 @@ const registrationDraft: BatchChangeDraft = {
     environment: "PROD",
     name: "Month-end close",
     owner: "ops-team",
-    runCommand: "echo close",
-    runnerLabel: "ubuntu-latest",
     status: "ACTIVE",
-    workflowRef: "main",
+  },
+  execution: {
+    command: "echo close",
+    platform: "GITHUB_ACTIONS",
+    ref: "main",
+    runnerLabel: "ubuntu-latest",
   },
   governedChangeId: "bgc-20260901-payment-month-end-0001",
   mode: "create",
@@ -79,7 +80,9 @@ describe("GitHub Lite governed change client", () => {
     const previewBatch = preview.files.find(
       (file) => file.path === ".batch-governance/batches/payment.month-end.yml",
     );
-    expect(previewBatch?.nextContent).toContain('owner: "developer"');
+    expect(
+      parseBatchDefinitionYaml(previewBatch?.nextContent ?? ""),
+    ).toMatchObject({ owner: "developer" });
 
     const created = await governedChanges.createBatchChangeRequest(draft);
     const pullRequest = findCreatedPullRequest(
@@ -187,11 +190,15 @@ describe("GitHub Lite governed change client", () => {
         created.request.evidence.governedChangeId,
     ).toBe(registrationDraft.governedChangeId);
     expect(
-      client.state.files.find(
-        (file) =>
-          file.path === ".batch-governance/batches/payment.month-end.yml",
-      )?.content,
-    ).toContain('governedChangeId: "bgc-20260901-payment-month-end-0001"');
+      parseBatchDefinitionYaml(
+        client.state.files.find(
+          (file) =>
+            file.path === ".batch-governance/batches/payment.month-end.yml",
+        )?.content ?? "",
+      ),
+    ).toMatchObject({
+      governedChangeId: "bgc-20260901-payment-month-end-0001",
+    });
     expect(pullRequest?.body).toContain("batchplane:governed-change-request");
 
     client.state.currentUser.login = "maintainer";
@@ -757,9 +764,12 @@ describe("GitHub Lite governed change client", () => {
     );
     const created = await governedChanges.createBatchChangeRequest({
       ...registrationDraft,
-      artifact: {
-        bytes: new TextEncoder().encode("trusted?\n"),
-        fileName: "run.sh",
+      execution: {
+        ...registrationDraft.execution,
+        upload: {
+          bytes: new TextEncoder().encode("trusted?\n"),
+          fileName: "run.sh",
+        },
       },
     });
     const pullRequest = findCreatedPullRequest(
@@ -1832,7 +1842,10 @@ describe("GitHub Lite governed change client", () => {
     );
     const draft = {
       ...registrationDraft,
-      artifact: { bytes: new Uint8Array(), fileName: "empty.bin" },
+      execution: {
+        ...registrationDraft.execution,
+        upload: { bytes: new Uint8Array(), fileName: "empty.bin" },
+      },
     };
     const created = await governedChanges.createBatchChangeRequest(draft);
     const pullRequest = findCreatedPullRequest(
@@ -2225,15 +2238,22 @@ function workspaceRoleMapping(approverRoles: string[]): string {
 
 function changeDraft(
   overrides: Partial<BatchChangeDraft["batch"]> & {
-    artifact?: BatchChangeDraft["artifact"];
+    artifact?: NonNullable<BatchChangeDraft["execution"]["upload"]>;
+    existingArtifact?: NonNullable<
+      BatchChangeDraft["execution"]["existingFile"]
+    >;
   },
 ): BatchChangeDraft {
-  const { artifact, ...batch } = overrides;
+  const { artifact, existingArtifact, ...batch } = overrides;
 
   return {
     ...registrationDraft,
-    ...(artifact ? { artifact } : {}),
     batch: { ...registrationDraft.batch, ...batch },
+    execution: {
+      ...registrationDraft.execution,
+      ...(artifact ? { upload: artifact } : {}),
+      ...(existingArtifact ? { existingFile: existingArtifact } : {}),
+    },
     mode: "change",
     targetBatchId: batch.batchId ?? registrationDraft.batch.batchId,
   };

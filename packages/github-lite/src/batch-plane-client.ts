@@ -1,7 +1,5 @@
-import type {
-  BatchDefinition,
-  BatchPlaneRuntimePorts,
-} from "@batchplane/domain";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import type { BatchPlaneRuntimePorts } from "./github-runtime-contracts.js";
 import type {
   BatchControl,
   BatchDetailArchiveResult,
@@ -117,15 +115,49 @@ export function createGitHubLiteBatchReadClient({
 }
 
 function toBatchDetailDefinition(
-  batch: BatchDefinition,
+  batch: GitHubBatchDefinition,
 ): BatchDetailDefinition {
   return {
-    ...batch,
+    batchId: batch.batchId,
+    criticality: batch.criticality,
+    description: batch.description,
+    domain: batch.domain,
+    environment: batch.environment,
+    gateRequired: batch.gateRequired,
+    labels: batch.labels,
+    name: batch.name,
+    owner: batch.owner,
+    status: batch.status,
+    executionTarget: {
+      ...(batch.execution
+        ? {
+            command: batch.execution.command,
+            executionEnvironment: formatRunnerLabel(batch.execution.runsOn),
+            ...(batch.execution.artifactPath
+              ? {
+                  executionFile: {
+                    location: batch.execution.artifactPath,
+                    name:
+                      batch.execution.artifactPath.split("/").at(-1) ??
+                      batch.execution.artifactPath,
+                  },
+                }
+              : {}),
+          }
+        : {}),
+      platformName: "GitHub Actions",
+      targetName: batch.workflow.path,
+      targetRevision: batch.workflow.ref,
+    },
     schedules: batch.schedules?.map((schedule) => ({
       ...schedule,
       generatedCron: formatGeneratedScheduleCrons(schedule),
     })),
   };
+}
+
+function formatRunnerLabel(value: string | string[]): string {
+  return Array.isArray(value) ? value.join(", ") : value;
 }
 
 function toBatchDetailArchive(
@@ -142,7 +174,7 @@ function toBatchDetailArchive(
 }
 
 function toBatchListItem(
-  batch: BatchDefinition,
+  batch: GitHubBatchDefinition,
   control: BatchControl,
 ): BatchListItem {
   return {

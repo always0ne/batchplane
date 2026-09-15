@@ -2,7 +2,7 @@
   "title": "Failures",
   "subtitle": "Separate business failures from governance blocks.",
   "actions": {
-    "githubRun": "GitHub run",
+    "githubRun": "Source run",
     "openRun": "Open run",
     "openSetup": "Open Workspace",
     "recordFollowUp": "Record follow-up",
@@ -13,7 +13,7 @@
     "completedAt": "Completed",
     "requestId": "Request ID",
     "runId": "Run ID",
-    "workflow": "Workflow"
+    "workflow": "Execution target"
   },
   "filters": {
     "all": "All follow-up",

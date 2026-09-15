@@ -1,5 +1,5 @@
-import type { BatchDefinition } from "@batchplane/domain";
 import type {
+  GitHubBatchDefinition,
   GitHubDirectoryEntry,
   GitHubLiteClient,
   RepoRef,
@@ -17,7 +17,7 @@ export async function loadBatchDefinitions({
   client: GitHubLiteClient;
   ref: string;
   repository: RepoRef;
-}): Promise<BatchDefinition[]> {
+}): Promise<GitHubBatchDefinition[]> {
   const entries = await client.getDirectory({
     ...repository,
     path: batchDefinitionDirectory,
@@ -42,7 +42,7 @@ export async function loadBatchDefinitions({
   );
 
   return definitions
-    .filter((definition): definition is BatchDefinition =>
+    .filter((definition): definition is GitHubBatchDefinition =>
       Boolean(definition?.batchId),
     )
     .sort((left, right) => left.batchId.localeCompare(right.batchId));

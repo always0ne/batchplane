@@ -3,7 +3,8 @@ import {
   type ApprovedBatchRevisionBinding,
 } from "./approved-batch-revision.js";
 import { listRecentExecutionRequestSummaries } from "./execution-request-summaries.js";
-import { createGitHubLiteClient, type GitHubLiteClient } from "./index.js";
+import { createGitHubLiteClient } from "./github-client.js";
+import type { GitHubLiteClient } from "./github-types.js";
 
 /** Product adapter for authoritative Batch revision reads at UI/mutation edges. */
 export function createGitHubLiteBatchRevisionClient(

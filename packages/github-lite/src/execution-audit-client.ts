@@ -8,7 +8,7 @@ import {
 } from "./execution-audit-projection.js";
 import { listExecutionRunFacts } from "./execution-run-client.js";
 import { projectFailureFollowUpsForRequests } from "./failure-follow-up-projection.js";
-import type { GitHubIssue, GitHubPullRequest } from "./index.js";
+import type { GitHubIssue, GitHubPullRequest } from "./github-types.js";
 import {
   toRepositoryIssue,
   toRepositoryIssueComment,

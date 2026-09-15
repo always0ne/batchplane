@@ -26,10 +26,13 @@ const newBatchDraft: BatchChangeDraft = {
     environment: "PROD",
     name: "",
     owner: "",
-    runCommand: "",
-    runnerLabel: "ubuntu-latest",
     status: "ACTIVE",
-    workflowRef: "main",
+  },
+  execution: {
+    command: "",
+    platform: "GITHUB_ACTIONS",
+    ref: "main",
+    runnerLabel: "ubuntu-latest",
   },
   governedChangeId: "bgc-test-new-batch",
   mode: "create",
@@ -41,6 +44,134 @@ describe("BatchRegistrationPage", () => {
     await i18next.changeLanguage("en");
     vi.useRealTimers();
     vi.unstubAllEnvs();
+  });
+
+  it("bounds long workflow diffs inside shrinkable change-form columns without changing their text", async () => {
+    const nextContent =
+      "run-name: BatchPlane - Daily Close - ${{ github.event.inputs['batch-id'] || 'scheduled' }} - ${{ github.event.inputs.request_id || github.event.schedule }}\n";
+    const draft: BatchChangeDraft = {
+      ...newBatchDraft,
+      batch: {
+        ...newBatchDraft.batch,
+        batchId: "payment.daily-close",
+        domain: "payments",
+        name: "Daily Close",
+        owner: "ops-team",
+      },
+      execution: { ...newBatchDraft.execution, command: "echo close" },
+      mode: "change",
+    };
+    renderPage(
+      createClient({
+        loadBatchChangeDraft: async () => draft,
+        previewBatchChange: async () => ({
+          ...preview(),
+          files: [
+            {
+              baseContent: "run-name: BatchPlane - Daily Close\n",
+              nextContent,
+              path: ".github/workflows/payment.daily-close.yml",
+              status: "MODIFIED",
+            },
+          ],
+        }),
+      }),
+      "/batches/new?change=payment.daily-close",
+    );
+
+    const addedLine = await screen.findByText(`+ ${nextContent.trimEnd()}`);
+    const diff = addedLine.closest("pre");
+    const form = screen.getByLabelText("Batch ID").closest("form");
+    expect(form).toHaveClass("min-w-0", "grid-cols-1");
+    expect(form?.firstElementChild).toHaveClass("min-w-0");
+    expect(form?.querySelector("aside")).toHaveClass("min-w-0");
+    expect(diff).toHaveClass("min-w-0", "max-w-full", "overflow-auto");
+    expect(diff?.closest("article")).toHaveClass("min-w-0");
+    expect(addedLine.textContent).toBe(`+ ${nextContent.trimEnd()}`);
+    expect(screen.getByLabelText("Workflow ref")).toHaveClass(
+      "min-w-0",
+      "w-full",
+    );
+    expect(screen.getByLabelText("Execution file")).toHaveClass(
+      "min-w-0",
+      "w-full",
+    );
+    expect(screen.getByLabelText("Batch command")).toHaveClass(
+      "min-w-0",
+      "w-full",
+    );
+  });
+
+  it("keeps business, GitHub execution, and schedules in order and submits the uploaded file with the explicit command", async () => {
+    const previewBatchChange = vi
+      .fn<
+        Parameters<BatchPlaneClient["previewBatchChange"]>,
+        ReturnType<BatchPlaneClient["previewBatchChange"]>
+      >()
+      .mockResolvedValue(preview());
+    const createBatchChangeRequest = vi
+      .fn<
+        Parameters<BatchPlaneClient["createBatchChangeRequest"]>,
+        ReturnType<BatchPlaneClient["createBatchChangeRequest"]>
+      >()
+      .mockResolvedValue({ request: requestResult("42") });
+    renderPage(createClient({ createBatchChangeRequest, previewBatchChange }));
+
+    await screen.findByRole("heading", { name: "Registration" });
+    expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .slice(0, 3)
+        .map((heading) => heading.textContent),
+    ).toEqual(["Batch definition", "Workflow", "Schedules"]);
+    fillRequiredRegistrationFields();
+    fireEvent.change(screen.getByLabelText("Workflow ref"), {
+      target: { value: "release/close" },
+    });
+    const bytes = new Uint8Array([0, 1, 255]);
+    const file = new File([bytes], "close.jar");
+    Object.defineProperty(file, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(bytes.buffer),
+    });
+    fireEvent.change(screen.getByLabelText("Execution file"), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() => {
+      expect(previewBatchChange.mock.lastCall?.[0].execution.upload).toEqual({
+        bytes,
+        fileName: "close.jar",
+      });
+    });
+    expect(screen.getByLabelText("Batch command")).toHaveValue("echo close");
+    expect(previewBatchChange.mock.lastCall?.[0]).toMatchObject({
+      batch: {
+        batchId: "payment.daily-close",
+        domain: "payments",
+        owner: "ops-team",
+      },
+      execution: {
+        command: "echo close",
+        platform: "GITHUB_ACTIONS",
+        ref: "release/close",
+      },
+      governedChangeId: newBatchDraft.governedChangeId,
+    });
+    expect(previewBatchChange.mock.lastCall?.[0].batch).not.toHaveProperty(
+      "runnerLabel",
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Create registration change" }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create registration change" }),
+    );
+    await screen.findByText("Request 42 opened");
+    expect(createBatchChangeRequest.mock.lastCall?.[0]).toEqual(
+      previewBatchChange.mock.lastCall?.[0],
+    );
   });
 
   it("creates a governed registration request from the actual product preview", async () => {
@@ -94,8 +225,8 @@ describe("BatchRegistrationPage", () => {
         domain: "payments",
         name: "Daily Close",
         owner: "ops-team",
-        runCommand: "echo close",
       },
+      execution: { ...newBatchDraft.execution, command: "echo close" },
       mode: "change",
       schedules: [
         {
@@ -230,7 +361,7 @@ describe("BatchRegistrationPage", () => {
     await waitFor(() => {
       expect(createBatchChangeRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          batch: expect.objectContaining({
+          execution: expect.objectContaining({
             runnerLabel: "self-hosted, linux, x64",
           }),
         }),
@@ -248,8 +379,8 @@ describe("BatchRegistrationPage", () => {
         domain: "payments",
         name: "Daily Close",
         owner: "ops-team",
-        runCommand: "echo close",
       },
+      execution: { ...newBatchDraft.execution, command: "echo close" },
       mode: "change",
       schedules: [schedule("daily-close")],
     };
@@ -264,7 +395,13 @@ describe("BatchRegistrationPage", () => {
     await screen.findByDisplayValue("daily-close");
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     expect(await screen.findByText("Pending delete")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cron")).toBeDisabled();
+    expect(screen.getByLabelText("Timezone")).toBeDisabled();
+    expect(screen.getByLabelText("Enabled")).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Undo delete" }));
+    expect(screen.getByLabelText("Cron")).toBeEnabled();
+    expect(screen.getByLabelText("Timezone")).toBeEnabled();
+    expect(screen.getByLabelText("Enabled")).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Add schedule" }));
 
     fireEvent.change(screen.getAllByPlaceholderText("daily-close").at(-1)!, {
@@ -374,6 +511,9 @@ describe("BatchRegistrationPage", () => {
     );
 
     await screen.findByRole("heading", { name: "Delete batch" });
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Execution file")).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Create deletion request" }),
     );

@@ -1,16 +1,20 @@
 import type {
-  ExecutionRequestPayload,
   ExecutionRequestStatus,
   ExecutionRun,
   ExecutionRunJob,
   ExecutionRunStatus,
-  RunnerLabel,
   WorkspaceApprovalMode,
 } from "@batchplane/domain";
+import type { BatchExecutionTarget } from "./batch-details.js";
 
 /** Source evidence can be inspected before an execution request is correlated. */
 export type ExecutionRunPresentation = ExecutionRun & {
+  executionTarget?: {
+    location?: string;
+    name?: string;
+  };
   observedAt?: string;
+  sourceUrl?: string;
   evidenceScope?: "SOURCE_RUN";
   nativeSchedule?: NonNullable<ExecutionAttempt["nativeSchedule"]> & {
     executionLocator: string;
@@ -28,17 +32,11 @@ export type ExecutionRequestBatchContext = {
   criticality: string;
   domain: string;
   environment: string;
-  execution?: {
-    artifactPath?: string;
-    command: string;
-    runsOn: RunnerLabel;
-  };
+  executionTarget?: BatchExecutionTarget;
   gateRequired: boolean;
   name: string;
   owner: string;
   status: "ACTIVE" | "INACTIVE";
-  workflowPath: string;
-  workflowRef: string;
 };
 
 export type ExecutionRequestDraft = {
@@ -69,7 +67,7 @@ export type ExecutionRequestInput = {
   expiresAt: string;
   parameters: ExecutionRequestParameter[];
   reason: string;
-  workflowRef: string;
+  targetRevision: string;
 };
 
 export class ExecutionRequestCreationUnavailableError extends Error {
@@ -102,6 +100,13 @@ export type ExecutionRequestEvidence = {
     label: string;
     requestLocator: string;
   };
+};
+
+/** Product-visible schedule identity, intentionally free of repository/SHA evidence. */
+export type ExecutionScheduleOccurrence = {
+  scheduleId: string;
+  sourceRunAttempt: number;
+  sourceRunId: string;
 };
 
 export type ExecutionDecision = {
@@ -159,9 +164,9 @@ export type ExecutionAttempt = {
     sourceRunAttempt: number;
     sourceRunId: string;
   };
-  workflow: {
+  executionTarget?: {
+    location?: string;
     name?: string;
-    path?: string;
   };
 };
 
@@ -188,6 +193,8 @@ export type ExecutionRequest = {
     criticality: string;
     domain: string;
     environment: string;
+    /** Canonical request snapshot when present; legacy evidence intentionally omits it. */
+    gateRequired?: boolean;
     name: string;
     owner: string;
   };
@@ -195,12 +202,7 @@ export type ExecutionRequest = {
   capability: ExecutionRequestCapability;
   dispatcher?: ExecutionDispatch;
   evidence: ExecutionRequestEvidence;
-  execution?: {
-    artifactPath?: string;
-    command: string;
-    gateRequired: boolean;
-    runsOn: RunnerLabel;
-  };
+  executionTarget?: BatchExecutionTarget;
   expiresAt: string;
   gateDecision?: ExecutionGateDecision;
   reason: string;
@@ -217,11 +219,7 @@ export type ExecutionRequest = {
   updatedAt: string;
   workspaceLabel: string;
   attempts: ExecutionAttempts;
-  schedule?: NonNullable<ExecutionRequestPayload["spec"]["schedule"]>;
-  workflow?: {
-    path: string;
-    ref: string;
-  };
+  schedule?: ExecutionScheduleOccurrence;
 };
 
 export type ExecutionRequestPreview = {

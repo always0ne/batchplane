@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RuntimeClientTestProvider } from "../../test/RuntimeClientTestProvider";
 
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import type { BatchPlaneRuntimePorts } from "@batchplane/github-lite";
 import {
   createMockGitHubLiteClient,
   type GitHubLiteMockState,
@@ -95,7 +95,7 @@ describe("ExecutionRunDetailPage", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open GitHub run" }),
+      screen.getByRole("link", { name: "Open source run" }),
     ).toHaveAttribute("href", run.url);
     expect(screen.getByText("Job conclusion summary")).toBeInTheDocument();
     expect(screen.getByText("BatchPlane Gate")).toBeInTheDocument();

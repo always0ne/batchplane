@@ -1,10 +1,8 @@
 import {
   authorizeGovernedChangeApproval,
-  createGovernedChangeRequestDigest,
-  type GovernedChangeRequestEvidence,
-  type RoleMapping,
   type WorkspacePolicy,
 } from "@batchplane/domain";
+import type { RoleMapping } from "./governance-schema.js";
 import { sha256BytesHex } from "@batchplane/digest";
 import type {
   GovernedChangeDetail,
@@ -14,14 +12,18 @@ import type {
 
 import {
   parseGovernedChangeDecisionEvidence,
+  createGovernedChangeRequestDigest,
   parseGovernedChangeRequestEvidence,
   parseGovernedChangeWithdrawalEvidence,
   parseUnverifiedGovernedChangeDisposition,
-  type GitHubIssueComment,
-  type GitHubLiteClient,
-  type GitHubPullRequest,
-  type RepoRef,
-} from "./index.js";
+  type GovernedChangeRequestEvidence,
+} from "./governed-change-evidence.js";
+import type {
+  GitHubIssueComment,
+  GitHubLiteClient,
+  GitHubPullRequest,
+  RepoRef,
+} from "./github-types.js";
 import {
   hasGovernedChangeRole,
   loadGovernedChangePolicy,

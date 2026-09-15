@@ -1,9 +1,59 @@
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import type { BatchPlaneRuntimePorts } from "./github-runtime-contracts.js";
 import { ExecutionInspectionError } from "@batchplane/ui-client";
 import { describe, expect, it, vi } from "vitest";
 import { createGitHubLiteExecutionInspectionClient } from "./execution-inspection-client.js";
+import type { ExecutionRunFacts } from "./execution-run-projection.js";
 import { GitHubLiteApiError } from "./index.js";
 describe("execution inspection adapter boundary", () => {
+  it("projects neutral run fields without leaking raw GitHub correlation fields", async () => {
+    const run: ExecutionRunFacts = {
+      batchId: "payment.daily-close",
+      nativeSchedule: {
+        executionLocator: "native:request-7:992:1",
+        observation: "SUCCEEDED",
+        scheduleId: "daily",
+        sourceRunAttempt: 1,
+        sourceRunId: "992",
+      },
+      requestId: "request-7",
+      requestIssueNumber: 17,
+      requestIssueUrl: "https://github.example/issues/17",
+      runId: "native:request-7:992:1",
+      sourceStatus: "completed",
+      status: "SUCCEEDED",
+      workflowName: "Daily close",
+      workflowPath: ".github/workflows/daily-close.yml",
+      workflowRunId: "992",
+      workflowRunUrl: "https://github.example/actions/runs/992",
+    };
+    const runtime = {
+      executions: { listExecutionRuns: async () => [run] },
+    } as unknown as BatchPlaneRuntimePorts;
+
+    const [presentation] = await createGitHubLiteExecutionInspectionClient({
+      runtime,
+    }).listExecutionRuns();
+
+    expect(presentation).toMatchObject({
+      executionTarget: {
+        location: ".github/workflows/daily-close.yml",
+        name: "Daily close",
+      },
+      nativeSchedule: run.nativeSchedule,
+      sourceUrl: "https://github.example/actions/runs/992",
+    });
+    for (const rawKey of [
+      "requestIssueNumber",
+      "requestIssueUrl",
+      "workflowName",
+      "workflowPath",
+      "workflowRunId",
+      "workflowRunUrl",
+    ]) {
+      expect(presentation).not.toHaveProperty(rawKey);
+    }
+  });
+
   it("selects the native business command section without changing full log bytes", async () => {
     const content = [
       "2026-09-11T01:00:00Z BATCHPLANE_GATE_RESULT allowed=true",

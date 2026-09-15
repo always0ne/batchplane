@@ -1,10 +1,11 @@
 import { sha256BytesHex } from "@batchplane/digest";
-import type { BatchDefinition } from "@batchplane/domain";
-import { createTargetRevisionDigest } from "@batchplane/domain";
+import type { GitHubBatchDefinition } from "@batchplane/github-lite";
 import {
   buildGovernedChangeRequestBody,
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
+  createTargetRevisionDigest,
+  parseGovernanceYaml,
   serializeBatchDefinitionYaml,
   type GitHubLiteMockState,
 } from "@batchplane/github-lite";
@@ -58,7 +59,7 @@ async function createDeletedArchiveState(
     throw new Error("The default mock state is missing archive fixture files.");
   }
 
-  const batchDefinition: BatchDefinition = {
+  const batchDefinition: GitHubBatchDefinition = {
     batchId,
     criticality: "HIGH",
     domain: "payments",
@@ -1063,13 +1064,18 @@ describe("createGitHubLiteRuntime", () => {
         title: "Update BatchPlane Workspace policy",
       }),
     );
-    expect(
-      client.state.files.find(
-        (file) =>
-          file.branch === pullRequest.head &&
-          file.path === ".batch-governance/workspace.yml",
-      )?.content,
-    ).toContain('mode: "SELF_APPROVAL_ALLOWED"');
+    const policyFile = client.state.files.find(
+      (file) =>
+        file.branch === pullRequest.head &&
+        file.path === ".batch-governance/workspace.yml",
+    );
+    if (!policyFile) {
+      throw new Error("Workspace policy file was not created.");
+    }
+    expect(parseGovernanceYaml(policyFile.content)).toMatchObject({
+      ok: true,
+      value: { spec: { approval: { mode: "SELF_APPROVAL_ALLOWED" } } },
+    });
   });
 
   it("creates Workspace workflow update pull requests through the SettingsPort", async () => {

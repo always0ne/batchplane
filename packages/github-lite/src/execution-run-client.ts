@@ -1,5 +1,4 @@
 import type { FailureFollowUp, GateDecision } from "@batchplane/domain";
-import type { BatchPlaneClient } from "@batchplane/ui-client";
 import {
   findExecutionRequestForRun,
   findWorkflowForRun,
@@ -19,7 +18,8 @@ import type {
   GitHubWorkflow,
   GitHubWorkflowJob,
   GitHubWorkflowRun,
-} from "./index.js";
+} from "./github-types.js";
+import type { BatchPlaneRuntimePorts } from "./github-runtime-contracts.js";
 import {
   loadExecutionApprovalRequests,
   type ExecutionInspectionContext,
@@ -30,7 +30,9 @@ import {
   projectNativeScheduleRun,
 } from "./native-schedule-projections.js";
 
-type RunQuery = Parameters<BatchPlaneClient["listExecutionRuns"]>[0];
+type RunQuery = Parameters<
+  BatchPlaneRuntimePorts["executions"]["listExecutionRuns"]
+>[0];
 type SourceContext = {
   run: GitHubWorkflowRun;
   workflow: GitHubWorkflow | undefined;
@@ -39,7 +41,10 @@ type SourceContext = {
 
 export function createGitHubLiteExecutionRunClient(
   context: ExecutionInspectionContext,
-): Pick<BatchPlaneClient, "getExecutionRun" | "listExecutionRuns"> {
+): Pick<
+  BatchPlaneRuntimePorts["executions"],
+  "getExecutionRun" | "listExecutionRuns"
+> {
   return {
     getExecutionRun: (input) => getExecutionRun(context, input),
     listExecutionRuns: (input) => listExecutionRunFacts(context, input),
@@ -48,7 +53,10 @@ export function createGitHubLiteExecutionRunClient(
 
 async function getExecutionRun(
   context: ExecutionInspectionContext,
-  { runId, runAttempt }: Parameters<BatchPlaneClient["getExecutionRun"]>[0],
+  {
+    runId,
+    runAttempt,
+  }: Parameters<BatchPlaneRuntimePorts["executions"]["getExecutionRun"]>[0],
 ) {
   const { client, repositoryRef } = context;
   const nativeLocator = parseNativeScheduleExecutionLocator(runId);
@@ -117,7 +125,7 @@ async function inspectSourceRun(
 
 export async function listExecutionRunFacts(
   context: ExecutionInspectionContext,
-  { batchId, limit = 20, requestId, workflowPath }: NonNullable<RunQuery> = {},
+  { batchId, limit = 20, requestId, workflowPath }: RunQuery = {},
   options: {
     requests?: ExecutionRequestForRun[];
     includeFollowUps?: boolean;

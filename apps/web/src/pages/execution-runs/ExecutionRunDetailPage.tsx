@@ -130,10 +130,10 @@ export function ExecutionRunDetailPage() {
           >
             {t("runDetail.actions.openBatch")}
           </Link>
-          {run.workflowRunUrl ? (
+          {run.sourceUrl ? (
             <a
               className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-              href={run.workflowRunUrl}
+              href={run.sourceUrl}
               rel="noreferrer"
               target="_blank"
             >

@@ -1,4 +1,5 @@
-import { createGitHubLiteClient, type GitHubLiteClient } from "./index.js";
+import { createGitHubLiteClient } from "./github-client.js";
+import type { GitHubLiteClient } from "./github-types.js";
 import { createGovernedChangeOperations } from "./governed-change-operations.js";
 
 /** Composes the GitHub session with the concrete R2-A governed-change flows. */

@@ -2,6 +2,7 @@ export * from "./batches.js";
 export * from "./batch-details.js";
 export * from "./execution-requests.js";
 export * from "./governed-changes.js";
+export * from "./github-actions-execution.js";
 export * from "./request-inventory.js";
 export * from "./execution-inspection.js";
 export * from "./workspace.js";

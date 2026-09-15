@@ -35,7 +35,7 @@ type FormValues = {
   expiresInHours: string;
   parameters: ParameterRow[];
   reason: string;
-  workflowRef: string;
+  targetRevision: string;
 };
 
 const expiryOptions = ["1", "4", "8", "24"] as const;
@@ -105,7 +105,7 @@ function ExecutionRequestFormSession({
     expiresInHours: "1",
     parameters: [],
     reason: t("form.defaultReason"),
-    workflowRef: draft.batch.workflowRef,
+    targetRevision: draft.batch.executionTarget?.targetRevision ?? "",
   });
   const validationErrors = useMemo(
     () => [
@@ -126,7 +126,7 @@ function ExecutionRequestFormSession({
         value,
       })),
       reason: formValues.reason,
-      workflowRef: formValues.workflowRef,
+      targetRevision: formValues.targetRevision,
     }),
     [draft, formValues],
   );
@@ -226,14 +226,17 @@ function BatchRequestContext({
         <Fact label={t("context.owner")} value={batch.owner} />
         <Fact label={t("context.domain")} value={batch.domain} />
         <Fact label={t("context.environment")} value={batch.environment} />
-        <Fact label={t("context.workflowPath")} value={batch.workflowPath} />
+        <Fact
+          label={t("context.workflowPath")}
+          value={batch.executionTarget?.targetName ?? "-"}
+        />
         <Fact
           label={t("context.runsOn")}
-          value={formatRunnerLabel(batch.execution?.runsOn ?? "")}
+          value={batch.executionTarget?.executionEnvironment ?? "-"}
         />
         <Fact
           label={t("context.command")}
-          value={batch.execution?.command || t("context.missingCommand")}
+          value={batch.executionTarget?.command || t("context.missingCommand")}
         />
       </dl>
     </article>
@@ -305,11 +308,11 @@ function RequestForm({
         {t("form.title")}
       </h2>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <Field label={t("form.workflowRef")}>
+        <Field label={t("form.targetRevision")}>
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-bp-graphite outline-none focus:border-bp-git focus:ring-2 focus:ring-bp-git/20"
-            onChange={updateField("workflowRef")}
-            value={formValues.workflowRef}
+            onChange={updateField("targetRevision")}
+            value={formValues.targetRevision}
           />
         </Field>
         <Field label={t("form.expiresIn")}>
@@ -455,10 +458,13 @@ function RequestReviewPanel({
         </div>
 
         <dl className="mt-5 space-y-3 text-sm">
-          <ReviewFact label={t("review.workflow")} value={batch.workflowPath} />
+          <ReviewFact
+            label={t("review.workflow")}
+            value={batch.executionTarget?.targetName ?? "-"}
+          />
           <ReviewFact
             label={t("review.runner")}
-            value={formatRunnerLabel(batch.execution?.runsOn ?? "")}
+            value={batch.executionTarget?.executionEnvironment ?? "-"}
           />
           <ReviewFact
             label={t("review.requestId")}
@@ -478,7 +484,7 @@ function RequestReviewPanel({
 
         <ul className="mt-5 space-y-2 text-sm">
           <CheckItem
-            ready={Boolean(batch.execution?.command.trim())}
+            ready={Boolean(batch.executionTarget?.command?.trim())}
             text={t("review.commandReady")}
           />
           <CheckItem
@@ -627,8 +633,8 @@ function validateForm(
 ): string[] {
   const errors: string[] = [];
 
-  if (!values.workflowRef.trim()) {
-    errors.push(t("validation.workflowRef"));
+  if (!values.targetRevision.trim()) {
+    errors.push(t("validation.targetRevision"));
   }
 
   if (!values.reason.trim()) {
@@ -649,14 +655,6 @@ function validateForm(
   });
 
   return errors;
-}
-
-function formatRunnerLabel(
-  runsOn:
-    | NonNullable<ExecutionRequestDraft["batch"]["execution"]>["runsOn"]
-    | "",
-) {
-  return Array.isArray(runsOn) ? runsOn.join(", ") : runsOn || "-";
 }
 
 function addHours(requestedAt: string, hours: number): string {

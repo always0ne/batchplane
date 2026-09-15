@@ -3,16 +3,14 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
   buildExecutionRequestIssue,
-  type BatchDefinition,
-} from "@batchplane/domain";
-import {
   getNativeScheduleWorkflowJobIdentity,
   serializeBatchDefinitionYaml,
+  type GitHubBatchDefinition,
 } from "@batchplane/github-lite";
 import { parseExecutionGateResult } from "@batchplane/github-lite";
 
 const sha = "a".repeat(40);
-const batch: BatchDefinition = {
+const batch: GitHubBatchDefinition = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
   domain: "payments",

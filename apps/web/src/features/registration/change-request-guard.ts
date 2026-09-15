@@ -3,7 +3,7 @@ import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchplane/domain";
+} from "@batchplane/github-lite";
 
 import {
   parseExecutionRequestDetail,

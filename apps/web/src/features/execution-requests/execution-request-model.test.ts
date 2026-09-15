@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BatchDefinition } from "@batchplane/domain";
+import type { GitHubBatchDefinition } from "@batchplane/github-lite";
 
 import {
   addHours,
@@ -9,7 +9,7 @@ import {
   createScheduledExecutionRequestId,
 } from "./execution-request-model";
 
-const batch: BatchDefinition = {
+const batch: GitHubBatchDefinition = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
   domain: "payments",

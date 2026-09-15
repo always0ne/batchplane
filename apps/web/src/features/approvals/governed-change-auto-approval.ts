@@ -1,7 +1,7 @@
 import type {
   BatchPlaneRuntimePorts,
   RepositoryPullRequest,
-} from "@batchplane/domain";
+} from "@batchplane/github-lite";
 
 import {
   buildRegistrationApprovalComment,

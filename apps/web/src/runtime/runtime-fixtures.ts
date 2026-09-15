@@ -1,4 +1,4 @@
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import type { BatchPlaneRuntimePorts } from "@batchplane/github-lite";
 import {
   createGitHubLiteGovernedChangeClient,
   createGitHubLiteBatchRevisionClient,

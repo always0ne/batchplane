@@ -6,22 +6,28 @@ import {
 } from "@batchplane/ui-client";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
-import "../../i18n/i18n";
+import { i18next } from "../../i18n/i18n";
 import { BatchDetailPage } from "./BatchDetailPage";
 
-const activeDetail: BatchDetailResult = {
+const activeDetail: Extract<BatchDetailResult, { type: "active" }> = {
   batch: {
     batchId: "payment.daily-close",
     criticality: "HIGH",
     domain: "payments",
     environment: "PROD",
-    execution: {
-      artifactPath: "dist/daily-close.jar",
+    executionTarget: {
+      executionFile: {
+        location: "dist/daily-close.jar",
+        name: "daily-close.jar",
+      },
       command: "java -jar dist/daily-close.jar",
-      runsOn: ["self-hosted", "payments"],
+      executionEnvironment: "self-hosted, payments",
+      platformName: "GitHub Actions",
+      targetName: ".github/workflows/daily-close.yml",
+      targetRevision: "main",
     },
     gateRequired: true,
     labels: ["close"],
@@ -38,7 +44,6 @@ const activeDetail: BatchDetailResult = {
       },
     ],
     status: "ACTIVE",
-    workflow: { path: ".github/workflows/daily-close.yml", ref: "main" },
   },
   control: {
     approvedRevision: {
@@ -65,6 +70,54 @@ const activeDetail: BatchDetailResult = {
 };
 
 describe("BatchDetailPage", () => {
+  afterEach(async () => {
+    await i18next.changeLanguage("en");
+  });
+
+  it.each(["en", "ko"])(
+    "keeps target and file details visible without a command in %s",
+    async (locale) => {
+      await i18next.changeLanguage(locale);
+      renderDetail(
+        createClient({
+          ...activeDetail,
+          batch: {
+            ...activeDetail.batch,
+            executionTarget: {
+              platformName: "GitHub Actions",
+              targetName: ".github/workflows/daily-close.yml",
+              targetRevision: "release/close",
+              executionEnvironment: "self-hosted, payments",
+              executionFile: {
+                name: "daily-close.jar",
+                location: "dist/daily-close.jar",
+              },
+            },
+          },
+        }),
+      );
+
+      expect(await screen.findByText("Daily Close")).toBeInTheDocument();
+      expect(screen.getByText("GitHub Actions")).toBeInTheDocument();
+      expect(
+        screen.getByText(".github/workflows/daily-close.yml"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("release/close")).toBeInTheDocument();
+      expect(screen.getByText("self-hosted, payments")).toBeInTheDocument();
+      expect(screen.getByText("dist/daily-close.jar")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", {
+          name: i18next.t("batches:detail.workflow.title"),
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", {
+          name: i18next.t("batches:actions.requestRun"),
+        }),
+      ).toBeDisabled();
+    },
+  );
+
   it("renders execution target, schedules, verified control, and internal recent-request links", async () => {
     renderDetail(createClient(activeDetail));
 

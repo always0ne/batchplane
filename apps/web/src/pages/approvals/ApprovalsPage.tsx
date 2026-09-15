@@ -356,23 +356,25 @@ function ExecutionApproval({
         <ApprovalMeta
           label={t("fields.workflow")}
           value={
-            request.workflow
-              ? `${request.workflow.path}@${request.workflow.ref}`
+            request.executionTarget
+              ? `${request.executionTarget.targetName}@${request.executionTarget.targetRevision}`
               : t("values.unknown")
           }
         />
         <ApprovalMeta
           label={t("fields.runsOn")}
-          value={runnerLabel(request.execution?.runsOn) || t("values.unknown")}
+          value={
+            request.executionTarget?.executionEnvironment || t("values.unknown")
+          }
         />
         <ApprovalMeta
           label={t("fields.command")}
-          value={request.execution?.command ?? t("values.unknown")}
+          value={request.executionTarget?.command ?? t("values.unknown")}
         />
         <ApprovalMeta
           label={t("fields.gate")}
           value={
-            request.execution?.gateRequired
+            request.batch.gateRequired
               ? t("values.gateRequired")
               : t("values.gateNonCompliant")
           }
@@ -439,12 +441,6 @@ function governedChangeTypeLabel(
       ? "DELETE"
       : "CHANGE";
   return t(`values.registrationRequestTypes.${requestType}`);
-}
-
-function runnerLabel(
-  value: NonNullable<ExecutionRequest["execution"]>["runsOn"] | undefined,
-) {
-  return Array.isArray(value) ? value.join(", ") : (value ?? "");
 }
 
 function messageFrom(error: unknown): string {

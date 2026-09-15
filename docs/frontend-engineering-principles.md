@@ -502,6 +502,44 @@ Code is maintained by people before it is optimized for abstraction count.
 Splitting is based on responsibility, not a mechanical line limit. Moving a
 1,000-line Page into a 1,000-line Hook is not a refactor.
 
+Read the changed flow from its entry point as a maintainer. Names should expose
+the action and result; side effects should be visible; helpers should let the
+reader understand the main flow without chasing unnecessary forwarding layers.
+Review function size, file size, and navigation cost together. Extract coherent
+responsibilities when executable logic spans unrelated decisions or state
+lifetimes. Do not create one file per function or type just to meet a line count.
+Declaration lists and fixtures can be longer than executable logic, but mixed
+ownership still needs correction. Explain any retained large unit in the review.
+
+Readability, applicable official-library patterns, manageable function/file size,
+and absence of speculative engineering are mandatory acceptance checks. They
+apply to adapters and tests as well as React, and must be included in delegated
+instructions. Passing tests does not waive these checks. Official React guidance
+also does not prescribe our folder names or a numerical file-size threshold.
+
+## Refactoring Plan Discipline
+
+When the checkout has a local execution ledger, start or resume from its latest
+entry and linked active plan, then verify the branch and source state. The active
+plan owns the detailed work-item status; the ledger owns the current pointer and
+handoff. Historical records must not override that pointer. A local plan does not
+replace committed product requirements or authorize an unapproved feature.
+
+Record the approved scope, current item, source-to-target responsibilities,
+unchanged behavior, excluded work, decision owner, and observable completion
+criteria before delegation. Update that same plan when an item completes, a
+decision changes, work is handed off, or work stops. Keep implementation,
+verification, PR delivery, and user merge distinct; record the tested revision
+and unverified areas. Do not restart completed work or pick an easier issue
+without an explicit change to the agreed sequence.
+
+At each review, inspect the actual changed flow and dependency direction, not
+only filenames or test totals. A new behavior, parser replacement, dependency,
+fallback, or public-contract change requires an explicit scope decision before
+implementation. Future extensibility means keeping today's ownership clear,
+not building engines or defensive paths with no present requirement. Existing
+trust-boundary checks are not removable simply because they look defensive.
+
 ## Tests
 
 Co-locate focused unit, Hook, and component tests with the implementation they
@@ -587,6 +625,10 @@ Batch list is the first proof surface.
 - [ ] Render is pure; events and Effects have the correct ownership.
 - [ ] State is minimal and has one clear owner.
 - [ ] Functions and files remain readable without speculative abstractions.
+- [ ] Changed entry points read clearly through their helpers; any retained
+      large function or file has a concrete reason, not merely a passing test.
+- [ ] The active plan records current status, evidence, unresolved decisions,
+      and the next step without claiming user merge or unperformed validation.
 - [ ] Tests cover the relevant observable states and remain correctly located.
 - [ ] UI/UX, accessibility, English/Korean, desktop/mobile checks are complete.
 - [ ] Verification matches the changed risk: full local verification for code,

@@ -13,8 +13,8 @@
     "governed": "Governed",
     "missingCommand": "Batch command is missing",
     "owner": "Owner",
-    "runsOn": "Runs on",
-    "workflowPath": "Workflow path"
+    "runsOn": "Execution environment",
+    "workflowPath": "Execution target"
   },
   "detail": {
     "title": "Execution request detail",
@@ -61,9 +61,9 @@
       "requestDigest": "Request digest",
       "requestedAt": "Requested at",
       "requestedBy": "Requested by",
-      "runsOn": "Runs on",
+      "runsOn": "Execution environment",
       "sourceChange": "Source change",
-      "workflow": "Workflow"
+      "workflow": "Execution target"
     },
     "governance": {
       "digest": "Request digest is present.",
@@ -124,7 +124,7 @@
       "backToFailures": "Back to failures",
       "backToRuns": "Back to runs",
       "openBatch": "Open batch",
-      "openGitHubRun": "Open GitHub run",
+      "openGitHubRun": "Open source run",
       "refresh": "Refresh"
     },
     "business": {
@@ -191,7 +191,7 @@
       "runAttempt": "Attempt",
       "runId": "Run ID",
       "startedAt": "Started at",
-      "workflow": "Workflow"
+      "workflow": "Execution target"
     },
     "gate": {
       "allowedMessage": "Gate allowed this run before the batch command.",
@@ -263,7 +263,7 @@
       "inProgress": "In progress",
       "none": "None",
       "unknown": "Unknown",
-      "unknownWorkflow": "GitHub Actions workflow"
+      "unknownWorkflow": "Execution target unavailable"
     }
   },
   "form": {
@@ -272,7 +272,8 @@
     "expiresInOption": "{{hours}} hour(s)",
     "reason": "Reason",
     "title": "Request details",
-    "workflowRef": "Workflow ref"
+    "workflowRef": "Workflow ref",
+    "targetRevision": "Target revision"
   },
   "parameters": {
     "add": "Add parameter",
@@ -300,9 +301,9 @@
     "noDispatch": "Creating the request does not dispatch the workflow.",
     "pending": "Pending",
     "requestId": "Request ID",
-    "runner": "Runner",
+    "runner": "Execution environment",
     "title": "Request review",
-    "workflow": "Workflow"
+    "workflow": "Execution target"
   },
   "states": {
     "completeForm": "Complete the request before creating it.",
@@ -327,6 +328,7 @@
     "missingCommand": "The batch command is not recorded in the batch definition.",
     "parameterName": "Parameter name is required when a value is entered.",
     "reason": "Reason is required.",
-    "workflowRef": "Workflow ref is required."
+    "workflowRef": "Workflow ref is required.",
+    "targetRevision": "Target revision is required."
   }
 }

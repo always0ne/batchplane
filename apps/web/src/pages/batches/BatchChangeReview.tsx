@@ -44,15 +44,17 @@ export function BatchChangeReview({
   });
 
   return (
-    <aside className="space-y-4">
-      <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <aside className="min-w-0 space-y-4">
+      <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-bp-graphite">
           {t("review.title")}
         </h2>
         <p className="mt-2 text-sm text-bp-muted">{t(reviewCopyKey(mode))}</p>
         {missingFields.length > 0 ? (
           <p className="mt-3 text-sm font-medium text-amber-800">
-            {t("errors.required", { fields: missingFields.join(", ") })}
+            {t("errors.required", {
+              fields: formatMissingFields(missingFields, t),
+            })}
           </p>
         ) : null}
         {previewState.type === "loading" || previewState.type === "idle" ? (
@@ -137,11 +139,25 @@ function getDisabledReason({
   t: (key: string, options?: Record<string, unknown>) => string;
 }): string | undefined {
   if (missingFields.length > 0) {
-    return t("errors.required", { fields: missingFields.join(", ") });
+    return t("errors.required", {
+      fields: formatMissingFields(missingFields, t),
+    });
   }
   if (noChanges) return t("errors.noChanges");
   if (previewState.type !== "ready") return t("errors.previewNotReady");
   return undefined;
+}
+
+function formatMissingFields(
+  fields: string[],
+  t: (key: string) => string,
+): string {
+  const labels: Record<string, string> = {
+    "execution.command": t("form.runCommand"),
+    "execution.ref": t("form.workflowRef"),
+    "execution.runnerLabel": t("form.runnerLabel"),
+  };
+  return fields.map((field) => labels[field] ?? field).join(", ");
 }
 
 function reviewCopyKey(mode: BatchChangeDraft["mode"]): string {

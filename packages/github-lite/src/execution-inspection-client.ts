@@ -1,9 +1,13 @@
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
   ExecutionInspectionError,
   type BatchPlaneClient,
+  type ExecutionRunPresentation,
 } from "@batchplane/ui-client";
 import { extractBusinessLogSection } from "./execution-log-client.js";
+import type {
+  BatchPlaneRuntimePorts,
+  GitHubExecutionRun,
+} from "./github-runtime-contracts.js";
 import { toProductReadError } from "./product-read-errors.js";
 
 type InspectionClient = Pick<
@@ -23,13 +27,25 @@ export function createGitHubLiteExecutionInspectionClient({
 }): InspectionClient {
   return {
     listExecutionRuns: (input) =>
-      withInspectionErrorMapping(() =>
-        runtime.executions.listExecutionRuns(input),
+      withInspectionErrorMapping(async () =>
+        (
+          await runtime.executions.listExecutionRuns(
+            input
+              ? {
+                  batchId: input.batchId,
+                  limit: input.limit,
+                  requestId: input.requestId,
+                  workflowPath: input.executionTargetLocation,
+                }
+              : undefined,
+          )
+        ).map(toExecutionRunPresentation),
       ),
     getExecutionRun: (input) =>
-      withInspectionErrorMapping(() =>
-        runtime.executions.getExecutionRun(input),
-      ),
+      withInspectionErrorMapping(async () => {
+        const run = await runtime.executions.getExecutionRun(input);
+        return run ? toExecutionRunPresentation(run) : null;
+      }),
     getExecutionRunJobLog: (input) =>
       withInspectionErrorMapping(async () => {
         const log = await runtime.executions.getExecutionRunJobLog(input);
@@ -48,6 +64,31 @@ export function createGitHubLiteExecutionInspectionClient({
       ),
     listAuditTimeline: (input) =>
       withInspectionErrorMapping(() => runtime.audit.listAuditTimeline(input)),
+  };
+}
+
+function toExecutionRunPresentation(
+  run: GitHubExecutionRun,
+): ExecutionRunPresentation {
+  const presentation = { ...run };
+  delete presentation.requestIssueNumber;
+  delete presentation.requestIssueUrl;
+  delete presentation.workflowName;
+  delete presentation.workflowPath;
+  delete presentation.workflowRunId;
+  delete presentation.workflowRunUrl;
+
+  return {
+    ...presentation,
+    ...(run.workflowRunUrl ? { sourceUrl: run.workflowRunUrl } : {}),
+    ...(run.workflowName || run.workflowPath
+      ? {
+          executionTarget: {
+            ...(run.workflowPath ? { location: run.workflowPath } : {}),
+            ...(run.workflowName ? { name: run.workflowName } : {}),
+          },
+        }
+      : {}),
   };
 }
 

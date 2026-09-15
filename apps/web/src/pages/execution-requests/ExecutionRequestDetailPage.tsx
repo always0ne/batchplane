@@ -333,8 +333,8 @@ function RequestSummary({ request }: { request: ExecutionRequest }) {
         <Fact
           label={t("detail.fields.workflow")}
           value={
-            request.workflow
-              ? `${request.workflow.path}@${request.workflow.ref}`
+            request.executionTarget
+              ? `${request.executionTarget.targetName}@${request.executionTarget.targetRevision}`
               : "-"
           }
         />
@@ -365,7 +365,7 @@ function DecisionMaterial({ request }: { request: ExecutionRequest }) {
               {t("detail.fields.command")}
             </p>
             <pre className="mt-2 max-h-36 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md bg-bp-graphite p-3 text-xs leading-5 text-white">
-              {request.execution?.command || "-"}
+              {request.executionTarget?.command || "-"}
             </pre>
           </div>
         </div>
@@ -387,11 +387,11 @@ function DecisionMaterial({ request }: { request: ExecutionRequest }) {
           />
           <Fact
             label={t("detail.fields.runsOn")}
-            value={formatRunnerLabel(request.execution?.runsOn)}
+            value={request.executionTarget?.executionEnvironment || "-"}
           />
           <Fact
             label={t("detail.fields.artifact")}
-            value={request.execution?.artifactPath || "-"}
+            value={request.executionTarget?.executionFile?.location || "-"}
           />
         </dl>
       </div>
@@ -401,7 +401,7 @@ function DecisionMaterial({ request }: { request: ExecutionRequest }) {
 
 function GovernanceChecks({ request }: { request: ExecutionRequest }) {
   const { t } = useTranslation("executionRequests");
-  const gateRequired = Boolean(request.execution?.gateRequired);
+  const gateRequired = request.batch.gateRequired === true;
   return (
     <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="text-base font-bold text-bp-graphite">
@@ -634,12 +634,6 @@ function StatusBadge({
       {t(`detail.status.${displayStatus}`)}
     </span>
   );
-}
-
-function formatRunnerLabel(
-  runsOn: NonNullable<ExecutionRequest["execution"]>["runsOn"] | undefined,
-): string {
-  return Array.isArray(runsOn) ? runsOn.join(", ") : runsOn || "-";
 }
 
 function statusPalette(status: ExecutionRequest["status"]): string {

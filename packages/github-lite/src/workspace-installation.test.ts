@@ -2,7 +2,7 @@ import type {
   GitHubLiteClient,
   GitHubPullRequest,
 } from "@batchplane/github-lite";
-import { parseYamlDocument, validateRoleMappingFile } from "@batchplane/domain";
+import { validateRoleMappingFile } from "./governance-schema.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -21,6 +21,7 @@ import {
   liteSampleTargetWorkflowPath,
   liteWorkspacePolicyPath,
 } from "./index.js";
+import { parseGovernanceYaml } from "./governance-yaml.js";
 
 describe("Lite installation model", () => {
   it("detects missing repository-side installation files", async () => {
@@ -117,12 +118,12 @@ describe("Lite installation model", () => {
           );
         }
         if (path === liteWorkspacePolicyPath) {
-          expect(content).toContain('kind: "WorkspacePolicy"');
-          expect(content).toContain('mode: "SELF_APPROVAL_BLOCKED"');
+          expect(content).toContain("kind: WorkspacePolicy");
+          expect(content).toContain("mode: SELF_APPROVAL_BLOCKED");
         }
         if (path === liteRoleMappingPath) {
-          expect(content).toContain('kind: "RoleMapping"');
-          expect(content).toContain('repositoryRoles: ["maintain", "admin"]');
+          expect(content).toContain("kind: RoleMapping");
+          expect(content).toContain("- maintain");
         }
         return { path, sha: `sha-${path}` };
       },
@@ -434,23 +435,19 @@ describe("Lite installation model", () => {
   });
 
   it("ships a strict Workspace policy by default", () => {
-    expect(buildWorkspacePolicyYaml()).toContain('kind: "WorkspacePolicy"');
-    expect(buildWorkspacePolicyYaml()).toContain(
-      'mode: "SELF_APPROVAL_BLOCKED"',
-    );
+    expect(buildWorkspacePolicyYaml()).toContain("kind: WorkspacePolicy");
+    expect(buildWorkspacePolicyYaml()).toContain("mode: SELF_APPROVAL_BLOCKED");
   });
 
   it("ships a default role mapping for maintainer approvals", () => {
-    const parsed = parseYamlDocument(buildRoleMappingYaml());
+    const parsed = parseGovernanceYaml(buildRoleMappingYaml());
 
     expect(parsed.ok).toBe(true);
     expect(parsed.ok ? validateRoleMappingFile(parsed.value).ok : false).toBe(
       true,
     );
-    expect(buildRoleMappingYaml()).toContain('kind: "RoleMapping"');
-    expect(buildRoleMappingYaml()).toContain(
-      'repositoryRoles: ["maintain", "admin"]',
-    );
+    expect(buildRoleMappingYaml()).toContain("kind: RoleMapping");
+    expect(buildRoleMappingYaml()).toContain("- maintain");
   });
 
   it("creates a Workspace policy change pull request", async () => {
@@ -484,7 +481,7 @@ describe("Lite installation model", () => {
       },
       putFile: async ({ path, content, sha }) => {
         calls.push(`put-file:${path}:${sha ?? ""}`);
-        expect(content).toContain('mode: "SELF_APPROVAL_ALLOWED"');
+        expect(content).toContain("mode: SELF_APPROVAL_ALLOWED");
         return { path, sha: `sha-${path}` };
       },
       createPullRequest: async ({ title, head, base, body }) => {

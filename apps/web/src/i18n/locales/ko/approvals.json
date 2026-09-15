@@ -42,7 +42,7 @@
     "schedules": "스케줄",
     "deletedSchedules": "삭제 예정 스케줄",
     "timezone": "Timezone",
-    "workflow": "Workflow"
+    "workflow": "실행 대상"
   },
   "context": {
     "executionTitle": "실행 판단 정보"

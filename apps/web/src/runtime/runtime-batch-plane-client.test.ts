@@ -1,14 +1,14 @@
 import type {
-  BatchDefinition,
+  GitHubBatchDefinition,
   BatchPlaneRuntimePorts,
-} from "@batchplane/domain";
+} from "@batchplane/github-lite";
 import { isWorkspaceNotConnectedError } from "@batchplane/ui-client";
 import { describe, expect, it, vi } from "vitest";
 
 import { createRuntimeBatchPlaneClient } from "./runtime-batch-plane-client";
 import { writeRuntimeFixtureSelection } from "./runtime-fixtures";
 
-const batch: BatchDefinition = {
+const batch: GitHubBatchDefinition = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
   domain: "payments",
@@ -131,7 +131,7 @@ describe("runtime BatchPlane client", () => {
 });
 
 function createRuntimeWith(
-  listBatchDefinitions: () => Promise<BatchDefinition[]>,
+  listBatchDefinitions: () => Promise<GitHubBatchDefinition[]>,
 ): BatchPlaneRuntimePorts {
   return {
     batches: { listBatchDefinitions },

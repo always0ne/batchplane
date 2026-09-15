@@ -1,8 +1,3 @@
-import {
-  createTargetRevisionDigest,
-  type GovernedChangeArtifact,
-  type GovernedChangeRequestEvidence,
-} from "@batchplane/domain";
 import { sha256BytesHex } from "@batchplane/digest";
 
 import {
@@ -14,6 +9,11 @@ import {
 } from "./batch-definition-codec.js";
 import { buildBatchWorkflowYaml } from "./github-workflow.js";
 import {
+  createTargetRevisionDigest,
+  type GovernedChangeArtifact,
+  type GovernedChangeRequestEvidence,
+} from "./governed-change-evidence.js";
+import {
   hasGovernedChangeRole,
   loadGovernedChangeRoles,
 } from "./governed-change-policy.js";
@@ -22,7 +22,7 @@ import type {
   GitHubLiteClient,
   GitHubPullRequest,
   RepoRef,
-} from "./index.js";
+} from "./github-types.js";
 
 export async function hasAuthoritativeGovernedChangeRequest(
   client: GitHubLiteClient,
