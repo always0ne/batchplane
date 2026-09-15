@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import "../../i18n/i18n";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { createGitHubLiteBatchPlaneClient } from "@batchplane/github-lite";
 import { createRuntimeBatchPlaneClient } from "../../runtime/runtime-batch-plane-client";
 import { createRuntimeFixtureMockState } from "../../runtime/runtime-fixtures";
 import { WorkspaceRequestsPage } from "./WorkspaceRequestsPage";
@@ -134,11 +134,12 @@ function renderPage(client: BatchPlaneClient) {
 function productClient(
   state: ReturnType<typeof createRuntimeFixtureMockState>,
 ) {
-  const runtime = createGitHubLiteRuntime(session, {
+  const runtime = createGitHubLiteBatchPlaneClient({
     client: createMockGitHubLiteClient(state),
+    repositoryRef: session,
   });
   return createRuntimeBatchPlaneClient({
-    createRuntime: () => runtime,
+    createClient: () => runtime,
     readSession: () => session,
   });
 }

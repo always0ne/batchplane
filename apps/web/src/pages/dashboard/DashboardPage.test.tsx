@@ -1,4 +1,4 @@
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import { inspectionTestClient } from "../../test/inspection-client";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -68,25 +68,16 @@ describe("DashboardPage", () => {
   });
 
   it("renders an error state when dashboard loading fails", async () => {
-    const runtime = {
-      settings: {
-        getCurrentUser: async () => {
-          throw new Error("Dashboard failed");
-        },
-        getRepository: async () => ({
-          defaultBranch: "main",
-          owner: "always0ne",
-          private: true,
-          repo: "batch",
-          url: "https://github.com/always0ne/batch",
-        }),
+    const runtime = inspectionTestClient({
+      getDashboardSummary: async () => {
+        throw new Error("Dashboard failed");
       },
-    } as unknown as BatchPlaneRuntimePorts;
+    });
 
     render(
       <MemoryRouter>
         <RuntimeClientTestProvider
-          createRuntime={() => runtime}
+          createClient={() => runtime}
           readSession={() => ({
             owner: "always0ne",
             repo: "batch",

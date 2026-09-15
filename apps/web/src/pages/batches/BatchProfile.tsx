@@ -1,4 +1,3 @@
-import type { BatchDefinition } from "@batchplane/domain";
 import type {
   BatchDetailDefinition,
   BatchScheduleDisplay,
@@ -62,15 +61,15 @@ export function BatchProfile({
           <dl className="mt-3 space-y-3 text-sm">
             <BatchDetailFact
               label={t("detail.workflow.runtime")}
-              value={t("detail.workflow.runtimeGithubActions")}
+              value={batch.executionTarget?.platformName ?? t("values.none")}
             />
             <BatchDetailFact
               label={t("detail.workflow.path")}
-              value={batch.workflow.path}
+              value={batch.executionTarget?.targetName ?? t("values.none")}
             />
             <BatchDetailFact
               label={t("detail.workflow.ref")}
-              value={batch.workflow.ref}
+              value={batch.executionTarget?.targetRevision ?? t("values.none")}
             />
           </dl>
         </section>
@@ -81,9 +80,13 @@ export function BatchProfile({
   );
 }
 
-export function BatchExecutionTarget({ batch }: { batch: BatchDefinition }) {
+export function BatchExecutionTarget({
+  batch,
+}: {
+  batch: Pick<BatchDetailDefinition, "executionTarget">;
+}) {
   const { t } = useTranslation("batches");
-  const execution = batch.execution;
+  const execution = batch.executionTarget;
 
   return (
     <section className="min-w-0">
@@ -95,15 +98,15 @@ export function BatchExecutionTarget({ batch }: { batch: BatchDefinition }) {
           <BatchDetailFact
             label={t("detail.executionSpec.runsOn")}
             value={
-              Array.isArray(execution.runsOn)
-                ? execution.runsOn.join(", ")
-                : execution.runsOn
+              execution.executionEnvironment ??
+              t("detail.executionSpec.missing")
             }
           />
           <BatchDetailFact
             label={t("detail.executionSpec.artifactPath")}
             value={
-              execution.artifactPath || t("detail.executionSpec.noArtifact")
+              execution.executionFile?.location ??
+              t("detail.executionSpec.noArtifact")
             }
           />
           <div>

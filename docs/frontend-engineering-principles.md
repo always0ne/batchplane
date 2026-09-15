@@ -30,6 +30,11 @@ the library's normal usage without first learning a project-specific substitute.
 This requirement applies to implementation, delegated worker instructions, and
 final review, not only to initial architecture planning.
 
+The purpose is recognizable code that another contributor can understand and
+maintain using the library's normal model. Minimizing the diff is not a reason
+to retain unnecessary special paths. A supported escape hatch is not the same
+as the recommended baseline; explain that distinction before choosing one.
+
 Before changing a library integration, identify the installed version and read
 the applicable official documentation. Separate a documented recommendation
 from one supported alternative or an illustrative example. Official guidance
@@ -332,6 +337,86 @@ changing language does not reset page state. The route table retains legacy
 schedule redirects and their encoded query and hash. This composition cleanup
 does not count the remaining legacy route Pages as migrated.
 
+### Runtime And Adapter Ownership
+
+The Web runtime selects the current session and live or fixture implementation,
+then injects the provider-neutral `BatchPlaneClient`. Resolve the current session
+for each operation so a saved or disconnected connection is not replaced by an
+old captured session. Preserve the list's disconnected outcome and the named
+connection error for other operations.
+
+The GitHub Lite adapter owns repository inventory, deleted Batch reconstruction,
+execution request evidence, approval orchestration, installation and product
+result projection. Compose these operations from the concrete GitHub client and
+repository context. Do not move a generic runtime Port aggregate into another
+package and rename it, or create a forwarding service hierarchy to keep its
+former shape alive.
+
+Development fixtures remain part of the selected implementation, with shared
+mock state and one-time approved-revision preparation. Fixture construction is
+not a product policy or a substitute for live GitHub verification. Production
+adapters must not import the Web application or its fixtures.
+
+When retiring a legacy helper, establish its real consumers first. Keep tests
+of current product behavior and repository integration at their new owner; keep
+session selection and React behavior tests in Web. Remove assertions of dead
+wrapper mechanics only when the current behavioral coverage is identified.
+Legacy external evidence readers and API versions are not dead merely because
+their name contains `legacy`.
+
+### R7 Readability Ownership
+
+Execution request Pages retain route input, query lifetime, form-session state
+and navigation. Page-local components own the form, parameter rows, request
+review, detail commands and evidence regions. Use the existing Button and
+ButtonLink for matching controls; preserve explicit submit semantics and
+accessible names and dimensions for icon-only controls. Extracting a region
+must not introduce a new state owner or a generic form/controller layer.
+
+The Batch form's cron preview and its deterministic timezone tests live together
+under `pages/batches`. A retired schedule screen must not retain a separate
+implementation that passes tests while the active form uses untested code.
+
+Action entry points separate environment input/output, authorization or dispatch
+orchestration, GitHub transport, and evidence parsing. Keep each Action's real
+checks and side-effect order visible; do not replace them with a configurable
+verification pipeline or split every helper into a file. A structural extraction
+does not authorize new policy, retries, evidence formats, or public APIs.
+
+### Package Entry Points
+
+Internal packages resolve through pnpm workspace links and their `package.json`
+exports. TypeScript and Vite use the same declared package entry points; do not
+point either tool at sibling-package source files with paths or aliases.
+The packages expose compiled ESM under `dist`, and project references establish
+the prerequisite build order. Keep development, type checking, package builds,
+Pages output and self-contained Action bundles working through this boundary.
+
+The root development command must build its package prerequisites and run one
+TypeScript package-graph watcher alongside Vite. Contributors should not need
+repeated manual builds or an additional watch terminal. Use the existing pnpm
+and TypeScript commands, not a custom process manager, resolver or build system.
+Validate clean startup, package-source updates and child-process shutdown when
+changing this workflow.
+
+Package entry modules expose purposeful external contracts. Package-internal
+code and tests import their owning modules directly; tests alone do not justify
+adding production exports. Real runtime fixtures remain supported consumers.
+Do not replace one broad barrel with an arbitrary subpath for every source file.
+
+Use ESLint's existing static import restrictions for the approved product and
+adapter boundaries. Keep genuine test integrations distinct from production UI
+access. These checks do not prove dynamic import behavior or semantic policy
+correctness; they complement code review and behavioral tests.
+
+Official references:
+
+- [TypeScript workspace-package resolution](https://www.typescriptlang.org/docs/handbook/modules/reference.html#paths-should-not-point-to-monorepo-packages-or-node_modules-packages)
+- [TypeScript project references](https://www.typescriptlang.org/docs/handbook/project-references.html)
+- [pnpm 10 script execution](https://pnpm.io/10.x/cli/run)
+- [Node package entry points](https://nodejs.org/api/packages.html#package-entry-points)
+- [ESLint static import restrictions](https://eslint.org/docs/latest/rules/no-restricted-imports)
+
 ## Page Contract
 
 A Page is a route boundary. It may:
@@ -502,6 +587,44 @@ Code is maintained by people before it is optimized for abstraction count.
 Splitting is based on responsibility, not a mechanical line limit. Moving a
 1,000-line Page into a 1,000-line Hook is not a refactor.
 
+Read the changed flow from its entry point as a maintainer. Names should expose
+the action and result; side effects should be visible; helpers should let the
+reader understand the main flow without chasing unnecessary forwarding layers.
+Review function size, file size, and navigation cost together. Extract coherent
+responsibilities when executable logic spans unrelated decisions or state
+lifetimes. Do not create one file per function or type just to meet a line count.
+Declaration lists and fixtures can be longer than executable logic, but mixed
+ownership still needs correction. Explain any retained large unit in the review.
+
+Readability, applicable official-library patterns, manageable function/file size,
+and absence of speculative engineering are mandatory acceptance checks. They
+apply to adapters and tests as well as React, and must be included in delegated
+instructions. Passing tests does not waive these checks. Official React guidance
+also does not prescribe our folder names or a numerical file-size threshold.
+
+## Refactoring Plan Discipline
+
+When the checkout has a local execution ledger, start or resume from its latest
+entry and linked active plan, then verify the branch and source state. The active
+plan owns the detailed work-item status; the ledger owns the current pointer and
+handoff. Historical records must not override that pointer. A local plan does not
+replace committed product requirements or authorize an unapproved feature.
+
+Record the approved scope, current item, source-to-target responsibilities,
+unchanged behavior, excluded work, decision owner, and observable completion
+criteria before delegation. Update that same plan when an item completes, a
+decision changes, work is handed off, or work stops. Keep implementation,
+verification, PR delivery, and user merge distinct; record the tested revision
+and unverified areas. Do not restart completed work or pick an easier issue
+without an explicit change to the agreed sequence.
+
+At each review, inspect the actual changed flow and dependency direction, not
+only filenames or test totals. A new behavior, parser replacement, dependency,
+fallback, or public-contract change requires an explicit scope decision before
+implementation. Future extensibility means keeping today's ownership clear,
+not building engines or defensive paths with no present requirement. Existing
+trust-boundary checks are not removable simply because they look defensive.
+
 ## Tests
 
 Co-locate focused unit, Hook, and component tests with the implementation they
@@ -587,6 +710,10 @@ Batch list is the first proof surface.
 - [ ] Render is pure; events and Effects have the correct ownership.
 - [ ] State is minimal and has one clear owner.
 - [ ] Functions and files remain readable without speculative abstractions.
+- [ ] Changed entry points read clearly through their helpers; any retained
+      large function or file has a concrete reason, not merely a passing test.
+- [ ] The active plan records current status, evidence, unresolved decisions,
+      and the next step without claiming user merge or unperformed validation.
 - [ ] Tests cover the relevant observable states and remain correctly located.
 - [ ] UI/UX, accessibility, English/Korean, desktop/mobile checks are complete.
 - [ ] Verification matches the changed risk: full local verification for code,

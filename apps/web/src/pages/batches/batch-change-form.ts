@@ -3,7 +3,10 @@ import type {
   BatchStatus,
   Criticality,
 } from "@batchplane/domain";
-import type { BatchChangeDraft } from "@batchplane/ui-client";
+import type {
+  BatchChangeDraft,
+  GitHubActionsExecutionSettings,
+} from "@batchplane/ui-client";
 
 export type BatchChangeFormValues = BatchChangeDraft["batch"];
 
@@ -12,11 +15,6 @@ export type ScheduleDraft = {
   source: "existing" | "new";
   status: "active" | "deleted";
   values: BatchSchedule;
-};
-
-export type UploadedArtifact = {
-  bytes: Uint8Array;
-  fileName: string;
 };
 
 export const criticalityOptions: Criticality[] = [
@@ -41,11 +39,16 @@ export const defaultBatchChangeFormValues: BatchChangeFormValues = {
   environment: "PROD",
   name: "",
   owner: "",
-  runCommand: "",
-  runnerLabel: "ubuntu-latest",
   status: "ACTIVE",
-  workflowRef: "main",
 };
+
+export const defaultGitHubActionsExecutionSettings: GitHubActionsExecutionSettings =
+  {
+    command: "",
+    platform: "GITHUB_ACTIONS",
+    ref: "main",
+    runnerLabel: "ubuntu-latest",
+  };
 
 export const defaultScheduleValues: BatchSchedule = {
   cron: "0 5 * * *",
@@ -56,16 +59,14 @@ export const defaultScheduleValues: BatchSchedule = {
 };
 
 export function toBatchChangeDraft({
-  artifact,
-  existingArtifact,
+  execution,
   governedChangeId,
   mode,
   scheduleDrafts,
   targetBatchId,
   values,
 }: {
-  artifact?: UploadedArtifact;
-  existingArtifact?: BatchChangeDraft["batch"]["existingArtifact"];
+  execution: GitHubActionsExecutionSettings;
   governedChangeId: string;
   mode: BatchChangeDraft["mode"];
   scheduleDrafts: ScheduleDraft[];
@@ -73,11 +74,8 @@ export function toBatchChangeDraft({
   values: BatchChangeFormValues;
 }): BatchChangeDraft {
   return {
-    ...(artifact ? { artifact } : {}),
-    batch: {
-      ...normalizeBatchValues(values),
-      ...(existingArtifact ? { existingArtifact } : {}),
-    },
+    batch: normalizeBatchValues(values),
+    execution: normalizeExecution(execution),
     governedChangeId,
     mode,
     schedules: scheduleDrafts
@@ -99,9 +97,11 @@ export function toScheduleDrafts(schedules: BatchSchedule[]): ScheduleDraft[] {
 export function findBatchChangeMissingFields({
   mode,
   scheduleDrafts,
+  execution,
   values,
 }: {
   mode: BatchChangeDraft["mode"];
+  execution: GitHubActionsExecutionSettings;
   scheduleDrafts: ScheduleDraft[];
   values: BatchChangeFormValues;
 }): string[] {
@@ -115,13 +115,13 @@ export function findBatchChangeMissingFields({
     ["name", values.name],
     ["owner", values.owner],
     ["domain", values.domain],
-    ["runCommand", values.runCommand],
-    ["runnerLabel", values.runnerLabel],
-    ["workflowRef", values.workflowRef],
   ];
 
   requiredValues.forEach(([field, value]) => {
     if (!value.trim()) fields.push(field);
+  });
+  (["command", "runnerLabel", "ref"] as const).forEach((field) => {
+    if (!execution[field].trim()) fields.push(`execution.${field}`);
   });
 
   const activeSchedules = scheduleDrafts.filter(
@@ -148,9 +148,7 @@ export function findBatchChangeMissingFields({
 }
 
 export function isKnownRunnerLabel(runnerLabel: string): boolean {
-  return knownRunnerLabels.includes(
-    runnerLabel.trim() as (typeof knownRunnerLabels)[number],
-  );
+  return knownRunnerLabels.some((label) => label === runnerLabel.trim());
 }
 
 function normalizeBatchValues(
@@ -162,9 +160,17 @@ function normalizeBatchValues(
     domain: values.domain.trim(),
     name: values.name.trim(),
     owner: values.owner.trim(),
-    runCommand: values.runCommand.trim(),
-    runnerLabel: values.runnerLabel.trim(),
-    workflowRef: values.workflowRef.trim(),
+  };
+}
+
+function normalizeExecution(
+  execution: GitHubActionsExecutionSettings,
+): GitHubActionsExecutionSettings {
+  return {
+    ...execution,
+    command: execution.command.trim(),
+    ref: execution.ref.trim(),
+    runnerLabel: execution.runnerLabel.trim(),
   };
 }
 

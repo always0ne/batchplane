@@ -8,10 +8,14 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "pnpm --filter @batchplane/web dev",
+    "predev": "tsc -b packages/github-lite",
+    "dev": "pnpm run \"/^dev:/\"",
+    "dev:packages": "tsc -b -w packages/github-lite",
+    "dev:web": "pnpm --filter @batchplane/web dev",
+    "pretest": "tsc -b packages/github-lite",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "node --test eslint.config.test.mjs && pnpm -r test",
     "lint": "eslint .",
     "format:check": "prettier --check ."
   },

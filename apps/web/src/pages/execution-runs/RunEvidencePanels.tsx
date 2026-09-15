@@ -20,7 +20,7 @@ export function RunSummaryPanel({ run }: { run: ExecutionRun }) {
         <div className="flex items-center gap-2">
           <Activity className="h-5 w-5 text-bp-git" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-bp-graphite">
-            {run.workflowName || t("runDetail.values.unknownWorkflow")}
+            {run.executionTarget?.name || t("runDetail.values.unknownWorkflow")}
           </h2>
         </div>
         <RunStatusBadge
@@ -46,7 +46,7 @@ export function RunSummaryPanel({ run }: { run: ExecutionRun }) {
         />
         <DetailFact
           label={t("runDetail.fields.workflow")}
-          value={run.workflowPath || t("runDetail.values.unknown")}
+          value={run.executionTarget?.location || t("runDetail.values.unknown")}
         />
         <DetailFact
           label={t("runDetail.fields.event")}

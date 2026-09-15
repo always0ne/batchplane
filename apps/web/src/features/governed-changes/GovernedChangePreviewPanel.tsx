@@ -24,7 +24,7 @@ export function GovernedChangePreviewPanel({
   labels: GovernedChangePreviewLabels;
 }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-bp-graphite">{labels.title}</h2>
       <p className="mt-2 text-sm text-bp-muted">{labels.subtitle}</p>
       <div className="mt-4 space-y-3">
@@ -50,7 +50,7 @@ function GovernedChangePreviewFileItem({
   const isBinary = file.contentKind === "BINARY";
 
   return (
-    <section className="rounded-md border border-slate-200 bg-slate-50 p-3">
+    <section className="min-w-0 rounded-md border border-slate-200 bg-slate-50 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {isBinary ? (
@@ -106,7 +106,7 @@ function TextFileDiff({
       <summary className="cursor-pointer text-xs font-semibold text-bp-control">
         {labels.preview}
       </summary>
-      <pre className="mt-2 max-h-72 overflow-auto rounded-md bg-bp-graphite p-3 text-xs leading-5 text-white">
+      <pre className="mt-2 max-h-72 min-w-0 max-w-full overflow-auto rounded-md bg-bp-graphite p-3 text-xs leading-5 text-white">
         {lines.length === 0
           ? labels.emptyFile
           : lines.map((line, index) => (

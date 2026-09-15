@@ -1,38 +1,18 @@
-import type {
-  BatchDefinition,
-  BatchPlaneRuntimePorts,
-} from "@batchplane/domain";
-import { isWorkspaceNotConnectedError } from "@batchplane/ui-client";
 import { describe, expect, it, vi } from "vitest";
-
+import { isWorkspaceNotConnectedError } from "@batchplane/ui-client";
+import {
+  createGitHubLiteBatchPlaneClient,
+  createGitHubLiteMockState,
+  createMockGitHubLiteClient,
+} from "@batchplane/github-lite";
 import { createRuntimeBatchPlaneClient } from "./runtime-batch-plane-client";
 import { writeRuntimeFixtureSelection } from "./runtime-fixtures";
-
-const batch: BatchDefinition = {
-  batchId: "payment.daily-close",
-  criticality: "HIGH",
-  domain: "payments",
-  environment: "PROD",
-  execution: {
-    command: "echo close payments",
-    runsOn: "ubuntu-latest",
-  },
-  gateRequired: true,
-  name: "Daily Close",
-  owner: "ops-team",
-  status: "ACTIVE",
-  workflow: {
-    path: ".github/workflows/payment.daily-close.yml",
-    ref: "main",
-  },
-};
 
 describe("runtime BatchPlane client", () => {
   it("uses the selected persistent fixture client for governed change operations", async () => {
     sessionStorage.clear();
     writeRuntimeFixtureSelection("happy-path");
     const client = createRuntimeBatchPlaneClient();
-
     await expect(
       client.loadBatchChangeDraft({ mode: "create" }),
     ).resolves.toMatchObject({
@@ -41,108 +21,67 @@ describe("runtime BatchPlane client", () => {
     });
   });
 
-  it("resolves the current Workspace session for each batch-list query", async () => {
+  it("resolves the current Workspace session for each read and command", async () => {
     const firstSession = { owner: "first", repo: "batch", token: "one" };
     const secondSession = { owner: "second", repo: "batch", token: "two" };
     const readSession = vi
       .fn()
       .mockReturnValueOnce(firstSession)
       .mockReturnValueOnce(secondSession);
-    const listBatchDefinitions = vi.fn().mockResolvedValue([batch]);
-    const createRuntime = vi.fn(() => createRuntimeWith(listBatchDefinitions));
-    const client = createRuntimeBatchPlaneClient({
-      createRuntime,
-      readSession,
+    const product = createGitHubLiteBatchPlaneClient({
+      client: createMockGitHubLiteClient(createGitHubLiteMockState()),
+      repositoryRef: firstSession,
     });
-
-    await expect(client.listBatches()).resolves.toMatchObject({
-      batches: [
-        {
-          batchId: "payment.daily-close",
-          criticality: "HIGH",
-          environment: "PROD",
-          gateRequired: true,
-          hasExecutableCommand: true,
-          name: "Daily Close",
-          owner: "ops-team",
-          status: "ACTIVE",
-        },
-      ],
-      sourceRevision: "main",
+    const listBatches = vi.spyOn(product, "listBatches").mockResolvedValue({
       type: "loaded",
+      batches: [],
+      sourceRevision: "main",
     });
-    await client.listBatches();
-
-    expect(createRuntime).toHaveBeenNthCalledWith(1, firstSession);
-    expect(createRuntime).toHaveBeenNthCalledWith(2, secondSession);
-    expect(listBatchDefinitions).toHaveBeenCalledWith({ ref: "main" });
+    const loadDraft = vi.spyOn(product, "loadBatchChangeDraft");
+    const createClient = vi.fn(() => product);
+    const client = createRuntimeBatchPlaneClient({ createClient, readSession });
+    await expect(client.listBatches()).resolves.toEqual({
+      type: "loaded",
+      batches: [],
+      sourceRevision: "main",
+    });
+    await client.loadBatchChangeDraft({ mode: "create" });
+    expect(createClient).toHaveBeenNthCalledWith(1, firstSession);
+    expect(createClient).toHaveBeenNthCalledWith(2, secondSession);
+    expect(listBatches).toHaveBeenCalledWith();
+    expect(loadDraft).toHaveBeenCalledWith({ mode: "create" });
   });
 
   it("reports an absent Workspace connection as a list outcome", async () => {
-    const createRuntime = vi.fn();
+    const createClient = vi.fn();
     const client = createRuntimeBatchPlaneClient({
-      createRuntime,
+      createClient,
       readSession: () => null,
     });
-
     await expect(client.listBatches()).resolves.toEqual({
       type: "workspace-not-connected",
     });
-    expect(createRuntime).not.toHaveBeenCalled();
+    expect(createClient).not.toHaveBeenCalled();
   });
 
-  it("throws the named Workspace connection error for governed change commands", async () => {
+  it("throws the named Workspace connection error for reads and commands", async () => {
+    const createClient = vi.fn();
     const client = createRuntimeBatchPlaneClient({
+      createClient,
       readSession: () => null,
     });
-
     await expect(
       client.loadBatchChangeDraft({ mode: "create" }),
     ).rejects.toSatisfy(isWorkspaceNotConnectedError);
     await expect(
       client.loadExecutionRequestDraft({ batchId: "payment.daily-close" }),
     ).rejects.toSatisfy(isWorkspaceNotConnectedError);
+    await expect(client.listExecutionRuns()).rejects.toSatisfy(
+      isWorkspaceNotConnectedError,
+    );
+    await expect(client.inspectWorkspace()).rejects.toSatisfy(
+      isWorkspaceNotConnectedError,
+    );
+    expect(createClient).not.toHaveBeenCalled();
   });
-
-  it.each([
-    ["absent", undefined],
-    ["whitespace-only", { command: "   ", runsOn: "ubuntu-latest" }],
-  ] as const)(
-    "maps a %s execution command to a non-executable list item",
-    async (_description, execution) => {
-      const listBatchDefinitions = vi
-        .fn()
-        .mockResolvedValue([{ ...batch, execution }]);
-      const client = createRuntimeBatchPlaneClient({
-        createRuntime: () => createRuntimeWith(listBatchDefinitions),
-        readSession: () => ({
-          owner: "always0ne",
-          repo: "batch",
-          token: "one",
-        }),
-      });
-
-      await expect(client.listBatches()).resolves.toMatchObject({
-        batches: [{ hasExecutableCommand: false }],
-        type: "loaded",
-      });
-    },
-  );
 });
-
-function createRuntimeWith(
-  listBatchDefinitions: () => Promise<BatchDefinition[]>,
-): BatchPlaneRuntimePorts {
-  return {
-    batches: { listBatchDefinitions },
-    settings: {
-      getRepository: async () => ({
-        defaultBranch: "main",
-        owner: "always0ne",
-        private: true,
-        repo: "batch",
-        url: "https://github.com/always0ne/batch",
-      }),
-    },
-  } as unknown as BatchPlaneRuntimePorts;
-}

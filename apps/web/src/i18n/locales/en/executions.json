@@ -3,7 +3,7 @@
   "subtitle": "Inspect workflow runs and follow-up evidence.",
   "approveCommand": "/bgcp approve requestDigest=...",
   "actions": {
-    "githubRun": "GitHub run",
+    "githubRun": "Source run",
     "openRun": "Open run",
     "openSetup": "Open Workspace",
     "refresh": "Refresh"
@@ -12,7 +12,7 @@
     "completedAt": "Completed",
     "requestId": "Request ID",
     "runId": "Run ID",
-    "workflow": "Workflow"
+    "workflow": "Execution target"
   },
   "filters": {
     "active": "Active",

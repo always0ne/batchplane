@@ -98,15 +98,15 @@
       "title": "요청"
     },
     "workflow": {
-      "title": "Workflow 대상",
-      "path": "Workflow 경로",
-      "ref": "Workflow ref",
-      "runtime": "Runtime adapter",
+      "title": "실행 대상",
+      "path": "대상",
+      "ref": "대상 리비전",
+      "runtime": "플랫폼",
       "runtimeGithubActions": "GitHub Actions / BatchPlane Lite"
     },
     "executionSpec": {
       "title": "실행 사양",
-      "runsOn": "Runs on",
+      "runsOn": "실행 환경",
       "command": "배치 명령",
       "artifactPath": "실행 파일",
       "noArtifact": "업로드된 실행 파일 없음",

@@ -15,6 +15,13 @@ file is the enforcement checklist.
   priorities before creating another issue, and avoid duplicate backlog items.
 - Never merge a pull request. Remote CI result tracking and merge decisions
   belong to the user.
+- When a local execution ledger exists, read its current entry and linked
+  active plan before starting, resuming, or delegating work. Confirm the current
+  work item, approval boundary, non-goals, and next step against the checkout.
+  Update the active plan at work-item completion, a scope decision, handoff, or
+  interruption. Record evidence and remaining work; do not mark implementation,
+  validation, delivery, and user merge as the same state. Do not choose another
+  issue merely because it is easier or nearby.
 - Match verification to the risk changed. Code, configuration, dependency, and
   build changes require the complete local verification sequence documented in
   `README.md`. Documentation-only changes require only relevant document
@@ -115,6 +122,14 @@ file is the enforcement checklist.
   `helpers`, and large barrel files that hide unrelated responsibilities.
 - Keep each function understandable within one screen. Split by responsibility,
   not arbitrary line counts or anticipated reuse.
+- Read the changed flow as a maintainer: names, inputs, side effects, and results
+  must be understandable without reconstructing an unnecessary wrapper chain.
+  Review long functions and files explicitly; move a coherent responsibility,
+  not a giant function into a new Hook or service. A pure declaration list may
+  be longer than executable logic; smaller files alone are not a success metric.
+- Do not mechanically create one file per function or type. Closely related
+  operations may stay together. Any retained oversized unit needs a concrete
+  readability reason in the review, not a new generic framework to hide it.
 - Co-locate unit, Hook, and component tests with their implementation. Put
   cross-page integration and browser end-to-end tests in dedicated test areas.
 - Test observable behavior and public client contracts, not incidental internal
@@ -138,6 +153,11 @@ file is the enforcement checklist.
   Apply this rule to planning, worker instructions, and review alike.
 - Add only the boundaries required by current product behavior and the approved
   next vertical slice.
+- Preserve future Lite/Main and platform boundaries by assigning current
+  responsibilities correctly. Do not implement future engines, speculative
+  extension points, unreachable defensive paths, or hypothetical fallbacks.
+  Do not remove an existing authorization or input check merely to simplify
+  code; establish its callers and trust boundary first.
 - Do not add empty layers, speculative interfaces, future-provider methods,
   framework migrations, caches, generators, or convenience abstractions without
   an observed problem and explicit approval.

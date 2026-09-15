@@ -2,14 +2,14 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createScheduledExecutionRequestId,
-  serializeYamlDocument,
-  type BatchDefinition,
-} from "@batchplane/domain";
+  stringifyGovernanceYaml,
+  type GitHubBatchDefinition,
+} from "@batchplane/github-lite";
 
 import { createNativeScheduledExecutionRequest, run } from "./index";
 
 const sha = "a".repeat(40);
-const batch: BatchDefinition = {
+const batch: GitHubBatchDefinition = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
   domain: "payments",
@@ -30,7 +30,7 @@ const batch: BatchDefinition = {
   status: "ACTIVE",
   workflow: { path: ".github/workflows/payment.daily-close.yml", ref: "main" },
 };
-const batchYaml = serializeYamlDocument({
+const batchYaml = stringifyGovernanceYaml({
   apiVersion: "batchplane.io/v1",
   kind: "BatchDefinition",
   metadata: { id: batch.batchId, name: batch.name },

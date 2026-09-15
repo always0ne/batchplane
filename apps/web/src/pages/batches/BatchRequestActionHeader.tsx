@@ -1,9 +1,11 @@
-import type { BatchControl } from "@batchplane/ui-client";
-import type { BatchDefinition } from "@batchplane/domain";
+import type {
+  BatchControl,
+  BatchDetailDefinition,
+} from "@batchplane/ui-client";
 import { ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-type Props = { batch: BatchDefinition; control: BatchControl };
+type Props = { batch: BatchDetailDefinition; control: BatchControl };
 
 export function BatchRequestActionHeader({ batch, control }: Props) {
   const { t } = useTranslation("batches");

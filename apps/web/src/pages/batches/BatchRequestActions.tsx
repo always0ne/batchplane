@@ -1,5 +1,7 @@
-import type { BatchControl } from "@batchplane/ui-client";
-import type { BatchDefinition } from "@batchplane/domain";
+import type {
+  BatchControl,
+  BatchDetailDefinition,
+} from "@batchplane/ui-client";
 import { useTranslation } from "react-i18next";
 
 import { BatchDetailFact } from "./BatchDetailFact";
@@ -15,7 +17,7 @@ export function BatchRequestActions({
   batch,
   control,
 }: {
-  batch: BatchDefinition;
+  batch: BatchDetailDefinition;
   control: BatchControl;
 }) {
   const { t } = useTranslation("batches");

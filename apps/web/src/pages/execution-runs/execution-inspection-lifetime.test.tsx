@@ -26,7 +26,7 @@ function run(id: string): ExecutionRunPresentation {
     batchId: "batch." + id,
     requestId: "request." + id,
     status: "FAILED",
-    workflowName: "Business " + id,
+    executionTarget: { name: "Business " + id },
     gateDecision: {
       allowed: true,
       decidedAt: "2026-09-11T00:00:00Z",
@@ -108,6 +108,44 @@ describe("execution inspection lifetime", () => {
   beforeEach(async () => {
     await i18next.changeLanguage("en");
   });
+  it.each(["en", "ko"])(
+    "shows the projected target and source URL in %s without provider fields",
+    async (locale) => {
+      await i18next.changeLanguage(locale);
+      const detail: ExecutionRunPresentation = {
+        ...run("first"),
+        executionTarget: { name: "Daily close", location: "jobs/daily-close" },
+        sourceUrl: "https://example.test/runs/first",
+      };
+      mount(inspectionTestClient({ getExecutionRun: async () => detail }));
+
+      expect(
+        await screen.findByRole("heading", { name: "Daily close" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("jobs/daily-close")).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", {
+          name: i18next.t("executionRequests:runDetail.actions.openGitHubRun"),
+        }),
+      ).toHaveAttribute("href", detail.sourceUrl);
+    },
+  );
+
+  it("keeps the missing target fallback and hides an absent source link", async () => {
+    const detail = run("first");
+    delete detail.executionTarget;
+    mount(inspectionTestClient({ getExecutionRun: async () => detail }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Execution target unavailable",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Open source run" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("ignores late route reads and passes the exact explicit attempt", async () => {
     const first = deferred<ExecutionRunPresentation | null>(),
       second = deferred<ExecutionRunPresentation | null>();

@@ -4,7 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../ui/PageHeader";
-import { BatchChangeFormRegions } from "./BatchChangeFormRegions";
+import {
+  BatchChangeFormRegions,
+  BatchScheduleEditor,
+} from "./BatchChangeFormRegions";
+import { GitHubBatchExecutionInput } from "./GitHubBatchExecutionInput";
 import { BatchChangeReview } from "./BatchChangeReview";
 import { useBatchChangeEditor } from "./useBatchChangeEditor";
 
@@ -31,16 +35,16 @@ export function BatchChangeEditorSession({
   }
 
   return (
-    <section>
+    <section className="min-w-0">
       <PageHeader
         subtitle={t(pageCopyKey(mode, "subtitle"))}
         title={t(pageCopyKey(mode, "title"))}
       />
       <form
-        className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]"
+        className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]"
         onSubmit={submitChange}
       >
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {mode === "delete" ? (
             <DeleteChangeSummary
               batchId={editor.values.batchId}
@@ -48,19 +52,26 @@ export function BatchChangeEditorSession({
               scheduleCount={editor.draft.schedules.length}
             />
           ) : (
-            <BatchChangeFormRegions
-              batchIdReadOnly={mode === "change"}
-              existingArtifact={editor.existingArtifact}
-              onAddSchedule={editor.addSchedule}
-              onArtifactChange={editor.selectArtifact}
-              onRemoveSchedule={editor.removeSchedule}
-              onOwnerBlur={editor.resolveOwnerDefault}
-              onRestoreSchedule={editor.restoreSchedule}
-              onScheduleChange={editor.updateSchedule}
-              onValueChange={editor.updateValue}
-              scheduleDrafts={editor.scheduleDrafts}
-              values={editor.values}
-            />
+            <>
+              <BatchChangeFormRegions
+                batchIdReadOnly={mode === "change"}
+                onOwnerBlur={editor.resolveOwnerDefault}
+                onValueChange={editor.updateValue}
+                values={editor.values}
+              />
+              <GitHubBatchExecutionInput
+                onChange={editor.setExecution}
+                onFileChange={editor.selectArtifact}
+                value={editor.execution}
+              />
+              <BatchScheduleEditor
+                drafts={editor.scheduleDrafts}
+                onAdd={editor.addSchedule}
+                onRemove={editor.removeSchedule}
+                onRestore={editor.restoreSchedule}
+                onUpdate={editor.updateSchedule}
+              />
+            </>
           )}
           {editor.submissionState === "error" ? (
             <p

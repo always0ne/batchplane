@@ -202,6 +202,19 @@ If the command field is empty when a file is uploaded, the UI may populate a
 default command that executes the uploaded artifact. The command must update if
 it was auto-generated and the Batch ID changes.
 
+Business metadata and platform execution settings have separate typed owners.
+GitHub-specific runner/ref fields are handled by the GitHub execution settings
+component, while the shared page retains the same registration/change flow.
+This separation must not remove command, runner, revision or execution-file
+information from Batch detail or execution requests, add a separate save step,
+or require a second governed request. It does not implement a new platform.
+
+Governance file readers must use the same standard YAML interpretation in the
+Lite adapter and Actions. Syntax diagnostics retain line/column information;
+file-schema and authorization validation remain mandatory. A parser/formatter
+change must not rewrite existing evidence or invalidate a historical approval
+by hashing reformatted content in place of the original artifact bytes.
+
 ### Registration Review UX
 
 Before creating a governed change request, the UI must show a review panel

@@ -34,7 +34,33 @@ describe("ExecutionRequestDetailPage", () => {
       screen.getByRole("button", { name: "Approve execution" }),
     ).toBeEnabled();
     expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+    expect(
+      screen.getByText(
+        "BatchPlane Gate is mandatory before the batch command.",
+      ),
+    ).toBeInTheDocument();
   });
+
+  it.each([false, undefined])(
+    "does not infer required Gate evidence from a target when gateRequired is %s",
+    async (gateRequired) => {
+      const detail = request();
+      detail.batch.gateRequired = gateRequired;
+      renderDetail(createClient({ getExecutionRequest: async () => detail }));
+
+      expect(
+        await screen.findByText("BatchPlane Gate evidence is missing."),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(".github/workflows/daily-close.yml@main"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(
+          "BatchPlane Gate is mandatory before the batch command.",
+        ),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("keeps a post-create recovery notice identity-bound to the returned request", async () => {
     renderDetail(createClient(), {
@@ -138,7 +164,9 @@ describe("ExecutionRequestDetailPage", () => {
                   requestId: "btr-payment-101",
                   sourceLabel: "Native schedule occurrence",
                   status: "BLOCKED",
-                  workflow: { path: ".github/workflows/daily-close.yml" },
+                  executionTarget: {
+                    location: ".github/workflows/daily-close.yml",
+                  },
                 },
               ],
               type: "loaded",
@@ -299,7 +327,9 @@ function request(overrides: Partial<ExecutionRequest> = {}): ExecutionRequest {
           requestId: "btr-payment-101",
           sourceLabel: "204",
           status: "SUCCEEDED",
-          workflow: { path: ".github/workflows/daily-close.yml" },
+          executionTarget: {
+            location: ".github/workflows/daily-close.yml",
+          },
         },
       ],
       type: "loaded",
@@ -308,6 +338,7 @@ function request(overrides: Partial<ExecutionRequest> = {}): ExecutionRequest {
       criticality: "HIGH",
       domain: "payments",
       environment: "PROD",
+      gateRequired: true,
       name: "Daily Close",
       owner: "ops-team",
     },
@@ -321,10 +352,12 @@ function request(overrides: Partial<ExecutionRequest> = {}): ExecutionRequest {
       canonicalPayload: '{\n  "requestId": "btr-payment-101"\n}',
       requestDigest: "sha256:request-101",
     },
-    execution: {
+    executionTarget: {
       command: "echo mock batch",
-      gateRequired: true,
-      runsOn: "ubuntu-latest",
+      executionEnvironment: "ubuntu-latest",
+      platformName: "GitHub Actions",
+      targetName: ".github/workflows/daily-close.yml",
+      targetRevision: "main",
     },
     expiresAt: "2026-09-11T01:00:00.000Z",
     reason: "Close payments.",
@@ -339,7 +372,6 @@ function request(overrides: Partial<ExecutionRequest> = {}): ExecutionRequest {
     title: "#101 Run batch payment.daily-close",
     triggerType: "MANUAL",
     updatedAt: "2026-09-11T00:00:00.000Z",
-    workflow: { path: ".github/workflows/daily-close.yml", ref: "main" },
     workspaceLabel: "Payments Workspace",
     ...overrides,
   };

@@ -1,4 +1,3 @@
-import type { BatchDefinition } from "@batchplane/domain";
 import { describe, expect, it } from "vitest";
 import { parseDocument } from "yaml";
 
@@ -13,8 +12,9 @@ import {
   buildBatchWorkflowYaml,
   formatGeneratedScheduleCrons,
 } from "./github-workflow.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
-const definition: BatchDefinition = {
+const definition: GitHubBatchDefinition = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
   domain: "payments",
@@ -83,6 +83,55 @@ describe("BatchDefinition codec", () => {
     expect(() => parseBatchDefinitionYaml("kind: BatchDefinition\n")).toThrow(
       "Invalid BatchPlane BatchDefinition",
     );
+  });
+
+  it("reads standard YAML lists, comments, and multiline commands", () => {
+    const parsed = parseBatchDefinitionYaml(`
+# Existing governance files may use ordinary YAML style.
+apiVersion: batchplane.io/v1
+kind: BatchDefinition
+metadata:
+  id: payment.daily-close
+  name: 'Daily close'
+spec:
+  criticality: HIGH
+  domain: payments
+  environment: PROD
+  gateRequired: true
+  owner: payments-ops
+  status: ACTIVE
+  workflow:
+    path: .github/workflows/payment.daily-close.yml
+    ref: main
+  execution:
+    command: |-
+      java -jar close.jar
+      --date today
+    runsOn:
+      - self-hosted
+      - linux
+  schedules:
+    - id: daily-close
+      name: Daily close
+      cron: '0 5 * * *'
+      timezone: Asia/Seoul
+      enabled: true
+`);
+
+    expect(parsed).toMatchObject({
+      execution: {
+        command: "java -jar close.jar\n--date today",
+        runsOn: ["self-hosted", "linux"],
+      },
+      name: "Daily close",
+      schedules: [
+        {
+          cron: "0 5 * * *",
+          scheduleId: "daily-close",
+          timezone: "Asia/Seoul",
+        },
+      ],
+    });
   });
 });
 

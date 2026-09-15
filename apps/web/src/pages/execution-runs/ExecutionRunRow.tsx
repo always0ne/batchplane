@@ -72,7 +72,7 @@ export function ExecutionRunRow({
           />
           <ExecutionRunFact
             label={t("fields.workflow")}
-            value={run.workflowPath || t("values.unknown")}
+            value={run.executionTarget?.location || t("values.unknown")}
           />
           <ExecutionRunFact
             label={t("fields.completedAt")}
@@ -98,10 +98,10 @@ export function ExecutionRunRow({
               : t("actions.recordFollowUp")}
           </Link>
         ) : null}
-        {run.workflowRunUrl ? (
+        {run.sourceUrl ? (
           <a
             className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-muted"
-            href={run.workflowRunUrl}
+            href={run.sourceUrl}
             rel="noreferrer"
             target="_blank"
           >

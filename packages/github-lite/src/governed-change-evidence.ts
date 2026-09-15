@@ -1,14 +1,80 @@
+import { createCanonicalDigest, type CanonicalValue } from "@batchplane/digest";
 import type {
-  GovernedChangeApprovalEvidence,
-  GovernedChangeRequestEvidence,
-  GovernedChangeWithdrawalEvidence,
+  GovernedChangeDecision,
+  GovernedChangeDecisionSource,
+  GovernedChangeType,
 } from "@batchplane/domain";
-import { governedChangeEvidenceVersion } from "@batchplane/domain";
+
+export const governedChangeEvidenceVersion = "batchplane.io/governed-change/v2";
+
+export type GovernedChangeArtifact = {
+  afterDigest: string | null;
+  beforeDigest: string | null;
+  kind: "ARTIFACT" | "BATCH_DEFINITION" | "WORKFLOW";
+  path: string;
+};
+
+export type GovernedChangeRequestEvidence = {
+  artifacts: GovernedChangeArtifact[];
+  baseRevisionSha: string;
+  batchId: string;
+  governedChangeId: string;
+  headRevisionSha: string;
+  repository: string;
+  requester: string;
+  requestedAt: string;
+  remediation?: "REVIEW_CURRENT" | "RESTORE_LAST_APPROVED";
+  targetRevisionDigest: string;
+  type: GovernedChangeType;
+  version: typeof governedChangeEvidenceVersion;
+  workspace: string;
+};
+
+export type GovernedChangeApprovalEvidence = {
+  authorizationRevisionSha: string;
+  headRevisionSha: string;
+  decision: Exclude<GovernedChangeDecision, "WITHDRAWN">;
+  decisionSource: GovernedChangeDecisionSource;
+  governedChangeId: string;
+  requestDigest: string;
+  targetRevisionDigest: string;
+  version: typeof governedChangeEvidenceVersion;
+  rejectionReason?: string;
+};
+
+export type GovernedChangeWithdrawalEvidence = {
+  headRevisionSha: string;
+  decision: "WITHDRAWN";
+  governedChangeId: string;
+  requestDigest: string;
+  targetRevisionDigest: string;
+  version: typeof governedChangeEvidenceVersion;
+};
 
 const requestMarker = "batchplane:governed-change-request";
 const decisionMarker = "batchplane:governed-change-decision";
 const withdrawalMarker = "batchplane:governed-change-withdrawal";
 const dispositionMarker = "batchplane:governed-change-unverified-disposition";
+
+export async function createGovernedChangeRequestDigest(
+  evidence: GovernedChangeRequestEvidence,
+): Promise<string> {
+  return createCanonicalDigest(toRequestDigestPayload(evidence));
+}
+
+export async function createTargetRevisionDigest(
+  artifacts: GovernedChangeArtifact[],
+): Promise<string> {
+  const resultingArtifacts = artifacts
+    .filter((artifact) => artifact.afterDigest !== null)
+    .map(({ afterDigest, kind, path }) => ({ afterDigest, kind, path }));
+
+  return createCanonicalDigest({
+    artifacts: sortArtifacts(resultingArtifacts),
+    resultingState: resultingArtifacts.length === 0 ? "EMPTY" : "PRESENT",
+    version: governedChangeEvidenceVersion,
+  });
+}
 
 export type UnverifiedGovernedChangeDisposition = {
   decision: "REJECTED_UNVERIFIED" | "WITHDRAWN_UNVERIFIED";
@@ -253,4 +319,41 @@ function isDigestOrNull(value: unknown): boolean {
 
 function isNonBlankString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function toRequestDigestPayload(
+  evidence: GovernedChangeRequestEvidence,
+): CanonicalValue {
+  return {
+    artifacts: sortArtifacts(evidence.artifacts).map(toArtifactDigestPayload),
+    baseRevisionSha: evidence.baseRevisionSha,
+    batchId: evidence.batchId,
+    governedChangeId: evidence.governedChangeId,
+    headRevisionSha: evidence.headRevisionSha,
+    repository: evidence.repository,
+    requester: evidence.requester,
+    requestedAt: evidence.requestedAt,
+    ...(evidence.remediation ? { remediation: evidence.remediation } : {}),
+    targetRevisionDigest: evidence.targetRevisionDigest,
+    type: evidence.type,
+    version: evidence.version,
+    workspace: evidence.workspace,
+  };
+}
+
+function toArtifactDigestPayload(
+  artifact: GovernedChangeArtifact,
+): CanonicalValue {
+  return {
+    afterDigest: artifact.afterDigest,
+    beforeDigest: artifact.beforeDigest,
+    kind: artifact.kind,
+    path: artifact.path,
+  };
+}
+
+function sortArtifacts<T extends { path: string }>(artifacts: T[]): T[] {
+  return [...artifacts].sort((left, right) =>
+    left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
+  );
 }

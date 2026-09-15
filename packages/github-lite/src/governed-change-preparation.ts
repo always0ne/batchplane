@@ -1,8 +1,3 @@
-import {
-  createTargetRevisionDigest,
-  type BatchDefinition,
-  type GovernedChangeArtifact,
-} from "@batchplane/domain";
 import { sha256BytesHex } from "@batchplane/digest";
 import type {
   BatchChangeDraft,
@@ -17,10 +12,15 @@ import {
   toBatchDefinition,
 } from "./batch-definition-codec.js";
 import { buildBatchWorkflowYaml } from "./github-workflow.js";
-import type { GitHubLiteClient, RepoRef } from "./index.js";
+import {
+  createTargetRevisionDigest,
+  type GovernedChangeArtifact,
+} from "./governed-change-evidence.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import type { GitHubLiteClient, RepoRef } from "./github-types.js";
 
 export type PreparedGovernedChange = {
-  batch: BatchDefinition;
+  batch: GitHubBatchDefinition;
   files: PreparedGovernedFile[];
   title: string;
   type: "REGISTER" | "CHANGE" | "DELETE";
@@ -36,13 +36,21 @@ export function prepareGovernedChange(
   draft: BatchChangeDraft,
   governedChangeId: string,
 ): PreparedGovernedChange {
-  const currentArtifactPath = draft.batch.existingArtifact?.locator;
+  const currentArtifactPath = draft.execution.existingFile?.locator;
   const nextArtifactPath = resolveArtifactPath(draft, currentArtifactPath);
-  const batch = toBatchDefinition(draft.batch, {
-    artifactPath: nextArtifactPath,
-    governedChangeId,
-    schedules: draft.schedules,
-  });
+  const batch = toBatchDefinition(
+    {
+      ...draft.batch,
+      runCommand: draft.execution.command,
+      runnerLabel: draft.execution.runnerLabel,
+      workflowRef: draft.execution.ref,
+    },
+    {
+      artifactPath: nextArtifactPath,
+      governedChangeId,
+      schedules: draft.schedules,
+    },
+  );
   const batchPath = getBatchDefinitionPath(batch.batchId);
   const type = toGovernedChangeType(draft.mode);
   const title =
@@ -100,8 +108,8 @@ export function prepareGovernedChange(
       ...prepareArtifactFiles({
         currentArtifactPath,
         nextArtifactPath,
-        removeExistingArtifact: draft.removeExistingArtifact,
-        uploadedArtifact: draft.artifact,
+        removeExistingArtifact: draft.execution.removeExistingArtifact,
+        uploadedArtifact: draft.execution.upload,
       }),
     ],
     title,
@@ -380,7 +388,7 @@ export async function loadExistingBatchDefinition(
   repository: RepoRef,
   client: GitHubLiteClient,
   batchId: string | undefined,
-): Promise<BatchDefinition | null> {
+): Promise<GitHubBatchDefinition | null> {
   if (!batchId) return null;
 
   const repo = await client.getRepository(repository);
@@ -394,30 +402,34 @@ export async function loadExistingBatchDefinition(
 }
 
 export function toBatchChangeDraft(
-  batch: BatchDefinition,
-): BatchChangeDraft["batch"] {
+  batch: GitHubBatchDefinition,
+): Pick<BatchChangeDraft, "batch" | "execution"> {
   return {
-    batchId: batch.batchId,
-    ...(batch.execution?.artifactPath
-      ? {
-          artifactFileName: batch.execution.artifactPath.split("/").at(-1),
-          existingArtifact: {
-            fileName: batch.execution.artifactPath.split("/").at(-1) ?? "",
-            locator: batch.execution.artifactPath,
-          },
-        }
-      : {}),
-    criticality: batch.criticality,
-    domain: batch.domain,
-    environment: batch.environment,
-    name: batch.name,
-    owner: batch.owner,
-    runCommand: batch.execution?.command ?? "",
-    runnerLabel: Array.isArray(batch.execution?.runsOn)
-      ? batch.execution.runsOn.join(", ")
-      : (batch.execution?.runsOn ?? "ubuntu-latest"),
-    status: batch.status,
-    workflowRef: batch.workflow.ref,
+    batch: {
+      batchId: batch.batchId,
+      criticality: batch.criticality,
+      domain: batch.domain,
+      environment: batch.environment,
+      name: batch.name,
+      owner: batch.owner,
+      status: batch.status,
+    },
+    execution: {
+      command: batch.execution?.command ?? "",
+      ...(batch.execution?.artifactPath
+        ? {
+            existingFile: {
+              fileName: batch.execution.artifactPath.split("/").at(-1) ?? "",
+              locator: batch.execution.artifactPath,
+            },
+          }
+        : {}),
+      platform: "GITHUB_ACTIONS",
+      ref: batch.workflow.ref,
+      runnerLabel: Array.isArray(batch.execution?.runsOn)
+        ? batch.execution.runsOn.join(", ")
+        : (batch.execution?.runsOn ?? "ubuntu-latest"),
+    },
   };
 }
 
@@ -425,19 +437,22 @@ function resolveArtifactPath(
   draft: BatchChangeDraft,
   currentArtifactPath: string | undefined,
 ): string | undefined {
-  if (draft.removeExistingArtifact) return undefined;
-  if (!draft.artifact) return currentArtifactPath;
+  if (draft.execution.removeExistingArtifact) return undefined;
+  if (!draft.execution.upload) return currentArtifactPath;
 
   // Existing locators are opaque repository paths. A same-name replacement
   // must replace that exact file rather than recreating a guessed path.
   if (
     currentArtifactPath &&
-    draft.batch.existingArtifact?.fileName === draft.artifact.fileName
+    draft.execution.existingFile?.fileName === draft.execution.upload.fileName
   ) {
     return currentArtifactPath;
   }
 
-  return getBatchArtifactPath(draft.batch.batchId, draft.artifact.fileName);
+  return getBatchArtifactPath(
+    draft.batch.batchId,
+    draft.execution.upload.fileName,
+  );
 }
 
 function prepareArtifactFiles({
@@ -449,7 +464,7 @@ function prepareArtifactFiles({
   currentArtifactPath?: string;
   nextArtifactPath?: string;
   removeExistingArtifact?: boolean;
-  uploadedArtifact: BatchChangeDraft["artifact"];
+  uploadedArtifact: BatchChangeDraft["execution"]["upload"];
 }): PreparedGovernedFile[] {
   if (!nextArtifactPath) {
     return currentArtifactPath && removeExistingArtifact

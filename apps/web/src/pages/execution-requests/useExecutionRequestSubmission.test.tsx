@@ -70,13 +70,17 @@ function input(): ExecutionRequestInput {
         criticality: "HIGH",
         domain: "payments",
         environment: "PROD",
-        execution: { command: "echo mock batch", runsOn: "ubuntu-latest" },
+        executionTarget: {
+          command: "echo mock batch",
+          executionEnvironment: "ubuntu-latest",
+          platformName: "GitHub Actions",
+          targetName: ".github/workflows/daily-close.yml",
+          targetRevision: "main",
+        },
         gateRequired: true,
         name: "Daily Close",
         owner: "ops-team",
         status: "ACTIVE",
-        workflowPath: ".github/workflows/daily-close.yml",
-        workflowRef: "main",
       },
       creationCapability: { canCreate: true, unavailableReasons: [] },
       requestId: "btr-payment-101",
@@ -88,7 +92,7 @@ function input(): ExecutionRequestInput {
     expiresAt: "2026-09-11T01:00:00.000Z",
     parameters: [],
     reason: "Close payments.",
-    workflowRef: "main",
+    targetRevision: "main",
   };
 }
 
@@ -99,6 +103,7 @@ function request() {
       criticality: "HIGH",
       domain: "payments",
       environment: "PROD",
+      gateRequired: true,
       name: "Daily Close",
       owner: "ops-team",
     },

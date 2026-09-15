@@ -1,13 +1,22 @@
-import type { BatchDefinition } from "@batchplane/domain";
-import { GitHubLiteApiError } from "./index.js";
+import { loadBatchDefinitions } from "./batch-repository.js";
+import { loadDeletedBatchArchive } from "./deleted-batch-archive.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
+import { GitHubLiteApiError } from "./github-types.js";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   createGitHubLiteBatchReadClient,
   type GitHubLiteBatchReadClientDependencies,
 } from "./batch-plane-client.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
-const batch: BatchDefinition = {
+vi.mock("./batch-repository.js", () => ({ loadBatchDefinitions: vi.fn() }));
+vi.mock("./deleted-batch-archive.js", () => ({
+  loadDeletedBatchArchive: vi.fn(),
+}));
+
+const batch: GitHubBatchDefinition = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
   domain: "payments",
@@ -36,6 +45,26 @@ const batch: BatchDefinition = {
 };
 
 describe("GitHub Lite BatchPlane client", () => {
+  it.each([
+    ["absent", undefined],
+    ["whitespace-only", { command: "   ", runsOn: "ubuntu-latest" }],
+  ] as const)(
+    "maps a %s execution command to a non-executable list item",
+    async (_description, execution) => {
+      const client = createGitHubLiteBatchReadClient(
+        createDependencies({
+          listBatchDefinitions: vi
+            .fn()
+            .mockResolvedValue([{ ...batch, execution }]),
+        }),
+      );
+      await expect(client.listBatches()).resolves.toMatchObject({
+        batches: [{ hasExecutableCommand: false }],
+        type: "loaded",
+      });
+    },
+  );
+
   it("maps a GitHub provider failure to a product list outcome", async () => {
     const listBatchDefinitions = vi
       .fn()
@@ -155,10 +184,14 @@ function createDependencies({
   getDeletedBatchArchive = vi.fn().mockResolvedValue(null),
   listBatchDefinitions = vi.fn().mockResolvedValue([]),
 }: {
-  getDeletedBatchArchive?: ReturnType<typeof vi.fn>;
-  listBatchDefinitions?: ReturnType<typeof vi.fn>;
+  getDeletedBatchArchive?: typeof loadDeletedBatchArchive;
+  listBatchDefinitions?: typeof loadBatchDefinitions;
 } = {}): GitHubLiteBatchReadClientDependencies {
+  vi.mocked(loadBatchDefinitions).mockImplementation(listBatchDefinitions);
+  vi.mocked(loadDeletedBatchArchive).mockImplementation(getDeletedBatchArchive);
   return {
+    client: createMockGitHubLiteClient(createGitHubLiteMockState()),
+    repositoryRef: { owner: "always0ne", repo: "batch" },
     governedChangeClient: {
       getBatchRemediationCapability: vi.fn().mockResolvedValue({
         availableKinds: [],
@@ -172,11 +205,5 @@ function createDependencies({
         reasonCode: "APPROVED_BATCH_REVISION_UNAVAILABLE",
       }),
     },
-    runtime: {
-      batches: { getDeletedBatchArchive, listBatchDefinitions },
-      settings: {
-        getRepository: vi.fn().mockResolvedValue({ defaultBranch: "main" }),
-      },
-    },
-  } as unknown as GitHubLiteBatchReadClientDependencies;
+  };
 }

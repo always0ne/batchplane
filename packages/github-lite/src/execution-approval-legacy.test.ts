@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import type { WorkspacePolicy } from "@batchplane/domain";
 import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
-  WorkspacePolicy,
-} from "@batchplane/domain";
+} from "./repository-evidence-types.js";
 
 import {
   allowsSelfApproval,

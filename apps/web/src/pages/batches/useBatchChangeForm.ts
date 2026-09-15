@@ -1,5 +1,8 @@
 import type { BatchSchedule } from "@batchplane/domain";
-import type { BatchChangeDraft } from "@batchplane/ui-client";
+import type {
+  BatchChangeDraft,
+  GitHubActionsExecutionSettings,
+} from "@batchplane/ui-client";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
@@ -9,7 +12,6 @@ import {
   toScheduleDrafts,
   type BatchChangeFormValues,
   type ScheduleDraft,
-  type UploadedArtifact,
 } from "./batch-change-form";
 
 export function useBatchChangeForm({
@@ -25,7 +27,9 @@ export function useBatchChangeForm({
   const [values, setValues] = useState<BatchChangeFormValues>(() => ({
     ...initialDraft.batch,
   }));
-  const [uploadedArtifact, setUploadedArtifact] = useState<UploadedArtifact>();
+  const [execution, setExecution] = useState<GitHubActionsExecutionSettings>(
+    () => ({ ...initialDraft.execution }),
+  );
   const [scheduleDrafts, setScheduleDrafts] = useState<ScheduleDraft[]>(() =>
     toScheduleDrafts(initialDraft.schedules),
   );
@@ -41,8 +45,7 @@ export function useBatchChangeForm({
   const draft = useMemo(
     () =>
       toBatchChangeDraft({
-        artifact: uploadedArtifact,
-        existingArtifact: initialDraft.batch.existingArtifact,
+        execution,
         governedChangeId: initialDraft.governedChangeId ?? "",
         mode,
         scheduleDrafts,
@@ -50,12 +53,11 @@ export function useBatchChangeForm({
         values: resolvedValues,
       }),
     [
-      initialDraft.batch.existingArtifact,
       initialDraft.governedChangeId,
       mode,
       scheduleDrafts,
       targetBatchId,
-      uploadedArtifact,
+      execution,
       resolvedValues,
     ],
   );
@@ -63,10 +65,11 @@ export function useBatchChangeForm({
     () =>
       findBatchChangeMissingFields({
         mode,
+        execution,
         scheduleDrafts,
         values: resolvedValues,
       }),
-    [mode, resolvedValues, scheduleDrafts],
+    [execution, mode, resolvedValues, scheduleDrafts],
   );
 
   const updateValue = useCallback(
@@ -86,8 +89,10 @@ export function useBatchChangeForm({
     if (!file) return;
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      setUploadedArtifact({ bytes, fileName: file.name });
-      setValues((current) => ({ ...current, artifactFileName: file.name }));
+      setExecution((current) => ({
+        ...current,
+        upload: { bytes, fileName: file.name },
+      }));
     } catch (error) {
       setArtifactError(messageFrom(error));
     }
@@ -136,7 +141,7 @@ export function useBatchChangeForm({
     artifactError,
     clearArtifactError,
     draft,
-    existingArtifact: initialDraft.batch.existingArtifact,
+    execution,
     missingFields,
     removeSchedule,
     resolveOwnerDefault,
@@ -144,6 +149,7 @@ export function useBatchChangeForm({
     scheduleDrafts,
     selectArtifact,
     updateSchedule,
+    setExecution,
     updateValue,
     values,
   };

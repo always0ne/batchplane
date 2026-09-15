@@ -1,20 +1,20 @@
 import type { BatchChangeDraft } from "@batchplane/ui-client";
-import { createGovernedChangeRequestDigest } from "@batchplane/domain";
 import { describe, expect, it, vi } from "vitest";
 
 import { verifyApprovedBatchRevision } from "./approved-batch-revision.js";
 import { createGitHubLiteGovernedChangeClient } from "./governed-change-client.js";
 import {
   buildGovernedChangeDecisionBody,
+  createGovernedChangeRequestDigest,
   parseGovernedChangeRequestEvidence,
 } from "./governed-change-evidence.js";
 import {
   getBatchArtifactPath,
   getBatchDefinitionPath,
   getBatchWorkflowPath,
-  createGitHubLiteMockState,
-  createMockGitHubLiteClient,
-} from "./index.js";
+} from "./batch-definition-codec.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
 
 const repository = { owner: "always0ne", repo: "batch" };
 
@@ -156,9 +156,10 @@ describe("approved Batch revision verification", () => {
       bytes: new TextEncoder().encode("approved payload"),
       fileName: "payload.txt",
     };
+    const initialDraft = batchDraft();
     const { client, created } = await createApprovedBatchRevision({
-      ...batchDraft(),
-      artifact,
+      ...initialDraft,
+      execution: { ...initialDraft.execution, upload: artifact },
     });
     const evidence = verifiedEvidence(created.request.evidence);
 
@@ -557,11 +558,14 @@ function batchDraft(
       environment: "PROD",
       name: "Month-end close",
       owner: "ops-team",
-      runCommand: "echo close",
-      runnerLabel: "ubuntu-latest",
       status: "ACTIVE",
-      workflowRef: "main",
       ...batch,
+    },
+    execution: {
+      command: "echo close",
+      platform: "GITHUB_ACTIONS",
+      ref: "main",
+      runnerLabel: "ubuntu-latest",
     },
     governedChangeId: governedChangeId ?? "bgc-20260901-payment-month-end-0001",
     mode: "create",

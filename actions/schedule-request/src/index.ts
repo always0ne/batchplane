@@ -2,15 +2,13 @@ import { appendFileSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 import {
+  batchDefinitionFromFile,
   buildExecutionRequestIssue,
   createScheduledExecutionRequestId,
-  parseYamlDocument,
-  type BatchDefinition,
-  type BatchDefinitionFile,
-  validateBatchDefinitionFile,
-} from "@batchplane/domain";
-import {
   createGitHubLiteClient,
+  parseGovernanceYaml,
+  type GitHubBatchDefinition,
+  validateBatchDefinitionFile,
   verifyApprovedBatchRevision,
   type ApprovedBatchRevisionResult,
 } from "@batchplane/github-lite";
@@ -420,8 +418,11 @@ function readRequestIdMarker(body: string): string | undefined {
   return line?.slice(line.indexOf("=") + 1).trim() || undefined;
 }
 
-function parseBatchDefinition(content: string, path: string): BatchDefinition {
-  const parsed = parseYamlDocument(content);
+function parseBatchDefinition(
+  content: string,
+  path: string,
+): GitHubBatchDefinition {
+  const parsed = parseGovernanceYaml(content);
 
   if (!parsed.ok) {
     throw new Error(`Batch definition YAML is invalid: ${path}.`);
@@ -433,29 +434,7 @@ function parseBatchDefinition(content: string, path: string): BatchDefinition {
     throw new Error(`Batch definition is invalid: ${path}.`);
   }
 
-  return fromBatchDefinitionFile(validated.value);
-}
-
-function fromBatchDefinitionFile(file: BatchDefinitionFile): BatchDefinition {
-  return {
-    batchId: file.metadata.id,
-    criticality: file.spec.criticality,
-    domain: file.spec.domain,
-    environment: file.spec.environment,
-    execution: file.spec.execution,
-    gateRequired: file.spec.gateRequired,
-    name: file.metadata.name,
-    owner: file.spec.owner,
-    schedules: file.spec.schedules?.map((schedule) => ({
-      cron: schedule.cron,
-      enabled: schedule.enabled,
-      name: schedule.name,
-      scheduleId: schedule.id,
-      timezone: schedule.timezone,
-    })),
-    status: file.spec.status,
-    workflow: file.spec.workflow,
-  };
+  return batchDefinitionFromFile(validated.value);
 }
 
 function assertNativeScheduleOccurrence(input: ScheduleRequestInput): void {

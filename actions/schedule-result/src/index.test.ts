@@ -3,16 +3,13 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
   buildExecutionRequestIssue,
-  type BatchDefinition,
-} from "@batchplane/domain";
-import {
   getNativeScheduleWorkflowJobIdentity,
   serializeBatchDefinitionYaml,
+  type GitHubBatchDefinition,
 } from "@batchplane/github-lite";
-import { parseExecutionGateResult } from "@batchplane/github-lite";
 
 const sha = "a".repeat(40);
-const batch: BatchDefinition = {
+const batch: GitHubBatchDefinition = {
   batchId: "payment.daily-close",
   criticality: "HIGH",
   domain: "payments",
@@ -333,29 +330,6 @@ describe("schedule result Action", () => {
   it("records a verified control Gate denial without requiring a business job", async () => {
     const { recordNativeScheduleResult } = await import("./index.js");
     const input = await createInput();
-    expect(
-      parseExecutionGateResult({
-        content: gateLog({
-          allowed: false,
-          job: input.controlJobId,
-          jobName: input.controlJobName,
-          occurrence: gateOccurrence(input),
-          step: "Verify approved native schedule evidence",
-        }),
-        expected: {
-          gateJob: input.controlJobId,
-          gateJobName: input.controlJobName,
-          gateStep: {
-            completedAt: "2026-01-02T03:04:03Z",
-            name: "Verify approved native schedule evidence",
-            startedAt: "2026-01-02T03:04:01Z",
-          },
-          repository: "acme/batch",
-          runAttempt: 1,
-          runId: 100,
-        },
-      }),
-    ).toMatchObject({ allowed: false });
     await expect(
       recordNativeScheduleResult({
         ...input,

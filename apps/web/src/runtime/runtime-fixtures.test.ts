@@ -2,9 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { ExecutionRun } from "@batchplane/domain";
 
 import {
-  createBatchPlaneRuntime,
-  createRuntimeBatchRevisionClient,
-  createRuntimeGovernedChangeClient,
+  createSelectedBatchPlaneClient,
   createRuntimeFixtureMockState,
   legacyRuntimeFixtureStorageKey,
   readRuntimeFixtureSelection,
@@ -12,11 +10,49 @@ import {
   runtimeFixtureStorageKey,
   writeRuntimeFixtureSelection,
 } from "./runtime-fixtures";
-import { parseNativeScheduleExecutionLocator } from "@batchplane/github-lite";
 
 import { createRuntimeBatchPlaneClient } from "./runtime-batch-plane-client";
 
 describe("runtime fixtures", () => {
+  it("keeps user-created fixture requests across repeated approved-revision setup calls", async () => {
+    writeRuntimeFixtureSelection("happy-path");
+    const first = createRuntimeBatchPlaneClient();
+    await first.listBatches();
+    const loaded = await first.loadExecutionRequestDraft({
+      batchId: "payment.daily-close",
+    });
+    if (loaded.type !== "ready")
+      throw new Error("Expected an approved fixture draft");
+    const created = await first.createExecutionRequest({
+      draft: loaded.draft,
+      expiresAt: new Date(
+        Date.parse(loaded.draft.requestedAt) + 3_600_000,
+      ).toISOString(),
+      parameters: [],
+      reason: "Fixture persistence regression",
+      targetRevision: "main",
+    });
+    const next = createRuntimeBatchPlaneClient();
+    await Promise.all([
+      next.listBatches(),
+      next.getBatchDetail({ batchId: "payment.daily-close" }),
+    ]);
+    const retained = await next.getExecutionRequest({
+      requestLocator: created.request.requestLocator,
+    });
+    expect(retained?.requestId).toBe(created.request.requestId);
+    expect((await next.listWorkspaceRequests()).requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "EXECUTION",
+          request: expect.objectContaining({
+            requestId: created.request.requestId,
+          }),
+        }),
+      ]),
+    );
+  });
+
   beforeEach(() => {
     sessionStorage.clear();
   });
@@ -55,25 +91,33 @@ describe("runtime fixtures", () => {
     writeRuntimeFixtureSelection("batch-control-verified");
 
     await expect(
-      createRuntimeBatchRevisionClient(
+      createSelectedBatchPlaneClient(
         readRuntimeSessionOrThrow(),
-      ).verifyApprovedBatchRevision({ batchId: "payment.daily-close" }),
+      ).getBatchDetail({ batchId: "payment.daily-close" }),
     ).resolves.toMatchObject({
-      controlStatus: "VERIFIED",
-      verifiedSha: expect.stringMatching(/^[0-9a-f]{40}$/u),
+      type: "active",
+      control: {
+        status: "VERIFIED",
+        approvedRevision: {
+          verifiedSha: expect.stringMatching(/^[0-9a-f]{40}$/u),
+        },
+      },
     });
   });
 
   it("provides a clean bypass fixture with review and restoration remediation available", async () => {
     writeRuntimeFixtureSelection("batch-control-bypassed-clean");
     const session = readRuntimeSessionOrThrow();
-    const governedChanges = createRuntimeGovernedChangeClient(session);
+    const governedChanges = createSelectedBatchPlaneClient(session);
 
     await expect(
-      createRuntimeBatchRevisionClient(session).verifyApprovedBatchRevision({
+      createSelectedBatchPlaneClient(session).getBatchDetail({
         batchId: "payment.daily-close",
       }),
-    ).resolves.toMatchObject({ controlStatus: "BYPASSED" });
+    ).resolves.toMatchObject({
+      type: "active",
+      control: { status: "BYPASSED" },
+    });
     await expect(
       governedChanges.getBatchRemediationCapability({
         batchId: "payment.daily-close",
@@ -104,37 +148,41 @@ describe("runtime fixtures", () => {
   it("switches runtime behavior between approval and failure fixtures", async () => {
     writeRuntimeFixtureSelection("approval-pending");
 
-    const approvalRuntime = createBatchPlaneRuntime(
+    const approvalRuntime = createSelectedBatchPlaneClient(
       readRuntimeSessionOrThrow(),
     );
     await expect(
-      approvalRuntime.approvals.listExecutionRequestIssues(),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        labels: expect.arrayContaining(["batchplane:execution-request"]),
-        state: "open",
-      }),
-    ]);
+      approvalRuntime.listWorkspaceRequests(),
+    ).resolves.toMatchObject({
+      requests: [
+        {
+          kind: "EXECUTION",
+          request: { status: "REQUESTED", sourceState: "OPEN" },
+        },
+      ],
+    });
 
     writeRuntimeFixtureSelection("dispatch-failed");
 
-    const failedRuntime = createBatchPlaneRuntime(readRuntimeSessionOrThrow());
-    await expect(
-      failedRuntime.approvals.listExecutionRequestIssues(),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        labels: expect.arrayContaining(["batchplane:dispatch-failed"]),
-        state: "open",
-      }),
-    ]);
+    const failedRuntime = createSelectedBatchPlaneClient(
+      readRuntimeSessionOrThrow(),
+    );
+    await expect(failedRuntime.listWorkspaceRequests()).resolves.toMatchObject({
+      requests: [
+        {
+          kind: "EXECUTION",
+          request: { status: "DISPATCH_FAILED", sourceState: "OPEN" },
+        },
+      ],
+    });
   });
 
   it("provides a requestless, run-scoped Gate DENY fixture", async () => {
     writeRuntimeFixtureSelection("requestless-gate-deny");
 
-    const runs = await createBatchPlaneRuntime(
+    const runs = await createSelectedBatchPlaneClient(
       readRuntimeSessionOrThrow(),
-    ).executions.listExecutionRuns({ limit: 20 });
+    ).listExecutionRuns({ limit: 20 });
 
     expect(runs).toEqual([
       expect.objectContaining({
@@ -148,9 +196,9 @@ describe("runtime fixtures", () => {
   it("provides a requestless unknown-verification fixture without a business failure", async () => {
     writeRuntimeFixtureSelection("gate-verification-unknown");
 
-    const runs = await createBatchPlaneRuntime(
+    const runs = await createSelectedBatchPlaneClient(
       readRuntimeSessionOrThrow(),
-    ).executions.listExecutionRuns({ limit: 20 });
+    ).listExecutionRuns({ limit: 20 });
 
     expect(runs).toEqual([
       expect.objectContaining({
@@ -163,9 +211,9 @@ describe("runtime fixtures", () => {
 
   it("provides attempt-scoped native schedule evidence for mixed schedules on one Run", async () => {
     writeRuntimeFixtureSelection("native-schedule-mixed");
-    const runtime = createBatchPlaneRuntime(readRuntimeSessionOrThrow());
+    const runtime = createSelectedBatchPlaneClient(readRuntimeSessionOrThrow());
 
-    const runs = await runtime.executions.listExecutionRuns({ limit: 20 });
+    const runs = await runtime.listExecutionRuns({ limit: 20 });
 
     expect(runs).toHaveLength(4);
     expect(runs.map((run) => run.runId)).toEqual(
@@ -176,15 +224,11 @@ describe("runtime fixtures", () => {
     );
     const unconfirmed = runs.find(hasUnconfirmedNativeSchedule);
     expect(unconfirmed?.jobs).toHaveLength(2);
-    expect(
-      parseNativeScheduleExecutionLocator(unconfirmed?.runId ?? ""),
-    ).toEqual({
-      requestId: `btr-schedule-${"b".repeat(64)}`,
-      runAttempt: 2,
-      sourceRunId: "900",
-    });
+    expect(unconfirmed?.runId).toBe(
+      `native:${encodeURIComponent(`btr-schedule-${"b".repeat(64)}`)}:900:2`,
+    );
     await expect(
-      runtime.executions.getExecutionRun({ runId: unconfirmed?.runId ?? "" }),
+      runtime.getExecutionRun({ runId: unconfirmed?.runId ?? "" }),
     ).resolves.toMatchObject({
       jobs: expect.arrayContaining([
         expect.objectContaining({ name: "Schedule [weekday-open]" }),
@@ -202,9 +246,9 @@ describe("runtime fixtures", () => {
       client.listWorkspaceRequests(),
       client.listApprovalRequests(),
       client.getMyWork(),
-      createBatchPlaneRuntime(
+      createSelectedBatchPlaneClient(
         readRuntimeSessionOrThrow(),
-      ).audit.listAuditTimeline({
+      ).listAuditTimeline({
         limit: 20,
       }),
     ]);
@@ -252,8 +296,8 @@ describe("runtime fixtures", () => {
 
   it("keeps a canonical in-progress schedule job running despite another shared Run result", async () => {
     writeRuntimeFixtureSelection("native-schedule-running");
-    const runtime = createBatchPlaneRuntime(readRuntimeSessionOrThrow());
-    const runs = await runtime.executions.listExecutionRuns({ limit: 20 });
+    const runtime = createSelectedBatchPlaneClient(readRuntimeSessionOrThrow());
+    const runs = await runtime.listExecutionRuns({ limit: 20 });
 
     expect(runs).toEqual([
       expect.objectContaining({
@@ -262,7 +306,7 @@ describe("runtime fixtures", () => {
       }),
     ]);
     expect(runs[0]).not.toHaveProperty("completedAt");
-    const detail = await runtime.executions.getExecutionRun({
+    const detail = await runtime.getExecutionRun({
       runId: runs[0]!.runId,
     });
     expect(detail).toMatchObject({ status: "RUNNING" });
@@ -271,11 +315,11 @@ describe("runtime fixtures", () => {
 
   it("uses only the exact terminal native business job completion, not the shared Run update", async () => {
     writeRuntimeFixtureSelection("native-schedule-mixed");
-    const runtime = createBatchPlaneRuntime(readRuntimeSessionOrThrow());
-    const runs = await runtime.executions.listExecutionRuns({ limit: 20 });
+    const runtime = createSelectedBatchPlaneClient(readRuntimeSessionOrThrow());
+    const runs = await runtime.listExecutionRuns({ limit: 20 });
     expect(runs).toHaveLength(4);
     for (const run of runs) {
-      const detail = await runtime.executions.getExecutionRun({
+      const detail = await runtime.getExecutionRun({
         runId: run.runId,
       });
       if (run.status === "UNCONFIRMED") {
@@ -295,9 +339,9 @@ describe("runtime fixtures", () => {
 
   it("retains uncorrelated source Runs and exact historical jobs without requests or human work", async () => {
     writeRuntimeFixtureSelection("native-schedule-source-unconfirmed");
-    const runtime = createBatchPlaneRuntime(readRuntimeSessionOrThrow());
+    const runtime = createSelectedBatchPlaneClient(readRuntimeSessionOrThrow());
     const client = createRuntimeBatchPlaneClient();
-    const runs = await runtime.executions.listExecutionRuns({ limit: 20 });
+    const runs = await runtime.listExecutionRuns({ limit: 20 });
     expect(runs).toHaveLength(2);
     expect(runs.map((run) => run.runAttempt).sort()).toEqual([1, 2]);
     for (const run of runs) {
@@ -314,7 +358,7 @@ describe("runtime fixtures", () => {
       expect(
         run.jobs?.every((job) => job.jobId.startsWith(String(run.runAttempt))),
       ).toBe(true);
-      const detail = await runtime.executions.getExecutionRun({
+      const detail = await runtime.getExecutionRun({
         runId: "900",
         runAttempt: run.runAttempt,
       });
@@ -325,7 +369,7 @@ describe("runtime fixtures", () => {
         status: "UNCONFIRMED",
       });
       expect(detail).not.toHaveProperty("completedAt");
-      const log = await runtime.executions.getExecutionRunJobLog({
+      const log = await runtime.getExecutionRunJobLog({
         jobId: run.jobs![1]!.jobId,
       });
       expect(log.content).toContain(`"runAttempt":${run.runAttempt}`);
@@ -348,7 +392,7 @@ describe("runtime fixtures", () => {
           item.request.kind === "EXECUTION",
       ),
     ).toHaveLength(0);
-    expect(await runtime.audit.listAuditTimeline({ limit: 20 })).toEqual(
+    expect(await runtime.listAuditTimeline({ limit: 20 })).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           metadata: expect.objectContaining({

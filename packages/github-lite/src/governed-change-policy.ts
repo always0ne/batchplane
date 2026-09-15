@@ -1,14 +1,16 @@
 import {
   defaultWorkspacePolicy,
-  parseYamlDocument,
-  validateRoleMappingFile,
-  validateWorkspacePolicyFile,
-  type ApproverSelector,
-  type RoleMapping,
   type WorkspacePolicy,
 } from "@batchplane/domain";
+import {
+  type ApproverSelector,
+  type RoleMapping,
+  validateRoleMappingFile,
+  validateWorkspacePolicyFile,
+} from "./governance-schema.js";
 
-import type { GitHubLiteClient, RepoRef } from "./index.js";
+import { parseGovernanceYaml } from "./governance-yaml.js";
+import type { GitHubLiteClient, RepoRef } from "./github-types.js";
 
 const roleMappingPath = ".batch-governance/policies/role-mapping.yml";
 const workspacePolicyPath = ".batch-governance/workspace.yml";
@@ -27,7 +29,7 @@ export async function loadGovernedChangePolicy(
 
   if (!file) return defaultWorkspacePolicy;
 
-  const parsed = parseYamlDocument(file.content);
+  const parsed = parseGovernanceYaml(file.content);
   const validated = parsed.ok
     ? validateWorkspacePolicyFile(parsed.value)
     : null;
@@ -48,7 +50,7 @@ export async function loadGovernedChangeRoles(
 
   if (!file) throw new Error("Workspace role mapping is required.");
 
-  const parsed = parseYamlDocument(file.content);
+  const parsed = parseGovernanceYaml(file.content);
   const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
 
   if (!validated?.ok) throw new Error("Workspace role mapping is invalid.");

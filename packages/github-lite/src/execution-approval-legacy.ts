@@ -1,13 +1,16 @@
 import type {
-  ExecutionRequestPayload,
-  RepositoryIssue,
-  RepositoryIssueComment,
-  RepositoryPullRequest,
-  RunnerLabel,
   WorkspaceApprovalMode,
   WorkspacePolicy,
 } from "@batchplane/domain";
-import { buildExecutionApprovalComment as buildExecutionApprovalEvidence } from "@batchplane/domain";
+import {
+  buildExecutionApprovalComment as buildExecutionApprovalEvidence,
+  type ExecutionRequestPayload,
+} from "./execution-request-evidence.js";
+import type {
+  RepositoryIssue,
+  RepositoryIssueComment,
+  RepositoryPullRequest,
+} from "./repository-evidence-types.js";
 
 export type ExecutionRequestDisplayStatus =
   | "REQUESTED"
@@ -27,7 +30,7 @@ export type ExecutionApprovalRequest = {
     artifactPath?: string;
     command: string;
     gateRequired: boolean;
-    runsOn: RunnerLabel;
+    runsOn: string | string[];
   };
   expiresAt: string;
   gateDecision?: ExecutionGateDecision;
