@@ -1,3 +1,4 @@
+import type { GitHubRepositoryContext } from "./github-types.js";
 import type { BatchPlaneClient } from "@batchplane/ui-client";
 import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
 import {
@@ -13,12 +14,11 @@ import {
   toRepositoryIssue,
   toRepositoryIssueComment,
   toRepositoryPullRequest,
-  type ExecutionInspectionContext,
   type ExecutionRequestForRun,
 } from "./inspection-context.js";
 
 export function createGitHubLiteAuditClient(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
 ): Pick<BatchPlaneClient, "listAuditTimeline"> {
   return {
     async listAuditTimeline({ limit = 50 } = {}) {
@@ -55,7 +55,7 @@ export function createGitHubLiteAuditClient(
   };
 }
 
-async function loadAuditRecords(context: ExecutionInspectionContext) {
+async function loadAuditRecords(context: GitHubRepositoryContext) {
   const { client, repositoryRef } = context;
   const [issues, pullRequests] = await Promise.all([
     client.listIssues({ ...repositoryRef, state: "all" }),
@@ -78,7 +78,7 @@ async function loadAuditRecords(context: ExecutionInspectionContext) {
 }
 
 function loadRecordComments<T extends GitHubIssue | GitHubPullRequest>(
-  { client, repositoryRef }: ExecutionInspectionContext,
+  { client, repositoryRef }: GitHubRepositoryContext,
   records: T[],
 ) {
   return Promise.all(

@@ -332,6 +332,33 @@ changing language does not reset page state. The route table retains legacy
 schedule redirects and their encoded query and hash. This composition cleanup
 does not count the remaining legacy route Pages as migrated.
 
+### Runtime And Adapter Ownership
+
+The Web runtime selects the current session and live or fixture implementation,
+then injects the provider-neutral `BatchPlaneClient`. Resolve the current session
+for each operation so a saved or disconnected connection is not replaced by an
+old captured session. Preserve the list's disconnected outcome and the named
+connection error for other operations.
+
+The GitHub Lite adapter owns repository inventory, deleted Batch reconstruction,
+execution request evidence, approval orchestration, installation and product
+result projection. Compose these operations from the concrete GitHub client and
+repository context. Do not move a generic runtime Port aggregate into another
+package and rename it, or create a forwarding service hierarchy to keep its
+former shape alive.
+
+Development fixtures remain part of the selected implementation, with shared
+mock state and one-time approved-revision preparation. Fixture construction is
+not a product policy or a substitute for live GitHub verification. Production
+adapters must not import the Web application or its fixtures.
+
+When retiring a legacy helper, establish its real consumers first. Keep tests
+of current product behavior and repository integration at their new owner; keep
+session selection and React behavior tests in Web. Remove assertions of dead
+wrapper mechanics only when the current behavioral coverage is identified.
+Legacy external evidence readers and API versions are not dead merely because
+their name contains `legacy`.
+
 ## Page Contract
 
 A Page is a route boundary. It may:

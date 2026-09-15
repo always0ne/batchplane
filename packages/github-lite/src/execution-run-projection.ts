@@ -5,7 +5,7 @@ import type {
   GateDecision,
 } from "@batchplane/domain";
 import type { GitHubWorkflowJob, GitHubWorkflowRun } from "./github-types.js";
-import type { GitHubExecutionRun } from "./github-runtime-contracts.js";
+import type { GitHubExecutionRun } from "./repository-evidence-types.js";
 import { type ExecutionRequestForRun } from "./inspection-context.js";
 import { type NativeSchedulePresentation } from "./native-schedule-projections.js";
 export type ExecutionRunFacts = GitHubExecutionRun & {

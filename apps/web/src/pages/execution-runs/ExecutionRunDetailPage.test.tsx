@@ -1,9 +1,13 @@
+import { inspectionTestClient } from "../../test/inspection-client";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RuntimeClientTestProvider } from "../../test/RuntimeClientTestProvider";
 
-import type { BatchPlaneRuntimePorts } from "@batchplane/github-lite";
+import {
+  ExecutionInspectionError,
+  type BatchPlaneClient,
+} from "@batchplane/ui-client";
 import {
   createMockGitHubLiteClient,
   type GitHubLiteMockState,
@@ -11,9 +15,9 @@ import {
 
 import type { GitHubSession } from "../../runtime/github-session";
 import { i18next } from "../../i18n/i18n";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { createGitHubLiteBatchPlaneClient } from "@batchplane/github-lite";
 import {
-  createBatchPlaneRuntime,
+  createSelectedBatchPlaneClient,
   createRuntimeFixtureMockState,
   writeRuntimeFixtureSelection,
 } from "../../runtime/runtime-fixtures";
@@ -44,18 +48,16 @@ describe("ExecutionRunDetailPage", () => {
     "renders absent completion for %s %s as %s",
     async (locale, status, expected) => {
       await i18next.changeLanguage(locale);
-      const runtime = {
-        executions: {
-          getExecutionRun: async () => ({
-            batchId: "payment.daily-close",
-            requestId: "",
-            runId: "900",
-            status,
-          }),
-        },
-      } as unknown as BatchPlaneRuntimePorts;
+      const runtime = inspectionTestClient({
+        getExecutionRun: async () => ({
+          batchId: "payment.daily-close",
+          requestId: "",
+          runId: "900",
+          status,
+        }),
+      });
       renderDetail({
-        createRuntime: () => runtime,
+        createClient: () => runtime,
         readSession: () => session,
         runId: 900,
       });
@@ -74,7 +76,8 @@ describe("ExecutionRunDetailPage", () => {
     const client = createMockGitHubLiteClient(state);
 
     renderDetail({
-      createRuntime: () => createGitHubLiteRuntime(session, { client }),
+      createClient: () =>
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
       readSession: () => session,
       runId: run.id,
     });
@@ -142,7 +145,8 @@ describe("ExecutionRunDetailPage", () => {
     client.state.currentUser = { login: "developer" };
 
     renderDetail({
-      createRuntime: () => createGitHubLiteRuntime(session, { client }),
+      createClient: () =>
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
       readSession: () => session,
       runId: run.id,
     });
@@ -235,9 +239,9 @@ describe("ExecutionRunDetailPage", () => {
     "focuses $fixture logs on the actual batch command and retains full Gate evidence",
     async ({ fixture, requestLetter, scheduleId, output }) => {
       writeRuntimeFixtureSelection(fixture);
-      const runtime = createBatchPlaneRuntime(session);
+      const runtime = createSelectedBatchPlaneClient(session);
       const runId = `native:btr-schedule-${requestLetter.repeat(64)}:900:1`;
-      const run = await runtime.executions.getExecutionRun({ runId });
+      const run = await runtime.getExecutionRun({ runId });
       expect(run?.jobs).toEqual([
         expect.objectContaining({
           name: `Schedule [${scheduleId}]`,
@@ -249,7 +253,7 @@ describe("ExecutionRunDetailPage", () => {
         }),
       ]);
       renderDetail({
-        createRuntime: () => runtime,
+        createClient: () => runtime,
         readSession: () => session,
         runId,
       });
@@ -279,30 +283,32 @@ describe("ExecutionRunDetailPage", () => {
       content:
         "2026-09-11T01:01:04.000Z ##[group]Run batch\ncommand output without external URL\n##[endgroup]",
       jobId: "17",
+      businessSection: {
+        content: "command output without external URL",
+        focused: true,
+      },
       sizeBytes: 120,
       truncated: false,
     });
-    const runtime = {
-      executions: {
-        getExecutionRun: async () => ({
-          batchId: "payment.daily-close",
-          requestId: "",
-          runId: "900",
-          status: "UNCONFIRMED",
-          jobs: [
-            {
-              jobId: "17",
-              name: "Native business",
-              role: "BUSINESS",
-              status: "SUCCEEDED",
-            },
-          ],
-        }),
-        getExecutionRunJobLog,
-      },
-    } as unknown as BatchPlaneRuntimePorts;
+    const runtime = inspectionTestClient({
+      getExecutionRun: async () => ({
+        batchId: "payment.daily-close",
+        requestId: "",
+        runId: "900",
+        status: "UNCONFIRMED",
+        jobs: [
+          {
+            jobId: "17",
+            name: "Native business",
+            role: "BUSINESS",
+            status: "SUCCEEDED",
+          },
+        ],
+      }),
+      getExecutionRunJobLog,
+    });
     renderDetail({
-      createRuntime: () => runtime,
+      createClient: () => runtime,
       readSession: () => session,
       runId: 900,
     });
@@ -328,8 +334,8 @@ describe("ExecutionRunDetailPage", () => {
     "bounds long %s full logs within shrinkable grid cells without changing their text",
     async (fixture) => {
       writeRuntimeFixtureSelection(fixture);
-      const runtime = createBatchPlaneRuntime(session);
-      const [run] = await runtime.executions.listExecutionRuns({ limit: 20 });
+      const runtime = createSelectedBatchPlaneClient(session);
+      const [run] = await runtime.listExecutionRuns({ limit: 20 });
       const content = [
         `BATCHPLANE_GATE_RESULT ${"x".repeat(4096)}`,
         "##[group]BatchPlane batch command",
@@ -337,16 +343,20 @@ describe("ExecutionRunDetailPage", () => {
         "command output is intact",
         "##[endgroup]",
       ].join("\n");
-      vi.spyOn(runtime.executions, "getExecutionRunJobLog").mockImplementation(
+      vi.spyOn(runtime, "getExecutionRunJobLog").mockImplementation(
         async ({ jobId }) => ({
           content,
           jobId,
+          businessSection: {
+            content: "echo command output is intact\ncommand output is intact",
+            focused: true,
+          },
           sizeBytes: content.length,
           truncated: false,
         }),
       );
       renderDetail({
-        createRuntime: () => runtime,
+        createClient: () => runtime,
         readSession: () => session,
         runId: run!.runId,
       });
@@ -377,10 +387,10 @@ describe("ExecutionRunDetailPage", () => {
 
   it("opens historical source Run jobs and full logs without inventing a schedule association", async () => {
     writeRuntimeFixtureSelection("native-schedule-source-unconfirmed");
-    const runtime = createBatchPlaneRuntime(session);
-    const getRun = vi.spyOn(runtime.executions, "getExecutionRun");
+    const runtime = createSelectedBatchPlaneClient(session);
+    const getRun = vi.spyOn(runtime, "getExecutionRun");
     renderDetail({
-      createRuntime: () => runtime,
+      createClient: () => runtime,
       readSession: () => session,
       runId: 900,
       runAttempt: 1,
@@ -408,9 +418,9 @@ describe("ExecutionRunDetailPage", () => {
 
   it("keeps a denied native entry log without an executed batch command", async () => {
     writeRuntimeFixtureSelection("native-schedule-blocked");
-    const runtime = createBatchPlaneRuntime(session);
+    const runtime = createSelectedBatchPlaneClient(session);
     renderDetail({
-      createRuntime: () => runtime,
+      createClient: () => runtime,
       readSession: () => session,
       runId: `native:btr-schedule-${"a".repeat(64)}:900:2`,
     });
@@ -434,10 +444,13 @@ describe("ExecutionRunDetailPage", () => {
     const state = createRuntimeFixtureMockState("business-failed");
     const run = findFirstWorkflowRun(state);
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
 
     client.state.currentUser = { login: "developer" };
-    await runtime.executions.createFailureFollowUp({
+    await runtime.createFailureFollowUp({
       actionTaken: "Reprocessed after upstream correction.",
       explanation: "The upstream ledger file arrived late.",
       owner: "ops-team",
@@ -446,7 +459,7 @@ describe("ExecutionRunDetailPage", () => {
     });
 
     renderDetail({
-      createRuntime: () => runtime,
+      createClient: () => runtime,
       readSession: () => session,
       runId: run.id,
     });
@@ -466,9 +479,12 @@ describe("ExecutionRunDetailPage", () => {
     const state = createRuntimeFixtureMockState("business-failed");
     const run = findFirstWorkflowRun(state);
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
 
-    await runtime.executions.createFailureFollowUp({
+    await runtime.createFailureFollowUp({
       actionTaken: "Reprocessed after upstream correction.",
       explanation: "The upstream ledger file arrived late.",
       owner: "ops-team",
@@ -477,7 +493,7 @@ describe("ExecutionRunDetailPage", () => {
     });
 
     renderDetail({
-      createRuntime: () => runtime,
+      createClient: () => runtime,
       readSession: () => session,
       runId: run.id,
     });
@@ -496,10 +512,13 @@ describe("ExecutionRunDetailPage", () => {
     const state = createRuntimeFixtureMockState("business-failed");
     const run = findFirstWorkflowRun(state);
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
 
     client.state.currentUser = { login: "developer" };
-    const followUp = await runtime.executions.createFailureFollowUp({
+    const followUp = await runtime.createFailureFollowUp({
       actionTaken: "Reprocessed after upstream correction.",
       explanation: "The upstream ledger file arrived late.",
       owner: "ops-team",
@@ -507,7 +526,7 @@ describe("ExecutionRunDetailPage", () => {
       status: "RESOLVED",
     });
     client.state.currentUser = { login: "maintainer" };
-    const review = await runtime.executions.reviewFailureFollowUp({
+    const review = await runtime.reviewFailureFollowUp({
       decision: "APPROVED",
       followUpId: followUp.followUpId,
       reason: "Evidence is sufficient.",
@@ -515,7 +534,7 @@ describe("ExecutionRunDetailPage", () => {
     });
 
     renderDetail({
-      createRuntime: () => runtime,
+      createClient: () => runtime,
       readSession: () => session,
       runId: run.id,
     });
@@ -552,21 +571,17 @@ describe("ExecutionRunDetailPage", () => {
 
   it("shows unknown Gate evidence separately from allowed and blocked states", async () => {
     renderDetail({
-      createRuntime: () =>
-        ({
-          executions: {
-            getExecutionRun: async () => ({
-              batchId: "payment.daily-close",
-              jobs: [],
-              requestId: "btr-20260514010900-payment.daily-close-00000009",
-              runId: "209",
-              status: "RUNNING",
-              workflowRunId: "209",
-              workflowRunUrl:
-                "https://github.com/always0ne/batch/actions/runs/209",
-            }),
-          },
-        }) as unknown as BatchPlaneRuntimePorts,
+      createClient: () =>
+        inspectionTestClient({
+          getExecutionRun: async () => ({
+            batchId: "payment.daily-close",
+            jobs: [],
+            requestId: "btr-20260514010900-payment.daily-close-00000009",
+            runId: "209",
+            status: "RUNNING",
+            sourceUrl: "https://github.com/always0ne/batch/actions/runs/209",
+          }),
+        }),
       readSession: () => session,
       runId: 209,
     });
@@ -586,21 +601,17 @@ describe("ExecutionRunDetailPage", () => {
 
   it("uses an unknown-verification summary badge instead of business failure", async () => {
     renderDetail({
-      createRuntime: () =>
-        ({
-          executions: {
-            getExecutionRun: async () => ({
-              batchId: "payment.daily-close",
-              jobs: [],
-              requestId: "",
-              runId: "208",
-              status: "FAILED",
-              workflowRunId: "208",
-              workflowRunUrl:
-                "https://github.com/always0ne/batch/actions/runs/208",
-            }),
-          },
-        }) as unknown as BatchPlaneRuntimePorts,
+      createClient: () =>
+        inspectionTestClient({
+          getExecutionRun: async () => ({
+            batchId: "payment.daily-close",
+            jobs: [],
+            requestId: "",
+            runId: "208",
+            status: "FAILED",
+            sourceUrl: "https://github.com/always0ne/batch/actions/runs/208",
+          }),
+        }),
       readSession: () => session,
       runId: 208,
     });
@@ -618,21 +629,12 @@ describe("ExecutionRunDetailPage", () => {
 
   it("shows an actionable permission message when Actions evidence is forbidden", async () => {
     renderDetail({
-      createRuntime: () =>
-        ({
-          executions: {
-            getExecutionRun: async () => {
-              const error = new Error("Resource not accessible by token");
-              error.name = "GitHubLiteApiError";
-              Object.assign(error, {
-                code: "forbidden",
-                status: 403,
-              });
-
-              throw error;
-            },
+      createClient: () =>
+        inspectionTestClient({
+          getExecutionRun: async () => {
+            throw new ExecutionInspectionError({ type: "access-denied" });
           },
-        }) as unknown as BatchPlaneRuntimePorts,
+        }),
       readSession: () => session,
       runId: 209,
     });
@@ -646,12 +648,12 @@ describe("ExecutionRunDetailPage", () => {
 });
 
 function renderDetail({
-  createRuntime,
+  createClient,
   readSession,
   runId,
   runAttempt,
 }: {
-  createRuntime?: (session: GitHubSession) => BatchPlaneRuntimePorts;
+  createClient?: (session: GitHubSession) => BatchPlaneClient;
   readSession?: () => GitHubSession | null;
   runId: number | string;
   runAttempt?: number;
@@ -667,7 +669,7 @@ function renderDetail({
           path="/execution-runs/:runId"
           element={
             <RuntimeClientTestProvider
-              createRuntime={createRuntime}
+              createClient={createClient}
               readSession={readSession}
             >
               <ExecutionRunDetailPage />

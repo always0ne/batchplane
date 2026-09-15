@@ -4,7 +4,7 @@ import type { ExecutionRunFacts } from "./execution-run-projection.js";
 import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "./github-runtime-contracts.js";
+} from "./repository-evidence-types.js";
 import type { ExecutionRequestForRun } from "./inspection-context.js";
 import {
   deriveRegistrationReviewState,

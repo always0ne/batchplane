@@ -1,10 +1,11 @@
+import type { RepoRef } from "./github-types.js";
 import type {
   FailureFollowUp,
   FailureFollowUpReviewCapability,
   FailureFollowUpReviewDecision,
   WorkspacePolicy,
 } from "@batchplane/domain";
-import type { RepositoryIssueComment } from "./github-runtime-contracts.js";
+import type { RepositoryIssueComment } from "./repository-evidence-types.js";
 import {
   parseFailureFollowUpReviews,
   parseFailureFollowUps,
@@ -13,11 +14,10 @@ import type { GitHubLiteClient } from "./github-types.js";
 import {
   loadWorkspacePolicy,
   type ExecutionRequestForRun,
-  type RuntimeRepositoryRef,
 } from "./inspection-context.js";
 type FailureFollowUpProjectionContext = {
   permissionByLogin: Map<string, Promise<string>>;
-  repositoryRef: RuntimeRepositoryRef;
+  repositoryRef: RepoRef;
   workspacePolicy: WorkspacePolicy;
   client: GitHubLiteClient;
 };
@@ -46,7 +46,7 @@ export async function projectFailureFollowUpsForRequests({
 }: {
   client: GitHubLiteClient;
   includeReviewCapabilities: boolean;
-  repositoryRef: RuntimeRepositoryRef;
+  repositoryRef: RepoRef;
   requests: ExecutionRequestForRun[];
 }): Promise<Map<number, FailureFollowUp[]>> {
   const uniqueRequests = new Map(

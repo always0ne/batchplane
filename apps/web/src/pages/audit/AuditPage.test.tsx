@@ -9,9 +9,9 @@ import {
 } from "@batchplane/github-lite";
 
 import { i18next } from "../../i18n/i18n";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { createGitHubLiteBatchPlaneClient } from "@batchplane/github-lite";
 import {
-  createBatchPlaneRuntime,
+  createSelectedBatchPlaneClient,
   writeRuntimeFixtureSelection,
 } from "../../runtime/runtime-fixtures";
 import { AuditPage } from "./AuditPage";
@@ -33,11 +33,11 @@ describe("AuditPage", () => {
     async (locale) => {
       await i18next.changeLanguage(locale);
       writeRuntimeFixtureSelection("native-schedule-mixed");
-      const runtime = createBatchPlaneRuntime(session);
+      const runtime = createSelectedBatchPlaneClient(session);
       render(
         <MemoryRouter>
           <RuntimeClientTestProvider
-            createRuntime={() => runtime}
+            createClient={() => runtime}
             readSession={() => session}
           >
             <AuditPage />
@@ -115,7 +115,9 @@ describe("AuditPage", () => {
     render(
       <MemoryRouter>
         <RuntimeClientTestProvider
-          createRuntime={() => createGitHubLiteRuntime(session, { client })}
+          createClient={() =>
+            createGitHubLiteBatchPlaneClient({ client, repositoryRef: session })
+          }
           readSession={() => session}
         >
           <AuditPage />

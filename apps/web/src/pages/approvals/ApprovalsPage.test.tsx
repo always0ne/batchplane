@@ -9,7 +9,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { createGitHubLiteBatchPlaneClient } from "@batchplane/github-lite";
 import { createRuntimeBatchPlaneClient } from "../../runtime/runtime-batch-plane-client";
 import { createRuntimeFixtureMockState } from "../../runtime/runtime-fixtures";
 import "../../i18n/i18n";
@@ -75,7 +75,10 @@ describe("ApprovalsPage", () => {
     const state = createRuntimeFixtureMockState("approval-pending");
     state.currentUser = { login: "developer" };
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
 
     renderPage(productClient(runtime));
 
@@ -229,15 +232,18 @@ function runtimeClient(
 ) {
   const state = createRuntimeFixtureMockState(fixture);
   return productClient(
-    createGitHubLiteRuntime(session, {
+    createGitHubLiteBatchPlaneClient({
       client: createMockGitHubLiteClient(state),
+      repositoryRef: session,
     }),
   );
 }
 
-function productClient(runtime: ReturnType<typeof createGitHubLiteRuntime>) {
+function productClient(
+  runtime: ReturnType<typeof createGitHubLiteBatchPlaneClient>,
+) {
   return createRuntimeBatchPlaneClient({
-    createRuntime: () => runtime,
+    createClient: () => runtime,
     readSession: () => session,
   });
 }

@@ -1,11 +1,28 @@
-import type {
-  RuntimeInstallationStatus,
-  SettingsPort,
-} from "./github-runtime-contracts.js";
 import { WorkspaceSettingsError } from "@batchplane/ui-client";
-import { describe, expect, it, vi } from "vitest";
-import { GitHubLiteApiError } from "./index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GitHubLiteApiError } from "./github-types.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
 import { createGitHubLiteWorkspaceClient } from "./workspace-client.js";
+import { loadWorkspacePolicy } from "./inspection-context.js";
+import { checkLiteInstallationStatus } from "./workspace-installation-inspection.js";
+import {
+  createLiteInstallationPullRequest,
+  createLiteInstallationUpdatePullRequest,
+} from "./workspace-installation-requests.js";
+import { createWorkspacePolicyPullRequest } from "./workspace-policy-request.js";
+
+vi.mock("./inspection-context.js", () => ({ loadWorkspacePolicy: vi.fn() }));
+vi.mock("./workspace-installation-inspection.js", () => ({
+  checkLiteInstallationStatus: vi.fn(),
+}));
+vi.mock("./workspace-installation-requests.js", () => ({
+  createLiteInstallationPullRequest: vi.fn(),
+  createLiteInstallationUpdatePullRequest: vi.fn(),
+}));
+vi.mock("./workspace-policy-request.js", () => ({
+  createWorkspacePolicyPullRequest: vi.fn(),
+}));
 
 const sourceRequest = {
   number: 71,
@@ -19,40 +36,50 @@ const sourceRequest = {
   merged: false,
 };
 const currentPolicy = { approval: { mode: "SELF_APPROVAL_BLOCKED" as const } };
-const installed: RuntimeInstallationStatus = {
+const installed = {
   installed: true,
   presentPaths: ["installation"],
   requiredPaths: ["installation"],
   missingPaths: [],
   outdatedPaths: [],
 };
-
-function settingsFixture(overrides: Partial<SettingsPort> = {}): SettingsPort {
+function createContext() {
+  const client = createMockGitHubLiteClient(
+    createGitHubLiteMockState({
+      currentUser: { login: "operator" },
+      repository: {
+        owner: "workspace-owner",
+        repo: "workspace",
+        defaultBranch: "main",
+        private: true,
+        url: "https://example.test/workspace",
+      },
+    }),
+  );
   return {
-    getCurrentUser: vi.fn(async () => ({ login: "operator" })),
-    getRepository: vi.fn(async () => ({
-      owner: "workspace-owner",
-      repo: "workspace",
-      defaultBranch: "main",
-      private: true,
-      url: "https://example.test/workspace",
-    })),
-    checkInstallationStatus: vi.fn(async () => installed),
-    getWorkspacePolicy: vi.fn(async () => currentPolicy),
-    createInstallationPullRequest: vi.fn(async () => ({
-      pullRequest: sourceRequest,
-      status: installed,
-    })),
-    createInstallationUpdatePullRequest: vi.fn(async () => ({
-      pullRequest: sourceRequest,
-      status: installed,
-    })),
-    createWorkspacePolicyPullRequest: vi.fn(async () => sourceRequest),
-    ...overrides,
+    client,
+    repositoryRef: { owner: "workspace-owner", repo: "workspace" },
   };
 }
 
 describe("Workspace product adapter", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(loadWorkspacePolicy).mockResolvedValue(currentPolicy);
+    vi.mocked(checkLiteInstallationStatus).mockResolvedValue(installed);
+    vi.mocked(createLiteInstallationPullRequest).mockResolvedValue({
+      pullRequest: sourceRequest,
+      status: installed,
+    });
+    vi.mocked(createLiteInstallationUpdatePullRequest).mockResolvedValue({
+      pullRequest: sourceRequest,
+      status: installed,
+    });
+    vi.mocked(createWorkspacePolicyPullRequest).mockResolvedValue(
+      sourceRequest,
+    );
+  });
+
   it.each([
     {
       installed: false,
@@ -82,21 +109,16 @@ describe("Workspace product adapter", () => {
       outdatedPaths: ["installation"],
       action: "UPDATE",
     },
-  ] as const)(
+  ])(
     "projects readiness into the existing $action request availability",
     async (readiness) => {
-      const settings = settingsFixture({
-        checkInstallationStatus: vi.fn(async () => ({
-          ...readiness,
-          presentPaths: [...readiness.presentPaths],
-          missingPaths: [...readiness.missingPaths],
-          outdatedPaths: [...readiness.outdatedPaths],
-          requiredPaths: ["installation"],
-        })),
+      const context = createContext();
+      vi.mocked(checkLiteInstallationStatus).mockResolvedValue({
+        ...readiness,
+        requiredPaths: ["installation"],
       });
-      const result = await createGitHubLiteWorkspaceClient({
-        settings,
-      }).inspectWorkspace();
+      const result =
+        await createGitHubLiteWorkspaceClient(context).inspectWorkspace();
       expect(result.connection).toEqual({
         label: "workspace-owner/workspace",
         currentUser: "operator",
@@ -111,37 +133,34 @@ describe("Workspace product adapter", () => {
         missingEvidence: readiness.missingPaths,
         outdatedEvidence: readiness.outdatedPaths,
       });
-      expect(settings.getWorkspacePolicy).toHaveBeenCalledWith({ ref: "main" });
-      expect(settings.checkInstallationStatus).toHaveBeenCalledWith({
+      expect(loadWorkspacePolicy).toHaveBeenCalledWith({
+        ...context,
+        ref: "main",
+      });
+      expect(checkLiteInstallationStatus).toHaveBeenCalledWith({
+        client: context.client,
+        repo: context.repositoryRef,
         ref: "main",
       });
       expect(result).not.toHaveProperty("token");
       expect(result.connection).not.toHaveProperty("repo");
-      expect(settings.createInstallationPullRequest).not.toHaveBeenCalled();
+      expect(createLiteInstallationPullRequest).not.toHaveBeenCalled();
     },
   );
 
   it.each(["requestWorkspaceInstallation", "requestWorkspaceUpdate"] as const)(
     "%s returns the actual request without claiming installation was applied",
     async (method) => {
-      const before = {
-        ...installed,
-        installed: false,
-        missingPaths: ["installation"],
-      };
-      const settings = settingsFixture({
-        createInstallationPullRequest: vi.fn(async () => ({
-          pullRequest: sourceRequest,
-          status: before,
-        })),
-        createInstallationUpdatePullRequest: vi.fn(async () => ({
-          pullRequest: sourceRequest,
-          status: installed,
-        })),
+      const context = createContext();
+      vi.mocked(createLiteInstallationPullRequest).mockResolvedValue({
+        pullRequest: sourceRequest,
+        status: {
+          ...installed,
+          installed: false,
+          missingPaths: ["installation"],
+        },
       });
-      const result = await createGitHubLiteWorkspaceClient({ settings })[
-        method
-      ]();
+      const result = await createGitHubLiteWorkspaceClient(context)[method]();
       expect(result.request).toEqual({
         label: "#71 Workspace change",
         sourceUrl: sourceRequest.url,
@@ -150,13 +169,15 @@ describe("Workspace product adapter", () => {
         method === "requestWorkspaceUpdate",
       );
       expect(
-        settings[
-          method === "requestWorkspaceInstallation"
-            ? "createInstallationPullRequest"
-            : "createInstallationUpdatePullRequest"
-        ],
-      ).toHaveBeenCalledWith({ defaultBranch: "main" });
-      expect(settings.checkInstallationStatus).not.toHaveBeenCalled();
+        method === "requestWorkspaceInstallation"
+          ? createLiteInstallationPullRequest
+          : createLiteInstallationUpdatePullRequest,
+      ).toHaveBeenCalledWith({
+        client: context.client,
+        repo: context.repositoryRef,
+        defaultBranch: "main",
+      });
+      expect(checkLiteInstallationStatus).not.toHaveBeenCalled();
     },
   );
 
@@ -167,11 +188,11 @@ describe("Workspace product adapter", () => {
   ] as const)(
     "keeps current policy separate from the requested %s policy",
     async (mode) => {
-      const settings = settingsFixture();
+      const context = createContext();
       const policy = { approval: { mode } };
-      const result = await createGitHubLiteWorkspaceClient({
-        settings,
-      }).requestWorkspacePolicyChange({ policy });
+      const result = await createGitHubLiteWorkspaceClient(
+        context,
+      ).requestWorkspacePolicyChange({ policy });
       expect(result).toEqual({
         currentPolicy,
         requestedPolicy: policy,
@@ -180,8 +201,13 @@ describe("Workspace product adapter", () => {
           sourceUrl: sourceRequest.url,
         },
       });
-      expect(settings.getWorkspacePolicy).toHaveBeenCalledWith({ ref: "main" });
-      expect(settings.createWorkspacePolicyPullRequest).toHaveBeenCalledWith({
+      expect(loadWorkspacePolicy).toHaveBeenCalledWith({
+        ...context,
+        ref: "main",
+      });
+      expect(createWorkspacePolicyPullRequest).toHaveBeenCalledWith({
+        client: context.client,
+        repo: context.repositoryRef,
         defaultBranch: "main",
         policy,
       });
@@ -194,28 +220,25 @@ describe("Workspace product adapter", () => {
   ] as const)(
     "reports %s instead of connected or installed success",
     async (code, status, reason) => {
-      const settings = settingsFixture({
-        getRepository: vi.fn(async () => {
-          throw new GitHubLiteApiError("provider detail", code, status);
-        }),
-      });
+      const context = createContext();
+      vi.spyOn(context.client, "getRepository").mockRejectedValue(
+        new GitHubLiteApiError("provider detail", code, status),
+      );
       await expect(
-        createGitHubLiteWorkspaceClient({ settings }).inspectWorkspace(),
+        createGitHubLiteWorkspaceClient(context).inspectWorkspace(),
       ).rejects.toEqual(new WorkspaceSettingsError({ type: reason }));
-      expect(settings.checkInstallationStatus).not.toHaveBeenCalled();
+      expect(checkLiteInstallationStatus).not.toHaveBeenCalled();
     },
   );
 
   it("preserves a failed write as an error rather than returning a request", async () => {
-    const settings = settingsFixture({
-      createWorkspacePolicyPullRequest: vi.fn(async () => {
-        throw new GitHubLiteApiError("denied", "forbidden", 403);
-      }),
-    });
+    vi.mocked(createWorkspacePolicyPullRequest).mockRejectedValue(
+      new GitHubLiteApiError("denied", "forbidden", 403),
+    );
     await expect(
-      createGitHubLiteWorkspaceClient({
-        settings,
-      }).requestWorkspacePolicyChange({ policy: currentPolicy }),
+      createGitHubLiteWorkspaceClient(
+        createContext(),
+      ).requestWorkspacePolicyChange({ policy: currentPolicy }),
     ).rejects.toEqual(new WorkspaceSettingsError({ type: "access-denied" }));
   });
 });

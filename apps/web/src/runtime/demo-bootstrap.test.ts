@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBatchWorkflowYaml,
   parseBatchDefinitionYaml,
-} from "../features/registration/registration-model";
+} from "@batchplane/github-lite";
 import {
   buildDispatcherWorkflowYaml,
   buildRoleMappingYaml,
@@ -66,11 +66,7 @@ describe("GitHub Lite demo repository bootstrap", () => {
       runsOn: "ubuntu-latest",
     });
     expect(readDemoFile(".github/workflows/demo.echo.yml")).toBe(
-      buildBatchWorkflowYaml(
-        definition,
-        definition.execution?.command ?? "",
-        "ubuntu-latest",
-      ),
+      buildBatchWorkflowYaml(definition),
     );
   });
 });

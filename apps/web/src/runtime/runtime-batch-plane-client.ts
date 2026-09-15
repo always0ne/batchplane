@@ -1,196 +1,89 @@
 import {
-  createGitHubLiteBatchReadClient,
-  createGitHubLiteDashboardClient,
-  createGitHubLiteExecutionApprovalClient,
-  createGitHubLiteExecutionInspectionClient,
-  createGitHubLiteWorkspaceClient,
-} from "@batchplane/github-lite";
-import {
   WorkspaceNotConnectedError,
   type BatchPlaneClient,
 } from "@batchplane/ui-client";
 import {
-  createBatchPlaneRuntime,
-  createRuntimeBatchRevisionClient,
-  createRuntimeGovernedChangeClient,
+  createSelectedBatchPlaneClient,
   readRuntimeSession,
 } from "./runtime-fixtures";
 
 type RuntimeBatchPlaneClientDependencies = {
-  createBatchRevisionClient?: typeof createRuntimeBatchRevisionClient;
-  createGovernedChangeClient?: typeof createRuntimeGovernedChangeClient;
-  createRuntime?: typeof createBatchPlaneRuntime;
+  createClient?: typeof createSelectedBatchPlaneClient;
   readSession?: typeof readRuntimeSession;
 };
 
+/** Resolve the selected connection anew for each product operation. */
 export function createRuntimeBatchPlaneClient({
-  createBatchRevisionClient = createRuntimeBatchRevisionClient,
-  createGovernedChangeClient = createRuntimeGovernedChangeClient,
-  createRuntime = createBatchPlaneRuntime,
+  createClient = createSelectedBatchPlaneClient,
   readSession = readRuntimeSession,
 }: RuntimeBatchPlaneClientDependencies = {}): BatchPlaneClient {
+  function connectedClient() {
+    const session = readSession();
+    if (!session) throw new WorkspaceNotConnectedError();
+    return createClient(session);
+  }
+
   return {
-    inspectWorkspace: async () => createWorkspaceClient().inspectWorkspace(),
-    requestWorkspaceInstallation: async () =>
-      createWorkspaceClient().requestWorkspaceInstallation(),
-    requestWorkspaceUpdate: async () =>
-      createWorkspaceClient().requestWorkspaceUpdate(),
-    requestWorkspacePolicyChange: async (input) =>
-      createWorkspaceClient().requestWorkspacePolicyChange(input),
     async listBatches() {
       const session = readSession();
-
-      if (!session) {
-        return { type: "workspace-not-connected" };
-      }
-
-      return createBatchReadClient(session).listBatches();
+      if (!session) return { type: "workspace-not-connected" };
+      return createClient(session).listBatches();
     },
-    async getBatchDetail({ batchId }) {
-      const session = requireSession(readSession());
-      return createBatchReadClient(session).getBatchDetail({ batchId });
-    },
-    async requestBatchRemediation(input) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).requestBatchRemediation(input);
-    },
-    async getBatchRemediationCapability({ batchId }) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).getBatchRemediationCapability({
-        batchId,
-      });
-    },
-    async loadBatchChangeDraft(input) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).loadBatchChangeDraft(input);
-    },
-    async getBatchChangeBlocker(input) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).getBatchChangeBlocker(input);
-    },
-    async previewBatchChange(input) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).previewBatchChange(input);
-    },
-    async createBatchChangeRequest(input) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).createBatchChangeRequest(
-        input,
-      );
-    },
-    async getGovernedChange(input) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).getGovernedChange(input);
-    },
-    async approveGovernedChange(input) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).approveGovernedChange(input);
-    },
-    async rejectGovernedChange(input) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).rejectGovernedChange(input);
-    },
-    async withdrawGovernedChange(input) {
-      const session = requireSession(readSession());
-
-      return createGovernedChangeClient(session).withdrawGovernedChange(input);
-    },
-    async loadExecutionRequestDraft(input) {
-      return createExecutionApprovalClient().loadExecutionRequestDraft(input);
-    },
-    async previewExecutionRequest(input) {
-      return createExecutionApprovalClient().previewExecutionRequest(input);
-    },
-    async createExecutionRequest(input) {
-      return createExecutionApprovalClient().createExecutionRequest(input);
-    },
-    async getExecutionRequest(input) {
-      return createExecutionApprovalClient().getExecutionRequest(input);
-    },
-    async approveExecutionRequest(input) {
-      return createExecutionApprovalClient().approveExecutionRequest(input);
-    },
-    async rejectExecutionRequest(input) {
-      return createExecutionApprovalClient().rejectExecutionRequest(input);
-    },
-    async listApprovalRequests() {
-      return createExecutionApprovalClient().listApprovalRequests();
-    },
-    async listWorkspaceRequests() {
-      return createExecutionApprovalClient().listWorkspaceRequests();
-    },
-    async getMyWork() {
-      return createExecutionApprovalClient().getMyWork();
-    },
+    inspectWorkspace: async () => connectedClient().inspectWorkspace(),
+    requestWorkspaceInstallation: async () =>
+      connectedClient().requestWorkspaceInstallation(),
+    requestWorkspaceUpdate: async () =>
+      connectedClient().requestWorkspaceUpdate(),
+    requestWorkspacePolicyChange: async (input) =>
+      connectedClient().requestWorkspacePolicyChange(input),
+    getBatchDetail: async (input) => connectedClient().getBatchDetail(input),
+    requestBatchRemediation: async (input) =>
+      connectedClient().requestBatchRemediation(input),
+    getBatchRemediationCapability: async (input) =>
+      connectedClient().getBatchRemediationCapability(input),
+    loadBatchChangeDraft: async (input) =>
+      connectedClient().loadBatchChangeDraft(input),
+    getBatchChangeBlocker: async (input) =>
+      connectedClient().getBatchChangeBlocker(input),
+    previewBatchChange: async (input) =>
+      connectedClient().previewBatchChange(input),
+    createBatchChangeRequest: async (input) =>
+      connectedClient().createBatchChangeRequest(input),
+    getGovernedChange: async (input) =>
+      connectedClient().getGovernedChange(input),
+    approveGovernedChange: async (input) =>
+      connectedClient().approveGovernedChange(input),
+    rejectGovernedChange: async (input) =>
+      connectedClient().rejectGovernedChange(input),
+    withdrawGovernedChange: async (input) =>
+      connectedClient().withdrawGovernedChange(input),
+    loadExecutionRequestDraft: async (input) =>
+      connectedClient().loadExecutionRequestDraft(input),
+    previewExecutionRequest: async (input) =>
+      connectedClient().previewExecutionRequest(input),
+    createExecutionRequest: async (input) =>
+      connectedClient().createExecutionRequest(input),
+    getExecutionRequest: async (input) =>
+      connectedClient().getExecutionRequest(input),
+    approveExecutionRequest: async (input) =>
+      connectedClient().approveExecutionRequest(input),
+    rejectExecutionRequest: async (input) =>
+      connectedClient().rejectExecutionRequest(input),
+    listApprovalRequests: async () => connectedClient().listApprovalRequests(),
+    listWorkspaceRequests: async () =>
+      connectedClient().listWorkspaceRequests(),
+    getMyWork: async () => connectedClient().getMyWork(),
     listExecutionRuns: async (input) =>
-      createInspectionClient().listExecutionRuns(input),
-    getExecutionRun: async (input) =>
-      createInspectionClient().getExecutionRun(input),
+      connectedClient().listExecutionRuns(input),
+    getExecutionRun: async (input) => connectedClient().getExecutionRun(input),
     getExecutionRunJobLog: async (input) =>
-      createInspectionClient().getExecutionRunJobLog(input),
+      connectedClient().getExecutionRunJobLog(input),
     createFailureFollowUp: async (input) =>
-      createInspectionClient().createFailureFollowUp(input),
+      connectedClient().createFailureFollowUp(input),
     reviewFailureFollowUp: async (input) =>
-      createInspectionClient().reviewFailureFollowUp(input),
+      connectedClient().reviewFailureFollowUp(input),
     listAuditTimeline: async (input) =>
-      createInspectionClient().listAuditTimeline(input),
-    getDashboardSummary: async () => {
-      const session = requireSession(readSession());
-      const runtime = createRuntime(session);
-      return createGitHubLiteDashboardClient({
-        runtime,
-        requests: createGitHubLiteExecutionApprovalClient({ runtime }),
-        inspections: createGitHubLiteExecutionInspectionClient({ runtime }),
-      }).getDashboardSummary();
-    },
+      connectedClient().listAuditTimeline(input),
+    getDashboardSummary: async () => connectedClient().getDashboardSummary(),
   };
-
-  function createBatchReadClient(
-    session: NonNullable<ReturnType<typeof readRuntimeSession>>,
-  ) {
-    return createGitHubLiteBatchReadClient({
-      governedChangeClient: createGovernedChangeClient(session),
-      revisionClient: createBatchRevisionClient(session),
-      runtime: createRuntime(session),
-    });
-  }
-
-  function createWorkspaceClient() {
-    const session = requireSession(readSession());
-    return createGitHubLiteWorkspaceClient({
-      settings: createRuntime(session).settings,
-    });
-  }
-
-  function createExecutionApprovalClient() {
-    const session = requireSession(readSession());
-
-    return createGitHubLiteExecutionApprovalClient({
-      runtime: createRuntime(session),
-    });
-  }
-
-  function createInspectionClient() {
-    const session = requireSession(readSession());
-    return createGitHubLiteExecutionInspectionClient({
-      runtime: createRuntime(session),
-    });
-  }
-}
-
-function requireSession(session: ReturnType<typeof readRuntimeSession>) {
-  if (!session) {
-    throw new WorkspaceNotConnectedError();
-  }
-
-  return session;
 }

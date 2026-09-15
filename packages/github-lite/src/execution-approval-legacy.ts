@@ -10,7 +10,7 @@ import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "./github-runtime-contracts.js";
+} from "./repository-evidence-types.js";
 
 export type ExecutionRequestDisplayStatus =
   | "REQUESTED"

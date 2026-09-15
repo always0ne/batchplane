@@ -1,14 +1,13 @@
+import type { GitHubRepositoryContext } from "./github-types.js";
 import type { ExecutionRunJobLog } from "@batchplane/domain";
 import type { GitHubWorkflowJobLog } from "./github-types.js";
-import type { ExecutionPort } from "./github-runtime-contracts.js";
-import type { ExecutionInspectionContext } from "./inspection-context.js";
 
 export function createGitHubLiteExecutionLogClient({
   client,
   repositoryRef,
-}: ExecutionInspectionContext): Pick<ExecutionPort, "getExecutionRunJobLog"> {
+}: GitHubRepositoryContext) {
   return {
-    async getExecutionRunJobLog({ jobId }) {
+    async getExecutionRunJobLog({ jobId }: { jobId: string }) {
       const numericJobId = Number(jobId);
 
       if (!Number.isInteger(numericJobId) || numericJobId <= 0) {

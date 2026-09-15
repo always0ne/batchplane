@@ -1,11 +1,11 @@
 import type {
-  GitHubBatchDefinition,
   GitHubDirectoryEntry,
   GitHubLiteClient,
   RepoRef,
-} from "@batchplane/github-lite";
+} from "./github-types.js";
 
-import { parseBatchDefinitionYaml } from "../registration/registration-model";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import { parseBatchDefinitionYaml } from "./batch-definition-codec.js";
 
 export const batchDefinitionDirectory = ".batch-governance/batches";
 

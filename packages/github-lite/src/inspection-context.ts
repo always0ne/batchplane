@@ -1,3 +1,4 @@
+import type { RepoRef } from "./github-types.js";
 import type { WorkspacePolicy } from "@batchplane/domain";
 import { defaultWorkspacePolicy } from "@batchplane/domain";
 import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
@@ -10,7 +11,7 @@ import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "./github-runtime-contracts.js";
+} from "./repository-evidence-types.js";
 import type {
   GitHubIssue,
   GitHubIssueComment,
@@ -18,14 +19,9 @@ import type {
   GitHubPullRequest,
 } from "./github-types.js";
 
-export type RuntimeRepositoryRef = { owner: string; repo: string };
 export type ExecutionRequestForRun = NonNullable<
   ReturnType<typeof parseExecutionRequestDetail>
 >;
-export type ExecutionInspectionContext = {
-  client: GitHubLiteClient;
-  repositoryRef: RuntimeRepositoryRef;
-};
 const liteWorkspacePolicyPath = ".batch-governance/workspace.yml";
 export function toRepositoryIssue(issue: GitHubIssue): RepositoryIssue {
   return {
@@ -48,7 +44,7 @@ export function toRepositoryPullRequest(
 
 export async function loadExecutionApprovalRequests(
   client: GitHubLiteClient,
-  repositoryRef: RuntimeRepositoryRef,
+  repositoryRef: RepoRef,
 ): Promise<ExecutionRequestForRun[]> {
   const issues = await client.listIssues({
     ...repositoryRef,
@@ -100,7 +96,7 @@ export async function loadWorkspacePolicy({
 }: {
   client: GitHubLiteClient;
   ref?: string;
-  repositoryRef: RuntimeRepositoryRef;
+  repositoryRef: RepoRef;
 }): Promise<WorkspacePolicy> {
   const repository = await client.getRepository(repositoryRef);
   const file = await client.getFile({

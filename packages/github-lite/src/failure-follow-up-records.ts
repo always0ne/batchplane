@@ -6,7 +6,7 @@ import type {
   FailureFollowUpStatus,
   WorkspaceApprovalMode,
 } from "@batchplane/domain";
-import type { RepositoryIssueComment } from "./github-runtime-contracts.js";
+import type { RepositoryIssueComment } from "./repository-evidence-types.js";
 
 export const failureFollowUpStatuses = [
   "OPEN",

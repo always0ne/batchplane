@@ -449,3 +449,7 @@ export class GitHubLiteApiError extends Error {
     this.status = status;
   }
 }
+export type GitHubRepositoryContext = {
+  client: GitHubLiteClient;
+  repositoryRef: RepoRef;
+};

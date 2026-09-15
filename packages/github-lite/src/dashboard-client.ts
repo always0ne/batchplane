@@ -1,4 +1,7 @@
-import type { BatchPlaneRuntimePorts } from "./github-runtime-contracts.js";
+import type { GitHubRepositoryContext } from "./github-types.js";
+
+import { loadBatchDefinitions } from "./batch-repository.js";
+import { checkLiteInstallationStatus } from "./workspace-installation-inspection.js";
 import {
   isBusinessFailure,
   type BatchPlaneClient,
@@ -6,11 +9,11 @@ import {
 import { withInspectionErrorMapping } from "./execution-inspection-client.js";
 
 export function createGitHubLiteDashboardClient({
-  runtime,
+  client,
+  repositoryRef,
   requests,
   inspections,
-}: {
-  runtime: Pick<BatchPlaneRuntimePorts, "settings" | "batches">;
+}: GitHubRepositoryContext & {
   requests: Pick<BatchPlaneClient, "listApprovalRequests">;
   inspections: Pick<
     BatchPlaneClient,
@@ -21,15 +24,19 @@ export function createGitHubLiteDashboardClient({
     getDashboardSummary: () =>
       withInspectionErrorMapping(async () => {
         const [user, repository] = await Promise.all([
-          runtime.settings.getCurrentUser(),
-          runtime.settings.getRepository(),
+          client.getCurrentUser(),
+          client.getRepository(repositoryRef),
         ]);
         const [installation, batches, approvals, runs, auditItems] =
           await Promise.all([
-            runtime.settings.checkInstallationStatus({
+            checkLiteInstallationStatus({
+              client,
+              repo: repositoryRef,
               ref: repository.defaultBranch,
             }),
-            runtime.batches.listBatchDefinitions({
+            loadBatchDefinitions({
+              client,
+              repository: repositoryRef,
               ref: repository.defaultBranch,
             }),
             requests.listApprovalRequests(),

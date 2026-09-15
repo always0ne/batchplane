@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { GitHubLiteClient } from "@batchplane/github-lite";
+import type { GitHubLiteClient } from "./github-types.js";
 
 import {
   batchDefinitionDirectory,
   isBatchDefinitionFile,
   loadBatchDefinitions,
-} from "./batch-repository";
+} from "./batch-repository.js";
 
 describe("batch repository", () => {
   it("loads governed batch definitions from GitHub contents", async () => {
@@ -111,5 +111,79 @@ describe("batch repository", () => {
         type: "dir",
       }),
     ).toBe(false);
+  });
+});
+import { createGitHubLiteClient } from "./github-client.js";
+const session = { owner: "always0ne", repo: "batch" };
+describe("GitHub batch directory transport", () => {
+  it("loads batch definitions through encoded GitHub contents endpoints", async () => {
+    const fetcher: typeof fetch = async (input) => {
+      const url = input.toString();
+
+      if (
+        url ===
+        "https://api.github.com/repos/always0ne/batch/contents/.batch-governance/batches?ref=main"
+      ) {
+        return Response.json([
+          {
+            name: "payment.daily-close.yml",
+            path: ".batch-governance/batches/payment.daily-close.yml",
+            sha: "dir-sha",
+            type: "file",
+          },
+        ]);
+      }
+
+      if (
+        url ===
+        "https://api.github.com/repos/always0ne/batch/contents/.batch-governance/batches/payment.daily-close.yml?ref=main"
+      ) {
+        return Response.json({
+          content: btoa(
+            [
+              'apiVersion: "batchplane.io/v1"',
+              'kind: "BatchDefinition"',
+              "metadata:",
+              '  id: "payment.daily-close"',
+              '  name: "Daily Close"',
+              "spec:",
+              '  owner: "ops-team"',
+              '  domain: "payments"',
+              '  environment: "PROD"',
+              '  criticality: "HIGH"',
+              '  status: "ACTIVE"',
+              "  workflow:",
+              '    path: ".github/workflows/payment.daily-close.yml"',
+              '    ref: "main"',
+              "  gateRequired: true",
+              "",
+            ].join("\n"),
+          ),
+          encoding: "base64",
+          path: ".batch-governance/batches/payment.daily-close.yml",
+          sha: "file-sha",
+        });
+      }
+
+      return Response.json({ message: "Not Found" }, { status: 404 });
+    };
+    const context = {
+      client: createGitHubLiteClient({ token: "ghp_test", fetcher }),
+      repositoryRef: session,
+    };
+
+    await expect(
+      loadBatchDefinitions({
+        client: context.client,
+        repository: session,
+        ref: "main",
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        batchId: "payment.daily-close",
+        gateRequired: true,
+        status: "ACTIVE",
+      }),
+    ]);
   });
 });

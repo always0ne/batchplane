@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "./github-runtime-contracts.js";
+} from "./repository-evidence-types.js";
 
 import {
   deriveRegistrationFilePaths,

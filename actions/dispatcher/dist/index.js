@@ -8874,120 +8874,6 @@ function normalize(value) {
   return value;
 }
 
-// ../../packages/github-lite/src/governed-change-evidence.ts
-var governedChangeEvidenceVersion = "batchplane.io/governed-change/v2";
-var requestMarker = "batchplane:governed-change-request";
-var decisionMarker = "batchplane:governed-change-decision";
-var withdrawalMarker = "batchplane:governed-change-withdrawal";
-async function createGovernedChangeRequestDigest(evidence) {
-  return createCanonicalDigest(toRequestDigestPayload(evidence));
-}
-async function createTargetRevisionDigest(artifacts) {
-  const resultingArtifacts = artifacts.filter((artifact) => artifact.afterDigest !== null).map(({ afterDigest, kind, path }) => ({ afterDigest, kind, path }));
-  return createCanonicalDigest({
-    artifacts: sortArtifacts(resultingArtifacts),
-    resultingState: resultingArtifacts.length === 0 ? "EMPTY" : "PRESENT",
-    version: governedChangeEvidenceVersion
-  });
-}
-function parseGovernedChangeRequestEvidence(body) {
-  const evidence = parseEvidence(body, requestMarker);
-  if (!isGovernedChangeRequestEvidence(evidence)) {
-    return null;
-  }
-  return evidence;
-}
-function parseGovernedChangeDecisionEvidence(body) {
-  const evidence = parseEvidence(body, decisionMarker);
-  if (!isGovernedChangeDecisionEvidence(evidence)) {
-    return null;
-  }
-  return evidence;
-}
-function parseGovernedChangeWithdrawalEvidence(body) {
-  const evidence = parseEvidence(body, withdrawalMarker);
-  return isGovernedChangeWithdrawalEvidence(evidence) ? evidence : null;
-}
-function parseEvidence(body, marker) {
-  const start = body.indexOf(`${marker}
-`);
-  if (start < 0) {
-    return null;
-  }
-  const jsonStart = start + marker.length + 1;
-  const end = body.indexOf("\n-->", jsonStart);
-  if (end < 0) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(body.slice(jsonStart, end));
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-function isGovernedChangeRequestEvidence(evidence) {
-  return Boolean(
-    evidence && evidence.version === governedChangeEvidenceVersion && isNonBlankString(evidence.baseRevisionSha) && isNonBlankString(evidence.batchId) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.repository) && isNonBlankString(evidence.requester) && isNonBlankString(evidence.requestedAt) && (evidence.remediation === void 0 || evidence.remediation === "REVIEW_CURRENT" || evidence.remediation === "RESTORE_LAST_APPROVED") && isNonBlankString(evidence.targetRevisionDigest) && isChangeType(evidence.type) && isNonBlankString(evidence.workspace) && Array.isArray(evidence.artifacts) && evidence.artifacts.every(isGovernedChangeArtifact)
-  );
-}
-function isGovernedChangeDecisionEvidence(evidence) {
-  return Boolean(
-    evidence && evidence.version === governedChangeEvidenceVersion && isNonBlankString(evidence.authorizationRevisionSha) && isNonBlankString(evidence.headRevisionSha) && (evidence.decision === "APPROVED" || evidence.decision === "REJECTED") && (evidence.decisionSource === "USER" || evidence.decisionSource === "WORKSPACE_POLICY") && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest) && (evidence.decision !== "REJECTED" || isNonBlankString(evidence.rejectionReason))
-  );
-}
-function isGovernedChangeWithdrawalEvidence(evidence) {
-  return Boolean(
-    evidence && evidence.version === governedChangeEvidenceVersion && evidence.decision === "WITHDRAWN" && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest)
-  );
-}
-function isGovernedChangeArtifact(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const artifact = value;
-  return isNonBlankString(artifact.path) && (artifact.kind === "ARTIFACT" || artifact.kind === "BATCH_DEFINITION" || artifact.kind === "WORKFLOW") && isDigestOrNull(artifact.beforeDigest) && isDigestOrNull(artifact.afterDigest);
-}
-function isChangeType(value) {
-  return value === "REGISTER" || value === "CHANGE" || value === "DELETE";
-}
-function isDigestOrNull(value) {
-  return value === null || isNonBlankString(value);
-}
-function isNonBlankString(value) {
-  return typeof value === "string" && value.trim().length > 0;
-}
-function toRequestDigestPayload(evidence) {
-  return {
-    artifacts: sortArtifacts(evidence.artifacts).map(toArtifactDigestPayload),
-    baseRevisionSha: evidence.baseRevisionSha,
-    batchId: evidence.batchId,
-    governedChangeId: evidence.governedChangeId,
-    headRevisionSha: evidence.headRevisionSha,
-    repository: evidence.repository,
-    requester: evidence.requester,
-    requestedAt: evidence.requestedAt,
-    ...evidence.remediation ? { remediation: evidence.remediation } : {},
-    targetRevisionDigest: evidence.targetRevisionDigest,
-    type: evidence.type,
-    version: evidence.version,
-    workspace: evidence.workspace
-  };
-}
-function toArtifactDigestPayload(artifact) {
-  return {
-    afterDigest: artifact.afterDigest,
-    beforeDigest: artifact.beforeDigest,
-    kind: artifact.kind,
-    path: artifact.path
-  };
-}
-function sortArtifacts(artifacts) {
-  return [...artifacts].sort(
-    (left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0
-  );
-}
-
 // ../../packages/github-lite/src/batch-definition-codec.ts
 function getBatchDefinitionPath(batchId) {
   return `.batch-governance/batches/${assertCanonicalBatchId(batchId)}.yml`;
@@ -9411,6 +9297,120 @@ function toWorkflowJobId(value) {
 function toScheduleWorkflowJobId(scheduleId) {
   const encoded = Array.from(scheduleId).map((character) => character.codePointAt(0).toString(16)).join("_");
   return `schedule_${encoded}`;
+}
+
+// ../../packages/github-lite/src/governed-change-evidence.ts
+var governedChangeEvidenceVersion = "batchplane.io/governed-change/v2";
+var requestMarker = "batchplane:governed-change-request";
+var decisionMarker = "batchplane:governed-change-decision";
+var withdrawalMarker = "batchplane:governed-change-withdrawal";
+async function createGovernedChangeRequestDigest(evidence) {
+  return createCanonicalDigest(toRequestDigestPayload(evidence));
+}
+async function createTargetRevisionDigest(artifacts) {
+  const resultingArtifacts = artifacts.filter((artifact) => artifact.afterDigest !== null).map(({ afterDigest, kind, path }) => ({ afterDigest, kind, path }));
+  return createCanonicalDigest({
+    artifacts: sortArtifacts(resultingArtifacts),
+    resultingState: resultingArtifacts.length === 0 ? "EMPTY" : "PRESENT",
+    version: governedChangeEvidenceVersion
+  });
+}
+function parseGovernedChangeRequestEvidence(body) {
+  const evidence = parseEvidence(body, requestMarker);
+  if (!isGovernedChangeRequestEvidence(evidence)) {
+    return null;
+  }
+  return evidence;
+}
+function parseGovernedChangeDecisionEvidence(body) {
+  const evidence = parseEvidence(body, decisionMarker);
+  if (!isGovernedChangeDecisionEvidence(evidence)) {
+    return null;
+  }
+  return evidence;
+}
+function parseGovernedChangeWithdrawalEvidence(body) {
+  const evidence = parseEvidence(body, withdrawalMarker);
+  return isGovernedChangeWithdrawalEvidence(evidence) ? evidence : null;
+}
+function parseEvidence(body, marker) {
+  const start = body.indexOf(`${marker}
+`);
+  if (start < 0) {
+    return null;
+  }
+  const jsonStart = start + marker.length + 1;
+  const end = body.indexOf("\n-->", jsonStart);
+  if (end < 0) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(body.slice(jsonStart, end));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+function isGovernedChangeRequestEvidence(evidence) {
+  return Boolean(
+    evidence && evidence.version === governedChangeEvidenceVersion && isNonBlankString(evidence.baseRevisionSha) && isNonBlankString(evidence.batchId) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.repository) && isNonBlankString(evidence.requester) && isNonBlankString(evidence.requestedAt) && (evidence.remediation === void 0 || evidence.remediation === "REVIEW_CURRENT" || evidence.remediation === "RESTORE_LAST_APPROVED") && isNonBlankString(evidence.targetRevisionDigest) && isChangeType(evidence.type) && isNonBlankString(evidence.workspace) && Array.isArray(evidence.artifacts) && evidence.artifacts.every(isGovernedChangeArtifact)
+  );
+}
+function isGovernedChangeDecisionEvidence(evidence) {
+  return Boolean(
+    evidence && evidence.version === governedChangeEvidenceVersion && isNonBlankString(evidence.authorizationRevisionSha) && isNonBlankString(evidence.headRevisionSha) && (evidence.decision === "APPROVED" || evidence.decision === "REJECTED") && (evidence.decisionSource === "USER" || evidence.decisionSource === "WORKSPACE_POLICY") && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest) && (evidence.decision !== "REJECTED" || isNonBlankString(evidence.rejectionReason))
+  );
+}
+function isGovernedChangeWithdrawalEvidence(evidence) {
+  return Boolean(
+    evidence && evidence.version === governedChangeEvidenceVersion && evidence.decision === "WITHDRAWN" && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest)
+  );
+}
+function isGovernedChangeArtifact(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const artifact = value;
+  return isNonBlankString(artifact.path) && (artifact.kind === "ARTIFACT" || artifact.kind === "BATCH_DEFINITION" || artifact.kind === "WORKFLOW") && isDigestOrNull(artifact.beforeDigest) && isDigestOrNull(artifact.afterDigest);
+}
+function isChangeType(value) {
+  return value === "REGISTER" || value === "CHANGE" || value === "DELETE";
+}
+function isDigestOrNull(value) {
+  return value === null || isNonBlankString(value);
+}
+function isNonBlankString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+function toRequestDigestPayload(evidence) {
+  return {
+    artifacts: sortArtifacts(evidence.artifacts).map(toArtifactDigestPayload),
+    baseRevisionSha: evidence.baseRevisionSha,
+    batchId: evidence.batchId,
+    governedChangeId: evidence.governedChangeId,
+    headRevisionSha: evidence.headRevisionSha,
+    repository: evidence.repository,
+    requester: evidence.requester,
+    requestedAt: evidence.requestedAt,
+    ...evidence.remediation ? { remediation: evidence.remediation } : {},
+    targetRevisionDigest: evidence.targetRevisionDigest,
+    type: evidence.type,
+    version: evidence.version,
+    workspace: evidence.workspace
+  };
+}
+function toArtifactDigestPayload(artifact) {
+  return {
+    afterDigest: artifact.afterDigest,
+    beforeDigest: artifact.beforeDigest,
+    kind: artifact.kind,
+    path: artifact.path
+  };
+}
+function sortArtifacts(artifacts) {
+  return [...artifacts].sort(
+    (left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0
+  );
 }
 
 // ../../packages/github-lite/src/governed-change-policy.ts

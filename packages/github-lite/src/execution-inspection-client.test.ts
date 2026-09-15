@@ -1,10 +1,36 @@
-import type { BatchPlaneRuntimePorts } from "./github-runtime-contracts.js";
+import { createGitHubLiteExecutionRunClient } from "./execution-run-client.js";
+import { createGitHubLiteFailureFollowUpClient } from "./failure-follow-up-client.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
+import type { FailureFollowUp } from "@batchplane/domain";
 import { ExecutionInspectionError } from "@batchplane/ui-client";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createGitHubLiteExecutionInspectionClient } from "./execution-inspection-client.js";
 import type { ExecutionRunFacts } from "./execution-run-projection.js";
-import { GitHubLiteApiError } from "./index.js";
+import { GitHubLiteApiError } from "./github-types.js";
+vi.mock("./execution-run-client.js", () => ({
+  createGitHubLiteExecutionRunClient: vi.fn(),
+}));
+vi.mock("./failure-follow-up-client.js", () => ({
+  createGitHubLiteFailureFollowUpClient: vi.fn(),
+}));
+function createContext() {
+  return {
+    client: createMockGitHubLiteClient(createGitHubLiteMockState()),
+    repositoryRef: { owner: "always0ne", repo: "batch" },
+  };
+}
 describe("execution inspection adapter boundary", () => {
+  beforeEach(() => {
+    vi.mocked(createGitHubLiteExecutionRunClient).mockReturnValue({
+      getExecutionRun: vi.fn(),
+      listExecutionRuns: vi.fn(),
+    });
+    vi.mocked(createGitHubLiteFailureFollowUpClient).mockReturnValue({
+      createFailureFollowUp: vi.fn(),
+      reviewFailureFollowUp: vi.fn(),
+    });
+  });
   it("projects neutral run fields without leaking raw GitHub correlation fields", async () => {
     const run: ExecutionRunFacts = {
       batchId: "payment.daily-close",
@@ -26,12 +52,13 @@ describe("execution inspection adapter boundary", () => {
       workflowRunId: "992",
       workflowRunUrl: "https://github.example/actions/runs/992",
     };
-    const runtime = {
-      executions: { listExecutionRuns: async () => [run] },
-    } as unknown as BatchPlaneRuntimePorts;
+    vi.mocked(createGitHubLiteExecutionRunClient).mockReturnValue({
+      getExecutionRun: vi.fn(),
+      listExecutionRuns: async () => [run],
+    });
 
     const [presentation] = await createGitHubLiteExecutionInspectionClient({
-      runtime,
+      ...createContext(),
     }).listExecutionRuns();
 
     expect(presentation).toMatchObject({
@@ -65,17 +92,16 @@ describe("execution inspection adapter boundary", () => {
     ].join("\r\n");
     const read = vi.fn(async () => ({
       content,
-      jobId: "exact-job",
+      jobId: 42,
       sizeBytes: content.length,
       truncated: false,
     }));
-    const runtime = {
-      executions: { getExecutionRunJobLog: read },
-    } as unknown as BatchPlaneRuntimePorts;
-    const log = await createGitHubLiteExecutionInspectionClient({
-      runtime,
-    }).getExecutionRunJobLog({ jobId: "exact-job" });
-    expect(read).toHaveBeenCalledWith({ jobId: "exact-job" });
+    const context = createContext();
+    context.client.getWorkflowJobLog = read;
+    const log = await createGitHubLiteExecutionInspectionClient(
+      context,
+    ).getExecutionRunJobLog({ jobId: "42" });
+    expect(read).toHaveBeenCalledWith({ ...context.repositoryRef, jobId: 42 });
     expect(log.content).toBe(content);
     expect(log.businessSection).toMatchObject({
       focused: true,
@@ -92,33 +118,70 @@ describe("execution inspection adapter boundary", () => {
   ] as const)(
     "maps %s provider failures without an empty or successful substitute",
     async (method) => {
-      const runtime = {
-        executions: {
-          [method]: async () => {
-            throw new GitHubLiteApiError("denied", "forbidden", 403);
-          },
-        },
-      } as unknown as BatchPlaneRuntimePorts;
-      const client = createGitHubLiteExecutionInspectionClient({ runtime });
-      const invoke = client[method] as (input: never) => Promise<unknown>;
-      await expect(invoke({} as never)).rejects.toEqual(
+      const fail = vi
+        .fn()
+        .mockRejectedValue(new GitHubLiteApiError("denied", "forbidden", 403));
+      vi.mocked(createGitHubLiteExecutionRunClient).mockReturnValue({
+        getExecutionRun: fail,
+        listExecutionRuns: fail,
+      });
+      vi.mocked(createGitHubLiteFailureFollowUpClient).mockReturnValue({
+        createFailureFollowUp: fail,
+        reviewFailureFollowUp: fail,
+      });
+      const client = createGitHubLiteExecutionInspectionClient(createContext());
+      const invoke = () => {
+        if (method === "listExecutionRuns") return client.listExecutionRuns();
+        if (method === "getExecutionRun")
+          return client.getExecutionRun({ runId: "42" });
+        if (method === "createFailureFollowUp")
+          return client.createFailureFollowUp({
+            runId: "42",
+            owner: "ops",
+            actionTaken: "Fix",
+            explanation: "Cause",
+            status: "RESOLVED",
+          });
+        return client.reviewFailureFollowUp({
+          runId: "42",
+          followUpId: "follow-up",
+          decision: "APPROVED",
+          reason: "Verified",
+        });
+      };
+      await expect(invoke()).rejects.toEqual(
         new ExecutionInspectionError({ type: "access-denied" }),
       );
     },
   );
   it("uses the verified write response without a follow-up reread", async () => {
-    const confirmed = { followUpId: "verified" };
+    const confirmed: FailureFollowUp = {
+      followUpId: "verified",
+      runId: "native:opaque",
+      requestId: "request",
+      batchId: "payment.daily-close",
+      status: "RESOLVED",
+      reviewStatus: "AWAITING_REVIEW",
+      reviews: [],
+      owner: "original",
+      author: "operator",
+      explanation: "Cause",
+      actionTaken: "Fix",
+      createdAt: "2026-09-15T00:00:00Z",
+    };
     const read = vi.fn(async () => {
       throw new Error("read failed");
     });
-    const runtime = {
-      executions: {
-        createFailureFollowUp: async () => confirmed,
-        getExecutionRun: read,
-      },
-    } as unknown as BatchPlaneRuntimePorts;
+    vi.mocked(createGitHubLiteExecutionRunClient).mockReturnValue({
+      getExecutionRun: read,
+      listExecutionRuns: vi.fn(),
+    });
+    vi.mocked(createGitHubLiteFailureFollowUpClient).mockReturnValue({
+      createFailureFollowUp: async () => confirmed,
+      reviewFailureFollowUp: vi.fn(),
+    });
     const result = await createGitHubLiteExecutionInspectionClient({
-      runtime,
+      ...createContext(),
     }).createFailureFollowUp({
       runId: "native:opaque",
       owner: "original",

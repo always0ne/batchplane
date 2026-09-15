@@ -65,7 +65,7 @@ import {
 import { loadGovernedChangeDetail } from "./governed-change-projection.js";
 
 export function createGovernedChangeOperations(
-  session: { owner: string; repo: string; token: string },
+  session: { owner: string; repo: string },
   client: GitHubLiteClient,
 ): GovernedChangeOperations {
   const context = {

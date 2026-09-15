@@ -1,3 +1,4 @@
+import type { GitHubRepositoryContext } from "./github-types.js";
 import type { FailureFollowUp, GateDecision } from "@batchplane/domain";
 import {
   findExecutionRequestForRun,
@@ -19,10 +20,9 @@ import type {
   GitHubWorkflowJob,
   GitHubWorkflowRun,
 } from "./github-types.js";
-import type { BatchPlaneRuntimePorts } from "./github-runtime-contracts.js";
+import type { GitHubExecutionRun } from "./repository-evidence-types.js";
 import {
   loadExecutionApprovalRequests,
-  type ExecutionInspectionContext,
   type ExecutionRequestForRun,
 } from "./inspection-context.js";
 import {
@@ -30,9 +30,14 @@ import {
   projectNativeScheduleRun,
 } from "./native-schedule-projections.js";
 
-type RunQuery = Parameters<
-  BatchPlaneRuntimePorts["executions"]["listExecutionRuns"]
->[0];
+type RunQuery =
+  | {
+      batchId?: string;
+      limit?: number;
+      requestId?: string;
+      workflowPath?: string;
+    }
+  | undefined;
 type SourceContext = {
   run: GitHubWorkflowRun;
   workflow: GitHubWorkflow | undefined;
@@ -40,24 +45,20 @@ type SourceContext = {
 };
 
 export function createGitHubLiteExecutionRunClient(
-  context: ExecutionInspectionContext,
-): Pick<
-  BatchPlaneRuntimePorts["executions"],
-  "getExecutionRun" | "listExecutionRuns"
-> {
+  context: GitHubRepositoryContext,
+) {
   return {
-    getExecutionRun: (input) => getExecutionRun(context, input),
-    listExecutionRuns: (input) => listExecutionRunFacts(context, input),
+    getExecutionRun: (input: { runId: string; runAttempt?: number }) =>
+      getExecutionRun(context, input),
+    listExecutionRuns: (input?: RunQuery) =>
+      listExecutionRunFacts(context, input),
   };
 }
 
 async function getExecutionRun(
-  context: ExecutionInspectionContext,
-  {
-    runId,
-    runAttempt,
-  }: Parameters<BatchPlaneRuntimePorts["executions"]["getExecutionRun"]>[0],
-) {
+  context: GitHubRepositoryContext,
+  { runId, runAttempt }: { runId: string; runAttempt?: number },
+): Promise<GitHubExecutionRun | null> {
   const { client, repositoryRef } = context;
   const nativeLocator = parseNativeScheduleExecutionLocator(runId);
   if (nativeLocator) {
@@ -92,7 +93,7 @@ async function getExecutionRun(
 }
 
 async function inspectSourceRun(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
   run: GitHubWorkflowRun,
 ) {
   const { client, repositoryRef } = context;
@@ -124,7 +125,7 @@ async function inspectSourceRun(
 }
 
 export async function listExecutionRunFacts(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
   { batchId, limit = 20, requestId, workflowPath }: RunQuery = {},
   options: {
     requests?: ExecutionRequestForRun[];
@@ -194,7 +195,7 @@ export async function listExecutionRunFacts(
 }
 
 async function loadRunInventory(
-  { client, repositoryRef }: ExecutionInspectionContext,
+  { client, repositoryRef }: GitHubRepositoryContext,
   limit: number,
   preloadedRequests?: ExecutionRequestForRun[],
 ) {
@@ -271,7 +272,7 @@ function projectManualRuns(
 }
 
 function loadFollowUps(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
   requests: ExecutionRequestForRun[],
 ) {
   return projectFailureFollowUpsForRequests({
@@ -282,7 +283,7 @@ function loadFollowUps(
 }
 
 async function projectNativeOccurrence(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
   run: GitHubWorkflowRun,
   request: ExecutionRequestForRun,
   followUps: Map<number, FailureFollowUp[]>,
@@ -306,7 +307,7 @@ async function projectNativeOccurrence(
 }
 
 async function projectScheduledRuns(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
   sources: SourceContext[],
   requests: ExecutionRequestForRun[],
   followUps: Map<number, FailureFollowUp[]>,
