@@ -9,7 +9,7 @@ import {
   createTargetRevisionDigest,
   parseGovernedChangeDecisionEvidence,
   parseGovernedChangeRequestEvidence,
-} from "@batchplane/github-lite";
+} from "./governed-change-evidence.js";
 import { sha256BytesHex } from "@batchplane/digest";
 import {
   getBatchDefinitionPath,
@@ -18,11 +18,9 @@ import {
   serializeBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
 import { buildBatchWorkflowYaml } from "./github-workflow.js";
-import {
-  createGitHubLiteMockState,
-  createMockGitHubLiteClient,
-  type GitHubLiteMockState,
-} from "@batchplane/github-lite";
+import type { GitHubLiteMockState } from "./github-types.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { createGitHubLiteGovernedChangeClient } from "./governed-change-client.js";

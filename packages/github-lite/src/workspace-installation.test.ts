@@ -1,26 +1,25 @@
-import type {
-  GitHubLiteClient,
-  GitHubPullRequest,
-} from "@batchplane/github-lite";
+import type { GitHubLiteClient, GitHubPullRequest } from "./github-types.js";
 import { validateRoleMappingFile } from "./governance-schema.js";
 import { describe, expect, it } from "vitest";
 
 import {
   buildDispatcherWorkflowYaml,
-  buildLiteInstallationUpdatePullRequestTitle,
   buildRoleMappingYaml,
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
-  checkLiteInstallationStatus,
-  createLiteInstallationPullRequest,
-  createLiteInstallationUpdatePullRequest,
-  createWorkspacePolicyPullRequest,
   legacyLiteDispatcherWorkflowPath,
   liteDispatcherWorkflowPath,
   liteRoleMappingPath,
   liteSampleTargetWorkflowPath,
   liteWorkspacePolicyPath,
-} from "./index.js";
+} from "./workspace-installation-templates.js";
+import { checkLiteInstallationStatus } from "./workspace-installation-inspection.js";
+import {
+  buildLiteInstallationUpdatePullRequestTitle,
+  createLiteInstallationPullRequest,
+  createLiteInstallationUpdatePullRequest,
+} from "./workspace-installation-requests.js";
+import { createWorkspacePolicyPullRequest } from "./workspace-policy-request.js";
 import { parseGovernanceYaml } from "./governance-yaml.js";
 
 describe("Lite installation model", () => {

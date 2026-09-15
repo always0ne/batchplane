@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { listRecentExecutionRequestSummaries } from "./execution-request-summaries.js";
-import {
-  createGitHubLiteMockState,
-  createMockGitHubLiteClient,
-} from "./index.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
 
 const repository = { owner: "always0ne", repo: "batch" };
 

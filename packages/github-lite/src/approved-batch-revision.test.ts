@@ -12,9 +12,9 @@ import {
   getBatchArtifactPath,
   getBatchDefinitionPath,
   getBatchWorkflowPath,
-  createGitHubLiteMockState,
-  createMockGitHubLiteClient,
-} from "./index.js";
+} from "./batch-definition-codec.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
 
 const repository = { owner: "always0ne", repo: "batch" };
 

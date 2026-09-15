@@ -128,7 +128,7 @@ describe("AuditPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Audit Trail" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Timeline filters")).toBeInTheDocument();
+    expect(await screen.findByText("Timeline filters")).toBeInTheDocument();
     expect(screen.getAllByText("Execution requested").length).toBeGreaterThan(
       0,
     );

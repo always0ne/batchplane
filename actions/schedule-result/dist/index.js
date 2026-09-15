@@ -7358,7 +7358,7 @@ var require_dist = __commonJS({
   }
 });
 
-// ../../packages/github-lite/src/github-types.ts
+// ../../packages/github-lite/dist/github-types.js
 var GitHubLiteApiError = class extends Error {
   code;
   status;
@@ -7370,7 +7370,7 @@ var GitHubLiteApiError = class extends Error {
   }
 };
 
-// ../../packages/github-lite/src/github-responses.ts
+// ../../packages/github-lite/dist/github-responses.js
 function mapIssueResponse(issue) {
   if (!issue) {
     throw new GitHubLiteApiError("GitHub issue was empty.", "unknown", 500);
@@ -7541,37 +7541,21 @@ function mapTeamMembershipState(value) {
   if (normalized === "active" || normalized === "pending") {
     return normalized;
   }
-  throw new GitHubLiteApiError(
-    `Unsupported GitHub team membership state: ${value ?? "unknown"}`,
-    "unknown",
-    500
-  );
+  throw new GitHubLiteApiError(`Unsupported GitHub team membership state: ${value ?? "unknown"}`, "unknown", 500);
 }
 function mapTeamMembershipRole(value) {
   const normalized = value?.trim().toLowerCase();
   if (normalized === "member" || normalized === "maintainer") {
     return normalized;
   }
-  throw new GitHubLiteApiError(
-    `Unsupported GitHub team membership role: ${value ?? "unknown"}`,
-    "unknown",
-    500
-  );
+  throw new GitHubLiteApiError(`Unsupported GitHub team membership role: ${value ?? "unknown"}`, "unknown", 500);
 }
 
-// ../../packages/github-lite/src/github-http.ts
-function createGitHubRequester({
-  apiBaseUrl = "https://api.github.com",
-  fetcher = fetch,
-  token
-}) {
+// ../../packages/github-lite/dist/github-http.js
+function createGitHubRequester({ apiBaseUrl = "https://api.github.com", fetcher = fetch, token }) {
   const trimmedToken = token.trim();
   if (!trimmedToken) {
-    throw new GitHubLiteApiError(
-      "GitHub token is required.",
-      "bad-request",
-      400
-    );
+    throw new GitHubLiteApiError("GitHub token is required.", "bad-request", 400);
   }
   return {
     async request(path, init = {}, options = {}) {
@@ -7627,10 +7611,7 @@ function encodePath(path) {
   return path.split("/").map((part) => encodeURIComponent(part)).join("/");
 }
 function decodeBase64(value) {
-  const bytes = Uint8Array.from(
-    atob(value.replace(/\s/g, "")),
-    (character) => character.charCodeAt(0)
-  );
+  const bytes = Uint8Array.from(atob(value.replace(/\s/g, "")), (character) => character.charCodeAt(0));
   return new TextDecoder().decode(bytes);
 }
 function encodeBase64(value) {
@@ -7700,11 +7681,7 @@ function mapStatusToErrorCode(status) {
 }
 async function buildGitHubApiError(response) {
   const message = await readErrorMessage(response);
-  return new GitHubLiteApiError(
-    message,
-    isRateLimitedResponse(response, message) ? "rate-limited" : mapStatusToErrorCode(response.status),
-    response.status
-  );
+  return new GitHubLiteApiError(message, isRateLimitedResponse(response, message) ? "rate-limited" : mapStatusToErrorCode(response.status), response.status);
 }
 function isRateLimitedResponse(response, message) {
   if (response.status === 429) {
@@ -7722,7 +7699,7 @@ function isRateLimitedResponse(response, message) {
   return message.toLowerCase().includes("rate limit");
 }
 
-// ../../packages/github-lite/src/github-client.ts
+// ../../packages/github-lite/dist/github-client.js
 function createGitHubLiteClient(options) {
   const requester = createGitHubRequester(options);
   return {
@@ -7744,15 +7721,9 @@ function createRepositoryOperations(requester) {
       return { login: user.login };
     },
     async getRepository({ owner, repo }) {
-      const repository = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
-      );
+      const repository = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`);
       if (!repository) {
-        throw new GitHubLiteApiError(
-          "GitHub repository was empty.",
-          "unknown",
-          500
-        );
+        throw new GitHubLiteApiError("GitHub repository was empty.", "unknown", 500);
       }
       return {
         owner: repository.owner.login,
@@ -7764,22 +7735,12 @@ function createRepositoryOperations(requester) {
     },
     async getFile({ owner, repo, path, ref }) {
       const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
-      const content = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/contents/${encodePath(path)}${query}`,
-        {},
-        { allowNotFound: true }
-      );
+      const content = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}${query}`, {}, { allowNotFound: true });
       if (!content) {
         return null;
       }
       if (content.encoding !== "base64") {
-        throw new GitHubLiteApiError(
-          `Unsupported GitHub content encoding: ${content.encoding}`,
-          "unknown",
-          500
-        );
+        throw new GitHubLiteApiError(`Unsupported GitHub content encoding: ${content.encoding}`, "unknown", 500);
       }
       return {
         path: content.path,
@@ -7790,22 +7751,12 @@ function createRepositoryOperations(requester) {
     },
     async getDirectory({ owner, repo, path, ref }) {
       const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
-      const entries = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/contents/${encodePath(path)}${query}`,
-        {},
-        { allowNotFound: true }
-      );
+      const entries = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}${query}`, {}, { allowNotFound: true });
       if (!entries) {
         return null;
       }
       if (!Array.isArray(entries)) {
-        throw new GitHubLiteApiError(
-          `GitHub path is not a directory: ${path}`,
-          "bad-request",
-          400
-        );
+        throw new GitHubLiteApiError(`GitHub path is not a directory: ${path}`, "bad-request", 400);
       }
       return entries.map((entry) => ({
         name: entry.name,
@@ -7815,61 +7766,30 @@ function createRepositoryOperations(requester) {
       }));
     },
     async getBranchHeadSha({ owner, repo, branch }) {
-      const ref = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/git/ref/heads/${encodePath(branch)}`
-      );
+      const ref = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodePath(branch)}`);
       if (!ref) {
-        throw new GitHubLiteApiError(
-          "GitHub branch ref was empty.",
-          "unknown",
-          500
-        );
+        throw new GitHubLiteApiError("GitHub branch ref was empty.", "unknown", 500);
       }
       return ref.object.sha;
     },
     async createBranch({ owner, repo, branch, sha }) {
-      await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/git/refs`,
-        {
-          method: "POST",
-          body: JSON.stringify({ ref: `refs/heads/${branch}`, sha })
-        }
-      );
+      await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs`, {
+        method: "POST",
+        body: JSON.stringify({ ref: `refs/heads/${branch}`, sha })
+      });
     },
-    async putFile({
-      owner,
-      repo,
-      path,
-      branch,
-      message,
-      content,
-      encoding = "utf-8",
-      sha
-    }) {
-      const response = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/contents/${encodePath(path)}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            branch,
-            content: encoding === "base64" ? content : encodeBase64(content),
-            message,
-            ...sha ? { sha } : {}
-          })
-        }
-      );
+    async putFile({ owner, repo, path, branch, message, content, encoding = "utf-8", sha }) {
+      const response = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          branch,
+          content: encoding === "base64" ? content : encodeBase64(content),
+          message,
+          ...sha ? { sha } : {}
+        })
+      });
       if (!response) {
-        throw new GitHubLiteApiError(
-          "GitHub file response was empty.",
-          "unknown",
-          500
-        );
+        throw new GitHubLiteApiError("GitHub file response was empty.", "unknown", 500);
       }
       return {
         path: response.content.path,
@@ -7877,19 +7797,14 @@ function createRepositoryOperations(requester) {
       };
     },
     async deleteFile({ owner, repo, path, branch, message, sha }) {
-      const response = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/contents/${encodePath(path)}`,
-        {
-          method: "DELETE",
-          body: JSON.stringify({
-            branch,
-            message,
-            sha
-          })
-        }
-      );
+      const response = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}`, {
+        method: "DELETE",
+        body: JSON.stringify({
+          branch,
+          message,
+          sha
+        })
+      });
       return {
         path: response?.content?.path ?? path
       };
@@ -7900,100 +7815,53 @@ function createPullRequestOperations(requester) {
   const { request } = requester;
   return {
     async createPullRequest({ owner, repo, title, body, head, base }) {
-      const pullRequest = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`,
-        {
-          method: "POST",
-          body: JSON.stringify({ base, body, head, title })
-        }
-      );
+      const pullRequest = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`, {
+        method: "POST",
+        body: JSON.stringify({ base, body, head, title })
+      });
       if (!pullRequest) {
-        throw new GitHubLiteApiError(
-          "GitHub pull request was empty.",
-          "unknown",
-          500
-        );
+        throw new GitHubLiteApiError("GitHub pull request was empty.", "unknown", 500);
       }
       return mapPullRequestResponse(pullRequest);
     },
     async getPullRequest({ owner, repo, pullNumber }) {
-      const pullRequest = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/pulls/${pullNumber}`,
-        {},
-        { allowNotFound: true }
-      );
+      const pullRequest = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}`, {}, { allowNotFound: true });
       return pullRequest ? mapPullRequestResponse(pullRequest) : null;
     },
     async updatePullRequest({ owner, repo, pullNumber, body, title }) {
-      const pullRequest = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/pulls/${pullNumber}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            ...body !== void 0 ? { body } : {},
-            ...title !== void 0 ? { title } : {}
-          })
-        }
-      );
+      const pullRequest = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...body !== void 0 ? { body } : {},
+          ...title !== void 0 ? { title } : {}
+        })
+      });
       if (!pullRequest) {
-        throw new GitHubLiteApiError(
-          "GitHub pull request was empty.",
-          "unknown",
-          500
-        );
+        throw new GitHubLiteApiError("GitHub pull request was empty.", "unknown", 500);
       }
       return mapPullRequestResponse(pullRequest);
     },
     async listPullRequests({ owner, repo, state = "open", base, head }) {
       const query = buildQuery({ base, head, per_page: "100", state });
-      const pullRequests = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/pulls${query}`
-      );
+      const pullRequests = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${query}`);
       return (pullRequests ?? []).map(mapPullRequestResponse);
     },
     async listPullRequestFiles({ owner, repo, pullNumber }) {
-      const files = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/pulls/${pullNumber}/files?per_page=100`
-      );
+      const files = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}/files?per_page=100`);
       return (files ?? []).map(mapPullRequestFileResponse);
     },
-    async mergePullRequest({
-      owner,
-      repo,
-      pullNumber,
-      commitTitle,
-      commitMessage,
-      mergeMethod = "squash",
-      expectedHeadSha
-    }) {
-      const result = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/pulls/${pullNumber}/merge`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            ...commitMessage ? { commit_message: commitMessage } : {},
-            ...commitTitle ? { commit_title: commitTitle } : {},
-            merge_method: mergeMethod,
-            ...expectedHeadSha ? { sha: expectedHeadSha } : {}
-          })
-        }
-      );
+    async mergePullRequest({ owner, repo, pullNumber, commitTitle, commitMessage, mergeMethod = "squash", expectedHeadSha }) {
+      const result = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}/merge`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...commitMessage ? { commit_message: commitMessage } : {},
+          ...commitTitle ? { commit_title: commitTitle } : {},
+          merge_method: mergeMethod,
+          ...expectedHeadSha ? { sha: expectedHeadSha } : {}
+        })
+      });
       if (!result) {
-        throw new GitHubLiteApiError(
-          "GitHub merge response was empty.",
-          "unknown",
-          500
-        );
+        throw new GitHubLiteApiError("GitHub merge response was empty.", "unknown", 500);
       }
       return {
         merged: result.merged,
@@ -8007,68 +7875,34 @@ function createIssueOperations(requester) {
   const { request } = requester;
   return {
     async createIssue({ owner, repo, title, body, labels }) {
-      const issue = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues`,
-        {
-          method: "POST",
-          body: JSON.stringify({ body, labels, title })
-        }
-      );
+      const issue = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`, {
+        method: "POST",
+        body: JSON.stringify({ body, labels, title })
+      });
       return mapIssueResponse(issue);
     },
     async getIssue({ owner, repo, issueNumber }) {
-      const issue = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues/${issueNumber}`,
-        {},
-        { allowNotFound: true }
-      );
+      const issue = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`, {}, { allowNotFound: true });
       return issue ? mapIssueResponse(issue) : null;
     },
-    async updateIssue({
-      owner,
-      repo,
-      issueNumber,
-      title,
-      body,
-      state,
-      labels
-    }) {
-      const issue = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues/${issueNumber}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            ...body !== void 0 ? { body } : {},
-            ...labels !== void 0 ? { labels } : {},
-            ...state !== void 0 ? { state } : {},
-            ...title !== void 0 ? { title } : {}
-          })
-        }
-      );
+    async updateIssue({ owner, repo, issueNumber, title, body, state, labels }) {
+      const issue = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...body !== void 0 ? { body } : {},
+          ...labels !== void 0 ? { labels } : {},
+          ...state !== void 0 ? { state } : {},
+          ...title !== void 0 ? { title } : {}
+        })
+      });
       return mapIssueResponse(issue);
     },
     async listIssues({ owner, repo, state = "open" }) {
       const query = buildQuery({ per_page: "100", state });
-      const issues = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues${query}`
-      );
+      const issues = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues${query}`);
       return (issues ?? []).map(mapIssueResponse);
     },
-    async searchIssues({
-      owner,
-      repo,
-      query = "",
-      state = "open",
-      labels = []
-    }) {
+    async searchIssues({ owner, repo, query = "", state = "open", labels = [] }) {
       const qualifierTerms = [`repo:${owner}/${repo}`, "is:issue"];
       const trimmedQuery = query.trim();
       if (state !== "all") {
@@ -8080,228 +7914,124 @@ function createIssueOperations(requester) {
       if (trimmedQuery) {
         qualifierTerms.push(trimmedQuery);
       }
-      const searchResponse = await request(
-        `/search/issues${buildQuery({ q: qualifierTerms.join(" ") })}`
-      );
+      const searchResponse = await request(`/search/issues${buildQuery({ q: qualifierTerms.join(" ") })}`);
       return (searchResponse?.items ?? []).map(mapIssueResponse);
     },
     async listIssueEvents({ owner, repo, issueNumber }) {
-      const events = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues/${issueNumber}/events`
-      );
+      const events = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/events`);
       return (events ?? []).map(mapIssueEventResponse);
     },
     async listIssueComments({ owner, repo, issueNumber }) {
       const query = buildQuery({ per_page: "100" });
-      const comments = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues/${issueNumber}/comments${query}`
-      );
-      return (comments ?? []).map(
-        (comment) => mapIssueCommentResponse(comment, issueNumber)
-      );
+      const comments = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments${query}`);
+      return (comments ?? []).map((comment) => mapIssueCommentResponse(comment, issueNumber));
     },
     async listLabels({ owner, repo }) {
-      const labels = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels`
-      );
+      const labels = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels`);
       return (labels ?? []).map(mapLabelResponse);
     },
     async createLabel({ owner, repo, name, color, description }) {
-      const label = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            color,
-            description,
-            name
-          })
-        }
-      );
+      const label = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels`, {
+        method: "POST",
+        body: JSON.stringify({
+          color,
+          description,
+          name
+        })
+      });
       if (!label) {
-        throw new GitHubLiteApiError(
-          "GitHub label response was empty.",
-          "unknown",
-          500
-        );
+        throw new GitHubLiteApiError("GitHub label response was empty.", "unknown", 500);
       }
       return mapLabelResponse(label);
     },
     async createIssueComment({ owner, repo, issueNumber, body }) {
-      const comment = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues/${issueNumber}/comments`,
-        {
-          method: "POST",
-          body: JSON.stringify({ body })
-        }
-      );
+      const comment = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ body })
+      });
       if (!comment) {
-        throw new GitHubLiteApiError(
-          "GitHub issue comment was empty.",
-          "unknown",
-          500
-        );
+        throw new GitHubLiteApiError("GitHub issue comment was empty.", "unknown", 500);
       }
       return mapIssueCommentResponse(comment, issueNumber);
     },
     async addIssueLabels({ owner, repo, issueNumber, labels }) {
-      await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues/${issueNumber}/labels`,
-        {
-          method: "POST",
-          body: JSON.stringify({ labels })
-        }
-      );
+      await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/labels`, {
+        method: "POST",
+        body: JSON.stringify({ labels })
+      });
     },
     async removeIssueLabel({ owner, repo, issueNumber, label }) {
-      await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`,
-        {
-          method: "DELETE"
-        }
-      );
+      await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`, {
+        method: "DELETE"
+      });
     },
     async closeIssue({ owner, repo, issueNumber }) {
-      await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/issues/${issueNumber}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ state: "closed" })
-        }
-      );
+      await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`, {
+        method: "PATCH",
+        body: JSON.stringify({ state: "closed" })
+      });
     }
   };
 }
 function createWorkflowOperations(requester) {
   const { request, requestText } = requester;
   const defaultLogMaxBytes = 2e5;
-  async function readWorkflowContent({
-    owner,
-    path,
-    repo
-  }) {
-    const content = await request(
-      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-        repo
-      )}/contents/${encodePath(path)}`,
-      {},
-      { allowNotFound: true }
-    );
+  async function readWorkflowContent({ owner, path, repo }) {
+    const content = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}`, {}, { allowNotFound: true });
     if (!content) {
       return null;
     }
     if (content.encoding !== "base64") {
-      throw new GitHubLiteApiError(
-        `Unsupported GitHub content encoding: ${content.encoding}`,
-        "unknown",
-        500
-      );
+      throw new GitHubLiteApiError(`Unsupported GitHub content encoding: ${content.encoding}`, "unknown", 500);
     }
     return decodeBase64(content.content);
   }
-  async function workflowSupportsDispatch({
-    owner,
-    path,
-    repo
-  }) {
+  async function workflowSupportsDispatch({ owner, path, repo }) {
     const content = await readWorkflowContent({ owner, path, repo });
     return content ? hasWorkflowDispatchTrigger(content) : false;
   }
   return {
     async listWorkflows({ dispatchableOnly = false, owner, repo }) {
-      const workflows = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/actions/workflows`
-      );
-      const mappedWorkflows = (workflows?.workflows ?? []).map(
-        mapWorkflowResponse
-      );
+      const workflows = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows`);
+      const mappedWorkflows = (workflows?.workflows ?? []).map(mapWorkflowResponse);
       if (!dispatchableOnly) {
         return mappedWorkflows;
       }
-      const dispatchable = await Promise.all(
-        mappedWorkflows.map(async (workflow) => ({
-          supported: await workflowSupportsDispatch({
-            owner,
-            path: workflow.path,
-            repo
-          }),
-          workflow
-        }))
-      );
+      const dispatchable = await Promise.all(mappedWorkflows.map(async (workflow) => ({
+        supported: await workflowSupportsDispatch({
+          owner,
+          path: workflow.path,
+          repo
+        }),
+        workflow
+      })));
       return dispatchable.filter((candidate) => candidate.supported).map((candidate) => candidate.workflow);
     },
     async getWorkflow({ owner, repo, workflowId }) {
-      const workflow = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/actions/workflows/${encodePath(String(workflowId))}`,
-        {},
-        { allowNotFound: true }
-      );
+      const workflow = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodePath(String(workflowId))}`, {}, { allowNotFound: true });
       return workflow ? mapWorkflowResponse(workflow) : null;
     },
-    async listWorkflowRuns({
-      owner,
-      repo,
-      event,
-      perPage = 30,
-      status,
-      workflowId
-    }) {
+    async listWorkflowRuns({ owner, repo, event, perPage = 30, status, workflowId }) {
       const query = buildQuery({
         ...event ? { event } : {},
         per_page: String(perPage),
         ...status ? { status } : {}
       });
-      const path = workflowId === void 0 ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-        repo
-      )}/actions/runs${query}` : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-        repo
-      )}/actions/workflows/${encodePath(String(workflowId))}/runs${query}`;
+      const path = workflowId === void 0 ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs${query}` : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodePath(String(workflowId))}/runs${query}`;
       const runs = await request(path);
       return (runs?.workflow_runs ?? []).map(mapWorkflowRunResponse);
     },
     async getWorkflowRun({ owner, repo, runAttempt, runId }) {
-      const run2 = await request(
-        runAttempt ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/actions/runs/${runId}/attempts/${runAttempt}` : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/actions/runs/${runId}`,
-        {},
-        { allowNotFound: true }
-      );
+      const run2 = await request(runAttempt ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/attempts/${runAttempt}` : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}`, {}, { allowNotFound: true });
       return run2 ? mapWorkflowRunResponse(run2) : null;
     },
     async listWorkflowRunJobs({ owner, repo, runAttempt, runId }) {
-      const jobsPath = runAttempt ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-        repo
-      )}/actions/runs/${runId}/attempts/${runAttempt}/jobs` : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-        repo
-      )}/actions/runs/${runId}/jobs`;
+      const jobsPath = runAttempt ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/attempts/${runAttempt}/jobs` : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/jobs`;
       const jobs = await request(jobsPath);
       return (jobs?.jobs ?? []).map(mapWorkflowJobResponse);
     },
     async getWorkflowJobLog({ owner, repo, jobId, maxBytes }) {
-      const content = await requestText(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/actions/jobs/${jobId}/logs`
-      );
+      const content = await requestText(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/jobs/${jobId}/logs`);
       const limit = maxBytes ?? defaultLogMaxBytes;
       const truncatedContent = truncateTextByBytes(content, limit);
       return {
@@ -8317,13 +8047,7 @@ function createRepositoryAccessOperations(requester) {
   const { request } = requester;
   return {
     async getRepositoryPermissionForUser({ owner, repo, username }) {
-      const permissionResponse = await request(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/collaborators/${encodeURIComponent(username)}/permission`,
-        {},
-        { allowNotFound: true }
-      );
+      const permissionResponse = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/collaborators/${encodeURIComponent(username)}/permission`, {}, { allowNotFound: true });
       if (!permissionResponse) {
         return {
           permission: "none",
@@ -8332,22 +8056,13 @@ function createRepositoryAccessOperations(requester) {
         };
       }
       return {
-        permission: mapRepositoryPermissionValue(
-          permissionResponse.permission,
-          permissionResponse.role_name
-        ),
+        permission: mapRepositoryPermissionValue(permissionResponse.permission, permissionResponse.role_name),
         roleName: normalizeRepositoryPermissionName(permissionResponse.role_name) ?? normalizeRepositoryPermissionName(permissionResponse.permission) ?? "none",
         username: permissionResponse.user?.login?.trim() || username
       };
     },
     async getTeamMembershipForUser({ org, teamSlug, username }) {
-      const membership = await request(
-        `/orgs/${encodeURIComponent(org)}/teams/${encodeURIComponent(
-          teamSlug
-        )}/memberships/${encodeURIComponent(username)}`,
-        {},
-        { allowNotFound: true }
-      );
+      const membership = await request(`/orgs/${encodeURIComponent(org)}/teams/${encodeURIComponent(teamSlug)}/memberships/${encodeURIComponent(username)}`, {}, { allowNotFound: true });
       if (!membership) {
         return null;
       }
@@ -8362,7 +8077,7 @@ function createRepositoryAccessOperations(requester) {
   };
 }
 
-// ../../packages/github-lite/src/governance-yaml.ts
+// ../../packages/github-lite/dist/governance-yaml.js
 var import_yaml = __toESM(require_dist(), 1);
 function parseGovernanceYaml(input) {
   const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
@@ -8375,9 +8090,7 @@ function parseGovernanceYaml(input) {
   return { ok: true, value: document.toJS() };
 }
 function formatGovernanceYamlDiagnostics(diagnostics) {
-  return diagnostics.map(
-    (diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`
-  ).join("; ");
+  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
 }
 function toYamlDiagnostic(error) {
   const position = error.linePos?.[0];
@@ -8388,7 +8101,7 @@ function toYamlDiagnostic(error) {
   };
 }
 
-// ../../packages/domain/src/api-version.ts
+// ../../packages/domain/dist/api-version.js
 var batchPlaneApiVersion = "batchplane.io/v1";
 var legacyBatchPlaneApiVersion = "batchtrail.io/v1";
 var supportedBatchPlaneApiVersions = [
@@ -8399,25 +8112,21 @@ function isBatchPlaneApiVersion(value) {
   return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
 }
 
-// ../../packages/github-lite/src/governance-schema.ts
+// ../../packages/github-lite/dist/governance-schema.js
 function isCanonicalBatchId(value) {
   return typeof value === "string" && /^[A-Za-z0-9](?:[A-Za-z0-9]|[.-](?=[A-Za-z0-9]))*$/.test(value);
 }
 function validateBatchDefinition(definition) {
   const diagnostics = [];
   const record = requireRecord(definition, "$", diagnostics);
-  if (!record) return diagnostics;
+  if (!record)
+    return diagnostics;
   requireCanonicalBatchId(record.batchId, diagnostics);
   requireString(record, "name", diagnostics);
   requireString(record, "owner", diagnostics);
   requireString(record, "domain", diagnostics);
   requireString(record, "environment", diagnostics);
-  validateEnum(
-    record.criticality,
-    "criticality",
-    criticalityValues,
-    diagnostics
-  );
+  validateEnum(record.criticality, "criticality", criticalityValues, diagnostics);
   validateEnum(record.status, "status", batchStatusValues, diagnostics);
   validateWorkflow(record.workflow, "workflow", diagnostics);
   validateGateRequired(record.gateRequired, diagnostics);
@@ -8429,7 +8138,8 @@ function validateBatchDefinition(definition) {
 function validateBatchDefinitionFile(file) {
   const diagnostics = [];
   const record = requireRecord(file, "$", diagnostics);
-  if (!record) return { diagnostics, ok: false };
+  if (!record)
+    return { diagnostics, ok: false };
   validateApiVersion(record.apiVersion, diagnostics);
   validateExact(record.kind, "kind", "BatchDefinition", diagnostics);
   const metadata = requireRecord(record.metadata, "metadata", diagnostics);
@@ -8445,200 +8155,120 @@ function validateBatchDefinitionFile(file) {
         timezone: item.timezone
       };
     }) : void 0;
-    diagnostics.push(
-      ...validateBatchDefinition({
-        batchId: metadata.id,
-        criticality: spec.criticality,
-        domain: spec.domain,
-        environment: spec.environment,
-        execution: spec.execution,
-        gateRequired: spec.gateRequired,
-        labels: metadata.labels,
-        name: metadata.name,
-        owner: spec.owner,
-        schedules,
-        status: spec.status,
-        workflow: spec.workflow
-      }).map(mapBatchDiagnosticToFile)
-    );
+    diagnostics.push(...validateBatchDefinition({
+      batchId: metadata.id,
+      criticality: spec.criticality,
+      domain: spec.domain,
+      environment: spec.environment,
+      execution: spec.execution,
+      gateRequired: spec.gateRequired,
+      labels: metadata.labels,
+      name: metadata.name,
+      owner: spec.owner,
+      schedules,
+      status: spec.status,
+      workflow: spec.workflow
+    }).map(mapBatchDiagnosticToFile));
   }
   return diagnostics.length ? { diagnostics, ok: false } : { diagnostics: [], ok: true, value: file };
 }
 function requireRecord(value, field, diagnostics) {
-  if (isRecord(value)) return value;
-  diagnostics.push(
-    problem(
-      value === void 0 ? "required" : "invalid_type",
-      field,
-      value === void 0 ? `${field} is required.` : `${field} must be an object.`
-    )
-  );
+  if (isRecord(value))
+    return value;
+  diagnostics.push(problem(value === void 0 ? "required" : "invalid_type", field, value === void 0 ? `${field} is required.` : `${field} must be an object.`));
   return void 0;
 }
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 function requireCanonicalBatchId(value, diagnostics) {
-  if (isCanonicalBatchId(value)) return;
-  diagnostics.push(
-    problem(
-      value === void 0 || value === "" ? "required" : "invalid_batch_id",
-      "batchId",
-      value === void 0 || value === "" ? "batchId is required." : "batchId must be a canonical repository-safe Batch ID."
-    )
-  );
+  if (isCanonicalBatchId(value))
+    return;
+  diagnostics.push(problem(value === void 0 || value === "" ? "required" : "invalid_batch_id", "batchId", value === void 0 || value === "" ? "batchId is required." : "batchId must be a canonical repository-safe Batch ID."));
 }
 function requireString(record, key, diagnostics, field = key) {
   const value = record[key];
-  if (typeof value === "string" && value.trim()) return value;
-  diagnostics.push(
-    problem(
-      value === void 0 || value === "" ? "required" : "invalid_type",
-      field,
-      value === void 0 || value === "" ? `${field} is required.` : `${field} must be a non-empty string.`
-    )
-  );
+  if (typeof value === "string" && value.trim())
+    return value;
+  diagnostics.push(problem(value === void 0 || value === "" ? "required" : "invalid_type", field, value === void 0 || value === "" ? `${field} is required.` : `${field} must be a non-empty string.`));
   return void 0;
 }
 function validateExact(value, field, expected, diagnostics) {
-  if (value === expected) return;
-  diagnostics.push(
-    problem(
-      value === void 0 ? "required" : "invalid_value",
-      field,
-      `${field} must be '${expected}'.`
-    )
-  );
+  if (value === expected)
+    return;
+  diagnostics.push(problem(value === void 0 ? "required" : "invalid_value", field, `${field} must be '${expected}'.`));
 }
 function validateApiVersion(value, diagnostics) {
-  if (isBatchPlaneApiVersion(value)) return;
-  diagnostics.push(
-    problem(
-      value === void 0 ? "required" : "invalid_value",
-      "apiVersion",
-      "apiVersion must be one of: batchplane.io/v1, batchtrail.io/v1."
-    )
-  );
+  if (isBatchPlaneApiVersion(value))
+    return;
+  diagnostics.push(problem(value === void 0 ? "required" : "invalid_value", "apiVersion", "apiVersion must be one of: batchplane.io/v1, batchtrail.io/v1."));
 }
 function validateEnum(value, field, values, diagnostics) {
-  if (typeof value === "string" && values.includes(value)) return;
-  diagnostics.push(
-    problem(
-      value === void 0 || value === "" ? "required" : "invalid_value",
-      field,
-      `${field} must be one of: ${values.join(", ")}.`
-    )
-  );
+  if (typeof value === "string" && values.includes(value))
+    return;
+  diagnostics.push(problem(value === void 0 || value === "" ? "required" : "invalid_value", field, `${field} must be one of: ${values.join(", ")}.`));
 }
 function validateWorkflow(value, field, diagnostics) {
   const workflow = requireRecord(value, field, diagnostics);
-  if (!workflow) return;
+  if (!workflow)
+    return;
   const path = requireString(workflow, "path", diagnostics, `${field}.path`);
   requireString(workflow, "ref", diagnostics, `${field}.ref`);
   if (path && !/^\.github\/workflows\/[^/]+\.ya?ml$/u.test(path.trim())) {
-    diagnostics.push(
-      problem(
-        "invalid_workflow_path",
-        `${field}.path`,
-        `${field}.path must be a .yml or .yaml file directly under .github/workflows/.`
-      )
-    );
+    diagnostics.push(problem("invalid_workflow_path", `${field}.path`, `${field}.path must be a .yml or .yaml file directly under .github/workflows/.`));
   }
 }
 function validateGateRequired(value, diagnostics) {
-  if (value === true) return;
-  diagnostics.push(
-    problem(
-      value === void 0 ? "required" : "gate_required",
-      "gateRequired",
-      "gateRequired must be true for Lite batches."
-    )
-  );
+  if (value === true)
+    return;
+  diagnostics.push(problem(value === void 0 ? "required" : "gate_required", "gateRequired", "gateRequired must be true for Lite batches."));
 }
 function validateExecution(value, diagnostics) {
-  if (value === void 0) return;
+  if (value === void 0)
+    return;
   const execution = requireRecord(value, "execution", diagnostics);
-  if (!execution) return;
+  if (!execution)
+    return;
   const runsOn = execution.runsOn;
   if (!(typeof runsOn === "string" && runsOn.trim()) && !(Array.isArray(runsOn) && runsOn.length && runsOn.every((item) => typeof item === "string" && item.trim()))) {
-    diagnostics.push(
-      problem(
-        runsOn === void 0 ? "required" : "invalid_type",
-        "execution.runsOn",
-        "execution.runsOn must be a non-empty string or string array."
-      )
-    );
+    diagnostics.push(problem(runsOn === void 0 ? "required" : "invalid_type", "execution.runsOn", "execution.runsOn must be a non-empty string or string array."));
   }
   requireString(execution, "command", diagnostics, "execution.command");
   if (execution.artifactPath !== void 0 && typeof execution.artifactPath !== "string") {
-    diagnostics.push(
-      problem(
-        "invalid_type",
-        "execution.artifactPath",
-        "execution.artifactPath must be a string when provided."
-      )
-    );
+    diagnostics.push(problem("invalid_type", "execution.artifactPath", "execution.artifactPath must be a string when provided."));
   }
 }
 function validateSchedules(value, field, diagnostics) {
-  if (value === void 0) return;
+  if (value === void 0)
+    return;
   if (!Array.isArray(value)) {
-    diagnostics.push(
-      problem(
-        "invalid_type",
-        field,
-        `${field} must be an array when provided.`
-      )
-    );
+    diagnostics.push(problem("invalid_type", field, `${field} must be an array when provided.`));
     return;
   }
   value.forEach((schedule, index) => {
     const item = requireRecord(schedule, `${field}.${index}`, diagnostics);
-    if (!item) return;
-    requireString(
-      item,
-      "scheduleId",
-      diagnostics,
-      `${field}.${index}.scheduleId`
-    );
+    if (!item)
+      return;
+    requireString(item, "scheduleId", diagnostics, `${field}.${index}.scheduleId`);
     requireString(item, "name", diagnostics, `${field}.${index}.name`);
     requireString(item, "cron", diagnostics, `${field}.${index}.cron`);
     requireString(item, "timezone", diagnostics, `${field}.${index}.timezone`);
     if (typeof item.enabled !== "boolean")
-      diagnostics.push(
-        problem(
-          item.enabled === void 0 ? "required" : "invalid_type",
-          `${field}.${index}.enabled`,
-          `${field}.${index}.enabled must be a boolean.`
-        )
-      );
+      diagnostics.push(problem(item.enabled === void 0 ? "required" : "invalid_type", `${field}.${index}.enabled`, `${field}.${index}.enabled must be a boolean.`));
   });
 }
 function validateStringArray(value, field, diagnostics, required) {
-  if (value === void 0 && !required) return;
+  if (value === void 0 && !required)
+    return;
   if (!Array.isArray(value)) {
-    diagnostics.push(
-      problem(
-        value === void 0 ? "required" : "invalid_type",
-        field,
-        `${field} must be an array of non-empty strings.`
-      )
-    );
+    diagnostics.push(problem(value === void 0 ? "required" : "invalid_type", field, `${field} must be an array of non-empty strings.`));
     return;
   }
   if (required && !value.length)
-    diagnostics.push(
-      problem("required", field, `${field} must include at least one value.`)
-    );
+    diagnostics.push(problem("required", field, `${field} must include at least one value.`));
   value.forEach((item, index) => {
     if (typeof item !== "string" || !item.trim())
-      diagnostics.push(
-        problem(
-          "invalid_type",
-          `${field}.${index}`,
-          `${field}.${index} must be a non-empty string.`
-        )
-      );
+      diagnostics.push(problem("invalid_type", `${field}.${index}`, `${field}.${index} must be a non-empty string.`));
   });
 }
 function mapBatchDiagnosticToFile(diagnostic) {
@@ -8661,7 +8291,7 @@ function problem(code, field, message) {
 var batchStatusValues = ["ACTIVE", "INACTIVE"];
 var criticalityValues = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
-// ../../packages/digest/src/index.ts
+// ../../packages/digest/dist/index.js
 function canonicalize(value) {
   return JSON.stringify(normalize(value));
 }
@@ -8672,17 +8302,11 @@ async function createRequestDigest(input) {
   return createCanonicalDigest(isDigestEnvelope(input) ? input.payload : input);
 }
 async function sha256Hex(value) {
-  const digest = await globalThis.crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value)
-  );
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return digestToHex(digest);
 }
 function digestToHex(digest) {
-  return Array.from(
-    new Uint8Array(digest),
-    (byte) => byte.toString(16).padStart(2, "0")
-  ).join("");
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 function normalize(value) {
   if (Array.isArray(value)) {
@@ -8704,25 +8328,19 @@ function normalize(value) {
   return value;
 }
 function isDigestEnvelope(value) {
-  return Boolean(
-    value && typeof value === "object" && !Array.isArray(value) && "payload" in value
-  );
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payload" in value);
 }
 
-// ../../packages/github-lite/src/batch-definition-codec.ts
+// ../../packages/github-lite/dist/batch-definition-codec.js
 function parseBatchDefinitionYaml(yaml) {
   const result = parseGovernanceYaml(yaml);
   if (!result.ok) {
-    throw new Error(
-      `Invalid BatchPlane YAML: ${formatGovernanceYamlDiagnostics(result.diagnostics)}`
-    );
+    throw new Error(`Invalid BatchPlane YAML: ${formatGovernanceYamlDiagnostics(result.diagnostics)}`);
   }
   const document = asYamlRecord(result.value);
   const validation = validateBatchDefinitionFile(document);
   if (!validation.ok) {
-    throw new Error(
-      `Invalid BatchPlane BatchDefinition: ${validation.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; ")}`
-    );
+    throw new Error(`Invalid BatchPlane BatchDefinition: ${validation.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; ")}`);
   }
   const metadata = asYamlRecord(document.metadata);
   const spec = asYamlRecord(document.spec);
@@ -8790,9 +8408,7 @@ function readYamlSchedules(record, key) {
     name: readYamlString(item, "name"),
     scheduleId: readYamlString(item, "id"),
     timezone: readYamlString(item, "timezone")
-  })).filter(
-    (schedule) => Boolean(schedule.scheduleId) || Boolean(schedule.name) || Boolean(schedule.cron) || Boolean(schedule.timezone)
-  );
+  })).filter((schedule) => Boolean(schedule.scheduleId) || Boolean(schedule.name) || Boolean(schedule.cron) || Boolean(schedule.timezone));
 }
 function parseCriticality(value) {
   if (value === "LOW" || value === "MEDIUM" || value === "HIGH" || value === "CRITICAL") {
@@ -8807,7 +8423,7 @@ function parseBatchStatus(value) {
   return "INACTIVE";
 }
 
-// ../../packages/github-lite/src/github-workflow.ts
+// ../../packages/github-lite/dist/github-workflow.js
 function getNativeScheduleWorkflowJobIdentity(schedule) {
   const controlJobId = toScheduleWorkflowJobId(schedule.scheduleId);
   return {
@@ -8822,11 +8438,8 @@ function toScheduleWorkflowJobId(scheduleId) {
   return `schedule_${encoded}`;
 }
 
-// ../../packages/github-lite/src/execution-gate-result.ts
-function parseExecutionGateResult({
-  content,
-  expected
-}) {
+// ../../packages/github-lite/dist/execution-gate-result.js
+function parseExecutionGateResult({ content, expected }) {
   const records = [];
   for (const line of content.split("\n")) {
     const timestamp = parseLogTimestamp(line);
@@ -8906,17 +8519,8 @@ function isGateResultRecord(value) {
   return record.version === 1 && typeof record.repository === "string" && typeof record.runId === "string" && Number.isInteger(record.runAttempt) && typeof record.gateJob === "string" && typeof record.gateJobName === "string" && typeof record.gateStep === "string" && (record.result === "ALLOW" || record.result === "DENY") && typeof record.message === "string" && (record.reasonCode === void 0 || typeof record.reasonCode === "string") && (record.batchId === void 0 || typeof record.batchId === "string") && (record.requestDigest === void 0 || typeof record.requestDigest === "string") && (record.requestId === void 0 || typeof record.requestId === "string") && (record.scheduleId === void 0 || typeof record.scheduleId === "string");
 }
 
-// ../../packages/github-lite/src/native-schedule-evidence.ts
-async function inspectNativeScheduleExecution({
-  client,
-  expectedOccurrence,
-  expectedRepositoryId,
-  expectedWorkflowPath,
-  repository,
-  runAttempt,
-  runId,
-  schedule
-}) {
+// ../../packages/github-lite/dist/native-schedule-evidence.js
+async function inspectNativeScheduleExecution({ client, expectedOccurrence, expectedRepositoryId, expectedWorkflowPath, repository, runAttempt, runId, schedule }) {
   const evidence = await collectNativeScheduleEvidence({
     client,
     expectedOccurrence,
@@ -8936,16 +8540,7 @@ async function inspectNativeScheduleExecution({
     ...classifyNativeScheduleEvidence(evidence)
   };
 }
-async function collectNativeScheduleEvidence({
-  client,
-  expectedOccurrence,
-  expectedRepositoryId,
-  expectedWorkflowPath,
-  repository,
-  runAttempt,
-  runId,
-  schedule
-}) {
+async function collectNativeScheduleEvidence({ client, expectedOccurrence, expectedRepositoryId, expectedWorkflowPath, repository, runAttempt, runId, schedule }) {
   const { businessJobId, businessJobName, controlJobId, controlJobName } = getNativeScheduleWorkflowJobIdentity(schedule);
   const run2 = await client.getWorkflowRun({ ...repository, runAttempt, runId });
   if (!run2) {
@@ -9017,9 +8612,7 @@ function classifyNativeScheduleEvidence(evidence) {
       reason: "CONTROL_JOB_IDENTITY_UNCONFIRMED"
     };
   }
-  const businessStep = business.steps?.find(
-    (step) => step.name === "Run batch"
-  );
+  const businessStep = business.steps?.find((step) => step.name === "Run batch");
   if (business.conclusion === "cancelled" || businessStep?.conclusion === "cancelled") {
     return { observation: "CANCELED" };
   }
@@ -9057,20 +8650,10 @@ function uniqueJob(jobs, name) {
   const matches = jobs.filter((job) => job.name === name);
   return matches.length === 1 ? matches[0] : void 0;
 }
-async function readGateResult({
-  client,
-  expectedJobId,
-  expectedJobName,
-  expectedOccurrence,
-  expectedStepName,
-  job,
-  repository,
-  run: run2
-}) {
-  const step = job.steps?.find(
-    (candidate) => candidate.name === expectedStepName
-  );
-  if (!step) return void 0;
+async function readGateResult({ client, expectedJobId, expectedJobName, expectedOccurrence, expectedStepName, job, repository, run: run2 }) {
+  const step = job.steps?.find((candidate) => candidate.name === expectedStepName);
+  if (!step)
+    return void 0;
   try {
     const log = await client.getWorkflowJobLog({
       ...repository,
@@ -9083,9 +8666,7 @@ async function readGateResult({
         gateJobName: expectedJobName,
         gateStep: {
           ...step,
-          nextStepStartedAt: job.steps?.find(
-            (candidate) => candidate.number > step.number && candidate.name !== "Complete job"
-          )?.startedAt
+          nextStepStartedAt: job.steps?.find((candidate) => candidate.number > step.number && candidate.name !== "Complete job")?.startedAt
         },
         occurrence: expectedOccurrence,
         repository: `${repository.owner}/${repository.repo}`,
@@ -9137,18 +8718,19 @@ function sameBatchSnapshot(left, right) {
   return left.name === right.name && left.owner === right.owner && left.domain === right.domain && left.environment === right.environment && left.criticality === right.criticality;
 }
 function sameExecutionSnapshot(execution, batch) {
-  if (!batch.execution) return execution === void 0;
-  if (!execution) return false;
+  if (!batch.execution)
+    return execution === void 0;
+  if (!execution)
+    return false;
   return execution.command === batch.execution.command && execution.gateRequired === batch.gateRequired && JSON.stringify(execution.runsOn) === JSON.stringify(batch.execution.runsOn) && execution.artifactPath === batch.execution.artifactPath;
 }
 function sameOccurrence(left, right) {
   return left.definitionCommitSha === right.definitionCommitSha && left.definitionPath === right.definitionPath && left.repositoryId === right.repositoryId && left.scheduleId === right.scheduleId && left.sourceRunAttempt === right.sourceRunAttempt && left.sourceRunId === right.sourceRunId;
 }
 function parseExecutionRequestPayload(body) {
-  const match = body.match(
-    /### Canonical payload\s*```json\s*([\s\S]*?)\s*```/u
-  );
-  if (!match?.[1]) return null;
+  const match = body.match(/### Canonical payload\s*```json\s*([\s\S]*?)\s*```/u);
+  if (!match?.[1])
+    return null;
   try {
     const value = JSON.parse(match[1]);
     return isExecutionRequestPayload(value) ? value : null;
@@ -9157,7 +8739,8 @@ function parseExecutionRequestPayload(body) {
   }
 }
 function isExecutionRequestPayload(value) {
-  if (!value || typeof value !== "object") return false;
+  if (!value || typeof value !== "object")
+    return false;
   const record = value;
   const metadata = asRecord(record.metadata);
   const spec = asRecord(record.spec);
@@ -9169,20 +8752,13 @@ function isExecutionRequestPayload(value) {
 }
 function parseMarker(body, name) {
   const marker = /* @__PURE__ */ new Map();
-  const match = body.match(
-    new RegExp(
-      `<!--\\s*(?:batchplane|batchtrail):${name}\\s*([\\s\\S]*?)-->`,
-      "u"
-    )
-  );
-  if (!match?.[1]) return marker;
+  const match = body.match(new RegExp(`<!--\\s*(?:batchplane|batchtrail):${name}\\s*([\\s\\S]*?)-->`, "u"));
+  if (!match?.[1])
+    return marker;
   for (const line of match[1].split("\n")) {
     const separator = line.indexOf("=");
     if (separator > 0) {
-      marker.set(
-        line.slice(0, separator).trim(),
-        line.slice(separator + 1).trim()
-      );
+      marker.set(line.slice(0, separator).trim(), line.slice(separator + 1).trim());
     }
   }
   return marker;

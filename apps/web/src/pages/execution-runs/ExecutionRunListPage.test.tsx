@@ -74,7 +74,7 @@ describe("ExecutionRunListPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Executions" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Execution runs")).toBeInTheDocument();
+    expect(await screen.findByText("Execution runs")).toBeInTheDocument();
     expect(screen.getAllByText("Running").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Succeeded").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Business failed").length).toBeGreaterThan(0);

@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createGitHubLiteClient,
-  createGitHubLiteMockState,
-  createMockGitHubLiteClient,
-} from "./index";
+import { createGitHubLiteClient } from "./github-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
 
 describe("createGitHubLiteClient", () => {
   it("adds GitHub auth headers and maps the current user", async () => {

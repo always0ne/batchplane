@@ -10,7 +10,6 @@ import {
   runtimeFixtureStorageKey,
   writeRuntimeFixtureSelection,
 } from "./runtime-fixtures";
-import { parseNativeScheduleExecutionLocator } from "@batchplane/github-lite";
 
 import { createRuntimeBatchPlaneClient } from "./runtime-batch-plane-client";
 
@@ -225,13 +224,9 @@ describe("runtime fixtures", () => {
     );
     const unconfirmed = runs.find(hasUnconfirmedNativeSchedule);
     expect(unconfirmed?.jobs).toHaveLength(2);
-    expect(
-      parseNativeScheduleExecutionLocator(unconfirmed?.runId ?? ""),
-    ).toEqual({
-      requestId: `btr-schedule-${"b".repeat(64)}`,
-      runAttempt: 2,
-      sourceRunId: "900",
-    });
+    expect(unconfirmed?.runId).toBe(
+      `native:${encodeURIComponent(`btr-schedule-${"b".repeat(64)}`)}:900:2`,
+    );
     await expect(
       runtime.getExecutionRun({ runId: unconfirmed?.runId ?? "" }),
     ).resolves.toMatchObject({

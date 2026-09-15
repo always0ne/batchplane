@@ -30,6 +30,11 @@ the library's normal usage without first learning a project-specific substitute.
 This requirement applies to implementation, delegated worker instructions, and
 final review, not only to initial architecture planning.
 
+The purpose is recognizable code that another contributor can understand and
+maintain using the library's normal model. Minimizing the diff is not a reason
+to retain unnecessary special paths. A supported escape hatch is not the same
+as the recommended baseline; explain that distinction before choosing one.
+
 Before changing a library integration, identify the installed version and read
 the applicable official documentation. Separate a documented recommendation
 from one supported alternative or an illustrative example. Official guidance
@@ -358,6 +363,40 @@ session selection and React behavior tests in Web. Remove assertions of dead
 wrapper mechanics only when the current behavioral coverage is identified.
 Legacy external evidence readers and API versions are not dead merely because
 their name contains `legacy`.
+
+### Package Entry Points
+
+Internal packages resolve through pnpm workspace links and their `package.json`
+exports. TypeScript and Vite use the same declared package entry points; do not
+point either tool at sibling-package source files with paths or aliases.
+The packages expose compiled ESM under `dist`, and project references establish
+the prerequisite build order. Keep development, type checking, package builds,
+Pages output and self-contained Action bundles working through this boundary.
+
+The root development command must build its package prerequisites and run one
+TypeScript package-graph watcher alongside Vite. Contributors should not need
+repeated manual builds or an additional watch terminal. Use the existing pnpm
+and TypeScript commands, not a custom process manager, resolver or build system.
+Validate clean startup, package-source updates and child-process shutdown when
+changing this workflow.
+
+Package entry modules expose purposeful external contracts. Package-internal
+code and tests import their owning modules directly; tests alone do not justify
+adding production exports. Real runtime fixtures remain supported consumers.
+Do not replace one broad barrel with an arbitrary subpath for every source file.
+
+Use ESLint's existing static import restrictions for the approved product and
+adapter boundaries. Keep genuine test integrations distinct from production UI
+access. These checks do not prove dynamic import behavior or semantic policy
+correctness; they complement code review and behavioral tests.
+
+Official references:
+
+- [TypeScript workspace-package resolution](https://www.typescriptlang.org/docs/handbook/modules/reference.html#paths-should-not-point-to-monorepo-packages-or-node_modules-packages)
+- [TypeScript project references](https://www.typescriptlang.org/docs/handbook/project-references.html)
+- [pnpm 10 script execution](https://pnpm.io/10.x/cli/run)
+- [Node package entry points](https://nodejs.org/api/packages.html#package-entry-points)
+- [ESLint static import restrictions](https://eslint.org/docs/latest/rules/no-restricted-imports)
 
 ## Page Contract
 
