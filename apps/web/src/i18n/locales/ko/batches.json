@@ -129,14 +129,14 @@
       "loading": "처리 중인 통제 작업을 확인하는 중입니다...",
       "loadError": "처리 중인 통제 작업을 확인하지 못했습니다.",
       "blocked": "다른 통제 작업이 처리 중이므로 새 변경 요청을 생성할 수 없습니다.",
-      "blockedByPr": "통제 변경 요청 #{{number}}",
+      "blockedByPr": "변경 요청 #{{number}}",
       "blockedByIssue": "실행 요청 #{{number}}",
       "openBlockingPr": "변경요청 열기",
       "openBlockingIssue": "실행요청 열기"
     },
     "delete": {
       "title": "삭제 요청",
-      "description": "이 배치 정의, 생성 Workflow, 등록된 실행 파일을 제거하는 통제 변경 요청을 생성합니다.",
+      "description": "이 배치 정의, 생성 Workflow, 등록된 실행 파일을 제거하는 변경 요청을 생성합니다.",
       "confirmationLabel": "확인을 위해 Batch ID 입력",
       "blocked": "정확한 Batch ID를 입력한 뒤 삭제 요청을 생성할 수 있습니다."
     },

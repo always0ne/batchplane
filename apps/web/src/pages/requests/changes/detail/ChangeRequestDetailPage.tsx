@@ -9,13 +9,13 @@ import {
   LoadingState,
 } from "../../../../components/PageState";
 import { PageHeader } from "../../../../components/PageHeader";
-import { GovernedChangeDetailContent } from "./GovernedChangeDetailContent";
-import { useGovernedChangeDetail } from "./useGovernedChangeDetail";
+import { ChangeRequestDetailContent } from "./ChangeRequestDetailContent";
+import { useChangeRequestDetail } from "./useChangeRequestDetail";
 
-export function GovernedChangeDetailPage() {
+export function ChangeRequestDetailPage() {
   const { requestLocator = "" } = useParams();
   const { t } = useTranslation("approvals");
-  const change = useGovernedChangeDetail(requestLocator);
+  const change = useChangeRequestDetail(requestLocator);
 
   if (change.detailState.type === "loading") {
     return <LoadingState message={t("registrationDetail.states.loading")} />;
@@ -117,7 +117,7 @@ export function GovernedChangeDetailPage() {
           {change.actionError || t("registrationDetail.actions.actionFailed")}
         </p>
       ) : null}
-      <GovernedChangeDetailContent
+      <ChangeRequestDetailContent
         detail={detail}
         onAction={change.applyAction}
         runningAction={change.runningAction}

@@ -15,9 +15,9 @@ import { RequestListPage } from "./RequestListPage";
 const session = { owner: "always0ne", repo: "batch", token: "fixture-token" };
 
 describe("RequestListPage", () => {
-  it("lists governed change and execution requests with internal detail and source links", async () => {
+  it("lists change request and execution requests with internal detail and source links", async () => {
     const state = createRuntimeFixtureMockState("happy-path");
-    state.pullRequests.push(governedChangePullRequest());
+    state.pullRequests.push(changeRequestPullRequest());
     renderPage(productClient(state));
 
     expect(
@@ -66,7 +66,7 @@ describe("RequestListPage", () => {
 
   it("filters request rows by type and status", async () => {
     const state = createRuntimeFixtureMockState("happy-path");
-    state.pullRequests.push(governedChangePullRequest());
+    state.pullRequests.push(changeRequestPullRequest());
     renderPage(productClient(state));
 
     expect(
@@ -144,7 +144,7 @@ function productClient(
   });
 }
 
-function governedChangePullRequest() {
+function changeRequestPullRequest() {
   return {
     author: "developer",
     base: "main",

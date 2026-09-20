@@ -1,5 +1,5 @@
 import {
-  createGitHubLiteGovernedChangeClient,
+  createGitHubLiteChangeRequestClient,
   createGitHubLiteBatchPlaneClient,
   createGitHubLiteClient,
   createGitHubLiteMockState,
@@ -216,7 +216,7 @@ export async function prepareRuntimeFixtureClient(
     return;
   }
 
-  const governedChanges = createGitHubLiteGovernedChangeClient(
+  const changeRequests = createGitHubLiteChangeRequestClient(
     mockRuntimeSession,
     client,
   );
@@ -227,15 +227,15 @@ export async function prepareRuntimeFixtureClient(
   client.state.issues = [];
   const fixtureActor = client.state.currentUser.login;
   client.state.currentUser.login = "developer";
-  const draft = await governedChanges.loadBatchChangeDraft({
+  const draft = await changeRequests.loadBatchChangeDraft({
     batchId: "payment.daily-close",
     mode: "change",
   });
-  const created = await governedChanges.createBatchChangeRequest(draft);
+  const created = await changeRequests.createBatchChangeRequest(draft);
 
   if (created.request.reviewState !== "MERGED") {
     client.state.currentUser.login = "maintainer";
-    await governedChanges.approveGovernedChange({
+    await changeRequests.approveChangeRequest({
       requestLocator: created.request.requestLocator,
     });
   }

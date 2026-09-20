@@ -49,14 +49,14 @@ export function createRuntimeBatchPlaneClient({
       connectedClient().previewBatchChange(input),
     createBatchChangeRequest: async (input) =>
       connectedClient().createBatchChangeRequest(input),
-    getGovernedChange: async (input) =>
-      connectedClient().getGovernedChange(input),
-    approveGovernedChange: async (input) =>
-      connectedClient().approveGovernedChange(input),
-    rejectGovernedChange: async (input) =>
-      connectedClient().rejectGovernedChange(input),
-    withdrawGovernedChange: async (input) =>
-      connectedClient().withdrawGovernedChange(input),
+    getChangeRequest: async (input) =>
+      connectedClient().getChangeRequest(input),
+    approveChangeRequest: async (input) =>
+      connectedClient().approveChangeRequest(input),
+    rejectChangeRequest: async (input) =>
+      connectedClient().rejectChangeRequest(input),
+    withdrawChangeRequest: async (input) =>
+      connectedClient().withdrawChangeRequest(input),
     loadExecutionRequestDraft: async (input) =>
       connectedClient().loadExecutionRequestDraft(input),
     previewExecutionRequest: async (input) =>

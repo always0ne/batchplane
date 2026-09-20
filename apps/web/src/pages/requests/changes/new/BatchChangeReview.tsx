@@ -2,17 +2,17 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
   BatchChangeDraft,
-  GovernedChangePreview,
+  ChangeRequestPreview,
 } from "@batchplane/ui-client";
 
-import { GovernedChangePreviewPanel } from "../GovernedChangePreviewPanel";
+import { ChangeRequestPreviewPanel } from "../ChangeRequestPreviewPanel";
 import { Button } from "../../../../components/Button";
 
 type PreviewState =
   | { type: "idle" }
   | { type: "loading" }
   | {
-      preview: GovernedChangePreview;
+      preview: ChangeRequestPreview;
       type: "ready";
     }
   | { message: string; type: "error" };
@@ -94,7 +94,7 @@ export function BatchChangeReview({
         ) : null}
       </article>
       {previewState.type === "ready" ? (
-        <GovernedChangePreviewPanel
+        <ChangeRequestPreviewPanel
           files={previewState.preview.files}
           labels={{
             binarySummary: t("diff.binaryDigest"),

@@ -8077,9 +8077,9 @@ function createRepositoryAccessOperations(requester) {
   };
 }
 
-// ../../packages/github-lite/dist/governance-yaml.js
+// ../../packages/github-lite/dist/repository-yaml.js
 var import_yaml = __toESM(require_dist(), 1);
-function parseGovernanceYaml(input) {
+function parseRepositoryYaml(input) {
   const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
   if (document.errors.length > 0) {
     return {
@@ -8089,7 +8089,7 @@ function parseGovernanceYaml(input) {
   }
   return { ok: true, value: document.toJS() };
 }
-function formatGovernanceYamlDiagnostics(diagnostics) {
+function formatRepositoryYamlDiagnostics(diagnostics) {
   return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
 }
 function toYamlDiagnostic(error) {
@@ -8112,7 +8112,7 @@ function isBatchPlaneApiVersion(value) {
   return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
 }
 
-// ../../packages/github-lite/dist/governance-schema.js
+// ../../packages/github-lite/dist/repository-schema.js
 function isCanonicalBatchId(value) {
   return typeof value === "string" && /^[A-Za-z0-9](?:[A-Za-z0-9]|[.-](?=[A-Za-z0-9]))*$/.test(value);
 }
@@ -8333,9 +8333,9 @@ function isDigestEnvelope(value) {
 
 // ../../packages/github-lite/dist/batch-definition-codec.js
 function parseBatchDefinitionYaml(yaml) {
-  const result = parseGovernanceYaml(yaml);
+  const result = parseRepositoryYaml(yaml);
   if (!result.ok) {
-    throw new Error(`Invalid BatchPlane YAML: ${formatGovernanceYamlDiagnostics(result.diagnostics)}`);
+    throw new Error(`Invalid BatchPlane YAML: ${formatRepositoryYamlDiagnostics(result.diagnostics)}`);
   }
   const document = asYamlRecord(result.value);
   const validation = validateBatchDefinitionFile(document);

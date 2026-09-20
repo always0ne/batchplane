@@ -9,14 +9,14 @@ import { createRuntimeBatchPlaneClient } from "./runtime-batch-plane-client";
 import { writeRuntimeFixtureSelection } from "./runtime-fixtures";
 
 describe("runtime BatchPlane client", () => {
-  it("uses the selected persistent fixture client for governed change operations", async () => {
+  it("uses the selected persistent fixture client for change request operations", async () => {
     sessionStorage.clear();
     writeRuntimeFixtureSelection("happy-path");
     const client = createRuntimeBatchPlaneClient();
     await expect(
       client.loadBatchChangeDraft({ mode: "create" }),
     ).resolves.toMatchObject({
-      governedChangeId: expect.any(String),
+      changeRequestId: expect.any(String),
       mode: "create",
     });
   });

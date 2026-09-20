@@ -196,7 +196,7 @@ function BatchRequestContext({
           </p>
         </div>
         <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">
-          {t("context.governed")}
+          {t("context.controlled")}
         </span>
       </div>
 

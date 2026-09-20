@@ -491,7 +491,7 @@ describe("createGitHubLiteClient", () => {
     });
   });
 
-  it("sends the expected head SHA when applying a governed change", async () => {
+  it("sends the expected head SHA when applying a change request", async () => {
     const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
       [];
     const fetcher: typeof fetch = async (input, init) => {

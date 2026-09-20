@@ -296,8 +296,8 @@ function requestWorkRow(
   const request = requestItem.request;
   const isApproval = itemType === "AWAITING_YOUR_DECISION";
   const isExecution = requestItem.kind === "EXECUTION";
-  const governedChange =
-    requestItem.kind === "GOVERNED_CHANGE" ? requestItem : null;
+  const changeRequest =
+    requestItem.kind === "CHANGE_REQUEST" ? requestItem : null;
   const kind: WorkKind = isApproval
     ? "approval"
     : isExecution
@@ -314,12 +314,12 @@ function requestWorkRow(
     descriptionKey: isApproval
       ? isExecution
         ? "executionApproval"
-        : governedChange?.changeKind.startsWith("SCHEDULE")
+        : changeRequest?.changeKind.startsWith("SCHEDULE")
           ? "scheduleReview"
           : "registrationReview"
       : isExecution
         ? "executionMine"
-        : governedChange?.changeKind.startsWith("SCHEDULE")
+        : changeRequest?.changeKind.startsWith("SCHEDULE")
           ? "scheduleMine"
           : "registrationMine",
     itemId: `${itemType}-${requestItem.kind}-${request.requestLocator}`,
@@ -327,12 +327,12 @@ function requestWorkRow(
     labelKey: isApproval
       ? isExecution
         ? "executionApproval"
-        : governedChange?.changeKind.startsWith("SCHEDULE")
+        : changeRequest?.changeKind.startsWith("SCHEDULE")
           ? "scheduleApproval"
           : "registrationApproval"
       : isExecution
         ? "request"
-        : governedChange?.changeKind.startsWith("SCHEDULE")
+        : changeRequest?.changeKind.startsWith("SCHEDULE")
           ? "schedule"
           : "registration",
     occurredAt: item.occurredAt,

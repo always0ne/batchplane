@@ -95,7 +95,7 @@ export type ExecutionRequestEvidence = {
     governedChangeId: string;
     targetRevisionDigest: string;
   } | null;
-  /** A uniquely matched, existing governed change; provider routing stays outside this contract. */
+  /** A uniquely matched, existing change request; provider routing stays outside this contract. */
   sourceChange?: {
     label: string;
     requestLocator: string;

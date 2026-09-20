@@ -1,6 +1,6 @@
 import type {
   BatchChangeDraft,
-  GovernedChangePreview,
+  ChangeRequestPreview,
 } from "@batchplane/ui-client";
 import { useEffect, useState } from "react";
 
@@ -9,7 +9,7 @@ import { useBatchPlaneClient } from "../../../../client/batch-plane-client-conte
 export type BatchChangePreviewState =
   | { type: "idle" }
   | { type: "loading" }
-  | { preview: GovernedChangePreview; type: "ready" }
+  | { preview: ChangeRequestPreview; type: "ready" }
   | { message: string; type: "error" };
 
 export function useBatchChangePreview({

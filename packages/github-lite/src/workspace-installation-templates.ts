@@ -4,7 +4,7 @@ import {
   batchPlaneDispatcherActionRef,
   batchPlaneGateActionRef,
 } from "./github-action-references.js";
-import { stringifyGovernanceYaml } from "./governance-yaml.js";
+import { stringifyRepositoryYaml } from "./repository-yaml.js";
 
 export const liteDispatcherWorkflowPath =
   ".github/workflows/batchplane-dispatcher.yml";
@@ -63,7 +63,7 @@ export function buildLiteInstallationFiles(): LiteInstallationFile[] {
 export function buildWorkspacePolicyYaml(
   mode: WorkspaceApprovalMode = "SELF_APPROVAL_BLOCKED",
 ): string {
-  return stringifyGovernanceYaml({
+  return stringifyRepositoryYaml({
     apiVersion: "batchplane.io/v1",
     kind: "WorkspacePolicy",
     metadata: { id: "default" },
@@ -72,7 +72,7 @@ export function buildWorkspacePolicyYaml(
 }
 
 export function buildRoleMappingYaml(): string {
-  return stringifyGovernanceYaml({
+  return stringifyRepositoryYaml({
     apiVersion: "batchplane.io/v1",
     kind: "RoleMapping",
     metadata: { id: "default" },

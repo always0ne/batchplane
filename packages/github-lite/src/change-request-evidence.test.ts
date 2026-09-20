@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildGovernedChangeDecisionBody,
-  buildGovernedChangeRequestBody,
-  createGovernedChangeRequestDigest,
+  buildChangeRequestDecisionBody,
+  buildChangeRequestBody,
+  createChangeRequestDigest,
   createTargetRevisionDigest,
-  parseGovernedChangeDecisionEvidence,
-  parseGovernedChangeRequestEvidence,
-} from "./governed-change-evidence";
+  parseChangeRequestDecisionEvidence,
+  parseChangeRequestEvidence,
+} from "./change-request-evidence";
 
 const requestEvidence = {
   artifacts: [],
@@ -24,7 +24,7 @@ const requestEvidence = {
   workspace: "always0ne/batch",
 };
 
-describe("governed change evidence", () => {
+describe("change request evidence", () => {
   it("binds the complete resulting state independently of its base", async () => {
     const artifacts = [
       {
@@ -101,9 +101,9 @@ describe("governed change evidence", () => {
   });
 
   it("binds the request identity, actor, base revision, and target digest", async () => {
-    const digest = await createGovernedChangeRequestDigest(requestEvidence);
+    const digest = await createChangeRequestDigest(requestEvidence);
     await expect(
-      createGovernedChangeRequestDigest({
+      createChangeRequestDigest({
         ...requestEvidence,
         requester: "other",
       }),
@@ -112,9 +112,7 @@ describe("governed change evidence", () => {
 
   it("round trips request evidence through a versioned marker", () => {
     expect(
-      parseGovernedChangeRequestEvidence(
-        buildGovernedChangeRequestBody(requestEvidence),
-      ),
+      parseChangeRequestEvidence(buildChangeRequestBody(requestEvidence)),
     ).toEqual(requestEvidence);
   });
 
@@ -132,17 +130,17 @@ describe("governed change evidence", () => {
     };
 
     expect(
-      parseGovernedChangeDecisionEvidence(
-        buildGovernedChangeDecisionBody(decisionEvidence),
+      parseChangeRequestDecisionEvidence(
+        buildChangeRequestDecisionBody(decisionEvidence),
       ),
     ).toEqual(decisionEvidence);
   });
 
   it("does not accept an unmarked or a changed evidence version", () => {
-    expect(parseGovernedChangeRequestEvidence("Decision: APPROVED")).toBeNull();
+    expect(parseChangeRequestEvidence("Decision: APPROVED")).toBeNull();
     expect(
-      parseGovernedChangeRequestEvidence(
-        buildGovernedChangeRequestBody(requestEvidence).replace(
+      parseChangeRequestEvidence(
+        buildChangeRequestBody(requestEvidence).replace(
           "batchplane.io/governed-change/v2",
           "batchplane.io/governed-change/v1",
         ),

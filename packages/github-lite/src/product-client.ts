@@ -5,7 +5,7 @@ import { createGitHubLiteBatchRevisionClient } from "./batch-revision-client.js"
 import { createGitHubLiteDashboardClient } from "./dashboard-client.js";
 import { createGitHubLiteExecutionApprovalClient } from "./execution-approval-client.js";
 import { createGitHubLiteExecutionInspectionClient } from "./execution-inspection-client.js";
-import { createGovernedChangeOperations } from "./governed-change-operations.js";
+import { createChangeRequestOperations } from "./change-request-operations.js";
 
 import { createGitHubLiteWorkspaceClient } from "./workspace-client.js";
 
@@ -13,7 +13,7 @@ import { createGitHubLiteWorkspaceClient } from "./workspace-client.js";
 export function createGitHubLiteBatchPlaneClient(
   context: GitHubRepositoryContext,
 ): BatchPlaneClient {
-  const governedChanges = createGovernedChangeOperations(
+  const changeRequests = createChangeRequestOperations(
     context.repositoryRef,
     context.client,
   );
@@ -21,10 +21,10 @@ export function createGitHubLiteBatchPlaneClient(
   const inspections = createGitHubLiteExecutionInspectionClient(context);
 
   return {
-    ...governedChanges,
+    ...changeRequests,
     ...createGitHubLiteBatchReadClient({
       ...context,
-      governedChangeClient: governedChanges,
+      changeRequestClient: changeRequests,
       revisionClient: createGitHubLiteBatchRevisionClient(context),
     }),
     ...requests,

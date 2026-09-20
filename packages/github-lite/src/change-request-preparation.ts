@@ -1,7 +1,7 @@
 import { sha256BytesHex } from "@batchplane/digest";
 import type {
   BatchChangeDraft,
-  GovernedChangePreviewFile,
+  ChangeRequestPreviewFile,
 } from "@batchplane/ui-client";
 
 import {
@@ -14,28 +14,28 @@ import {
 import { buildBatchWorkflowYaml } from "./github-workflow.js";
 import {
   createTargetRevisionDigest,
-  type GovernedChangeArtifact,
-} from "./governed-change-evidence.js";
+  type ChangeRequestArtifact,
+} from "./change-request-evidence.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 import type { GitHubLiteClient, RepoRef } from "./github-types.js";
 
-export type PreparedGovernedChange = {
+export type PreparedChangeRequest = {
   batch: GitHubBatchDefinition;
-  files: PreparedGovernedFile[];
+  files: PreparedChangeRequestFile[];
   title: string;
   type: "REGISTER" | "CHANGE" | "DELETE";
 };
 
-export type PreparedGovernedFile = {
+export type PreparedChangeRequestFile = {
   bytes: Uint8Array | null | undefined;
-  kind: GovernedChangeArtifact["kind"];
+  kind: ChangeRequestArtifact["kind"];
   path: string;
 };
 
-export function prepareGovernedChange(
+export function prepareChangeRequest(
   draft: BatchChangeDraft,
-  governedChangeId: string,
-): PreparedGovernedChange {
+  changeRequestId: string,
+): PreparedChangeRequest {
   const currentArtifactPath = draft.execution.existingFile?.locator;
   const nextArtifactPath = resolveArtifactPath(draft, currentArtifactPath);
   const batch = toBatchDefinition(
@@ -47,12 +47,12 @@ export function prepareGovernedChange(
     },
     {
       artifactPath: nextArtifactPath,
-      governedChangeId,
+      governedChangeId: changeRequestId,
       schedules: draft.schedules,
     },
   );
   const batchPath = getBatchDefinitionPath(batch.batchId);
-  const type = toGovernedChangeType(draft.mode);
+  const type = toChangeRequestType(draft.mode);
   const title =
     draft.remediation === "REVIEW_CURRENT"
       ? `Review current batch revision ${batch.batchId}`
@@ -118,8 +118,8 @@ export function prepareGovernedChange(
 }
 
 export function assertPreparedChangeTargets(
-  type: PreparedGovernedChange["type"],
-  files: GovernedChangePreviewFile[],
+  type: PreparedChangeRequest["type"],
+  files: ChangeRequestPreviewFile[],
 ): void {
   const definition = files.find((file) =>
     file.path.includes(".batch-governance/batches/"),
@@ -159,8 +159,8 @@ export async function loadPreparedChangePreviewFiles(
   client: GitHubLiteClient,
   repository: RepoRef,
   ref: string,
-  files: PreparedGovernedChange["files"],
-): Promise<GovernedChangePreviewFile[]> {
+  files: PreparedChangeRequest["files"],
+): Promise<ChangeRequestPreviewFile[]> {
   return Promise.all(
     files.map(async (file) => {
       const baseFile = await client.getFile({
@@ -204,7 +204,7 @@ export async function loadPreparedChangePreviewFiles(
 }
 
 export function hasEffectivePreparedChange(
-  files: GovernedChangePreviewFile[],
+  files: ChangeRequestPreviewFile[],
 ): boolean {
   return files.some((file) => {
     if (file.status === "UNCHANGED") return false;
@@ -216,7 +216,7 @@ export function hasEffectivePreparedChange(
 }
 
 function hasEffectiveBatchDefinitionChange(
-  file: GovernedChangePreviewFile,
+  file: ChangeRequestPreviewFile,
 ): boolean {
   if (file.status !== "MODIFIED" || !file.baseContent || !file.nextContent) {
     return file.status !== "UNCHANGED";
@@ -224,15 +224,15 @@ function hasEffectiveBatchDefinitionChange(
 
   try {
     return (
-      serializeWithoutGovernedChangeId(file.baseContent) !==
-      serializeWithoutGovernedChangeId(file.nextContent)
+      serializeWithoutChangeRequestId(file.baseContent) !==
+      serializeWithoutChangeRequestId(file.nextContent)
     );
   } catch {
     return true;
   }
 }
 
-function serializeWithoutGovernedChangeId(content: string): string {
+function serializeWithoutChangeRequestId(content: string): string {
   const definition = parseBatchDefinitionYaml(content);
   return serializeBatchDefinitionYaml({
     ...definition,
@@ -247,7 +247,7 @@ export async function createPreparedChangeTargetDigest({
   repository,
 }: {
   client: GitHubLiteClient;
-  prepared: PreparedGovernedChange;
+  prepared: PreparedChangeRequest;
   ref: string;
   repository: RepoRef;
 }): Promise<string> {
@@ -268,10 +268,10 @@ export async function createPreparedChangeArtifactEvidence({
   repository,
 }: {
   client: GitHubLiteClient;
-  prepared: PreparedGovernedChange;
+  prepared: PreparedChangeRequest;
   ref: string;
   repository: RepoRef;
-}): Promise<GovernedChangeArtifact[]> {
+}): Promise<ChangeRequestArtifact[]> {
   return Promise.all(
     prepared.files.map(async (file) => {
       const baseFile = await client.getFile({
@@ -298,7 +298,7 @@ export async function createPreparedChangeArtifactEvidence({
   );
 }
 
-export async function writePreparedGovernedChange({
+export async function writePreparedChangeRequest({
   baseSha,
   branch,
   client,
@@ -309,7 +309,7 @@ export async function writePreparedGovernedChange({
   baseSha: string;
   branch: string;
   client: GitHubLiteClient;
-  prepared: PreparedGovernedChange;
+  prepared: PreparedChangeRequest;
   repository: RepoRef;
   title: string;
 }): Promise<void> {
@@ -465,7 +465,7 @@ function prepareArtifactFiles({
   nextArtifactPath?: string;
   removeExistingArtifact?: boolean;
   uploadedArtifact: BatchChangeDraft["execution"]["upload"];
-}): PreparedGovernedFile[] {
+}): PreparedChangeRequestFile[] {
   if (!nextArtifactPath) {
     return currentArtifactPath && removeExistingArtifact
       ? [{ bytes: null, kind: "ARTIFACT", path: currentArtifactPath }]
@@ -483,9 +483,9 @@ function prepareArtifactFiles({
   ];
 }
 
-function toGovernedChangeType(
+function toChangeRequestType(
   mode: BatchChangeDraft["mode"],
-): PreparedGovernedChange["type"] {
+): PreparedChangeRequest["type"] {
   return mode === "create"
     ? "REGISTER"
     : mode === "delete"

@@ -6,19 +6,19 @@ import {
   parseBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
 import {
-  createGovernedChangeRequestDigest,
+  createChangeRequestDigest,
   createTargetRevisionDigest,
-  type GovernedChangeArtifact,
-  parseGovernedChangeDecisionEvidence,
-  parseGovernedChangeRequestEvidence,
-  parseGovernedChangeWithdrawalEvidence,
-} from "./governed-change-evidence.js";
+  type ChangeRequestArtifact,
+  parseChangeRequestDecisionEvidence,
+  parseChangeRequestEvidence,
+  parseChangeRequestWithdrawalEvidence,
+} from "./change-request-evidence.js";
 import {
-  hasGovernedChangeRole,
-  loadGovernedChangePolicy,
-  loadGovernedChangeRoles,
-} from "./governed-change-policy.js";
-import { hasAuthoritativeGovernedChangeRequest } from "./governed-change-verifier.js";
+  hasChangeRequestRole,
+  loadChangeRequestPolicy,
+  loadChangeRequestRoles,
+} from "./change-request-policy.js";
+import { hasAuthoritativeChangeRequest } from "./change-request-verifier.js";
 import type {
   GitHubFile,
   GitHubLiteClient,
@@ -129,7 +129,7 @@ export async function verifyApprovedBatchRevision({
  * Finds the newest complete, historically approved Batch revision for an
  * explicit restoration request. It deliberately does not claim that a prior
  * bypass remains sticky after restoration; that evidence stays in execution
- * attempts and the remediation governed change.
+ * attempts and the remediation change request.
  */
 export async function loadLastApprovedBatchRevision({
   batchId,
@@ -153,7 +153,7 @@ export async function loadLastApprovedBatchRevision({
       if (
         !mergeSha ||
         evidence.type === "DELETE" ||
-        !(await hasAuthoritativeGovernedChangeRequest(
+        !(await hasAuthoritativeChangeRequest(
           client,
           repository,
           pullRequest,
@@ -235,7 +235,7 @@ export async function loadLastApprovedBatchRevision({
 }
 
 type MergedBatchCandidate = {
-  evidence: NonNullable<ReturnType<typeof parseGovernedChangeRequestEvidence>>;
+  evidence: NonNullable<ReturnType<typeof parseChangeRequestEvidence>>;
   pullRequest: GitHubPullRequest & { mergeSha: string; mergedAt: string };
 };
 
@@ -297,7 +297,7 @@ async function hasAuthoritativeCandidateProof(
   candidate: MergedBatchCandidate,
 ): Promise<boolean> {
   return (
-    (await hasAuthoritativeGovernedChangeRequest(
+    (await hasAuthoritativeChangeRequest(
       client,
       repository,
       candidate.pullRequest,
@@ -367,7 +367,7 @@ async function loadMergedBatchCandidates(
         pullNumber,
       });
       const evidence = pullRequest
-        ? parseGovernedChangeRequestEvidence(pullRequest.body)
+        ? parseChangeRequestEvidence(pullRequest.body)
         : null;
 
       return pullRequest?.merged && evidence?.batchId === batchId
@@ -391,9 +391,9 @@ async function hasAuthorizedMergedDecision(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: { mergeSha?: string; mergedAt?: string; number: number },
-  request: NonNullable<ReturnType<typeof parseGovernedChangeRequestEvidence>>,
+  request: NonNullable<ReturnType<typeof parseChangeRequestEvidence>>,
 ): Promise<boolean> {
-  const requestDigest = await createGovernedChangeRequestDigest(request);
+  const requestDigest = await createChangeRequestDigest(request);
   const comments = await client.listIssueComments({
     ...repository,
     issueNumber: pullRequest.number,
@@ -401,7 +401,7 @@ async function hasAuthorizedMergedDecision(
 
   const decisions = await Promise.all(
     comments.map(async (comment) => {
-      const decision = parseGovernedChangeDecisionEvidence(comment.body);
+      const decision = parseChangeRequestDecisionEvidence(comment.body);
 
       if (
         decision &&
@@ -419,7 +419,7 @@ async function hasAuthorizedMergedDecision(
         return { comment, decision: decision.decision } as const;
       }
 
-      const withdrawal = parseGovernedChangeWithdrawalEvidence(comment.body);
+      const withdrawal = parseChangeRequestWithdrawalEvidence(comment.body);
 
       if (
         withdrawal &&
@@ -448,8 +448,8 @@ async function hasAuthorizedMergedDecision(
 }
 
 function hasMatchingDecisionRequest(
-  decision: NonNullable<ReturnType<typeof parseGovernedChangeDecisionEvidence>>,
-  request: NonNullable<ReturnType<typeof parseGovernedChangeRequestEvidence>>,
+  decision: NonNullable<ReturnType<typeof parseChangeRequestDecisionEvidence>>,
+  request: NonNullable<ReturnType<typeof parseChangeRequestEvidence>>,
   requestDigest: string,
 ): boolean {
   return (
@@ -470,24 +470,24 @@ async function isAuthorizedDecision({
 }: {
   client: GitHubLiteClient;
   commentAuthor: string;
-  decision: NonNullable<ReturnType<typeof parseGovernedChangeDecisionEvidence>>;
+  decision: NonNullable<ReturnType<typeof parseChangeRequestDecisionEvidence>>;
   pullRequest: { mergeSha?: string };
   repository: RepoRef;
-  request: NonNullable<ReturnType<typeof parseGovernedChangeRequestEvidence>>;
+  request: NonNullable<ReturnType<typeof parseChangeRequestEvidence>>;
 }): Promise<boolean> {
   const [policy, roles, mergedPolicy, mergedRoles] = await Promise.all([
-    loadGovernedChangePolicy(
+    loadChangeRequestPolicy(
       client,
       repository,
       decision.authorizationRevisionSha,
     ),
-    loadGovernedChangeRoles(
+    loadChangeRequestRoles(
       client,
       repository,
       decision.authorizationRevisionSha,
     ),
-    loadGovernedChangePolicy(client, repository, pullRequest.mergeSha ?? ""),
-    loadGovernedChangeRoles(client, repository, pullRequest.mergeSha ?? ""),
+    loadChangeRequestPolicy(client, repository, pullRequest.mergeSha ?? ""),
+    loadChangeRequestRoles(client, repository, pullRequest.mergeSha ?? ""),
   ]);
   if (
     !hasEquivalentAuthorization(
@@ -504,7 +504,7 @@ async function isAuthorizedDecision({
     );
   }
   const requesterIsApprover = commentAuthor === request.requester;
-  const approverHasRole = await hasGovernedChangeRole(
+  const approverHasRole = await hasChangeRequestRole(
     client,
     repository,
     commentAuthor,
@@ -565,9 +565,9 @@ function isApprovalBeforeMerge(
 async function loadArtifacts(
   client: GitHubLiteClient,
   repository: RepoRef,
-  expectedArtifacts: GovernedChangeArtifact[],
+  expectedArtifacts: ChangeRequestArtifact[],
   ref: string,
-): Promise<GovernedChangeArtifact[]> {
+): Promise<ChangeRequestArtifact[]> {
   return Promise.all(
     expectedArtifacts.map(async (artifact) => {
       const file = await client.getFile({

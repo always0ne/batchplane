@@ -2,9 +2,9 @@ import { sha256BytesHex } from "@batchplane/digest";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 import { serializeBatchDefinitionYaml } from "./batch-definition-codec.js";
 import {
-  buildGovernedChangeRequestBody,
+  buildChangeRequestBody,
   createTargetRevisionDigest,
-} from "./governed-change-evidence.js";
+} from "./change-request-evidence.js";
 import { createGitHubLiteMockState } from "./mock-state.js";
 import type { GitHubLiteMockState } from "./github-types.js";
 type DeletedArchiveFixtureOptions = {
@@ -104,7 +104,7 @@ export async function createDeletedArchiveState(
     version: "batchplane.io/governed-change/v2" as const,
     workspace: "always0ne/batch",
   };
-  const requestBody = buildGovernedChangeRequestBody(evidence);
+  const requestBody = buildChangeRequestBody(evidence);
   const body =
     options.body ?? options.modifyEvidence?.(requestBody) ?? requestBody;
 

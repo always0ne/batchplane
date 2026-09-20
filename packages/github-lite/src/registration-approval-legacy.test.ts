@@ -219,7 +219,7 @@ describe("registration approval model", () => {
       {
         author: "maintainer",
         body: [
-          "## BatchPlane Governed Change Approval",
+          "## BatchPlane Change Request Approval",
           "",
           "- Decision: APPROVED",
           "- Approver: @maintainer",

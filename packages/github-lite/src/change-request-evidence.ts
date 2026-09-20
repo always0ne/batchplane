@@ -1,21 +1,21 @@
 import { createCanonicalDigest, type CanonicalValue } from "@batchplane/digest";
 import type {
-  GovernedChangeDecision,
-  GovernedChangeDecisionSource,
-  GovernedChangeType,
+  ChangeRequestDecision,
+  ChangeRequestDecisionSource,
+  ChangeRequestType,
 } from "@batchplane/domain";
 
-export const governedChangeEvidenceVersion = "batchplane.io/governed-change/v2";
+export const changeRequestEvidenceVersion = "batchplane.io/governed-change/v2";
 
-export type GovernedChangeArtifact = {
+export type ChangeRequestArtifact = {
   afterDigest: string | null;
   beforeDigest: string | null;
   kind: "ARTIFACT" | "BATCH_DEFINITION" | "WORKFLOW";
   path: string;
 };
 
-export type GovernedChangeRequestEvidence = {
-  artifacts: GovernedChangeArtifact[];
+export type ChangeRequestEvidence = {
+  artifacts: ChangeRequestArtifact[];
   baseRevisionSha: string;
   batchId: string;
   governedChangeId: string;
@@ -25,30 +25,30 @@ export type GovernedChangeRequestEvidence = {
   requestedAt: string;
   remediation?: "REVIEW_CURRENT" | "RESTORE_LAST_APPROVED";
   targetRevisionDigest: string;
-  type: GovernedChangeType;
-  version: typeof governedChangeEvidenceVersion;
+  type: ChangeRequestType;
+  version: typeof changeRequestEvidenceVersion;
   workspace: string;
 };
 
-export type GovernedChangeApprovalEvidence = {
+export type ChangeRequestApprovalEvidence = {
   authorizationRevisionSha: string;
   headRevisionSha: string;
-  decision: Exclude<GovernedChangeDecision, "WITHDRAWN">;
-  decisionSource: GovernedChangeDecisionSource;
+  decision: Exclude<ChangeRequestDecision, "WITHDRAWN">;
+  decisionSource: ChangeRequestDecisionSource;
   governedChangeId: string;
   requestDigest: string;
   targetRevisionDigest: string;
-  version: typeof governedChangeEvidenceVersion;
+  version: typeof changeRequestEvidenceVersion;
   rejectionReason?: string;
 };
 
-export type GovernedChangeWithdrawalEvidence = {
+export type ChangeRequestWithdrawalEvidence = {
   headRevisionSha: string;
   decision: "WITHDRAWN";
   governedChangeId: string;
   requestDigest: string;
   targetRevisionDigest: string;
-  version: typeof governedChangeEvidenceVersion;
+  version: typeof changeRequestEvidenceVersion;
 };
 
 const requestMarker = "batchplane:governed-change-request";
@@ -56,14 +56,14 @@ const decisionMarker = "batchplane:governed-change-decision";
 const withdrawalMarker = "batchplane:governed-change-withdrawal";
 const dispositionMarker = "batchplane:governed-change-unverified-disposition";
 
-export async function createGovernedChangeRequestDigest(
-  evidence: GovernedChangeRequestEvidence,
+export async function createChangeRequestDigest(
+  evidence: ChangeRequestEvidence,
 ): Promise<string> {
   return createCanonicalDigest(toRequestDigestPayload(evidence));
 }
 
 export async function createTargetRevisionDigest(
-  artifacts: GovernedChangeArtifact[],
+  artifacts: ChangeRequestArtifact[],
 ): Promise<string> {
   const resultingArtifacts = artifacts
     .filter((artifact) => artifact.afterDigest !== null)
@@ -72,22 +72,22 @@ export async function createTargetRevisionDigest(
   return createCanonicalDigest({
     artifacts: sortArtifacts(resultingArtifacts),
     resultingState: resultingArtifacts.length === 0 ? "EMPTY" : "PRESENT",
-    version: governedChangeEvidenceVersion,
+    version: changeRequestEvidenceVersion,
   });
 }
 
-export type UnverifiedGovernedChangeDisposition = {
+export type UnverifiedChangeRequestDisposition = {
   decision: "REJECTED_UNVERIFIED" | "WITHDRAWN_UNVERIFIED";
   reason?: string;
   requestLocator: string;
   version: "batchplane.io/governed-change/v2";
 };
 
-export function buildGovernedChangeRequestBody(
-  evidence: GovernedChangeRequestEvidence,
+export function buildChangeRequestBody(
+  evidence: ChangeRequestEvidence,
 ): string {
   return [
-    "## BatchPlane Governed Change",
+    "## BatchPlane Change Request",
     "",
     `- Change: \`${evidence.governedChangeId}\``,
     `- Batch: \`${evidence.batchId}\``,
@@ -101,8 +101,8 @@ export function buildGovernedChangeRequestBody(
   ].join("\n");
 }
 
-export function buildGovernedChangeDecisionBody(
-  evidence: GovernedChangeApprovalEvidence,
+export function buildChangeRequestDecisionBody(
+  evidence: ChangeRequestApprovalEvidence,
   reason?: string,
 ): string {
   const rejectionReason = evidence.rejectionReason ?? reason?.trim();
@@ -111,7 +111,7 @@ export function buildGovernedChangeDecisionBody(
     : evidence;
 
   return [
-    "## BatchPlane Governed Change Decision",
+    "## BatchPlane Change Request Decision",
     "",
     `- Change: \`${evidence.governedChangeId}\``,
     `- Decision: ${evidence.decision}`,
@@ -125,11 +125,11 @@ export function buildGovernedChangeDecisionBody(
   ].join("\n");
 }
 
-export function buildGovernedChangeWithdrawalBody(
-  evidence: GovernedChangeWithdrawalEvidence,
+export function buildChangeRequestWithdrawalBody(
+  evidence: ChangeRequestWithdrawalEvidence,
 ): string {
   return [
-    "## BatchPlane Governed Change Withdrawal",
+    "## BatchPlane Change Request Withdrawal",
     "",
     `- Change: \`${evidence.governedChangeId}\``,
     "",
@@ -140,11 +140,11 @@ export function buildGovernedChangeWithdrawalBody(
   ].join("\n");
 }
 
-export function buildUnverifiedGovernedChangeDispositionBody(
-  evidence: UnverifiedGovernedChangeDisposition,
+export function buildUnverifiedChangeRequestDispositionBody(
+  evidence: UnverifiedChangeRequestDisposition,
 ): string {
   return [
-    "## BatchPlane Governed Change Disposition",
+    "## BatchPlane Change Request Disposition",
     "",
     `- Decision: ${evidence.decision}`,
     ...(evidence.reason ? [`- Reason: ${evidence.reason}`] : []),
@@ -156,41 +156,41 @@ export function buildUnverifiedGovernedChangeDispositionBody(
   ].join("\n");
 }
 
-export function parseGovernedChangeRequestEvidence(
+export function parseChangeRequestEvidence(
   body: string,
-): GovernedChangeRequestEvidence | null {
+): ChangeRequestEvidence | null {
   const evidence = parseEvidence(body, requestMarker);
 
-  if (!isGovernedChangeRequestEvidence(evidence)) {
+  if (!isChangeRequestEvidence(evidence)) {
     return null;
   }
 
   return evidence;
 }
 
-export function parseGovernedChangeDecisionEvidence(
+export function parseChangeRequestDecisionEvidence(
   body: string,
-): GovernedChangeApprovalEvidence | null {
+): ChangeRequestApprovalEvidence | null {
   const evidence = parseEvidence(body, decisionMarker);
 
-  if (!isGovernedChangeDecisionEvidence(evidence)) {
+  if (!isChangeRequestDecisionEvidence(evidence)) {
     return null;
   }
 
   return evidence;
 }
 
-export function parseGovernedChangeWithdrawalEvidence(
+export function parseChangeRequestWithdrawalEvidence(
   body: string,
-): GovernedChangeWithdrawalEvidence | null {
+): ChangeRequestWithdrawalEvidence | null {
   const evidence = parseEvidence(body, withdrawalMarker);
 
-  return isGovernedChangeWithdrawalEvidence(evidence) ? evidence : null;
+  return isChangeRequestWithdrawalEvidence(evidence) ? evidence : null;
 }
 
-export function parseUnverifiedGovernedChangeDisposition(
+export function parseUnverifiedChangeRequestDisposition(
   body: string,
-): UnverifiedGovernedChangeDisposition | null {
+): UnverifiedChangeRequestDisposition | null {
   const evidence = parseEvidence(body, dispositionMarker);
 
   return evidence &&
@@ -199,7 +199,7 @@ export function parseUnverifiedGovernedChangeDisposition(
       evidence.decision === "WITHDRAWN_UNVERIFIED") &&
     isNonBlankString(evidence.requestLocator) &&
     (evidence.reason === undefined || isNonBlankString(evidence.reason))
-    ? (evidence as UnverifiedGovernedChangeDisposition)
+    ? (evidence as UnverifiedChangeRequestDisposition)
     : null;
 }
 
@@ -235,12 +235,12 @@ function parseEvidence(
   }
 }
 
-function isGovernedChangeRequestEvidence(
+function isChangeRequestEvidence(
   evidence: Record<string, unknown> | null,
-): evidence is GovernedChangeRequestEvidence {
+): evidence is ChangeRequestEvidence {
   return Boolean(
     evidence &&
-    evidence.version === governedChangeEvidenceVersion &&
+    evidence.version === changeRequestEvidenceVersion &&
     isNonBlankString(evidence.baseRevisionSha) &&
     isNonBlankString(evidence.batchId) &&
     isNonBlankString(evidence.governedChangeId) &&
@@ -255,16 +255,16 @@ function isGovernedChangeRequestEvidence(
     isChangeType(evidence.type) &&
     isNonBlankString(evidence.workspace) &&
     Array.isArray(evidence.artifacts) &&
-    evidence.artifacts.every(isGovernedChangeArtifact),
+    evidence.artifacts.every(isChangeRequestArtifact),
   );
 }
 
-function isGovernedChangeDecisionEvidence(
+function isChangeRequestDecisionEvidence(
   evidence: Record<string, unknown> | null,
-): evidence is GovernedChangeApprovalEvidence {
+): evidence is ChangeRequestApprovalEvidence {
   return Boolean(
     evidence &&
-    evidence.version === governedChangeEvidenceVersion &&
+    evidence.version === changeRequestEvidenceVersion &&
     isNonBlankString(evidence.authorizationRevisionSha) &&
     isNonBlankString(evidence.headRevisionSha) &&
     (evidence.decision === "APPROVED" || evidence.decision === "REJECTED") &&
@@ -278,12 +278,12 @@ function isGovernedChangeDecisionEvidence(
   );
 }
 
-function isGovernedChangeWithdrawalEvidence(
+function isChangeRequestWithdrawalEvidence(
   evidence: Record<string, unknown> | null,
-): evidence is GovernedChangeWithdrawalEvidence {
+): evidence is ChangeRequestWithdrawalEvidence {
   return Boolean(
     evidence &&
-    evidence.version === governedChangeEvidenceVersion &&
+    evidence.version === changeRequestEvidenceVersion &&
     evidence.decision === "WITHDRAWN" &&
     isNonBlankString(evidence.headRevisionSha) &&
     isNonBlankString(evidence.governedChangeId) &&
@@ -292,7 +292,7 @@ function isGovernedChangeWithdrawalEvidence(
   );
 }
 
-function isGovernedChangeArtifact(value: unknown): boolean {
+function isChangeRequestArtifact(value: unknown): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
@@ -322,7 +322,7 @@ function isNonBlankString(value: unknown): value is string {
 }
 
 function toRequestDigestPayload(
-  evidence: GovernedChangeRequestEvidence,
+  evidence: ChangeRequestEvidence,
 ): CanonicalValue {
   return {
     artifacts: sortArtifacts(evidence.artifacts).map(toArtifactDigestPayload),
@@ -342,7 +342,7 @@ function toRequestDigestPayload(
 }
 
 function toArtifactDigestPayload(
-  artifact: GovernedChangeArtifact,
+  artifact: ChangeRequestArtifact,
 ): CanonicalValue {
   return {
     afterDigest: artifact.afterDigest,

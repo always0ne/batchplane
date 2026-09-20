@@ -12,7 +12,7 @@ import {
   validateRoleMapping,
   validateWorkspacePolicy,
   validateWorkspacePolicyFile,
-} from "./governance-schema.js";
+} from "./repository-schema.js";
 
 describe("GitHub Lite governance schemas", () => {
   it("accepts canonical dot and hyphen Batch IDs but rejects repository paths", () => {

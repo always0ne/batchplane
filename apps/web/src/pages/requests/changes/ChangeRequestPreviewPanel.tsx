@@ -1,12 +1,12 @@
-import type { GovernedChangePreviewFile } from "@batchplane/ui-client";
+import type { ChangeRequestPreviewFile } from "@batchplane/ui-client";
 import { AlertTriangle, FileCode2, FileUp } from "lucide-react";
 
-export type GovernedChangePreviewLabels = {
+export type ChangeRequestPreviewLabels = {
   binarySummary: string;
   emptyFile: string;
   evidenceUnavailable: string;
   preview: string;
-  status: Record<GovernedChangePreviewFile["status"], string>;
+  status: Record<ChangeRequestPreviewFile["status"], string>;
   subtitle: string;
   title: string;
 };
@@ -16,12 +16,12 @@ type DiffLine = {
   text: string;
 };
 
-export function GovernedChangePreviewPanel({
+export function ChangeRequestPreviewPanel({
   files,
   labels,
 }: {
-  files: GovernedChangePreviewFile[];
-  labels: GovernedChangePreviewLabels;
+  files: ChangeRequestPreviewFile[];
+  labels: ChangeRequestPreviewLabels;
 }) {
   return (
     <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -29,7 +29,7 @@ export function GovernedChangePreviewPanel({
       <p className="mt-2 text-sm text-bp-muted">{labels.subtitle}</p>
       <div className="mt-4 space-y-3">
         {files.map((file) => (
-          <GovernedChangePreviewFileItem
+          <ChangeRequestPreviewFileItem
             file={file}
             key={file.path}
             labels={labels}
@@ -40,12 +40,12 @@ export function GovernedChangePreviewPanel({
   );
 }
 
-function GovernedChangePreviewFileItem({
+function ChangeRequestPreviewFileItem({
   file,
   labels,
 }: {
-  file: GovernedChangePreviewFile;
-  labels: GovernedChangePreviewLabels;
+  file: ChangeRequestPreviewFile;
+  labels: ChangeRequestPreviewLabels;
 }) {
   const isBinary = file.contentKind === "BINARY";
 
@@ -96,8 +96,8 @@ function TextFileDiff({
   file,
   labels,
 }: {
-  file: GovernedChangePreviewFile;
-  labels: GovernedChangePreviewLabels;
+  file: ChangeRequestPreviewFile;
+  labels: ChangeRequestPreviewLabels;
 }) {
   const lines = buildDiffLines(file.baseContent ?? "", file.nextContent ?? "");
 
@@ -126,7 +126,7 @@ function BinaryDigestSummary({
   file,
   label,
 }: {
-  file: GovernedChangePreviewFile;
+  file: ChangeRequestPreviewFile;
   label: string;
 }) {
   return (
@@ -222,7 +222,7 @@ function diffLineClassName(kind: DiffLine["kind"]): string {
       : "block text-slate-200";
 }
 
-function statusClassName(status: GovernedChangePreviewFile["status"]): string {
+function statusClassName(status: ChangeRequestPreviewFile["status"]): string {
   const tone = {
     ADDED: "bg-emerald-100 text-emerald-700",
     DELETED: "bg-rose-100 text-rose-700",

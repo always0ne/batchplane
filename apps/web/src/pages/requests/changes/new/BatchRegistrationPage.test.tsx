@@ -34,7 +34,7 @@ const newBatchDraft: BatchChangeDraft = {
     ref: "main",
     runnerLabel: "ubuntu-latest",
   },
-  governedChangeId: "bgc-test-new-batch",
+  changeRequestId: "bgc-test-new-batch",
   mode: "create",
   schedules: [],
 };
@@ -155,7 +155,7 @@ describe("BatchRegistrationPage", () => {
         platform: "GITHUB_ACTIONS",
         ref: "release/close",
       },
-      governedChangeId: newBatchDraft.governedChangeId,
+      changeRequestId: newBatchDraft.changeRequestId,
     });
     expect(previewBatchChange.mock.lastCall?.[0].batch).not.toHaveProperty(
       "runnerLabel",
@@ -174,7 +174,7 @@ describe("BatchRegistrationPage", () => {
     );
   });
 
-  it("creates a governed registration request from the actual product preview", async () => {
+  it("creates a controlled registration request from the actual product preview", async () => {
     const createBatchChangeRequest = vi.fn().mockResolvedValue({
       request: requestResult("42"),
     });
@@ -334,7 +334,7 @@ describe("BatchRegistrationPage", () => {
     });
   });
 
-  it("keeps custom multi-label runners in the governed change draft", async () => {
+  it("keeps custom multi-label runners in the change request draft", async () => {
     const createBatchChangeRequest = vi.fn().mockResolvedValue({
       request: requestResult("43"),
     });
@@ -486,7 +486,7 @@ describe("BatchRegistrationPage", () => {
     await waitFor(() => expect(button).toBeDisabled());
     expect(button).toHaveAttribute(
       "title",
-      "No governed file changes were detected.",
+      "No controlled file changes were detected.",
     );
   });
 
@@ -568,7 +568,7 @@ function createClient(
   overrides: Partial<BatchPlaneClient> = {},
 ): BatchPlaneClient {
   return {
-    approveGovernedChange: async () => requestDetail(),
+    approveChangeRequest: async () => requestDetail(),
     createBatchChangeRequest: async () => ({ request: requestResult("42") }),
     getBatchDetail: async ({ batchId }) => ({ batchId, type: "not-found" }),
     getBatchChangeBlocker: async () => null,
@@ -576,7 +576,7 @@ function createClient(
       availableKinds: [],
       canRequest: false,
     }),
-    getGovernedChange: async () => requestDetail(),
+    getChangeRequest: async () => requestDetail(),
     listBatches: async () => ({
       batches: [],
       sourceRevision: "main",
@@ -585,8 +585,8 @@ function createClient(
     loadBatchChangeDraft: async () => newBatchDraft,
     previewBatchChange: async () => preview(),
     requestBatchRemediation: async () => ({ request: requestResult("42") }),
-    rejectGovernedChange: async () => requestDetail(),
-    withdrawGovernedChange: async () => requestDetail(),
+    rejectChangeRequest: async () => requestDetail(),
+    withdrawChangeRequest: async () => requestDetail(),
     loadExecutionRequestDraft: unsupported,
     previewExecutionRequest: unsupported,
     createExecutionRequest: unsupported,

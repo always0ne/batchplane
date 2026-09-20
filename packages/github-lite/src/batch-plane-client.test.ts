@@ -192,7 +192,7 @@ function createDependencies({
   return {
     client: createMockGitHubLiteClient(createGitHubLiteMockState()),
     repositoryRef: { owner: "always0ne", repo: "batch" },
-    governedChangeClient: {
+    changeRequestClient: {
       getBatchRemediationCapability: vi.fn().mockResolvedValue({
         availableKinds: [],
         canRequest: false,

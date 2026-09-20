@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GovernedChangeRequest } from "./governed-changes.js";
+import type { ChangeRequest } from "./change-requests.js";
 
 const requestBase = {
   batchId: "payment.daily-close",
@@ -11,9 +11,9 @@ const requestBase = {
   title: "Change batch payment.daily-close",
 };
 
-describe("governed change client contract", () => {
+describe("change request client contract", () => {
   it("keeps verified evidence and its identifiers in one discriminated branch", () => {
-    const request: GovernedChangeRequest = {
+    const request: ChangeRequest = {
       ...requestBase,
       evidence: {
         governedChangeId: "bgc-payment-close",
@@ -28,7 +28,7 @@ describe("governed change client contract", () => {
   });
 
   it("does not allow an unverified request to claim verified identifiers", () => {
-    const request: GovernedChangeRequest = {
+    const request: ChangeRequest = {
       ...requestBase,
       evidence: { kind: "REAPPROVAL_REQUIRED", reason: "UNVERIFIED_REQUEST" },
       reviewState: "REAPPROVAL_REQUIRED",

@@ -1,7 +1,7 @@
 import {
   WorkspaceNotConnectedError,
   type BatchPlaneClient,
-  type GovernedChangeDetail,
+  type ChangeRequestDetail,
 } from "@batchplane/ui-client";
 import {
   act,
@@ -16,13 +16,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../../../client/batch-plane-client-context";
 import "../../../../i18n/i18n";
-import { GovernedChangeDetailPage } from "./GovernedChangeDetailPage";
+import { ChangeRequestDetailPage } from "./ChangeRequestDetailPage";
 
-describe("GovernedChangeDetailPage", () => {
+describe("ChangeRequestDetailPage", () => {
   it("routes a disconnected Workspace to setup instead of showing a detail failure", async () => {
     renderPage(
       createClient({
-        getGovernedChange: vi
+        getChangeRequest: vi
           .fn()
           .mockRejectedValue(new WorkspaceNotConnectedError()),
       }),
@@ -30,7 +30,7 @@ describe("GovernedChangeDetailPage", () => {
 
     expect(
       await screen.findByText(
-        "Connect a Workspace before reviewing governed changes.",
+        "Connect a Workspace before reviewing change requests.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -39,10 +39,10 @@ describe("GovernedChangeDetailPage", () => {
   });
 
   it("requires a rejection reason and sends it through the product client", async () => {
-    const rejectGovernedChange = vi
+    const rejectChangeRequest = vi
       .fn()
       .mockResolvedValue({ ...detail(), reviewState: "REJECTED" });
-    renderPage(createClient({ rejectGovernedChange }));
+    renderPage(createClient({ rejectChangeRequest }));
 
     await screen.findByRole("heading", {
       name: "Change request: payment.daily-close",
@@ -59,7 +59,7 @@ describe("GovernedChangeDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reject" }));
 
     await waitFor(() => {
-      expect(rejectGovernedChange).toHaveBeenCalledWith({
+      expect(rejectChangeRequest).toHaveBeenCalledWith({
         reason: "Missing operating evidence",
         requestLocator: "42",
       });
@@ -67,50 +67,50 @@ describe("GovernedChangeDetailPage", () => {
   });
 
   it("uses internal actions for approval and withdrawal states", async () => {
-    const approveGovernedChange = vi
+    const approveChangeRequest = vi
       .fn()
       .mockResolvedValue({ ...detail(), reviewState: "MERGED" });
-    const withdrawGovernedChange = vi
+    const withdrawChangeRequest = vi
       .fn()
       .mockResolvedValue({ ...detail(), reviewState: "WITHDRAWN" });
-    renderPage(createClient({ approveGovernedChange, withdrawGovernedChange }));
+    renderPage(createClient({ approveChangeRequest, withdrawChangeRequest }));
 
     await screen.findByRole("button", { name: "Approve and apply change" });
     fireEvent.click(
       screen.getByRole("button", { name: "Approve and apply change" }),
     );
-    expect(approveGovernedChange).toHaveBeenCalledWith({
+    expect(approveChangeRequest).toHaveBeenCalledWith({
       requestLocator: "42",
     });
   });
 
   it("applies an already approved change without a loading refetch", async () => {
-    const approveGovernedChange = vi.fn().mockResolvedValue({
+    const approveChangeRequest = vi.fn().mockResolvedValue({
       ...detail(),
       reviewState: "MERGED",
     });
-    const getGovernedChange = vi.fn().mockResolvedValue({
+    const getChangeRequest = vi.fn().mockResolvedValue({
       ...detail(),
       canApprove: false,
       canApplyApprovedChange: true,
       reviewState: "APPROVED_PENDING_MERGE",
     });
-    renderPage(createClient({ approveGovernedChange, getGovernedChange }));
+    renderPage(createClient({ approveChangeRequest, getChangeRequest }));
 
     const button = await screen.findByRole("button", {
       name: "Apply approved change",
     });
     fireEvent.click(button);
 
-    await waitFor(() => expect(approveGovernedChange).toHaveBeenCalledTimes(1));
-    expect(getGovernedChange).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(approveChangeRequest).toHaveBeenCalledTimes(1));
+    expect(getChangeRequest).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Applied")).toBeInTheDocument();
   });
 
   it("shows unavailable evidence and recreation guidance without approval controls", async () => {
     renderPage(
       createClient({
-        getGovernedChange: async () => ({
+        getChangeRequest: async () => ({
           ...detail(),
           canApprove: false,
           canReject: false,
@@ -151,7 +151,7 @@ describe("GovernedChangeDetailPage", () => {
   it("shows the permitted rejection action for an open legacy request", async () => {
     renderPage(
       createClient({
-        getGovernedChange: async () => ({
+        getChangeRequest: async () => ({
           ...detail(),
           canApprove: false,
           canReject: true,
@@ -172,7 +172,7 @@ describe("GovernedChangeDetailPage", () => {
     await i18next.changeLanguage("ko");
     renderPage(
       createClient({
-        getGovernedChange: async () => ({
+        getChangeRequest: async () => ({
           ...detail(),
           decision: {
             decidedAt: "2026-06-01T00:00:00Z",
@@ -194,10 +194,10 @@ describe("GovernedChangeDetailPage", () => {
   });
 
   it("keeps the latest same-request refresh result through StrictMode cleanup", async () => {
-    const firstMount = deferred<GovernedChangeDetail>();
-    const activeMount = deferred<GovernedChangeDetail>();
-    const refresh = deferred<GovernedChangeDetail>();
-    const getGovernedChange = vi
+    const firstMount = deferred<ChangeRequestDetail>();
+    const activeMount = deferred<ChangeRequestDetail>();
+    const refresh = deferred<ChangeRequestDetail>();
+    const getChangeRequest = vi
       .fn()
       .mockReturnValueOnce(firstMount.promise)
       .mockReturnValueOnce(activeMount.promise)
@@ -206,13 +206,13 @@ describe("GovernedChangeDetailPage", () => {
     render(
       <StrictMode>
         <BatchPlaneClientContext.Provider
-          value={createClient({ getGovernedChange })}
+          value={createClient({ getChangeRequest })}
         >
           <MemoryRouter initialEntries={["/approvals/registration/42"]}>
             <Routes>
               <Route
                 path="/approvals/registration/:requestLocator"
-                element={<GovernedChangeDetailPage />}
+                element={<ChangeRequestDetailPage />}
               />
             </Routes>
           </MemoryRouter>
@@ -220,7 +220,7 @@ describe("GovernedChangeDetailPage", () => {
       </StrictMode>,
     );
 
-    await waitFor(() => expect(getGovernedChange).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(getChangeRequest).toHaveBeenCalledTimes(2));
     activeMount.resolve({ ...detail(), batchId: "active-batch" });
     expect(
       await screen.findByRole("heading", {
@@ -229,7 +229,7 @@ describe("GovernedChangeDetailPage", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-    await waitFor(() => expect(getGovernedChange).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(getChangeRequest).toHaveBeenCalledTimes(3));
     refresh.resolve({ ...detail(), batchId: "refreshed-batch" });
     expect(
       await screen.findByRole("heading", {
@@ -248,13 +248,13 @@ describe("GovernedChangeDetailPage", () => {
   });
 
   it("ignores a stale detail load after navigating to another request", async () => {
-    const firstRequest = deferred<GovernedChangeDetail>();
-    const getGovernedChange = vi.fn(({ requestLocator }) =>
+    const firstRequest = deferred<ChangeRequestDetail>();
+    const getChangeRequest = vi.fn(({ requestLocator }) =>
       requestLocator === "42"
         ? firstRequest.promise
         : Promise.resolve(detailFor("43")),
     );
-    renderNavigablePage(createClient({ getGovernedChange }));
+    renderNavigablePage(createClient({ getChangeRequest }));
 
     fireEvent.click(screen.getByRole("button", { name: "Open request 43" }));
     expect(
@@ -275,13 +275,13 @@ describe("GovernedChangeDetailPage", () => {
   });
 
   it("ignores a stale action result after navigating to another request", async () => {
-    const approval = deferred<GovernedChangeDetail>();
-    const approveGovernedChange = vi.fn(() => approval.promise);
-    const getGovernedChange = vi.fn(({ requestLocator }) =>
+    const approval = deferred<ChangeRequestDetail>();
+    const approveChangeRequest = vi.fn(() => approval.promise);
+    const getChangeRequest = vi.fn(({ requestLocator }) =>
       Promise.resolve(requestLocator === "42" ? detail() : detailFor("43")),
     );
     renderNavigablePage(
-      createClient({ approveGovernedChange, getGovernedChange }),
+      createClient({ approveChangeRequest, getChangeRequest }),
     );
 
     fireEvent.click(
@@ -319,7 +319,7 @@ function renderPage(client: BatchPlaneClient) {
         <Routes>
           <Route
             path="/approvals/registration/:requestLocator"
-            element={<GovernedChangeDetailPage />}
+            element={<ChangeRequestDetailPage />}
           />
         </Routes>
       </MemoryRouter>
@@ -334,7 +334,7 @@ function renderNavigablePage(client: BatchPlaneClient) {
         <Routes>
           <Route
             path="/approvals/registration/:requestLocator"
-            element={<NavigableGovernedChangeDetailPage />}
+            element={<NavigableChangeRequestDetailPage />}
           />
         </Routes>
       </MemoryRouter>
@@ -342,7 +342,7 @@ function renderNavigablePage(client: BatchPlaneClient) {
   );
 }
 
-function NavigableGovernedChangeDetailPage() {
+function NavigableChangeRequestDetailPage() {
   const navigate = useNavigate();
 
   return (
@@ -353,7 +353,7 @@ function NavigableGovernedChangeDetailPage() {
       >
         Open request 43
       </button>
-      <GovernedChangeDetailPage />
+      <ChangeRequestDetailPage />
     </>
   );
 }
@@ -362,10 +362,10 @@ function createClient(
   overrides: Partial<BatchPlaneClient> = {},
 ): BatchPlaneClient {
   return {
-    approveGovernedChange: async () => detail(),
+    approveChangeRequest: async () => detail(),
     createBatchChangeRequest: async () => ({ request: detail() }),
     getBatchDetail: async ({ batchId }) => ({ batchId, type: "not-found" }),
-    getGovernedChange: async () => detail(),
+    getChangeRequest: async () => detail(),
     getBatchChangeBlocker: async () => null,
     getBatchRemediationCapability: async () => ({
       availableKinds: [],
@@ -405,19 +405,17 @@ function createClient(
       targetRevisionDigest: "sha256:test",
     }),
     requestBatchRemediation: async () => ({ request: detail() }),
-    rejectGovernedChange: async () => detail(),
-    withdrawGovernedChange: async () => detail(),
+    rejectChangeRequest: async () => detail(),
+    withdrawChangeRequest: async () => detail(),
     ...overrides,
   };
 }
 
 async function unsupported(): Promise<never> {
-  throw new Error(
-    "This client method is not used by the governed change test.",
-  );
+  throw new Error("This client method is not used by the change request test.");
 }
 
-function detail(): GovernedChangeDetail {
+function detail(): ChangeRequestDetail {
   return {
     batchId: "payment.daily-close",
     canApprove: true,
@@ -447,7 +445,7 @@ function detail(): GovernedChangeDetail {
   };
 }
 
-function detailFor(requestLocator: string): GovernedChangeDetail {
+function detailFor(requestLocator: string): ChangeRequestDetail {
   return {
     ...detail(),
     batchId: `payment.daily-close-${requestLocator}`,

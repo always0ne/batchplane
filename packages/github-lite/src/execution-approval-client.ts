@@ -17,7 +17,7 @@ import type {
 import {
   buildExecutionApprovalComment,
   buildExecutionRejectionComment,
-  getGovernedChangeRequestKind,
+  getChangeRequestKind,
   parseExecutionRequestDetail,
   type ExecutionApprovalRequest,
 } from "./execution-approval-legacy.js";
@@ -26,7 +26,7 @@ import {
   parseRegistrationApprovalDecision,
   parseRegistrationRequestSummary,
 } from "./registration-approval-legacy.js";
-import { parseGovernedChangeRequestEvidence } from "./governed-change-evidence.js";
+import { parseChangeRequestEvidence } from "./change-request-evidence.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 import { loadBatchDefinitions } from "./batch-repository.js";
 import {
@@ -557,15 +557,15 @@ async function loadRequestInventory(
 ): Promise<RequestInventoryItem[]> {
   const [execution, governed] = await Promise.all([
     loadExecutionRequestItems(context),
-    loadGovernedChangeRequestItems(context),
+    loadChangeRequestItems(context),
   ]);
 
   return [...execution, ...governed];
 }
 
-async function loadGovernedChangeRequestItems(
+async function loadChangeRequestItems(
   context: GitHubRepositoryContext,
-): Promise<Extract<RequestInventoryItem, { kind: "GOVERNED_CHANGE" }>[]> {
+): Promise<Extract<RequestInventoryItem, { kind: "CHANGE_REQUEST" }>[]> {
   const repository = await context.client.getRepository(context.repositoryRef);
   const pullRequests = await context.client.listPullRequests({
     ...context.repositoryRef,
@@ -582,7 +582,7 @@ async function loadGovernedChangeRequestItems(
   );
 
   return pullRequests.flatMap((pullRequest, index) => {
-    const kind = getGovernedChangeRequestKind(pullRequest);
+    const kind = getChangeRequestKind(pullRequest);
     if (!kind) return [];
 
     try {
@@ -593,8 +593,8 @@ async function loadGovernedChangeRequestItems(
       return [
         {
           actor: pullRequest.author,
-          changeKind: toGovernedChangeKind(kind, summary.requestType),
-          kind: "GOVERNED_CHANGE" as const,
+          changeKind: toChangeRequestKind(kind, summary.requestType),
+          kind: "CHANGE_REQUEST" as const,
           request: {
             batchId: summary.batchId,
             requestLocator: String(pullRequest.number),
@@ -727,7 +727,7 @@ function sourceChangeFor(
   if (!revision) return undefined;
 
   const matches = pullRequests.flatMap((pullRequest) => {
-    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+    const evidence = parseChangeRequestEvidence(pullRequest.body);
 
     return evidence &&
       evidence.governedChangeId === revision.governedChangeId &&
@@ -843,8 +843,8 @@ function executionWorkOccurredAt(item: ExecutionRequestInventoryItem): string {
   return item.request.requestedAt || item.request.updatedAt || "";
 }
 
-function toGovernedChangeKind(
-  kind: ReturnType<typeof getGovernedChangeRequestKind>,
+function toChangeRequestKind(
+  kind: ReturnType<typeof getChangeRequestKind>,
   requestType: "REGISTER" | "CHANGE" | "DELETE",
 ) {
   if (kind === "schedule") {

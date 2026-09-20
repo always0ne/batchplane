@@ -74,7 +74,7 @@ is not complete merely because its local controls render or call an API.
 
 BatchPlane is a multi-platform batch control and audit product. GitHub Actions is
 the first provider, not the product model. Shared UI must therefore speak in
-Workspace, Batch, governed change, approval, execution, schedule, failure, and
+Workspace, Batch, change request, approval, execution, schedule, failure, and
 audit concepts rather than GitHub transport concepts.
 
 ## Target Source Structure
@@ -129,7 +129,7 @@ those groups under the same rule whenever another Page is actually introduced.
 Only actual shared business code stays at its common owner. Reuse does not
 transfer code to a global components folder: the approval inbox imports
 `pages/requests/execution/ExecutionApprovalActions.tsx`; the Batch change editor
-and change detail share `pages/requests/changes/GovernedChangePreviewPanel.tsx`.
+and change detail share `pages/requests/changes/ChangeRequestPreviewPanel.tsx`.
 Registration, update, and deletion share the change-request area rather than
 three artificial copies of the same editor. Batch detail and its request-entry
 controls stay under `pages/batches/detail`; the approval inbox stays under
@@ -146,6 +146,26 @@ This is the project's approved directory convention, not a React-prescribed
 folder layout. It retains the existing named module imports described in
 [React's component import/export guide](https://18.react.dev/learn/importing-and-exporting-components)
 and the existing React Router route composition.
+
+### Product Naming
+
+Use `ChangeRequest` for registration, modification and deletion requests.
+`GovernedChange` is a retired product-code name, not an additional request type.
+Keep file, export, Hook, client operation and translation terminology aligned.
+Renaming a type does not authorize a change to its approval or evidence behavior.
+
+Product execution pages use `Execution`, and connection/settings pages use
+`Workspace`. GitHub adapter filenames such as `execution-run-client.ts` still
+describe actual workflow-run API access; provider vocabulary is appropriate there.
+Likewise, `github-lite` and `github-actions-execution.ts` name real provider-specific
+implementations rather than Lite-only product screens.
+
+Storage names are separate from source names. `.batch-governance` paths,
+`governedChangeId` evidence fields, `batchplane:governed-change-*` markers and
+`batchplane.io/governed-change/v2` remain existing repository formats. Their
+preservation is intentional and must not lead to new compatibility branches or
+parallel old exports. Existing request URLs also stay fixed until the approved
+unified-request work. Historical research is not rewritten to hide old names.
 
 Global `components` holds genuinely product-neutral controls such as Button and
 PageState. Do not introduce separate `ui` or `features` layers. Share business
@@ -218,24 +238,24 @@ Route screens and business components now live under their owning areas in
 implementation remains under `features` or `ui`. The inventory below records
 screen ownership, not blanket acceptance of every implementation detail.
 
-| Surface                         | Current Page                                                     | Status                                                                                                        |
-| ------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Batch list                      | `pages/batches/list/BatchListPage.tsx`                           | Migrated; first reference slice                                                                               |
-| Dashboard                       | `pages/dashboard/DashboardPage.tsx`                              | R5 product summary query and page-local operational sections                                                  |
-| My Work                         | `pages/my-work/MyWorkPage.tsx`                                   | R3 product-client work queue; preserves request and failure follow-up destinations                            |
-| Batch registration and change   | `pages/requests/changes/new/BatchRegistrationPage.tsx`           | Migrated route page; form, schedule, review, and command state belong to change requests                      |
-| Batch detail                    | `pages/batches/detail/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
-| Execution request creation      | `pages/requests/execution/new/ExecutionRequestPage.tsx`          | R3 route composition with page-local draft, preview, and submission responsibilities                          |
-| Execution request detail        | `pages/requests/execution/detail/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
-| Execution list                  | `pages/executions/list/ExecutionListPage.tsx`                    | Product execution query and history view at `/executions`                                                     |
-| Failure list                    | `pages/executions/failures/FailureListPage.tsx`                  | Failure-owned route Page using the existing execution inspection behavior                                     |
-| Execution detail                | `pages/executions/detail/ExecutionDetailPage.tsx`                | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
-| Workspace requests              | `pages/requests/list/RequestListPage.tsx`                        | R3 product request inventory; local search and filters; not the deferred unified-request model                |
-| Approvals                       | `pages/approvals/ApprovalsPage.tsx`                              | R3 product inbox and reusable execution approval action                                                       |
-| Governed change approval detail | `pages/requests/changes/detail/GovernedChangeDetailPage.tsx`     | Migrated route page; provider-neutral governed-change client only                                             |
-| Audit                           | `pages/audit/AuditPage.tsx`                                      | R5 product timeline query, local filtering, and exact execution destinations                                  |
-| Workspace connection and setup  | `pages/workspace/WorkspacePage.tsx`                              | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
-| Standalone schedule definition  | None                                                             | Removed; schedules are edited inside the governed Batch form and the deep link redirects there                |
+| Surface                        | Current Page                                                     | Status                                                                                                        |
+| ------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Batch list                     | `pages/batches/list/BatchListPage.tsx`                           | Migrated; first reference slice                                                                               |
+| Dashboard                      | `pages/dashboard/DashboardPage.tsx`                              | R5 product summary query and page-local operational sections                                                  |
+| My Work                        | `pages/my-work/MyWorkPage.tsx`                                   | R3 product-client work queue; preserves request and failure follow-up destinations                            |
+| Batch registration and change  | `pages/requests/changes/new/BatchRegistrationPage.tsx`           | Migrated route page; form, schedule, review, and command state belong to change requests                      |
+| Batch detail                   | `pages/batches/detail/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
+| Execution request creation     | `pages/requests/execution/new/ExecutionRequestPage.tsx`          | R3 route composition with page-local draft, preview, and submission responsibilities                          |
+| Execution request detail       | `pages/requests/execution/detail/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
+| Execution list                 | `pages/executions/list/ExecutionListPage.tsx`                    | Product execution query and history view at `/executions`                                                     |
+| Failure list                   | `pages/executions/failures/FailureListPage.tsx`                  | Failure-owned route Page using the existing execution inspection behavior                                     |
+| Execution detail               | `pages/executions/detail/ExecutionDetailPage.tsx`                | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
+| Workspace requests             | `pages/requests/list/RequestListPage.tsx`                        | R3 product request inventory; local search and filters; not the deferred unified-request model                |
+| Approvals                      | `pages/approvals/ApprovalsPage.tsx`                              | R3 product inbox and reusable execution approval action                                                       |
+| Change request approval detail | `pages/requests/changes/detail/ChangeRequestDetailPage.tsx`      | Migrated route page; provider-neutral change-request client only                                              |
+| Audit                          | `pages/audit/AuditPage.tsx`                                      | R5 product timeline query, local filtering, and exact execution destinations                                  |
+| Workspace connection and setup | `pages/workspace/WorkspacePage.tsx`                              | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
+| Standalone schedule definition | None                                                             | Removed; schedules are edited inside the controlled Batch form and the deep link redirects there              |
 
 New route screens must start under `pages`. A migration is complete only when
 the route composition, page-only state and components, product-client boundary,
@@ -252,7 +272,7 @@ Migrated Pages remain subject to the same readability and official-pattern
 criteria as new Pages. A short Page delegating all unrelated work to one large
 Hook is not the intended end state.
 
-- Governed-change detail tracks committed request lifetime in Effects and event
+- Change-request detail tracks committed request lifetime in Effects and event
   handlers, never by mutating refs during render. Switching the request/client,
   unmounting, and StrictMode cleanup must discard obsolete async results.
 - The Batch editor separates loading an editing session, local field/schedule
@@ -561,7 +581,7 @@ export function BatchListPage() {
 
 Business components stay under their owning area in `pages`, even when used by
 another screen. ExecutionApprovalActions belongs to execution requests, not to
-the approval inbox or global `components`. GovernedChangePreviewPanel belongs
+the approval inbox or global `components`. ChangeRequestPreviewPanel belongs
 to change requests. Their props describe the data and callbacks needed; local
 state belongs to the interaction. Neither component owns the complete use case.
 

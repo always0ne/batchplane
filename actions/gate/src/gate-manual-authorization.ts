@@ -1,4 +1,4 @@
-import { parseGovernanceYaml } from "@batchplane/github-lite";
+import { parseRepositoryYaml } from "@batchplane/github-lite";
 import { parseApproverSelectorFromRoleMappingFile } from "./gate-evidence.js";
 import type { GateGitHubClient } from "./gate-github-client.js";
 import {
@@ -156,7 +156,7 @@ async function readWorkspaceApprovalMode({
     return "SELF_APPROVAL_BLOCKED";
   }
 
-  const parsed = parseGovernanceYaml(workspacePolicyFile.content);
+  const parsed = parseRepositoryYaml(workspacePolicyFile.content);
 
   if (!parsed.ok) {
     throw new Error(

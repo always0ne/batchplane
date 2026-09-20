@@ -76,6 +76,11 @@ file is the enforcement checklist.
 - Align page ownership with the product sitemap. Use `executions` for execution
   inspection, with failure-specific screens under `executions/failures`, and
   `workspace` for settings. Do not add overview/operations/control folder layers.
+- Name product request code `ChangeRequest`, not `GovernedChange`. Review file,
+  export, Hook and translation names together when retiring a product term.
+  Preserve persisted evidence keys, markers, versions and existing URLs unless
+  a separate format or route change is approved. Provider-specific vocabulary
+  remains appropriate inside the adapter when it describes an actual provider API.
 - Keep unified multi-Batch/multi-type requests outside the refactoring. Preserve
   existing change/execution request routes and behavior until the separate
   `docs/unified-request-feature-spec.md` is detailed and approved.

@@ -164,14 +164,14 @@ function ApprovalContent({
     return <ErrorState message={state.message || t("states.error")} />;
   }
 
-  const governedChanges = state.inventory.requests.filter(
-    (item) => item.kind === "GOVERNED_CHANGE",
+  const changeRequests = state.inventory.requests.filter(
+    (item) => item.kind === "CHANGE_REQUEST",
   );
   const executionRequests = state.inventory.requests.filter(
     (item) => item.kind === "EXECUTION",
   );
 
-  if (governedChanges.length === 0 && executionRequests.length === 0) {
+  if (changeRequests.length === 0 && executionRequests.length === 0) {
     return (
       <EmptyState
         message={t("states.empty", {
@@ -183,10 +183,10 @@ function ApprovalContent({
 
   return (
     <div className="space-y-6">
-      {governedChanges.length > 0 ? (
+      {changeRequests.length > 0 ? (
         <ApprovalSection title={t("sections.registration")}>
-          {governedChanges.map((item) => (
-            <GovernedChangeApproval
+          {changeRequests.map((item) => (
+            <ChangeRequestApproval
               key={item.request.requestLocator}
               item={item}
             />
@@ -225,10 +225,10 @@ function ApprovalSection({
   );
 }
 
-function GovernedChangeApproval({
+function ChangeRequestApproval({
   item,
 }: {
-  item: Extract<RequestInventoryItem, { kind: "GOVERNED_CHANGE" }>;
+  item: Extract<RequestInventoryItem, { kind: "CHANGE_REQUEST" }>;
 }) {
   const { t } = useTranslation("approvals");
   const request = item.request;
@@ -254,7 +254,7 @@ function GovernedChangeApproval({
             />
             <ApprovalMeta
               label={t("fields.requestType")}
-              value={governedChangeTypeLabel(item.changeKind, t)}
+              value={changeRequestTypeLabel(item.changeKind, t)}
             />
             <ApprovalMeta
               label={t("fields.repository")}
@@ -432,10 +432,10 @@ function approvalDisabledReason(
   return "";
 }
 
-function governedChangeTypeLabel(
+function changeRequestTypeLabel(
   changeKind: Extract<
     RequestInventoryItem,
-    { kind: "GOVERNED_CHANGE" }
+    { kind: "CHANGE_REQUEST" }
   >["changeKind"],
   t: (key: string) => string,
 ) {

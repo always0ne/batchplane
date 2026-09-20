@@ -10,7 +10,7 @@
     "command": "배치 명령",
     "domain": "업무 도메인",
     "environment": "환경",
-    "governed": "통제 대상",
+    "controlled": "통제 대상",
     "missingCommand": "배치 명령 없음",
     "owner": "소유자",
     "runsOn": "실행 환경",
@@ -65,7 +65,7 @@
       "sourceChange": "원본 변경 요청",
       "workflow": "실행 대상"
     },
-    "governance": {
+    "control": {
       "digest": "Request digest가 존재합니다.",
       "gateMissing": "BatchPlane Gate 증적이 누락되었습니다.",
       "gateRequired": "BatchPlane Gate는 배치 명령 전에 반드시 실행됩니다.",

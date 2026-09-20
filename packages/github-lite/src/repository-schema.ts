@@ -44,7 +44,7 @@ export type RoleMapping = {
   roles: Record<RoleMappingRole, ApproverSelector>;
 };
 
-export type BatchGovernanceConfigFile = {
+export type RepositoryConfigFile = {
   apiVersion: typeof batchPlaneApiVersion | typeof legacyBatchPlaneApiVersion;
   kind: "BatchGovernanceConfig";
   metadata: { repository?: string };
@@ -114,7 +114,7 @@ export type WorkspacePolicyFile = {
 export type GitHubLiteRepositoryFile =
   | ApprovalPolicyFile
   | BatchDefinitionFile
-  | BatchGovernanceConfigFile
+  | RepositoryConfigFile
   | ExecutionRequestPayload
   | RoleMappingFile
   | WorkspacePolicyFile;

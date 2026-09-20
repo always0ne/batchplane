@@ -6,7 +6,7 @@ import {
   buildExecutionRequestIssue,
   createScheduledExecutionRequestId,
   createGitHubLiteClient,
-  parseGovernanceYaml,
+  parseRepositoryYaml,
   type GitHubBatchDefinition,
   validateBatchDefinitionFile,
   verifyApprovedBatchRevision,
@@ -422,7 +422,7 @@ function parseBatchDefinition(
   content: string,
   path: string,
 ): GitHubBatchDefinition {
-  const parsed = parseGovernanceYaml(content);
+  const parsed = parseRepositoryYaml(content);
 
   if (!parsed.ok) {
     throw new Error(`Batch definition YAML is invalid: ${path}.`);

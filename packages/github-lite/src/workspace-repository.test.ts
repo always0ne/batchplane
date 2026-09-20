@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createGitHubLiteMockState } from "./mock-state.js";
 import { createMockGitHubLiteClient } from "./mock-client.js";
 import { createGitHubLiteBatchPlaneClient } from "./product-client.js";
-import { parseGovernanceYaml } from "./governance-yaml.js";
+import { parseRepositoryYaml } from "./repository-yaml.js";
 import {
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
@@ -85,7 +85,7 @@ describe("Workspace repository integration", () => {
     if (!policyFile) {
       throw new Error("Workspace policy file was not created.");
     }
-    expect(parseGovernanceYaml(policyFile.content)).toMatchObject({
+    expect(parseRepositoryYaml(policyFile.content)).toMatchObject({
       ok: true,
       value: { spec: { approval: { mode: "SELF_APPROVAL_ALLOWED" } } },
     });

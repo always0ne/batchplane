@@ -8,8 +8,8 @@ export function PendingBatchChangeBlocker({
   blocker: BatchChangeBlocker;
 }) {
   const { t } = useTranslation("batches");
-  const isGovernedChange = blocker.kind === "GOVERNED_CHANGE";
-  const destination = isGovernedChange
+  const isChangeRequest = blocker.kind === "CHANGE_REQUEST";
+  const destination = isChangeRequest
     ? `/approvals/registration/${encodeURIComponent(blocker.requestLocator)}`
     : `/execution-requests/${encodeURIComponent(blocker.requestLocator)}`;
 
@@ -25,7 +25,7 @@ export function PendingBatchChangeBlocker({
         className="mt-2 inline-block text-xs font-semibold text-amber-950 underline"
         to={destination}
       >
-        {isGovernedChange
+        {isChangeRequest
           ? t("detail.change.openBlockingPr")
           : t("detail.change.openBlockingIssue")}
       </Link>

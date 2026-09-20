@@ -7,7 +7,7 @@ import { useBatchChangeForm } from "./useBatchChangeForm";
 describe("useBatchChangeForm", () => {
   it("keeps execution settings and upload bytes in the same draft without changing business metadata or the command", async () => {
     const initialDraft = draft({
-      governedChangeId: "bgc-existing",
+      changeRequestId: "bgc-existing",
       mode: "change",
       execution: {
         command: " ./scripts/close.sh ",
@@ -47,7 +47,7 @@ describe("useBatchChangeForm", () => {
         runnerLabel: "self-hosted, linux, payments",
         upload: { bytes, fileName: "replacement.jar" },
       },
-      governedChangeId: "bgc-existing",
+      changeRequestId: "bgc-existing",
       mode: "change",
       targetBatchId: "payment.daily-close",
     });

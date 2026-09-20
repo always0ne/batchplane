@@ -15,7 +15,7 @@ import {
   useWorkspaceRequests,
 } from "./useWorkspaceRequests";
 
-type RequestKindFilter = "all" | "governed-change" | "execution";
+type RequestKindFilter = "all" | "change-request" | "execution";
 
 const statusFilters = [
   "all",
@@ -119,7 +119,7 @@ function LoadedWorkspaceRequests({ items }: { items: RequestInventoryItem[] }) {
               }
               value={kindFilter}
             >
-              {(["all", "governed-change", "execution"] as const).map(
+              {(["all", "change-request", "execution"] as const).map(
                 (filter) => (
                   <option key={filter} value={filter}>
                     {t(`filters.kinds.${filter}`)}
@@ -150,7 +150,7 @@ function LoadedWorkspaceRequests({ items }: { items: RequestInventoryItem[] }) {
             {t("counts.total", { count: items.length })}
           </span>
           <span className="rounded-md bg-slate-100 px-2 py-1">
-            {t("counts.governedChange", { count: counts.governedChange })}
+            {t("counts.changeRequest", { count: counts.changeRequest })}
           </span>
           <span className="rounded-md bg-slate-100 px-2 py-1">
             {t("counts.execution", { count: counts.execution })}
@@ -270,8 +270,7 @@ function matchesRequestFilters(
   },
 ) {
   const normalizedQuery = query.trim().toLowerCase();
-  const kind =
-    item.kind === "GOVERNED_CHANGE" ? "governed-change" : "execution";
+  const kind = item.kind === "CHANGE_REQUEST" ? "change-request" : "execution";
   const status = requestStatus(item);
 
   return (
@@ -288,14 +287,14 @@ function matchesRequestFilters(
 function countRequests(items: RequestInventoryItem[]) {
   return {
     execution: items.filter((item) => item.kind === "EXECUTION").length,
-    governedChange: items.filter((item) => item.kind === "GOVERNED_CHANGE")
+    changeRequest: items.filter((item) => item.kind === "CHANGE_REQUEST")
       .length,
   };
 }
 
 function detailRoute(item: RequestInventoryItem) {
   const requestLocator = encodeURIComponent(item.request.requestLocator);
-  return item.kind === "GOVERNED_CHANGE"
+  return item.kind === "CHANGE_REQUEST"
     ? `/approvals/registration/${requestLocator}`
     : `/execution-requests/${requestLocator}`;
 }
@@ -305,7 +304,7 @@ function requestKey(item: RequestInventoryItem) {
 }
 
 function requestStatus(item: RequestInventoryItem) {
-  return item.kind === "GOVERNED_CHANGE"
+  return item.kind === "CHANGE_REQUEST"
     ? item.request.reviewState
     : item.request.triggerType === "SCHEDULE"
       ? "SCHEDULE_RECORDED"

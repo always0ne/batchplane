@@ -1,6 +1,6 @@
 {
   "title": "Approvals",
-  "subtitle": "Review governed change requests and execution requests before they affect governed batches.",
+  "subtitle": "Review change requests and execution requests before they affect controlled batches.",
   "actions": {
     "approveAndMerge": "Approve and merge",
     "approveExecution": "Approve execution",
@@ -55,7 +55,7 @@
   },
   "sections": {
     "execution": "Execution requests",
-    "registration": "Governed changes"
+    "registration": "Change requests"
   },
   "values": {
     "disabled": "Disabled",
@@ -81,7 +81,7 @@
     "registrationReviewHint": "Open change detail to review the checklist and record a decision."
   },
   "registrationDetail": {
-    "title": "Governed change detail",
+    "title": "Change request detail",
     "summaryTitle": "Change summary",
     "subtitle": "Change request #{{pullNumber}}",
     "actions": {
@@ -90,7 +90,7 @@
       "applyApproved": "Apply approved change",
       "backToApprovals": "Back to approvals",
       "closedTitle": "Change review completed",
-      "note": "Approving applies this governed change to the Workspace evidence.",
+      "note": "Approving applies this change request to the Workspace evidence.",
       "openBatchDetail": "Open batch detail",
       "title": "Approval action",
       "withdraw": "Withdraw request",
@@ -100,15 +100,15 @@
     },
     "states": {
       "error": "Failed to load change approval detail.",
-      "githubLagHint": "Created governed changes can be reviewed here immediately.",
+      "githubLagHint": "Created change requests can be reviewed here immediately.",
       "loading": "Loading change approval detail...",
-      "noSession": "Connect a Workspace before reviewing governed changes.",
-      "notFound": "Governed change request #{{requestLocator}} was not found in this Workspace."
+      "noSession": "Connect a Workspace before reviewing change requests.",
+      "notFound": "Change request #{{requestLocator}} was not found in this Workspace."
     },
     "checklist": {
       "title": "Control checklist",
       "batchPaths": "Batch definition and workflow paths are derived from Batch ID.",
-      "deletePaths": "Batch definition and workflow are removed by this governed change.",
+      "deletePaths": "Batch definition and workflow are removed by this change request.",
       "deleteArchiveRecorded": "Deleted batch snapshot is recorded for audit lookup.",
       "schedulePath": "Schedule definition path is derived from Schedule ID.",
       "gateRequired": "BatchPlane Gate is required before batch command execution.",
@@ -117,11 +117,11 @@
       "enabledRecorded": "Enabled state is recorded.",
       "runnerRecorded": "Execution environment is recorded.",
       "commandRecorded": "Batch command is recorded.",
-      "scheduleDefinitionsRecorded_one": "1 schedule is included in this governed change.",
-      "scheduleDefinitionsRecorded_other": "{{count}} schedules are included in this governed change.",
-      "scheduleDeletionsRecorded_zero": "No schedules are deleted in this governed change.",
-      "scheduleDeletionsRecorded_one": "1 pending schedule deletion is included in this governed change.",
-      "scheduleDeletionsRecorded_other": "{{count}} pending schedule deletions are included in this governed change."
+      "scheduleDefinitionsRecorded_one": "1 schedule is included in this change request.",
+      "scheduleDefinitionsRecorded_other": "{{count}} schedules are included in this change request.",
+      "scheduleDeletionsRecorded_zero": "No schedules are deleted in this change request.",
+      "scheduleDeletionsRecorded_one": "1 pending schedule deletion is included in this change request.",
+      "scheduleDeletionsRecorded_other": "{{count}} pending schedule deletions are included in this change request."
     },
     "review": {
       "title": "Review state",

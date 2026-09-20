@@ -13,7 +13,7 @@ import {
   buildRoleMappingYaml,
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
-  parseGovernanceYaml,
+  parseRepositoryYaml,
 } from "@batchplane/github-lite";
 
 const demoRoot = resolve(
@@ -33,18 +33,18 @@ describe("GitHub Lite demo repository bootstrap", () => {
     expect(readDemoFile(".github/workflows/batchplane-sample-target.yml")).toBe(
       buildSampleTargetWorkflowYaml(),
     );
-    const storedPolicy = parseGovernanceYaml(
+    const storedPolicy = parseRepositoryYaml(
       readDemoFile(".batch-governance/workspace.yml"),
     );
-    const storedRoles = parseGovernanceYaml(
+    const storedRoles = parseRepositoryYaml(
       readDemoFile(".batch-governance/policies/role-mapping.yml"),
     );
     expect(storedPolicy.ok).toBe(true);
     expect(storedRoles.ok).toBe(true);
     expect(storedPolicy).toEqual(
-      parseGovernanceYaml(buildWorkspacePolicyYaml()),
+      parseRepositoryYaml(buildWorkspacePolicyYaml()),
     );
-    expect(storedRoles).toEqual(parseGovernanceYaml(buildRoleMappingYaml()));
+    expect(storedRoles).toEqual(parseRepositoryYaml(buildRoleMappingYaml()));
   });
 
   it("keeps the demo batch definition and workflow readable by the Lite model", () => {

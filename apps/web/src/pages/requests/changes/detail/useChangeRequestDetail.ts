@@ -1,28 +1,28 @@
 import {
   isWorkspaceNotConnectedError,
-  type GovernedChangeDetail,
+  type ChangeRequestDetail,
 } from "@batchplane/ui-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useBatchPlaneClient } from "../../../../client/batch-plane-client-context";
 
-export type GovernedChangeAction = "approve" | "reject" | "withdraw";
+export type ChangeRequestAction = "approve" | "reject" | "withdraw";
 
 type DetailState =
   | { type: "loading" }
   | { type: "not-found" }
   | { type: "workspace-not-connected" }
-  | { detail: GovernedChangeDetail; type: "loaded" }
+  | { detail: ChangeRequestDetail; type: "loaded" }
   | { message: string; type: "error" };
 
-export function useGovernedChangeDetail(requestLocator: string) {
+export function useChangeRequestDetail(requestLocator: string) {
   const client = useBatchPlaneClient();
   const requestVersion = useRef(0);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [detailState, setDetailState] = useState<DetailState>({
     type: "loading",
   });
-  const [runningAction, setRunningAction] = useState<GovernedChangeAction>();
+  const [runningAction, setRunningAction] = useState<ChangeRequestAction>();
   const [actionError, setActionError] = useState("");
 
   useEffect(() => {
@@ -44,20 +44,20 @@ export function useGovernedChangeDetail(requestLocator: string) {
   }, [client, refreshVersion, requestLocator]);
 
   const applyAction = useCallback(
-    async (action: GovernedChangeAction, rejectionReason = "") => {
+    async (action: ChangeRequestAction, rejectionReason = "") => {
       const version = requestVersion.current;
       setRunningAction(action);
       setActionError("");
       try {
         const detail =
           action === "approve"
-            ? await client.approveGovernedChange({ requestLocator })
+            ? await client.approveChangeRequest({ requestLocator })
             : action === "reject"
-              ? await client.rejectGovernedChange({
+              ? await client.rejectChangeRequest({
                   reason: rejectionReason,
                   requestLocator,
                 })
-              : await client.withdrawGovernedChange({ requestLocator });
+              : await client.withdrawChangeRequest({ requestLocator });
         if (requestVersion.current !== version) return false;
         setDetailState({ detail, type: "loaded" });
         return true;
@@ -97,7 +97,7 @@ async function loadDetail({
   setActionError("");
 
   try {
-    const detail = await client.getGovernedChange({ requestLocator });
+    const detail = await client.getChangeRequest({ requestLocator });
     if (!isCurrent()) return;
     setDetailState(detail ? { detail, type: "loaded" } : { type: "not-found" });
   } catch (error) {

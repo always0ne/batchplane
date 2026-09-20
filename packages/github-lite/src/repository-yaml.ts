@@ -1,24 +1,24 @@
 import { parseDocument, stringify, type YAMLParseError } from "yaml";
 
-export type GovernanceYamlScalar = string | number | boolean | null;
+export type RepositoryYamlScalar = string | number | boolean | null;
 
-export type GovernanceYamlValue =
-  | GovernanceYamlScalar
-  | GovernanceYamlValue[]
-  | { [key: string]: GovernanceYamlValue | undefined };
+export type RepositoryYamlValue =
+  | RepositoryYamlScalar
+  | RepositoryYamlValue[]
+  | { [key: string]: RepositoryYamlValue | undefined };
 
-export type GovernanceYamlDiagnostic = {
+export type RepositoryYamlDiagnostic = {
   line: number;
   column: number;
   message: string;
 };
 
-export type GovernanceYamlParseResult<T = GovernanceYamlValue> =
+export type RepositoryYamlParseResult<T = RepositoryYamlValue> =
   | { ok: true; value: T }
-  | { diagnostics: GovernanceYamlDiagnostic[]; ok: false };
+  | { diagnostics: RepositoryYamlDiagnostic[]; ok: false };
 
 /** Parses stored governance files without changing the source bytes used as evidence. */
-export function parseGovernanceYaml(input: string): GovernanceYamlParseResult {
+export function parseRepositoryYaml(input: string): RepositoryYamlParseResult {
   const document = parseDocument(input, { strict: true, uniqueKeys: true });
 
   if (document.errors.length > 0) {
@@ -28,15 +28,15 @@ export function parseGovernanceYaml(input: string): GovernanceYamlParseResult {
     };
   }
 
-  return { ok: true, value: document.toJS() as GovernanceYamlValue };
+  return { ok: true, value: document.toJS() as RepositoryYamlValue };
 }
 
-export function stringifyGovernanceYaml(value: GovernanceYamlValue): string {
+export function stringifyRepositoryYaml(value: RepositoryYamlValue): string {
   return stringify(value, { indent: 2, lineWidth: 0 });
 }
 
-export function formatGovernanceYamlDiagnostics(
-  diagnostics: GovernanceYamlDiagnostic[],
+export function formatRepositoryYamlDiagnostics(
+  diagnostics: RepositoryYamlDiagnostic[],
 ): string {
   return diagnostics
     .map(
@@ -46,7 +46,7 @@ export function formatGovernanceYamlDiagnostics(
     .join("; ");
 }
 
-function toYamlDiagnostic(error: YAMLParseError): GovernanceYamlDiagnostic {
+function toYamlDiagnostic(error: YAMLParseError): RepositoryYamlDiagnostic {
   const position = error.linePos?.[0];
 
   return {

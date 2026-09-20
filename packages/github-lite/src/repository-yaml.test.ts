@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatGovernanceYamlDiagnostics,
-  parseGovernanceYaml,
-  stringifyGovernanceYaml,
-} from "./governance-yaml.js";
+  formatRepositoryYamlDiagnostics,
+  parseRepositoryYaml,
+  stringifyRepositoryYaml,
+} from "./repository-yaml.js";
 
 describe("governance YAML", () => {
   it("reads standard quoted, list, and multiline YAML", () => {
     expect(
-      parseGovernanceYaml(`
+      parseRepositoryYaml(`
 # Governance definition
 metadata:
   name: 'Daily close'
@@ -34,23 +34,23 @@ spec:
   });
 
   it("reports parser locations for invalid YAML", () => {
-    const result = parseGovernanceYaml("metadata:\n  name: [broken\n");
+    const result = parseRepositoryYaml("metadata:\n  name: [broken\n");
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(formatGovernanceYamlDiagnostics(result.diagnostics)).toContain(
+      expect(formatRepositoryYamlDiagnostics(result.diagnostics)).toContain(
         "line ",
       );
     }
   });
 
   it("writes a parseable document", () => {
-    const output = stringifyGovernanceYaml({
+    const output = stringifyRepositoryYaml({
       metadata: { id: "payment.daily-close" },
       spec: { labels: ["prod", "close"] },
     });
 
-    expect(parseGovernanceYaml(output)).toEqual({
+    expect(parseRepositoryYaml(output)).toEqual({
       ok: true,
       value: {
         metadata: { id: "payment.daily-close" },

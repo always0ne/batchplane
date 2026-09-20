@@ -45,7 +45,7 @@ for (const [path, source] of [
     'import "../runtime/runtime-fixtures";',
   ],
   [
-    "apps/web/src/pages/requests/changes/GovernedChangePreviewPanel.tsx",
+    "apps/web/src/pages/requests/changes/ChangeRequestPreviewPanel.tsx",
     'import "../../../runtime/runtime-fixtures";',
   ],
   ["packages/domain/src/index.ts", 'import "@batchplane/ui-client";'],
@@ -84,8 +84,8 @@ for (const [path, source] of [
     'import type { BatchPlaneClient } from "@batchplane/ui-client";',
   ],
   [
-    "apps/web/src/pages/requests/changes/GovernedChangePreviewPanel.tsx",
-    'import type { GovernedChangePreviewFile } from "@batchplane/ui-client";',
+    "apps/web/src/pages/requests/changes/ChangeRequestPreviewPanel.tsx",
+    'import type { ChangeRequestPreviewFile } from "@batchplane/ui-client";',
   ],
 ]) {
   test(`allows ${source} from ${path}`, async () => {

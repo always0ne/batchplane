@@ -153,7 +153,7 @@
     "changeLoading": "현재 통제 대상 배치 정의를 불러오는 중입니다.",
     "changeBlockedTitle": "변경 요청이 차단되었습니다",
     "changeBlockedDescription": "{{batchId}} 배치에 선행 처리 중인 통제 작업이 있습니다. 해당 작업을 먼저 완료한 뒤 변경 요청을 생성하세요.",
-    "changeBlockedGovernedChange": "대기 중인 통제 변경 요청 #{{number}}",
+    "changeBlockedChangeRequest": "대기 중인 변경 요청 #{{number}}",
     "changeBlockedExecutionRequest": "대기 중인 실행 요청 #{{number}}",
     "changeLoadError": "변경 모드용 현재 배치 정의를 불러오지 못했습니다.",
     "changeNotFound": "배치 {{batchId}}를 찾지 못했습니다.",
@@ -163,7 +163,7 @@
   },
   "errors": {
     "required": "필수 항목이 누락되었습니다: {{fields}}",
-    "noSession": "통제 변경 요청을 생성하기 전에 Workspace를 연결하세요.",
+    "noSession": "변경 요청을 생성하기 전에 Workspace를 연결하세요.",
     "alreadyExists": "{{path}}에 이미 배치 정의가 있습니다.",
     "changeMissingDefinition": "{{path}}에서 통제 대상 배치 정의를 찾지 못했습니다.",
     "scheduleAlreadyExists": "{{path}}에 같은 ID의 스케줄이 이미 있습니다.",

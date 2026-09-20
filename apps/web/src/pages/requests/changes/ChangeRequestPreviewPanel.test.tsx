@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { GovernedChangePreviewPanel } from "./GovernedChangePreviewPanel";
+import { ChangeRequestPreviewPanel } from "./ChangeRequestPreviewPanel";
 
-describe("GovernedChangePreviewPanel", () => {
+describe("ChangeRequestPreviewPanel", () => {
   it("shows a text diff, binary digests, and no untrusted content for unavailable evidence", () => {
     render(
-      <GovernedChangePreviewPanel
+      <ChangeRequestPreviewPanel
         files={[
           {
             baseContent: "before\n",

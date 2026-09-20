@@ -17,21 +17,21 @@ import { toProductReadError } from "./product-read-errors.js";
 
 import type { createGitHubLiteBatchRevisionClient } from "./batch-revision-client.js";
 import { formatGeneratedScheduleCrons } from "./github-workflow.js";
-import type { createGitHubLiteGovernedChangeClient } from "./governed-change-client.js";
+import type { createGitHubLiteChangeRequestClient } from "./change-request-client.js";
 
 type BatchRevisionReadClient = Pick<
   ReturnType<typeof createGitHubLiteBatchRevisionClient>,
   "listRecentExecutionRequestSummaries" | "verifyApprovedBatchRevision"
 >;
 
-type GovernedChangeReadClient = Pick<
-  ReturnType<typeof createGitHubLiteGovernedChangeClient>,
+type ChangeRequestReadClient = Pick<
+  ReturnType<typeof createGitHubLiteChangeRequestClient>,
   "getBatchRemediationCapability"
 >;
 
 export type GitHubLiteBatchReadClientDependencies = GitHubRepositoryContext & {
   revisionClient: BatchRevisionReadClient;
-  governedChangeClient: GovernedChangeReadClient;
+  changeRequestClient: ChangeRequestReadClient;
 };
 
 /**
@@ -42,7 +42,7 @@ export function createGitHubLiteBatchReadClient({
   client,
   repositoryRef,
   revisionClient,
-  governedChangeClient,
+  changeRequestClient,
 }: GitHubLiteBatchReadClientDependencies): Pick<
   BatchPlaneClient,
   "getBatchDetail" | "listBatches"
@@ -64,7 +64,7 @@ export function createGitHubLiteBatchReadClient({
                 await revisionClient.verifyApprovedBatchRevision({
                   batchId: batch.batchId,
                 }),
-                await governedChangeClient.getBatchRemediationCapability({
+                await changeRequestClient.getBatchRemediationCapability({
                   batchId: batch.batchId,
                 }),
               ),
@@ -97,7 +97,7 @@ export function createGitHubLiteBatchReadClient({
       if (batch) {
         const control = toBatchControl(
           await revisionClient.verifyApprovedBatchRevision({ batchId }),
-          await governedChangeClient.getBatchRemediationCapability({ batchId }),
+          await changeRequestClient.getBatchRemediationCapability({ batchId }),
         );
         return {
           batch: toBatchDetailDefinition(batch),
@@ -204,7 +204,7 @@ function toBatchControl(
     ReturnType<BatchRevisionReadClient["verifyApprovedBatchRevision"]>
   >,
   remediation: Awaited<
-    ReturnType<GovernedChangeReadClient["getBatchRemediationCapability"]>
+    ReturnType<ChangeRequestReadClient["getBatchRemediationCapability"]>
   >,
 ): BatchControl {
   if (result.controlStatus === "VERIFIED") {

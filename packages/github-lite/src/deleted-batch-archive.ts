@@ -1,11 +1,11 @@
 import { sha256BytesHex } from "@batchplane/digest";
 import {
   getBatchDefinitionPath,
-  parseBatchDefinitionYaml as parseGovernedBatchDefinitionYaml,
+  parseBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
-import { isCanonicalBatchId } from "./governance-schema.js";
-import { hasAuthoritativeGovernedChangeRequest } from "./governed-change-verifier.js";
-import { parseGovernedChangeRequestEvidence } from "./governed-change-evidence.js";
+import { isCanonicalBatchId } from "./repository-schema.js";
+import { hasAuthoritativeChangeRequest } from "./change-request-verifier.js";
+import { parseChangeRequestEvidence } from "./change-request-evidence.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 import type {
   GitHubFile,
@@ -76,7 +76,7 @@ function isDeleteArchiveCandidate(
   pullRequest: GitHubPullRequest,
   batchId: string,
 ): boolean {
-  const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+  const evidence = parseChangeRequestEvidence(pullRequest.body);
 
   if (evidence?.type === "DELETE" && evidence.batchId === batchId) {
     return true;
@@ -108,7 +108,7 @@ async function inspectDeletedBatchRequest({
   repository: { owner: string; repo: string };
 }): Promise<DeletedBatchArchiveResult> {
   const sourceRequest = toDeletedArchiveSourceRequest(pullRequest);
-  const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+  const evidence = parseChangeRequestEvidence(pullRequest.body);
 
   if (!evidence) {
     return createUnavailableDeletedBatchArchive(
@@ -171,7 +171,7 @@ async function inspectDeletedBatchRequest({
   let batch: GitHubBatchDefinition;
 
   try {
-    batch = parseGovernedBatchDefinitionYaml(baseFile.content);
+    batch = parseBatchDefinitionYaml(baseFile.content);
   } catch {
     return createUnavailableDeletedBatchArchive(
       sourceRequest,
@@ -192,7 +192,7 @@ async function inspectDeletedBatchRequest({
   let requestIsVerified = false;
 
   try {
-    requestIsVerified = await hasAuthoritativeGovernedChangeRequest(
+    requestIsVerified = await hasAuthoritativeChangeRequest(
       client,
       repository,
       pullRequest,

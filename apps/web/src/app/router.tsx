@@ -15,7 +15,7 @@ import { FailureListPage } from "../pages/executions/failures/FailureListPage";
 import { MyWorkPage } from "../pages/my-work/MyWorkPage";
 import { NotFoundPage } from "../pages/not-found/NotFoundPage";
 import { BatchRegistrationPage } from "../pages/requests/changes/new/BatchRegistrationPage";
-import { GovernedChangeDetailPage } from "../pages/requests/changes/detail/GovernedChangeDetailPage";
+import { ChangeRequestDetailPage } from "../pages/requests/changes/detail/ChangeRequestDetailPage";
 import { ExecutionRequestDetailPage } from "../pages/requests/execution/detail/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../pages/requests/execution/new/ExecutionRequestPage";
 import { RequestListPage } from "../pages/requests/list/RequestListPage";
@@ -89,9 +89,9 @@ export const appRoutes: RouteObject[] = [
         element: <ApprovalsPage />,
       },
       {
-        id: "governed-change-detail",
+        id: "change-request-detail",
         path: "approvals/registration/:requestLocator",
-        element: <GovernedChangeDetailPage />,
+        element: <ChangeRequestDetailPage />,
       },
       { id: "audit", path: "audit", element: <AuditPage /> },
       {

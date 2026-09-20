@@ -60,14 +60,14 @@ export const defaultScheduleValues: BatchSchedule = {
 
 export function toBatchChangeDraft({
   execution,
-  governedChangeId,
+  changeRequestId,
   mode,
   scheduleDrafts,
   targetBatchId,
   values,
 }: {
   execution: GitHubActionsExecutionSettings;
-  governedChangeId: string;
+  changeRequestId: string;
   mode: BatchChangeDraft["mode"];
   scheduleDrafts: ScheduleDraft[];
   targetBatchId?: string;
@@ -76,7 +76,7 @@ export function toBatchChangeDraft({
   return {
     batch: normalizeBatchValues(values),
     execution: normalizeExecution(execution),
-    governedChangeId,
+    changeRequestId,
     mode,
     schedules: scheduleDrafts
       .filter((schedule) => schedule.status === "active")

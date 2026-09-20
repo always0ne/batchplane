@@ -13,7 +13,7 @@ import {
   buildDispatchedCommentBody,
   buildExecutionApprovalCommentBody,
   buildExecutionIssueBody,
-  sharedGovernedChangeId,
+  sharedChangeRequestId,
   sharedRequestDigest as requestDigest,
   sharedRequestId as requestId,
   sharedTargetRevisionDigest,
@@ -23,7 +23,7 @@ const approvalCommentBody = buildExecutionApprovalCommentBody();
 const dispatchedCommentBody = buildDispatchedCommentBody();
 const verifyApprovedBatchRevision = async () => ({
   approvedRevision: {
-    governedChangeId: sharedGovernedChangeId,
+    governedChangeId: sharedChangeRequestId,
     targetRevisionDigest: sharedTargetRevisionDigest,
   },
   controlStatus: "VERIFIED" as const,
@@ -57,7 +57,7 @@ describe("dispatcher verification", () => {
   it("parses execution request evidence", () => {
     expect(parseExecutionRequestEvidence(issueBody)).toEqual({
       approvedBatchRevision: {
-        governedChangeId: sharedGovernedChangeId,
+        governedChangeId: sharedChangeRequestId,
         targetRevisionDigest: sharedTargetRevisionDigest,
       },
       batchId: "payment.daily-close",
@@ -119,7 +119,7 @@ describe("dispatcher verification", () => {
       },
       request: {
         approvedBatchRevision: {
-          governedChangeId: sharedGovernedChangeId,
+          governedChangeId: sharedChangeRequestId,
           targetRevisionDigest: sharedTargetRevisionDigest,
         },
         batchId: "payment.daily-close",

@@ -1,6 +1,6 @@
 # BatchPlane Lite Workspace Getting Started
 
-BatchPlane Lite uses a GitHub-backed Workspace as the governance store,
+BatchPlane Lite uses a GitHub-backed Workspace as the configuration store,
 approval surface, dispatcher runtime, and audit trail. The React/Vite UI is
 static; it does not run a BatchPlane server. In Lite, the Workspace is backed by
 one target GitHub repository.
@@ -168,7 +168,7 @@ Supported approval modes:
   execution request creation also records explicit approval evidence
   automatically. Gate allows that evidence only when the merged Workspace policy
   is `AUTO_APPROVE`. The dispatcher still performs `workflow_dispatch`; the
-  browser UI must not dispatch governed workflows directly. This mode also
+  browser UI must not dispatch controlled workflows directly. This mode also
   includes `SELF_APPROVAL_ALLOWED` behavior for manual approvals.
 
 Changing the approval mode from Workspace creates a pull request. The mode is
@@ -284,7 +284,7 @@ Common causes:
 - missing `.batch-governance/policies/role-mapping.yml`
 - missing or stale dispatcher workflow
 - direct `workflow_dispatch` without a matching approved request
-- GitHub Actions UI rerun of a previous governed workflow run
+- GitHub Actions UI rerun of a previous controlled workflow run
 - self-approval while Workspace policy is `SELF_APPROVAL_BLOCKED`
 - expired request
 - digest mismatch after Issue body or approval evidence was edited

@@ -1,6 +1,6 @@
 {
   "title": "Batches",
-  "subtitle": "Governed batch definitions from .batch-governance.",
+  "subtitle": "Controlled batch definitions from .batch-governance.",
   "actions": {
     "openSetup": "Open Workspace",
     "refresh": "Refresh",
@@ -40,7 +40,7 @@
     "detailNotFound": "Batch {{batchId}} was not found.",
     "error": "Failed to load batch definitions.",
     "loading": "Loading batch definitions...",
-    "noSession": "Connect a Workspace before viewing governed batches."
+    "noSession": "Connect a Workspace before viewing controlled batches."
   },
   "table": {
     "actions": "Actions",
@@ -88,7 +88,7 @@
       "approvedChange": "Approved change",
       "verifiedRevision": "Verified revision",
       "remediation": "Remediation",
-      "remediationDescription": "Create a governed change request; approval and application remain separate.",
+      "remediationDescription": "Create a change request; approval and application remain separate.",
       "reviewCurrent": "Review current revision",
       "restoreLastApproved": "Restore last approved revision",
       "requesting": "Creating request...",
@@ -125,18 +125,18 @@
     },
     "change": {
       "title": "Change request",
-      "description": "Create a governed change request for this batch definition and generated workflow.",
-      "loading": "Checking pending governed work...",
-      "loadError": "Failed to check pending governed work.",
-      "blocked": "Resolve pending governed work before creating another change request.",
-      "blockedByPr": "Governed change request #{{number}}",
+      "description": "Create a change request for this batch definition and generated workflow.",
+      "loading": "Checking pending controlled work...",
+      "loadError": "Failed to check pending controlled work.",
+      "blocked": "Resolve pending controlled work before creating another change request.",
+      "blockedByPr": "Change request #{{number}}",
       "blockedByIssue": "Execution request #{{number}}",
       "openBlockingPr": "Open change request",
       "openBlockingIssue": "Open execution request"
     },
     "delete": {
       "title": "Delete request",
-      "description": "Create a governed change request that removes this batch definition, generated workflow, and uploaded execution file if one is registered.",
+      "description": "Create a change request that removes this batch definition, generated workflow, and uploaded execution file if one is registered.",
       "confirmationLabel": "Type Batch ID to confirm",
       "blocked": "The delete request is created only after the exact Batch ID is entered."
     },
@@ -160,7 +160,7 @@
     },
     "schedules": {
       "title": "Schedules",
-      "subtitle": "Governed schedules derived from this batch definition.",
+      "subtitle": "controlled schedules derived from this batch definition.",
       "managementHint": "Add, change, and delete schedules only within a batch change request.",
       "register": "Register schedule",
       "change": "Change schedule",

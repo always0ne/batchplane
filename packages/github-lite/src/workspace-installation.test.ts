@@ -1,5 +1,5 @@
 import type { GitHubLiteClient, GitHubPullRequest } from "./github-types.js";
-import { validateRoleMappingFile } from "./governance-schema.js";
+import { validateRoleMappingFile } from "./repository-schema.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -20,7 +20,7 @@ import {
   createLiteInstallationUpdatePullRequest,
 } from "./workspace-installation-requests.js";
 import { createWorkspacePolicyPullRequest } from "./workspace-policy-request.js";
-import { parseGovernanceYaml } from "./governance-yaml.js";
+import { parseRepositoryYaml } from "./repository-yaml.js";
 
 describe("Lite installation model", () => {
   it("detects missing repository-side installation files", async () => {
@@ -439,7 +439,7 @@ describe("Lite installation model", () => {
   });
 
   it("ships a default role mapping for maintainer approvals", () => {
-    const parsed = parseGovernanceYaml(buildRoleMappingYaml());
+    const parsed = parseRepositoryYaml(buildRoleMappingYaml());
 
     expect(parsed.ok).toBe(true);
     expect(parsed.ok ? validateRoleMappingFile(parsed.value).ok : false).toBe(

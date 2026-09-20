@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  authorizeGovernedChangeApproval,
-  authorizeGovernedChangeCreation,
+  authorizeChangeRequestApproval,
+  authorizeChangeRequestCreation,
   resolveAutoApproval,
   validateRejectionReason,
-} from "./governed-change";
+} from "./change-request";
 
-describe("governed change authorization", () => {
+describe("change request authorization", () => {
   it("requires the requester role before a change can be created", () => {
     expect(
-      authorizeGovernedChangeCreation({ actorHasRequesterRole: false }),
+      authorizeChangeRequestCreation({ actorHasRequesterRole: false }),
     ).toEqual({ allowed: false, reason: "REQUESTER_ROLE_REQUIRED" });
   });
 
   it("keeps approver eligibility independent from self approval mode", () => {
     expect(
-      authorizeGovernedChangeApproval({
+      authorizeChangeRequestApproval({
         actorHasApproverRole: false,
         actorHasRequesterRole: true,
         actorIsRequester: false,
@@ -27,7 +27,7 @@ describe("governed change authorization", () => {
 
   it("blocks and allows self approval according to the Workspace policy", () => {
     expect(
-      authorizeGovernedChangeApproval({
+      authorizeChangeRequestApproval({
         actorHasApproverRole: true,
         actorHasRequesterRole: true,
         actorIsRequester: true,
@@ -36,7 +36,7 @@ describe("governed change authorization", () => {
     ).toEqual({ allowed: false, reason: "SELF_APPROVAL_BLOCKED" });
 
     expect(
-      authorizeGovernedChangeApproval({
+      authorizeChangeRequestApproval({
         actorHasApproverRole: true,
         actorHasRequesterRole: true,
         actorIsRequester: true,

@@ -1,6 +1,6 @@
 {
   "title": "My Work",
-  "subtitle": "Requests, approvals, governed changes, and failure follow-ups connected to the current user.",
+  "subtitle": "Requests, approvals, change requests, and failure follow-ups connected to the current user.",
   "actions": {
     "open": "Open",
     "refresh": "Refresh",
@@ -49,7 +49,7 @@
   },
   "kinds": {
     "approval": "Approvals",
-    "registration": "Governed changes",
+    "registration": "Change requests",
     "request": "My requests",
     "failureFollowUp": "Failure follow-up"
   },

@@ -7,16 +7,16 @@ import {
   type RoleMapping,
   validateRoleMappingFile,
   validateWorkspacePolicyFile,
-} from "./governance-schema.js";
+} from "./repository-schema.js";
 
-import { parseGovernanceYaml } from "./governance-yaml.js";
+import { parseRepositoryYaml } from "./repository-yaml.js";
 import type { GitHubLiteClient, RepoRef } from "./github-types.js";
 
 const roleMappingPath = ".batch-governance/policies/role-mapping.yml";
 const workspacePolicyPath = ".batch-governance/workspace.yml";
 
 /** Reads Workspace policy at the explicitly authoritative repository revision. */
-export async function loadGovernedChangePolicy(
+export async function loadChangeRequestPolicy(
   client: GitHubLiteClient,
   repository: RepoRef,
   ref: string,
@@ -29,7 +29,7 @@ export async function loadGovernedChangePolicy(
 
   if (!file) return defaultWorkspacePolicy;
 
-  const parsed = parseGovernanceYaml(file.content);
+  const parsed = parseRepositoryYaml(file.content);
   const validated = parsed.ok
     ? validateWorkspacePolicyFile(parsed.value)
     : null;
@@ -37,7 +37,7 @@ export async function loadGovernedChangePolicy(
   return validated?.ok ? validated.value.spec : defaultWorkspacePolicy;
 }
 
-export async function loadGovernedChangeRoles(
+export async function loadChangeRequestRoles(
   client: GitHubLiteClient,
   repository: RepoRef,
   ref: string,
@@ -50,7 +50,7 @@ export async function loadGovernedChangeRoles(
 
   if (!file) throw new Error("Workspace role mapping is required.");
 
-  const parsed = parseGovernanceYaml(file.content);
+  const parsed = parseRepositoryYaml(file.content);
   const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
 
   if (!validated?.ok) throw new Error("Workspace role mapping is invalid.");
@@ -58,7 +58,7 @@ export async function loadGovernedChangeRoles(
   return validated.value.spec;
 }
 
-export async function hasGovernedChangeRole(
+export async function hasChangeRequestRole(
   client: GitHubLiteClient,
   repository: RepoRef,
   login: string,

@@ -64,7 +64,7 @@ const disconnectedClient = {
   getDashboardSummary: async () => {
     throw new WorkspaceNotConnectedError();
   },
-  approveGovernedChange: async () => {
+  approveChangeRequest: async () => {
     throw new Error("Workspace is not connected.");
   },
   createBatchChangeRequest: async () => {
@@ -78,7 +78,7 @@ const disconnectedClient = {
     availableKinds: [],
     canRequest: false,
   }),
-  getGovernedChange: async () => null,
+  getChangeRequest: async () => null,
   listBatches: async () => ({ type: "workspace-not-connected" as const }),
   loadBatchChangeDraft: async (): Promise<BatchChangeDraft> => ({
     batch: {
@@ -96,7 +96,7 @@ const disconnectedClient = {
       ref: "main",
       runnerLabel: "ubuntu-latest",
     },
-    governedChangeId: "test-change",
+    changeRequestId: "test-change",
     mode: "create",
     schedules: [],
   }),
@@ -136,10 +136,10 @@ const disconnectedClient = {
   requestBatchRemediation: async () => {
     throw new Error("Workspace is not connected.");
   },
-  rejectGovernedChange: async () => {
+  rejectChangeRequest: async () => {
     throw new Error("Workspace is not connected.");
   },
-  withdrawGovernedChange: async () => {
+  withdrawChangeRequest: async () => {
     throw new Error("Workspace is not connected.");
   },
 } satisfies BatchPlaneClient;
@@ -176,7 +176,7 @@ describe("app router", () => {
     { id: "requests", path: "/requests" },
     { id: "approvals", path: "/approvals" },
     {
-      id: "governed-change-detail",
+      id: "change-request-detail",
       path: "/approvals/registration/42",
     },
     { id: "audit", path: "/audit" },

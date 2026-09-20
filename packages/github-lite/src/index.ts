@@ -9,21 +9,21 @@ export { createGitHubLiteClient } from "./github-client.js";
 export { createGitHubLiteMockState } from "./mock-state.js";
 export { createMockGitHubLiteClient } from "./mock-client.js";
 export {
-  parseGovernanceYaml,
-  stringifyGovernanceYaml,
-} from "./governance-yaml.js";
+  parseRepositoryYaml,
+  stringifyRepositoryYaml,
+} from "./repository-yaml.js";
 export type { GitHubBatchDefinition } from "./github-batch-definition.js";
 export {
   batchDefinitionFromFile,
   validateBatchDefinitionFile,
-} from "./governance-schema.js";
+} from "./repository-schema.js";
 export {
   buildExecutionRequestIssue,
   createScheduledExecutionRequestId,
 } from "./execution-request-evidence.js";
 export { createGitHubLiteBatchPlaneClient } from "./product-client.js";
-export { createGitHubLiteGovernedChangeClient } from "./governed-change-client.js";
-export { hasAuthoritativeGovernedChangeRequest } from "./governed-change-verifier.js";
+export { createGitHubLiteChangeRequestClient } from "./change-request-client.js";
+export { hasAuthoritativeChangeRequest } from "./change-request-verifier.js";
 export {
   parseBatchDefinitionYaml,
   serializeBatchDefinitionYaml,

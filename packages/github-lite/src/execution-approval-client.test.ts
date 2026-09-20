@@ -24,10 +24,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createGitHubLiteExecutionApprovalClient } from "./execution-approval-client.js";
 import {
-  buildGovernedChangeRequestBody,
-  governedChangeEvidenceVersion,
-  type GovernedChangeRequestEvidence,
-} from "./governed-change-evidence.js";
+  buildChangeRequestBody,
+  changeRequestEvidenceVersion,
+  type ChangeRequestEvidence,
+} from "./change-request-evidence.js";
 
 const draft = {
   approvedBatchRevision: {
@@ -362,7 +362,7 @@ describe("GitHub Lite execution approval client", () => {
     });
   });
 
-  it("projects the exact existing governed change locator for a matching approved revision", async () => {
+  it("projects the exact existing change request locator for a matching approved revision", async () => {
     const issue = await createCanonicalIssue();
     const context = createContext({
       getExecutionRequestIssue: vi.fn().mockResolvedValue(issue),
@@ -694,9 +694,9 @@ async function createCanonicalIssue(): Promise<RepositoryIssue> {
 }
 
 function sourceChange(
-  overrides: Partial<GovernedChangeRequestEvidence> = {},
+  overrides: Partial<ChangeRequestEvidence> = {},
 ): RepositoryPullRequest {
-  const evidence: GovernedChangeRequestEvidence = {
+  const evidence: ChangeRequestEvidence = {
     artifacts: [],
     baseRevisionSha: "base-sha",
     batchId: "payment.daily-close",
@@ -707,7 +707,7 @@ function sourceChange(
     requester: "developer",
     targetRevisionDigest: draft.approvedBatchRevision.targetRevisionDigest,
     type: "CHANGE",
-    version: governedChangeEvidenceVersion,
+    version: changeRequestEvidenceVersion,
     workspace: "always0ne/batch",
     ...overrides,
   };
@@ -715,7 +715,7 @@ function sourceChange(
   return {
     author: "developer",
     base: "main",
-    body: buildGovernedChangeRequestBody(evidence),
+    body: buildChangeRequestBody(evidence),
     head: "batchplane/change/payment.daily-close",
     merged: true,
     number: 42,

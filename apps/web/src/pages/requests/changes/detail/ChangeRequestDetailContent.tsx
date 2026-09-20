@@ -1,23 +1,23 @@
-import type { GovernedChangeDetail } from "@batchplane/ui-client";
+import type { ChangeRequestDetail } from "@batchplane/ui-client";
 import { CheckCircle2, Loader2, Undo2, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { GovernedChangePreviewPanel } from "../GovernedChangePreviewPanel";
+import { ChangeRequestPreviewPanel } from "../ChangeRequestPreviewPanel";
 import { Button } from "../../../../components/Button";
-import type { GovernedChangeAction } from "./useGovernedChangeDetail";
+import type { ChangeRequestAction } from "./useChangeRequestDetail";
 
-export function GovernedChangeDetailContent({
+export function ChangeRequestDetailContent({
   detail,
   onAction,
   runningAction,
 }: {
-  detail: GovernedChangeDetail;
+  detail: ChangeRequestDetail;
   onAction: (
-    action: GovernedChangeAction,
+    action: ChangeRequestAction,
     rejectionReason?: string,
   ) => Promise<boolean>;
-  runningAction?: GovernedChangeAction;
+  runningAction?: ChangeRequestAction;
 }) {
   return (
     <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
@@ -37,7 +37,7 @@ export function GovernedChangeDetailContent({
   );
 }
 
-function ChangeSummary({ detail }: { detail: GovernedChangeDetail }) {
+function ChangeSummary({ detail }: { detail: ChangeRequestDetail }) {
   const { t } = useTranslation("approvals");
   const evidence =
     detail.evidence.kind === "VERIFIED_V2" ? detail.evidence : undefined;
@@ -71,11 +71,11 @@ function ChangeSummary({ detail }: { detail: GovernedChangeDetail }) {
   );
 }
 
-function ChangeEvidence({ detail }: { detail: GovernedChangeDetail }) {
+function ChangeEvidence({ detail }: { detail: ChangeRequestDetail }) {
   const { t } = useTranslation("approvals");
 
   return (
-    <GovernedChangePreviewPanel
+    <ChangeRequestPreviewPanel
       files={detail.files}
       labels={{
         binarySummary: t("registrationDetail.preview.binaryDigest"),
@@ -97,7 +97,7 @@ function ChangeEvidence({ detail }: { detail: GovernedChangeDetail }) {
   );
 }
 
-function DecisionEvidence({ detail }: { detail: GovernedChangeDetail }) {
+function DecisionEvidence({ detail }: { detail: ChangeRequestDetail }) {
   const { t } = useTranslation("approvals");
   const requiresRecreation =
     detail.reviewState === "REAPPROVAL_REQUIRED" ||
@@ -157,12 +157,12 @@ function DecisionActions({
   onAction,
   runningAction,
 }: {
-  detail: GovernedChangeDetail;
+  detail: ChangeRequestDetail;
   onAction: (
-    action: GovernedChangeAction,
+    action: ChangeRequestAction,
     rejectionReason?: string,
   ) => Promise<boolean>;
-  runningAction?: GovernedChangeAction;
+  runningAction?: ChangeRequestAction;
 }) {
   const { t } = useTranslation("approvals");
   const [rejectionReason, setRejectionReason] = useState("");
@@ -254,7 +254,7 @@ function DecisionActions({
 }
 
 function actionUnavailableReason(
-  detail: GovernedChangeDetail,
+  detail: ChangeRequestDetail,
   t: (key: string) => string,
 ): string {
   if (detail.evidence.kind !== "VERIFIED_V2") {

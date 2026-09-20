@@ -1,4 +1,4 @@
-import { parseGovernanceYaml } from "@batchplane/github-lite";
+import { parseRepositoryYaml } from "@batchplane/github-lite";
 import {
   validateBatchDefinitionFile,
   validateRoleMappingFile,
@@ -173,7 +173,7 @@ function parseExecutionApprovalEvidence(
 export function parseBatchDefinitionSnapshot(
   content: string,
 ): BatchDefinitionSnapshot | null {
-  const parsed = parseGovernanceYaml(content);
+  const parsed = parseRepositoryYaml(content);
 
   if (!parsed.ok) {
     return null;
@@ -207,7 +207,7 @@ export function parseBatchDefinitionSnapshot(
 export function parseApproverSelectorFromRoleMappingFile(
   content: string,
 ): ApproverSelectorSnapshot | null {
-  const parsed = parseGovernanceYaml(content);
+  const parsed = parseRepositoryYaml(content);
 
   if (!parsed.ok) {
     return null;

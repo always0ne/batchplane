@@ -1,8 +1,8 @@
 import type {
   BatchSchedule,
-  GovernedChangeDecision,
-  GovernedChangeDecisionSource,
-  GovernedChangeType,
+  ChangeRequestDecision,
+  ChangeRequestDecisionSource,
+  ChangeRequestType,
 } from "@batchplane/domain";
 import type { GitHubActionsExecutionSettings } from "./github-actions-execution.js";
 
@@ -22,7 +22,7 @@ export type BatchChangeDraft = {
   execution: GitHubActionsExecutionSettings;
   /** Authenticated requester used only when a user leaves owner blank. */
   defaultOwner?: string;
-  governedChangeId?: string;
+  changeRequestId?: string;
   mode: "create" | "change" | "delete";
   remediation?: "REVIEW_CURRENT" | "RESTORE_LAST_APPROVED";
   schedules: BatchSchedule[];
@@ -30,7 +30,7 @@ export type BatchChangeDraft = {
   targetBatchId?: string;
 };
 
-export type GovernedChangePreviewFile = {
+export type ChangeRequestPreviewFile = {
   baseContent?: string;
   beforeDigest?: string | null;
   afterDigest?: string | null;
@@ -42,28 +42,28 @@ export type GovernedChangePreviewFile = {
   evidenceUnavailable?: boolean;
 };
 
-export type GovernedChangePreview = {
-  files: GovernedChangePreviewFile[];
+export type ChangeRequestPreview = {
+  files: ChangeRequestPreviewFile[];
   /** True when the proposed Batch revision changes product behavior or data. */
   hasEffectiveChanges: boolean;
   targetRevisionDigest: string;
 };
 
 export type BatchChangeBlocker = {
-  kind: "EXECUTION_REQUEST" | "GOVERNED_CHANGE";
+  kind: "EXECUTION_REQUEST" | "CHANGE_REQUEST";
   requestLocator: string;
   title: string;
 };
 
-type GovernedChangeRequestBase = {
+type ChangeRequestBase = {
   batchId: string;
   decision?: {
     actor?: string;
     decidedAt: string;
-    decision: GovernedChangeDecision;
-    source?: GovernedChangeDecisionSource;
+    decision: ChangeRequestDecision;
+    source?: ChangeRequestDecisionSource;
   };
-  mode: GovernedChangeType;
+  mode: ChangeRequestType;
   requestLocator: string;
   requester: string;
   reviewState:
@@ -80,7 +80,7 @@ type GovernedChangeRequestBase = {
   title: string;
 };
 
-export type GovernedChangeEvidenceView =
+export type ChangeRequestEvidenceView =
   | {
       governedChangeId: string;
       kind: "VERIFIED_V2";
@@ -97,16 +97,16 @@ export type GovernedChangeEvidenceView =
       decision: "REJECTED" | "WITHDRAWN";
     };
 
-export type GovernedChangeRequest =
-  | (GovernedChangeRequestBase & {
-      evidence: Extract<GovernedChangeEvidenceView, { kind: "VERIFIED_V2" }>;
+export type ChangeRequest =
+  | (ChangeRequestBase & {
+      evidence: Extract<ChangeRequestEvidenceView, { kind: "VERIFIED_V2" }>;
     })
-  | (GovernedChangeRequestBase & {
-      evidence: Exclude<GovernedChangeEvidenceView, { kind: "VERIFIED_V2" }>;
+  | (ChangeRequestBase & {
+      evidence: Exclude<ChangeRequestEvidenceView, { kind: "VERIFIED_V2" }>;
     });
 
-export type GovernedChangeDetail = GovernedChangeRequest & {
-  files: GovernedChangePreviewFile[];
+export type ChangeRequestDetail = ChangeRequest & {
+  files: ChangeRequestPreviewFile[];
   canApprove: boolean;
   canApplyApprovedChange: boolean;
   canReject: boolean;
@@ -114,6 +114,6 @@ export type GovernedChangeDetail = GovernedChangeRequest & {
   rejectionReason?: string;
 };
 
-export type CreateGovernedChangeResult = {
-  request: GovernedChangeRequest;
+export type CreateChangeRequestResult = {
+  request: ChangeRequest;
 };

@@ -87,7 +87,7 @@ describe("runtime fixtures", () => {
     });
   });
 
-  it("builds the verified Batch control fixture through a separately approved governed change", async () => {
+  it("builds the verified Batch control fixture through a separately approved change request", async () => {
     writeRuntimeFixtureSelection("batch-control-verified");
 
     await expect(
@@ -108,7 +108,7 @@ describe("runtime fixtures", () => {
   it("provides a clean bypass fixture with review and restoration remediation available", async () => {
     writeRuntimeFixtureSelection("batch-control-bypassed-clean");
     const session = readRuntimeSessionOrThrow();
-    const governedChanges = createSelectedBatchPlaneClient(session);
+    const changeRequests = createSelectedBatchPlaneClient(session);
 
     await expect(
       createSelectedBatchPlaneClient(session).getBatchDetail({
@@ -119,7 +119,7 @@ describe("runtime fixtures", () => {
       control: { status: "BYPASSED" },
     });
     await expect(
-      governedChanges.getBatchRemediationCapability({
+      changeRequests.getBatchRemediationCapability({
         batchId: "payment.daily-close",
       }),
     ).resolves.toEqual({

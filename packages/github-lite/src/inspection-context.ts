@@ -3,10 +3,10 @@ import type { WorkspacePolicy } from "@batchplane/domain";
 import { defaultWorkspacePolicy } from "@batchplane/domain";
 import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
 import {
-  formatGovernanceYamlDiagnostics,
-  parseGovernanceYaml,
-} from "./governance-yaml.js";
-import { validateWorkspacePolicyFile } from "./governance-schema.js";
+  formatRepositoryYamlDiagnostics,
+  parseRepositoryYaml,
+} from "./repository-yaml.js";
+import { validateWorkspacePolicyFile } from "./repository-schema.js";
 import type {
   RepositoryIssue,
   RepositoryIssueComment,
@@ -70,10 +70,10 @@ export async function loadExecutionApprovalRequests(
 }
 
 export function parseWorkspacePolicyFile(content: string): WorkspacePolicy {
-  const parsed = parseGovernanceYaml(content);
+  const parsed = parseRepositoryYaml(content);
 
   if (!parsed.ok) {
-    throw new Error(formatGovernanceYamlDiagnostics(parsed.diagnostics));
+    throw new Error(formatRepositoryYamlDiagnostics(parsed.diagnostics));
   }
 
   const validated = validateWorkspacePolicyFile(parsed.value);

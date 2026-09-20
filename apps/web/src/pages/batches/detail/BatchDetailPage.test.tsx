@@ -2,7 +2,7 @@ import {
   WorkspaceNotConnectedError,
   type BatchDetailResult,
   type BatchPlaneClient,
-  type CreateGovernedChangeResult,
+  type CreateChangeRequestResult,
 } from "@batchplane/ui-client";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -148,7 +148,7 @@ describe("BatchDetailPage", () => {
 
   it("blocks bypassed manual execution and navigates only after an explicit remediation request", async () => {
     const requestBatchRemediation = vi.fn(async () =>
-      governedChangeResult("121"),
+      changeRequestResult("121"),
     );
     renderDetail(
       createClient(
@@ -185,7 +185,7 @@ describe("BatchDetailPage", () => {
         kind: "REVIEW_CURRENT",
       });
     });
-    expect(await screen.findByText("Governed change 121")).toBeInTheDocument();
+    expect(await screen.findByText("Change request 121")).toBeInTheDocument();
   });
 
   it("blocks unknown manual execution without exposing a remediation action the adapter did not authorize", async () => {
@@ -248,7 +248,7 @@ describe("BatchDetailPage", () => {
     [
       "disconnected",
       () => Promise.reject(new WorkspaceNotConnectedError()),
-      "Connect a Workspace before viewing governed batches.",
+      "Connect a Workspace before viewing controlled batches.",
     ],
     [
       "not found",
@@ -311,7 +311,7 @@ describe("BatchDetailPage", () => {
     });
   });
 
-  it("routes a normal governed change from the detail actions", async () => {
+  it("routes a normal change request from the detail actions", async () => {
     renderDetail(createClient(activeDetail));
     expect(
       await screen.findByRole("link", { name: "Request change" }),
@@ -342,7 +342,7 @@ describe("BatchDetailPage", () => {
     renderDetail(
       createClient(activeDetail, {
         getBatchChangeBlocker: async () => ({
-          kind: "GOVERNED_CHANGE",
+          kind: "CHANGE_REQUEST",
           requestLocator: "77",
           title: "Pending payment change",
         }),
@@ -368,7 +368,7 @@ function createClient(
   overrides: Partial<BatchPlaneClient> = {},
 ): BatchPlaneClient {
   return {
-    approveGovernedChange: unsupported,
+    approveChangeRequest: unsupported,
     createBatchChangeRequest: unsupported,
     getBatchChangeBlocker: async () => null,
     getBatchDetail: async () => detail,
@@ -376,13 +376,13 @@ function createClient(
       availableKinds: [],
       canRequest: false,
     }),
-    getGovernedChange: async () => null,
+    getChangeRequest: async () => null,
     listBatches: unsupported,
     loadBatchChangeDraft: unsupported,
     previewBatchChange: unsupported,
-    rejectGovernedChange: unsupported,
-    requestBatchRemediation: async () => governedChangeResult("1"),
-    withdrawGovernedChange: unsupported,
+    rejectChangeRequest: unsupported,
+    requestBatchRemediation: async () => changeRequestResult("1"),
+    withdrawChangeRequest: unsupported,
     loadExecutionRequestDraft: unsupported,
     previewExecutionRequest: unsupported,
     createExecutionRequest: unsupported,
@@ -415,7 +415,7 @@ function renderDetail(client: BatchPlaneClient) {
           <Route path="/batches/:batchId" element={<BatchDetailPage />} />
           <Route
             path="/approvals/registration/:requestLocator"
-            element={<p>Governed change 121</p>}
+            element={<p>Change request 121</p>}
           />
           <Route path="/batches/new" element={<Location />} />
         </Routes>
@@ -428,9 +428,9 @@ async function unsupported(): Promise<never> {
   throw new Error("This client method is not used by the Batch detail test.");
 }
 
-function governedChangeResult(
+function changeRequestResult(
   requestLocator: string,
-): CreateGovernedChangeResult {
+): CreateChangeRequestResult {
   return {
     request: {
       batchId: "payment.daily-close",
@@ -440,7 +440,7 @@ function governedChangeResult(
       requester: "test-user",
       reviewState: "OPEN",
       sourceLabel: "BatchPlane",
-      title: "Governed change",
+      title: "Change request",
     },
   };
 }

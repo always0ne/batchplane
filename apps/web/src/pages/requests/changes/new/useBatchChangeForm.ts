@@ -46,14 +46,14 @@ export function useBatchChangeForm({
     () =>
       toBatchChangeDraft({
         execution,
-        governedChangeId: initialDraft.governedChangeId ?? "",
+        changeRequestId: initialDraft.changeRequestId ?? "",
         mode,
         scheduleDrafts,
         targetBatchId: mode === "create" ? undefined : targetBatchId,
         values: resolvedValues,
       }),
     [
-      initialDraft.governedChangeId,
+      initialDraft.changeRequestId,
       mode,
       scheduleDrafts,
       targetBatchId,

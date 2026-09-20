@@ -41,7 +41,7 @@ describe("execution inspection product integration", () => {
         expect(summary.pendingApprovals).toHaveLength(1);
         expect(
           summary.pendingApprovals.every(
-            (item) => item.kind === "GOVERNED_CHANGE",
+            (item) => item.kind === "CHANGE_REQUEST",
           ),
         ).toBe(true);
       }

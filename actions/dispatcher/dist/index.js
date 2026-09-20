@@ -8077,9 +8077,9 @@ function createRepositoryAccessOperations(requester) {
   };
 }
 
-// ../../packages/github-lite/dist/governance-yaml.js
+// ../../packages/github-lite/dist/repository-yaml.js
 var import_yaml = __toESM(require_dist(), 1);
-function parseGovernanceYaml(input) {
+function parseRepositoryYaml(input) {
   const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
   if (document.errors.length > 0) {
     return {
@@ -8089,7 +8089,7 @@ function parseGovernanceYaml(input) {
   }
   return { ok: true, value: document.toJS() };
 }
-function formatGovernanceYamlDiagnostics(diagnostics) {
+function formatRepositoryYamlDiagnostics(diagnostics) {
   return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
 }
 function toYamlDiagnostic(error) {
@@ -8119,7 +8119,7 @@ var defaultWorkspacePolicy = {
   }
 };
 
-// ../../packages/github-lite/dist/governance-schema.js
+// ../../packages/github-lite/dist/repository-schema.js
 function isCanonicalBatchId(value) {
   return typeof value === "string" && /^[A-Za-z0-9](?:[A-Za-z0-9]|[.-](?=[A-Za-z0-9]))*$/.test(value);
 }
@@ -8465,9 +8465,9 @@ function assertCanonicalBatchId(batchId) {
   throw new Error("Batch ID must be a canonical repository-safe identifier containing only letters, digits, dots, and hyphens.");
 }
 function parseBatchDefinitionYaml(yaml) {
-  const result = parseGovernanceYaml(yaml);
+  const result = parseRepositoryYaml(yaml);
   if (!result.ok) {
-    throw new Error(`Invalid BatchPlane YAML: ${formatGovernanceYamlDiagnostics(result.diagnostics)}`);
+    throw new Error(`Invalid BatchPlane YAML: ${formatRepositoryYamlDiagnostics(result.diagnostics)}`);
   }
   const document = asYamlRecord(result.value);
   const validation = validateBatchDefinitionFile(document);
@@ -8838,12 +8838,12 @@ function toScheduleWorkflowJobId(scheduleId) {
   return `schedule_${encoded}`;
 }
 
-// ../../packages/github-lite/dist/governed-change-evidence.js
-var governedChangeEvidenceVersion = "batchplane.io/governed-change/v2";
+// ../../packages/github-lite/dist/change-request-evidence.js
+var changeRequestEvidenceVersion = "batchplane.io/governed-change/v2";
 var requestMarker = "batchplane:governed-change-request";
 var decisionMarker = "batchplane:governed-change-decision";
 var withdrawalMarker = "batchplane:governed-change-withdrawal";
-async function createGovernedChangeRequestDigest(evidence) {
+async function createChangeRequestDigest(evidence) {
   return createCanonicalDigest(toRequestDigestPayload(evidence));
 }
 async function createTargetRevisionDigest(artifacts) {
@@ -8851,26 +8851,26 @@ async function createTargetRevisionDigest(artifacts) {
   return createCanonicalDigest({
     artifacts: sortArtifacts(resultingArtifacts),
     resultingState: resultingArtifacts.length === 0 ? "EMPTY" : "PRESENT",
-    version: governedChangeEvidenceVersion
+    version: changeRequestEvidenceVersion
   });
 }
-function parseGovernedChangeRequestEvidence(body) {
+function parseChangeRequestEvidence(body) {
   const evidence = parseEvidence(body, requestMarker);
-  if (!isGovernedChangeRequestEvidence(evidence)) {
+  if (!isChangeRequestEvidence(evidence)) {
     return null;
   }
   return evidence;
 }
-function parseGovernedChangeDecisionEvidence(body) {
+function parseChangeRequestDecisionEvidence(body) {
   const evidence = parseEvidence(body, decisionMarker);
-  if (!isGovernedChangeDecisionEvidence(evidence)) {
+  if (!isChangeRequestDecisionEvidence(evidence)) {
     return null;
   }
   return evidence;
 }
-function parseGovernedChangeWithdrawalEvidence(body) {
+function parseChangeRequestWithdrawalEvidence(body) {
   const evidence = parseEvidence(body, withdrawalMarker);
-  return isGovernedChangeWithdrawalEvidence(evidence) ? evidence : null;
+  return isChangeRequestWithdrawalEvidence(evidence) ? evidence : null;
 }
 function parseEvidence(body, marker) {
   const start = body.indexOf(`${marker}
@@ -8890,16 +8890,16 @@ function parseEvidence(body, marker) {
     return null;
   }
 }
-function isGovernedChangeRequestEvidence(evidence) {
-  return Boolean(evidence && evidence.version === governedChangeEvidenceVersion && isNonBlankString(evidence.baseRevisionSha) && isNonBlankString(evidence.batchId) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.repository) && isNonBlankString(evidence.requester) && isNonBlankString(evidence.requestedAt) && (evidence.remediation === void 0 || evidence.remediation === "REVIEW_CURRENT" || evidence.remediation === "RESTORE_LAST_APPROVED") && isNonBlankString(evidence.targetRevisionDigest) && isChangeType(evidence.type) && isNonBlankString(evidence.workspace) && Array.isArray(evidence.artifacts) && evidence.artifacts.every(isGovernedChangeArtifact));
+function isChangeRequestEvidence(evidence) {
+  return Boolean(evidence && evidence.version === changeRequestEvidenceVersion && isNonBlankString(evidence.baseRevisionSha) && isNonBlankString(evidence.batchId) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.repository) && isNonBlankString(evidence.requester) && isNonBlankString(evidence.requestedAt) && (evidence.remediation === void 0 || evidence.remediation === "REVIEW_CURRENT" || evidence.remediation === "RESTORE_LAST_APPROVED") && isNonBlankString(evidence.targetRevisionDigest) && isChangeType(evidence.type) && isNonBlankString(evidence.workspace) && Array.isArray(evidence.artifacts) && evidence.artifacts.every(isChangeRequestArtifact));
 }
-function isGovernedChangeDecisionEvidence(evidence) {
-  return Boolean(evidence && evidence.version === governedChangeEvidenceVersion && isNonBlankString(evidence.authorizationRevisionSha) && isNonBlankString(evidence.headRevisionSha) && (evidence.decision === "APPROVED" || evidence.decision === "REJECTED") && (evidence.decisionSource === "USER" || evidence.decisionSource === "WORKSPACE_POLICY") && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest) && (evidence.decision !== "REJECTED" || isNonBlankString(evidence.rejectionReason)));
+function isChangeRequestDecisionEvidence(evidence) {
+  return Boolean(evidence && evidence.version === changeRequestEvidenceVersion && isNonBlankString(evidence.authorizationRevisionSha) && isNonBlankString(evidence.headRevisionSha) && (evidence.decision === "APPROVED" || evidence.decision === "REJECTED") && (evidence.decisionSource === "USER" || evidence.decisionSource === "WORKSPACE_POLICY") && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest) && (evidence.decision !== "REJECTED" || isNonBlankString(evidence.rejectionReason)));
 }
-function isGovernedChangeWithdrawalEvidence(evidence) {
-  return Boolean(evidence && evidence.version === governedChangeEvidenceVersion && evidence.decision === "WITHDRAWN" && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest));
+function isChangeRequestWithdrawalEvidence(evidence) {
+  return Boolean(evidence && evidence.version === changeRequestEvidenceVersion && evidence.decision === "WITHDRAWN" && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest));
 }
-function isGovernedChangeArtifact(value) {
+function isChangeRequestArtifact(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
@@ -8944,10 +8944,10 @@ function sortArtifacts(artifacts) {
   return [...artifacts].sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
 }
 
-// ../../packages/github-lite/dist/governed-change-policy.js
+// ../../packages/github-lite/dist/change-request-policy.js
 var roleMappingPath = ".batch-governance/policies/role-mapping.yml";
 var workspacePolicyPath = ".batch-governance/workspace.yml";
-async function loadGovernedChangePolicy(client, repository, ref) {
+async function loadChangeRequestPolicy(client, repository, ref) {
   const file = await client.getFile({
     ...repository,
     path: workspacePolicyPath,
@@ -8955,11 +8955,11 @@ async function loadGovernedChangePolicy(client, repository, ref) {
   });
   if (!file)
     return defaultWorkspacePolicy;
-  const parsed = parseGovernanceYaml(file.content);
+  const parsed = parseRepositoryYaml(file.content);
   const validated = parsed.ok ? validateWorkspacePolicyFile(parsed.value) : null;
   return validated?.ok ? validated.value.spec : defaultWorkspacePolicy;
 }
-async function loadGovernedChangeRoles(client, repository, ref) {
+async function loadChangeRequestRoles(client, repository, ref) {
   const file = await client.getFile({
     ...repository,
     path: roleMappingPath,
@@ -8967,13 +8967,13 @@ async function loadGovernedChangeRoles(client, repository, ref) {
   });
   if (!file)
     throw new Error("Workspace role mapping is required.");
-  const parsed = parseGovernanceYaml(file.content);
+  const parsed = parseRepositoryYaml(file.content);
   const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
   if (!validated?.ok)
     throw new Error("Workspace role mapping is invalid.");
   return validated.value.spec;
 }
-async function hasGovernedChangeRole(client, repository, login, selector) {
+async function hasChangeRequestRole(client, repository, login, selector) {
   if (selector.githubUsers?.includes(login))
     return true;
   if (selector.repositoryRoles?.length) {
@@ -8995,8 +8995,8 @@ async function hasGovernedChangeRole(client, repository, login, selector) {
   return memberships.some((membership) => membership?.state === "active");
 }
 
-// ../../packages/github-lite/dist/governed-change-verifier.js
-async function hasAuthoritativeGovernedChangeRequest(client, repository, pullRequest, evidence, options = {}) {
+// ../../packages/github-lite/dist/change-request-verifier.js
+async function hasAuthoritativeChangeRequest(client, repository, pullRequest, evidence, options = {}) {
   const workspace = await client.getRepository(repository);
   if (!hasMatchingRequestMetadata(repository, workspace.defaultBranch, pullRequest, evidence)) {
     return false;
@@ -9006,8 +9006,8 @@ async function hasAuthoritativeGovernedChangeRequest(client, repository, pullReq
     return false;
   }
   try {
-    const roleMapping = await loadGovernedChangeRoles(client, repository, request.baseRevisionSha);
-    const authorHasRequesterRole = await hasGovernedChangeRole(client, repository, pullRequest.author, roleMapping.roles.requester);
+    const roleMapping = await loadChangeRequestRoles(client, repository, request.baseRevisionSha);
+    const authorHasRequesterRole = await hasChangeRequestRole(client, repository, pullRequest.author, roleMapping.roles.requester);
     if (!authorHasRequesterRole)
       return false;
   } catch (error) {
@@ -9276,7 +9276,7 @@ function matchesCurrentCandidate(candidate, current, expected) {
   return candidate.evidence.governedChangeId === current.governedChangeId && (!expected || expected.targetRevisionDigest === candidate.evidence.targetRevisionDigest);
 }
 async function hasAuthoritativeCandidateProof(client, repository, candidate) {
-  return await hasAuthoritativeGovernedChangeRequest(client, repository, candidate.pullRequest, candidate.evidence, { propagateRequesterRoleReadFailure: true }) && await hasAuthorizedMergedDecision(client, repository, candidate.pullRequest, candidate.evidence);
+  return await hasAuthoritativeChangeRequest(client, repository, candidate.pullRequest, candidate.evidence, { propagateRequesterRoleReadFailure: true }) && await hasAuthorizedMergedDecision(client, repository, candidate.pullRequest, candidate.evidence);
 }
 async function hasMatchingRevisionDigests({ candidate, client, currentSha, executionWorkflowSha, repository }) {
   const refs = [candidate.pullRequest.mergeSha, currentSha];
@@ -9296,19 +9296,19 @@ async function loadMergedBatchCandidates(client, repository, batchId) {
       ...repository,
       pullNumber
     });
-    const evidence = pullRequest ? parseGovernedChangeRequestEvidence(pullRequest.body) : null;
+    const evidence = pullRequest ? parseChangeRequestEvidence(pullRequest.body) : null;
     return pullRequest?.merged && evidence?.batchId === batchId ? { evidence, pullRequest } : null;
   }));
   return candidates.filter((candidate) => Boolean(candidate?.pullRequest.mergeSha && candidate.pullRequest.mergedAt)).sort((left, right) => right.pullRequest.mergedAt.localeCompare(left.pullRequest.mergedAt));
 }
 async function hasAuthorizedMergedDecision(client, repository, pullRequest, request) {
-  const requestDigest = await createGovernedChangeRequestDigest(request);
+  const requestDigest = await createChangeRequestDigest(request);
   const comments = await client.listIssueComments({
     ...repository,
     issueNumber: pullRequest.number
   });
   const decisions = await Promise.all(comments.map(async (comment) => {
-    const decision = parseGovernedChangeDecisionEvidence(comment.body);
+    const decision = parseChangeRequestDecisionEvidence(comment.body);
     if (decision && hasMatchingDecisionRequest(decision, request, requestDigest) && isUneditedPreMergeComment(comment, pullRequest.mergedAt) && await isAuthorizedDecision({
       client,
       commentAuthor: comment.author,
@@ -9319,7 +9319,7 @@ async function hasAuthorizedMergedDecision(client, repository, pullRequest, requ
     })) {
       return { comment, decision: decision.decision };
     }
-    const withdrawal = parseGovernedChangeWithdrawalEvidence(comment.body);
+    const withdrawal = parseChangeRequestWithdrawalEvidence(comment.body);
     if (withdrawal && withdrawal.governedChangeId === request.governedChangeId && withdrawal.headRevisionSha === request.headRevisionSha && withdrawal.requestDigest === requestDigest && withdrawal.targetRevisionDigest === request.targetRevisionDigest && comment.author === request.requester && isUneditedPreMergeComment(comment, pullRequest.mergedAt)) {
       return { comment, decision: "WITHDRAWN" };
     }
@@ -9333,10 +9333,10 @@ function hasMatchingDecisionRequest(decision, request, requestDigest) {
 }
 async function isAuthorizedDecision({ client, commentAuthor, decision, pullRequest, repository, request }) {
   const [policy, roles, mergedPolicy, mergedRoles] = await Promise.all([
-    loadGovernedChangePolicy(client, repository, decision.authorizationRevisionSha),
-    loadGovernedChangeRoles(client, repository, decision.authorizationRevisionSha),
-    loadGovernedChangePolicy(client, repository, pullRequest.mergeSha ?? ""),
-    loadGovernedChangeRoles(client, repository, pullRequest.mergeSha ?? "")
+    loadChangeRequestPolicy(client, repository, decision.authorizationRevisionSha),
+    loadChangeRequestRoles(client, repository, decision.authorizationRevisionSha),
+    loadChangeRequestPolicy(client, repository, pullRequest.mergeSha ?? ""),
+    loadChangeRequestRoles(client, repository, pullRequest.mergeSha ?? "")
   ]);
   if (!hasEquivalentAuthorization({ policy, roles }, { policy: mergedPolicy, roles: mergedRoles })) {
     return false;
@@ -9345,7 +9345,7 @@ async function isAuthorizedDecision({ client, commentAuthor, decision, pullReque
     return commentAuthor === request.requester && policy.approval.mode === "AUTO_APPROVE";
   }
   const requesterIsApprover = commentAuthor === request.requester;
-  const approverHasRole = await hasGovernedChangeRole(client, repository, commentAuthor, roles.roles.approver);
+  const approverHasRole = await hasChangeRequestRole(client, repository, commentAuthor, roles.roles.approver);
   if (!approverHasRole)
     return false;
   if (requesterIsApprover && policy.approval.mode === "SELF_APPROVAL_BLOCKED") {

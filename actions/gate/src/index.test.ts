@@ -20,7 +20,7 @@ import {
   buildExecutionApprovalCommentBody,
   buildExecutionIssueBody,
   sharedBatchId as batchId,
-  sharedGovernedChangeId,
+  sharedChangeRequestId,
   sharedRequestDigest as requestDigest,
   sharedRequestId as requestId,
   sharedTargetRevisionDigest,
@@ -36,7 +36,7 @@ const verifiedSha = "a".repeat(40);
 async function verifyApprovedRevision() {
   return {
     approvedRevision: {
-      governedChangeId: sharedGovernedChangeId,
+      governedChangeId: sharedChangeRequestId,
       targetRevisionDigest: sharedTargetRevisionDigest,
     },
     controlStatus: "VERIFIED" as const,
@@ -225,7 +225,7 @@ describe("Gate action runtime", () => {
         expect.objectContaining({
           executionWorkflowSha: verifiedSha,
           expectedRevision: {
-            governedChangeId: sharedGovernedChangeId,
+            governedChangeId: sharedChangeRequestId,
             targetRevisionDigest: sharedTargetRevisionDigest,
           },
         }),
@@ -980,7 +980,7 @@ function buildRequestIssueBody({
         metadata: { batchId, requestId },
         spec: {
           approvedBatchRevision: {
-            governedChangeId: sharedGovernedChangeId,
+            governedChangeId: sharedChangeRequestId,
             targetRevisionDigest: sharedTargetRevisionDigest,
           },
           requestedBy: "developer",

@@ -3,7 +3,7 @@ export const sharedRequestId =
   "btr-20260513010203-payment.daily-close-abcdef12";
 export const sharedRequestDigest =
   "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-export const sharedGovernedChangeId = "gci-payment-daily-close-20260509";
+export const sharedChangeRequestId = "gci-payment-daily-close-20260509";
 export const sharedTargetRevisionDigest =
   "sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
 export const sharedWorkflowPath = ".github/workflows/daily-close.yml";
@@ -11,7 +11,7 @@ export const sharedWorkflowRef = "main";
 
 export function buildExecutionIssueBody({
   batchId = sharedBatchId,
-  governedChangeId = sharedGovernedChangeId,
+  governedChangeId = sharedChangeRequestId,
   requestDigest = sharedRequestDigest,
   requestId = sharedRequestId,
   requestedBy = "developer",

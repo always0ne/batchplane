@@ -1,20 +1,20 @@
 import type { WorkspaceApprovalMode } from "./workspace-policy.js";
 
-export type GovernedChangeType = "REGISTER" | "CHANGE" | "DELETE";
+export type ChangeRequestType = "REGISTER" | "CHANGE" | "DELETE";
 
-export type GovernedChangeDecision = "APPROVED" | "REJECTED" | "WITHDRAWN";
+export type ChangeRequestDecision = "APPROVED" | "REJECTED" | "WITHDRAWN";
 
-export type GovernedChangeDecisionSource = "USER" | "WORKSPACE_POLICY";
+export type ChangeRequestDecisionSource = "USER" | "WORKSPACE_POLICY";
 
-export type GovernedChangeAuthorization = {
+export type ChangeRequestAuthorization = {
   actorHasApproverRole: boolean;
   actorHasRequesterRole: boolean;
   actorIsRequester: boolean;
   approvalMode: WorkspaceApprovalMode;
 };
 
-export type GovernedChangeAuthorizationResult =
-  | { allowed: true; decisionSource?: GovernedChangeDecisionSource }
+export type ChangeRequestAuthorizationResult =
+  | { allowed: true; decisionSource?: ChangeRequestDecisionSource }
   | {
       allowed: false;
       reason:
@@ -23,17 +23,17 @@ export type GovernedChangeAuthorizationResult =
         | "SELF_APPROVAL_BLOCKED";
     };
 
-export function authorizeGovernedChangeCreation(
-  authorization: Pick<GovernedChangeAuthorization, "actorHasRequesterRole">,
-): GovernedChangeAuthorizationResult {
+export function authorizeChangeRequestCreation(
+  authorization: Pick<ChangeRequestAuthorization, "actorHasRequesterRole">,
+): ChangeRequestAuthorizationResult {
   return authorization.actorHasRequesterRole
     ? { allowed: true }
     : { allowed: false, reason: "REQUESTER_ROLE_REQUIRED" };
 }
 
-export function authorizeGovernedChangeApproval(
-  authorization: GovernedChangeAuthorization,
-): GovernedChangeAuthorizationResult {
+export function authorizeChangeRequestApproval(
+  authorization: ChangeRequestAuthorization,
+): ChangeRequestAuthorizationResult {
   if (!authorization.actorHasApproverRole) {
     return { allowed: false, reason: "APPROVER_ROLE_REQUIRED" };
   }
@@ -48,9 +48,9 @@ export function authorizeGovernedChangeApproval(
   return { allowed: true, decisionSource: "USER" };
 }
 
-export function authorizeGovernedChangeRejection(
-  authorization: Pick<GovernedChangeAuthorization, "actorHasApproverRole">,
-): GovernedChangeAuthorizationResult {
+export function authorizeChangeRequestRejection(
+  authorization: Pick<ChangeRequestAuthorization, "actorHasApproverRole">,
+): ChangeRequestAuthorizationResult {
   return authorization.actorHasApproverRole
     ? { allowed: true, decisionSource: "USER" }
     : { allowed: false, reason: "APPROVER_ROLE_REQUIRED" };
@@ -58,10 +58,10 @@ export function authorizeGovernedChangeRejection(
 
 export function resolveAutoApproval(
   authorization: Pick<
-    GovernedChangeAuthorization,
+    ChangeRequestAuthorization,
     "actorHasRequesterRole" | "approvalMode"
   >,
-): GovernedChangeAuthorizationResult {
+): ChangeRequestAuthorizationResult {
   if (!authorization.actorHasRequesterRole) {
     return { allowed: false, reason: "REQUESTER_ROLE_REQUIRED" };
   }

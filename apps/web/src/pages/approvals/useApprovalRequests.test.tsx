@@ -70,14 +70,14 @@ function createClient(
 ): BatchPlaneClient {
   return {
     approveExecutionRequest: unsupported,
-    approveGovernedChange: unsupported,
+    approveChangeRequest: unsupported,
     createBatchChangeRequest: unsupported,
     createExecutionRequest: unsupported,
     getBatchChangeBlocker: unsupported,
     getBatchDetail: unsupported,
     getBatchRemediationCapability: unsupported,
     getExecutionRequest: unsupported,
-    getGovernedChange: unsupported,
+    getChangeRequest: unsupported,
     getMyWork: unsupported,
     listExecutionRuns: unsupported,
     inspectWorkspace: unsupported,
@@ -98,9 +98,9 @@ function createClient(
     previewBatchChange: unsupported,
     previewExecutionRequest: unsupported,
     rejectExecutionRequest: unsupported,
-    rejectGovernedChange: unsupported,
+    rejectChangeRequest: unsupported,
     requestBatchRemediation: unsupported,
-    withdrawGovernedChange: unsupported,
+    withdrawChangeRequest: unsupported,
     ...overrides,
   };
 }

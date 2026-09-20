@@ -64,7 +64,7 @@ function BatchRegistrationLoadBoundary({
 
   if (loadState.type === "blocked") {
     const detailPath =
-      loadState.blocker.kind === "GOVERNED_CHANGE"
+      loadState.blocker.kind === "CHANGE_REQUEST"
         ? `/approvals/registration/${encodeURIComponent(loadState.blocker.requestLocator)}`
         : `/execution-requests/${encodeURIComponent(loadState.blocker.requestLocator)}`;
 
@@ -90,7 +90,7 @@ function BatchRegistrationLoadBoundary({
 
   return (
     <BatchChangeEditorSession
-      key={`${mode}:${targetBatchId}:${loadState.draft.governedChangeId ?? ""}`}
+      key={`${mode}:${targetBatchId}:${loadState.draft.changeRequestId ?? ""}`}
       initialDraft={loadState.draft}
       mode={mode}
       targetBatchId={targetBatchId}

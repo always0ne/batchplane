@@ -1,23 +1,23 @@
 import {
-  authorizeGovernedChangeApproval,
+  authorizeChangeRequestApproval,
   type WorkspacePolicy,
 } from "@batchplane/domain";
-import type { RoleMapping } from "./governance-schema.js";
+import type { RoleMapping } from "./repository-schema.js";
 import { sha256BytesHex } from "@batchplane/digest";
 import type {
-  GovernedChangeDetail,
-  GovernedChangePreviewFile,
-  GovernedChangeRequest,
+  ChangeRequestDetail,
+  ChangeRequestPreviewFile,
+  ChangeRequest,
 } from "@batchplane/ui-client";
 
 import {
-  parseGovernedChangeDecisionEvidence,
-  createGovernedChangeRequestDigest,
-  parseGovernedChangeRequestEvidence,
-  parseGovernedChangeWithdrawalEvidence,
-  parseUnverifiedGovernedChangeDisposition,
-  type GovernedChangeRequestEvidence,
-} from "./governed-change-evidence.js";
+  parseChangeRequestDecisionEvidence,
+  createChangeRequestDigest,
+  parseChangeRequestEvidence,
+  parseChangeRequestWithdrawalEvidence,
+  parseUnverifiedChangeRequestDisposition,
+  type ChangeRequestEvidence,
+} from "./change-request-evidence.js";
 import type {
   GitHubIssueComment,
   GitHubLiteClient,
@@ -25,14 +25,14 @@ import type {
   RepoRef,
 } from "./github-types.js";
 import {
-  hasGovernedChangeRole,
-  loadGovernedChangePolicy,
-  loadGovernedChangeRoles,
-} from "./governed-change-policy.js";
+  hasChangeRequestRole,
+  loadChangeRequestPolicy,
+  loadChangeRequestRoles,
+} from "./change-request-policy.js";
 import {
-  hasAuthoritativeGovernedChangeRequest,
-  hasChangedGovernedChangeBase,
-} from "./governed-change-verifier.js";
+  hasAuthoritativeChangeRequest,
+  hasChangedChangeRequestBase,
+} from "./change-request-verifier.js";
 
 function fileBytes(file: {
   content: string;
@@ -57,18 +57,18 @@ function bytesEqual(
   );
 }
 
-export async function loadGovernedChangeDetail(
+export async function loadChangeRequestDetail(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
-): Promise<GovernedChangeDetail> {
+): Promise<ChangeRequestDetail> {
   const comments = await client.listIssueComments({
     ...repository,
     issueNumber: pullRequest.number,
   });
-  const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+  const evidence = parseChangeRequestEvidence(pullRequest.body);
   const requestIsVerified = evidence
-    ? await hasAuthoritativeGovernedChangeRequest(
+    ? await hasAuthoritativeChangeRequest(
         client,
         repository,
         pullRequest,
@@ -79,7 +79,7 @@ export async function loadGovernedChangeDetail(
     evidence &&
     requestIsVerified &&
     pullRequest.state === "open" &&
-    (await hasChangedGovernedChangeBase(client, repository, evidence)),
+    (await hasChangedChangeRequestBase(client, repository, evidence)),
   );
   const staleApproval = Boolean(
     evidence &&
@@ -90,10 +90,10 @@ export async function loadGovernedChangeDetail(
       pullRequest,
       comments,
       evidence,
-      await createGovernedChangeRequestDigest(evidence),
+      await createChangeRequestDigest(evidence),
     )),
   );
-  const request = await toGovernedChangeRequest(
+  const request = await toChangeRequest(
     client,
     repository,
     pullRequest,
@@ -104,13 +104,13 @@ export async function loadGovernedChangeDetail(
     staleBase,
   );
   const [files, capabilities] = await Promise.all([
-    loadActualGovernedFiles(
+    loadActualChangeRequestFiles(
       client,
       repository,
       pullRequest,
       requestIsVerified && !staleBase ? evidence : null,
     ),
-    loadGovernedChangeCapabilities(client, repository, pullRequest, request),
+    loadChangeRequestCapabilities(client, repository, pullRequest, request),
   ]);
 
   return {
@@ -120,12 +120,12 @@ export async function loadGovernedChangeDetail(
   };
 }
 
-async function loadActualGovernedFiles(
+async function loadActualChangeRequestFiles(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
-  evidence: GovernedChangeRequestEvidence | null,
-): Promise<GovernedChangePreviewFile[]> {
+  evidence: ChangeRequestEvidence | null,
+): Promise<ChangeRequestPreviewFile[]> {
   if (!pullRequest.headSha) return [];
 
   if (!evidence) {
@@ -191,14 +191,14 @@ async function loadActualGovernedFiles(
   );
 }
 
-async function loadGovernedChangeCapabilities(
+async function loadChangeRequestCapabilities(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
-  request: GovernedChangeRequest,
+  request: ChangeRequest,
 ): Promise<
   Pick<
-    GovernedChangeDetail,
+    ChangeRequestDetail,
     "canApprove" | "canApplyApprovedChange" | "canReject" | "canWithdraw"
   >
 > {
@@ -223,15 +223,15 @@ async function loadGovernedChangeCapabilities(
       canWithdraw,
     };
   }
-  const actorHasApproverRole = await hasGovernedChangeRole(
+  const actorHasApproverRole = await hasChangeRequestRole(
     client,
     repository,
     actor.login,
     roleMapping.roles.approver,
   );
-  const approval = authorizeGovernedChangeApproval({
+  const approval = authorizeChangeRequestApproval({
     actorHasApproverRole,
-    actorHasRequesterRole: await hasGovernedChangeRole(
+    actorHasRequesterRole: await hasChangeRequestRole(
       client,
       repository,
       actor.login,
@@ -267,18 +267,18 @@ async function loadGovernedChangeCapabilities(
   };
 }
 
-async function toGovernedChangeRequest(
+async function toChangeRequest(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
-  evidence: GovernedChangeRequestEvidence | null,
+  evidence: ChangeRequestEvidence | null,
   comments: GitHubIssueComment[],
   hasV2Candidate = Boolean(evidence),
   staleApproval = false,
   staleBase = false,
-): Promise<GovernedChangeRequest> {
+): Promise<ChangeRequest> {
   const requestDigest = evidence
-    ? await createGovernedChangeRequestDigest(evidence)
+    ? await createChangeRequestDigest(evidence)
     : undefined;
   const decision =
     evidence && requestDigest
@@ -309,10 +309,10 @@ async function toGovernedChangeRequest(
     comments,
   );
   const unverifiedDispositionDecision = unverifiedDisposition
-    ? parseUnverifiedGovernedChangeDisposition(unverifiedDisposition.body)
+    ? parseUnverifiedChangeRequestDisposition(unverifiedDisposition.body)
         ?.decision
     : undefined;
-  const reviewState = resolveGovernedChangeReviewState({
+  const reviewState = resolveChangeRequestReviewState({
     decision,
     evidence,
     hasV2Candidate,
@@ -355,9 +355,8 @@ async function toGovernedChangeRequest(
       ? {
           rejectionReason:
             decision?.evidence.rejectionReason ??
-            parseUnverifiedGovernedChangeDisposition(
-              unverifiedDisposition!.body,
-            )?.reason,
+            parseUnverifiedChangeRequestDisposition(unverifiedDisposition!.body)
+              ?.reason,
         }
       : {}),
   };
@@ -380,7 +379,7 @@ async function toGovernedChangeRequest(
   };
 }
 
-function resolveGovernedChangeReviewState({
+function resolveChangeRequestReviewState({
   decision,
   evidence,
   hasV2Candidate,
@@ -392,7 +391,7 @@ function resolveGovernedChangeReviewState({
   withdrawal,
 }: {
   decision: Awaited<ReturnType<typeof findVerifiedDecision>>;
-  evidence: GovernedChangeRequestEvidence | null;
+  evidence: ChangeRequestEvidence | null;
   hasV2Candidate: boolean;
   pullRequest: GitHubPullRequest;
   staleApproval: boolean;
@@ -403,7 +402,7 @@ function resolveGovernedChangeReviewState({
     | "WITHDRAWN_UNVERIFIED"
     | undefined;
   withdrawal: Awaited<ReturnType<typeof findVerifiedWithdrawal>>;
-}): GovernedChangeRequest["reviewState"] {
+}): ChangeRequest["reviewState"] {
   if (!evidence) {
     return resolveUnverifiedReviewState({
       hasV2Candidate,
@@ -446,7 +445,7 @@ function resolveUnverifiedReviewState({
     | "REJECTED_UNVERIFIED"
     | "WITHDRAWN_UNVERIFIED"
     | undefined;
-}): GovernedChangeRequest["reviewState"] {
+}): ChangeRequest["reviewState"] {
   if (hasV2Candidate) {
     if (pullRequest.state === "closed" && unverifiedDispositionDecision) {
       return unverifiedDispositionDecision === "WITHDRAWN_UNVERIFIED"
@@ -514,11 +513,11 @@ async function hasStaleApprovedDecision(
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
   comments: GitHubIssueComment[],
-  request: GovernedChangeRequestEvidence,
+  request: ChangeRequestEvidence,
   requestDigest: string,
 ): Promise<boolean> {
   for (const comment of comments) {
-    const evidence = parseGovernedChangeDecisionEvidence(comment.body);
+    const evidence = parseChangeRequestDecisionEvidence(comment.body);
 
     if (
       !evidence ||
@@ -540,7 +539,7 @@ async function hasStaleApprovedDecision(
     if (!authorization) continue;
     const { policy, roleMapping } = authorization;
 
-    const actorHasApproverRole = await hasGovernedChangeRole(
+    const actorHasApproverRole = await hasChangeRequestRole(
       client,
       repository,
       comment.author,
@@ -550,7 +549,7 @@ async function hasStaleApprovedDecision(
       evidence.decisionSource === "WORKSPACE_POLICY" &&
       policy.approval.mode === "AUTO_APPROVE" &&
       comment.author === request.requester &&
-      (await hasGovernedChangeRole(
+      (await hasChangeRequestRole(
         client,
         repository,
         comment.author,
@@ -558,9 +557,9 @@ async function hasStaleApprovedDecision(
       ));
     const isAuthorizedUserApproval =
       evidence.decisionSource === "USER" &&
-      authorizeGovernedChangeApproval({
+      authorizeChangeRequestApproval({
         actorHasApproverRole,
-        actorHasRequesterRole: await hasGovernedChangeRole(
+        actorHasRequesterRole: await hasChangeRequestRole(
           client,
           repository,
           comment.author,
@@ -581,11 +580,11 @@ async function findVerifiedWithdrawal(
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
   comments: GitHubIssueComment[],
-  request: GovernedChangeRequestEvidence,
+  request: ChangeRequestEvidence,
   requestDigest: string,
 ) {
   const matchingComment = comments.find((comment) => {
-    const evidence = parseGovernedChangeWithdrawalEvidence(comment.body);
+    const evidence = parseChangeRequestWithdrawalEvidence(comment.body);
 
     return Boolean(
       evidence &&
@@ -610,7 +609,7 @@ async function findUnverifiedDisposition(
   comments: GitHubIssueComment[],
 ): Promise<GitHubIssueComment | undefined> {
   const roleMapping = pullRequest.baseSha
-    ? await loadGovernedChangeRoles(
+    ? await loadChangeRequestRoles(
         client,
         repository,
         pullRequest.baseSha,
@@ -618,7 +617,7 @@ async function findUnverifiedDisposition(
     : null;
 
   for (const comment of comments) {
-    const evidence = parseUnverifiedGovernedChangeDisposition(comment.body);
+    const evidence = parseUnverifiedChangeRequestDisposition(comment.body);
 
     if (
       !evidence ||
@@ -636,7 +635,7 @@ async function findUnverifiedDisposition(
     if (
       evidence.decision === "REJECTED_UNVERIFIED" &&
       roleMapping &&
-      (await hasGovernedChangeRole(
+      (await hasChangeRequestRole(
         client,
         repository,
         comment.author,
@@ -655,7 +654,7 @@ async function findVerifiedDecision(
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
   comments: GitHubIssueComment[],
-  request: GovernedChangeRequestEvidence,
+  request: ChangeRequestEvidence,
   requestDigest: string,
 ) {
   const currentAuthorization =
@@ -666,7 +665,7 @@ async function findVerifiedDecision(
       : null;
 
   for (const comment of [...comments].sort(compareNewestFirst)) {
-    const evidence = parseGovernedChangeDecisionEvidence(comment.body);
+    const evidence = parseChangeRequestDecisionEvidence(comment.body);
 
     if (
       !evidence ||
@@ -720,16 +719,16 @@ async function isDecisionAuthorized({
   authorization: { policy: WorkspacePolicy; roleMapping: RoleMapping };
   client: GitHubLiteClient;
   comment: GitHubIssueComment;
-  evidence: NonNullable<ReturnType<typeof parseGovernedChangeDecisionEvidence>>;
-  request: GovernedChangeRequestEvidence;
+  evidence: NonNullable<ReturnType<typeof parseChangeRequestDecisionEvidence>>;
+  request: ChangeRequestEvidence;
 }): Promise<boolean> {
-  const actorHasApproverRole = await hasGovernedChangeRole(
+  const actorHasApproverRole = await hasChangeRequestRole(
     client,
     repositoryForComment(request),
     comment.author,
     authorization.roleMapping.roles.approver,
   );
-  const actorHasRequesterRole = await hasGovernedChangeRole(
+  const actorHasRequesterRole = await hasChangeRequestRole(
     client,
     repositoryForComment(request),
     comment.author,
@@ -749,7 +748,7 @@ async function isDecisionAuthorized({
 
   if (evidence.decision === "REJECTED") return actorHasApproverRole;
 
-  return authorizeGovernedChangeApproval({
+  return authorizeChangeRequestApproval({
     actorHasApproverRole,
     actorHasRequesterRole,
     actorIsRequester: comment.author === request.requester,
@@ -757,7 +756,7 @@ async function isDecisionAuthorized({
   }).allowed;
 }
 
-function repositoryForComment(request: GovernedChangeRequestEvidence): RepoRef {
+function repositoryForComment(request: ChangeRequestEvidence): RepoRef {
   const [owner, repo] = request.repository.split("/");
 
   return { owner: owner ?? "", repo: repo ?? "" };
@@ -769,8 +768,8 @@ async function loadWorkspaceAuthorizationAtRevision(
   authorizationRevisionSha: string,
 ): Promise<{ policy: WorkspacePolicy; roleMapping: RoleMapping }> {
   const [policy, roleMapping] = await Promise.all([
-    loadGovernedChangePolicy(client, repository, authorizationRevisionSha),
-    loadGovernedChangeRoles(client, repository, authorizationRevisionSha),
+    loadChangeRequestPolicy(client, repository, authorizationRevisionSha),
+    loadChangeRequestRoles(client, repository, authorizationRevisionSha),
   ]);
 
   return { policy, roleMapping };

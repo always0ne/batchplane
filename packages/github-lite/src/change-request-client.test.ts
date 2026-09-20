@@ -3,13 +3,13 @@ import { fileURLToPath } from "node:url";
 
 import type { BatchChangeDraft } from "@batchplane/ui-client";
 import {
-  buildGovernedChangeRequestBody,
-  buildGovernedChangeDecisionBody,
-  createGovernedChangeRequestDigest,
+  buildChangeRequestBody,
+  buildChangeRequestDecisionBody,
+  createChangeRequestDigest,
   createTargetRevisionDigest,
-  parseGovernedChangeDecisionEvidence,
-  parseGovernedChangeRequestEvidence,
-} from "./governed-change-evidence.js";
+  parseChangeRequestDecisionEvidence,
+  parseChangeRequestEvidence,
+} from "./change-request-evidence.js";
 import { sha256BytesHex } from "@batchplane/digest";
 import {
   getBatchDefinitionPath,
@@ -23,11 +23,11 @@ import { createMockGitHubLiteClient } from "./mock-client.js";
 import { createGitHubLiteMockState } from "./mock-state.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { createGitHubLiteGovernedChangeClient } from "./governed-change-client.js";
+import { createGitHubLiteChangeRequestClient } from "./change-request-client.js";
 import {
   assertPreparedChangeTargets,
-  prepareGovernedChange,
-} from "./governed-change-preparation.js";
+  prepareChangeRequest,
+} from "./change-request-preparation.js";
 
 const registrationDraft: BatchChangeDraft = {
   batch: {
@@ -45,7 +45,7 @@ const registrationDraft: BatchChangeDraft = {
     ref: "main",
     runnerLabel: "ubuntu-latest",
   },
-  governedChangeId: "bgc-20260901-payment-month-end-0001",
+  changeRequestId: "bgc-20260901-payment-month-end-0001",
   mode: "create",
   schedules: [],
 };
@@ -60,12 +60,12 @@ const installedWorkspacePolicy = readFileSync(
   "utf8",
 );
 
-describe("GitHub Lite governed change client", () => {
+describe("GitHub Lite change request client", () => {
   it("normalizes a cleared owner before preview and persists the same owner", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
@@ -74,7 +74,7 @@ describe("GitHub Lite governed change client", () => {
       batch: { ...registrationDraft.batch, owner: "   " },
     };
 
-    const preview = await governedChanges.previewBatchChange(draft);
+    const preview = await changeRequests.previewBatchChange(draft);
     const previewBatch = preview.files.find(
       (file) => file.path === ".batch-governance/batches/payment.month-end.yml",
     );
@@ -82,7 +82,7 @@ describe("GitHub Lite governed change client", () => {
       parseBatchDefinitionYaml(previewBatch?.nextContent ?? ""),
     ).toMatchObject({ owner: "developer" });
 
-    const created = await governedChanges.createBatchChangeRequest(draft);
+    const created = await changeRequests.createBatchChangeRequest(draft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -108,13 +108,13 @@ describe("GitHub Lite governed change client", () => {
           }
         : file,
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       createMockGitHubLiteClient(state),
     );
 
     await expect(
-      governedChanges.loadBatchChangeDraft({
+      changeRequests.loadBatchChangeDraft({
         batchId: "payment.daily-close",
         mode: "change",
       }),
@@ -141,13 +141,13 @@ describe("GitHub Lite governed change client", () => {
     const mock = createMockGitHubLiteClient(state);
     const getFile = vi.fn(mock.getFile);
     const client = { ...mock, getFile };
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
 
     await expect(
-      governedChanges.createBatchChangeRequest(registrationDraft),
+      changeRequests.createBatchChangeRequest(registrationDraft),
     ).resolves.toMatchObject({ request: { reviewState: "OPEN" } });
     expect(getFile).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -166,13 +166,13 @@ describe("GitHub Lite governed change client", () => {
       currentUser: { login: "developer" },
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
-    const preview = await governedChanges.previewBatchChange(registrationDraft);
+    const preview = await changeRequests.previewBatchChange(registrationDraft);
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = client.state.pullRequests.find(
       (candidate) =>
         candidate.number === Number(created.request.requestLocator),
@@ -180,13 +180,13 @@ describe("GitHub Lite governed change client", () => {
 
     expect(preview.files).toHaveLength(2);
     expect(created.request.evidence).toMatchObject({
-      governedChangeId: registrationDraft.governedChangeId,
+      governedChangeId: registrationDraft.changeRequestId,
       kind: "VERIFIED_V2",
     });
     expect(
       created.request.evidence.kind === "VERIFIED_V2" &&
         created.request.evidence.governedChangeId,
-    ).toBe(registrationDraft.governedChangeId);
+    ).toBe(registrationDraft.changeRequestId);
     expect(
       parseBatchDefinitionYaml(
         client.state.files.find(
@@ -205,7 +205,7 @@ describe("GitHub Lite governed change client", () => {
       roleName: "maintain",
       username: "maintainer",
     });
-    const approved = await governedChanges.approveGovernedChange({
+    const approved = await changeRequests.approveChangeRequest({
       requestLocator: created.request.requestLocator,
     });
 
@@ -233,7 +233,7 @@ describe("GitHub Lite governed change client", () => {
         deleteFile: vi.fn(mock.deleteFile),
         getFile: vi.fn(mock.getFile),
       };
-      const governedChanges = createGitHubLiteGovernedChangeClient(
+      const changeRequests = createGitHubLiteChangeRequestClient(
         session(),
         client,
       );
@@ -242,17 +242,17 @@ describe("GitHub Lite governed change client", () => {
         batch: { ...registrationDraft.batch, batchId },
       };
 
-      await expect(governedChanges.previewBatchChange(draft)).rejects.toThrow(
+      await expect(changeRequests.previewBatchChange(draft)).rejects.toThrow(
         "Batch ID",
       );
       await expect(
-        governedChanges.createBatchChangeRequest(draft),
+        changeRequests.createBatchChangeRequest(draft),
       ).rejects.toThrow("Batch ID");
       await expect(
-        governedChanges.loadBatchChangeDraft({ batchId, mode: "change" }),
+        changeRequests.loadBatchChangeDraft({ batchId, mode: "change" }),
       ).rejects.toThrow("Batch ID");
       await expect(
-        governedChanges.loadBatchChangeDraft({ batchId, mode: "delete" }),
+        changeRequests.loadBatchChangeDraft({ batchId, mode: "delete" }),
       ).rejects.toThrow("Batch ID");
 
       expect(client.getFile).not.toHaveBeenCalledWith(
@@ -267,43 +267,43 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
 
     await expect(
-      governedChanges.createBatchChangeRequest({
+      changeRequests.createBatchChangeRequest({
         ...changeDraft({}),
         targetBatchId: undefined,
       }),
     ).rejects.toThrow("Batch ID cannot change");
 
-    const loaded = await governedChanges.loadBatchChangeDraft({
+    const loaded = await changeRequests.loadBatchChangeDraft({
       batchId: "payment.daily-close",
       mode: "change",
     });
     expect(loaded.targetBatchId).toBe("payment.daily-close");
     await expect(
-      governedChanges.previewBatchChange({
+      changeRequests.previewBatchChange({
         ...loaded,
         targetBatchId: undefined,
       }),
     ).rejects.toThrow("Batch ID cannot change");
     await expect(
-      governedChanges.previewBatchChange({
+      changeRequests.previewBatchChange({
         ...loaded,
         targetBatchId: "payment.month-end",
       }),
     ).rejects.toThrow("Batch ID cannot change");
     await expect(
-      governedChanges.createBatchChangeRequest({
+      changeRequests.createBatchChangeRequest({
         ...changeDraft({}),
         batch: { ...registrationDraft.batch, batchId: "payment.daily-close" },
       }),
     ).rejects.toThrow("Batch ID cannot change");
     await expect(
-      governedChanges.createBatchChangeRequest({
+      changeRequests.createBatchChangeRequest({
         ...changeDraft({}),
         mode: "delete",
         targetBatchId: undefined,
@@ -311,34 +311,34 @@ describe("GitHub Lite governed change client", () => {
     ).rejects.toThrow("Batch ID cannot change");
   });
 
-  it("blocks direct create, change, and delete commands while the batch has a pending governed change", async () => {
+  it("blocks direct create, change, and delete commands while the batch has a pending change request", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
 
-    await governedChanges.createBatchChangeRequest(registrationDraft);
+    await changeRequests.createBatchChangeRequest(registrationDraft);
 
     await expect(
-      governedChanges.createBatchChangeRequest({
+      changeRequests.createBatchChangeRequest({
         ...registrationDraft,
-        governedChangeId: "bgc-20260901-payment-month-end-0002",
+        changeRequestId: "bgc-20260901-payment-month-end-0002",
       }),
-    ).rejects.toThrow("pending governed change");
+    ).rejects.toThrow("pending change request");
     await expect(
-      governedChanges.createBatchChangeRequest(changeDraft({})),
-    ).rejects.toThrow("pending governed change");
+      changeRequests.createBatchChangeRequest(changeDraft({})),
+    ).rejects.toThrow("pending change request");
     await expect(
-      governedChanges.createBatchChangeRequest({
+      changeRequests.createBatchChangeRequest({
         ...changeDraft({}),
         mode: "delete",
       }),
-    ).rejects.toThrow("pending governed change");
+    ).rejects.toThrow("pending change request");
     await expect(
-      governedChanges.loadBatchChangeDraft({
+      changeRequests.loadBatchChangeDraft({
         batchId: "payment.daily-close",
         mode: "delete",
       }),
@@ -367,14 +367,14 @@ describe("GitHub Lite governed change client", () => {
         ],
       });
       const client = createMockGitHubLiteClient(state);
-      const governedChanges = createGitHubLiteGovernedChangeClient(
+      const changeRequests = createGitHubLiteChangeRequestClient(
         session(),
         client,
       );
 
       if (blocksChange) {
         await expect(
-          governedChanges.createBatchChangeRequest(
+          changeRequests.createBatchChangeRequest(
             changeDraft({ batchId: "payment.daily-close" }),
           ),
         ).rejects.toThrow("pending execution request");
@@ -382,14 +382,14 @@ describe("GitHub Lite governed change client", () => {
       }
 
       await expect(
-        governedChanges.getBatchChangeBlocker({
+        changeRequests.getBatchChangeBlocker({
           batchId: "payment.daily-close",
         }),
       ).resolves.toBeNull();
     },
   );
 
-  it("does not create a branch or request for a governedChangeId-only change", async () => {
+  it("does not create a branch or request for a changeRequestId-only change", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({
         currentUser: { login: "developer" },
@@ -398,35 +398,35 @@ describe("GitHub Lite governed change client", () => {
       }),
     );
     alignMockBatchWithGeneratedWorkflow(client.state, "payment.daily-close");
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
-    const loaded = await governedChanges.loadBatchChangeDraft({
+    const loaded = await changeRequests.loadBatchChangeDraft({
       batchId: "payment.daily-close",
       mode: "change",
     });
     const draft = {
       ...loaded,
-      governedChangeId: "bgc-20260901-payment-daily-close-0002",
+      changeRequestId: "bgc-20260901-payment-daily-close-0002",
       targetBatchId: loaded.batch.batchId,
     };
     const branchCount = Object.keys(client.state.branches).length;
     const pullRequestCount = client.state.pullRequests.length;
 
     await expect(
-      governedChanges.previewBatchChange(draft),
+      changeRequests.previewBatchChange(draft),
     ).resolves.toMatchObject({
       hasEffectiveChanges: false,
     });
     await expect(
-      governedChanges.createBatchChangeRequest(draft),
+      changeRequests.createBatchChangeRequest(draft),
     ).rejects.toThrow("does not modify any file");
     expect(Object.keys(client.state.branches)).toHaveLength(branchCount);
     expect(client.state.pullRequests).toHaveLength(pullRequestCount);
   });
 
-  it("keeps a schedule change effective when the governedChangeId rotates", async () => {
+  it("keeps a schedule change effective when the changeRequestId rotates", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({
         currentUser: { login: "developer" },
@@ -434,19 +434,19 @@ describe("GitHub Lite governed change client", () => {
         pullRequests: [],
       }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
-    const loaded = await governedChanges.loadBatchChangeDraft({
+    const loaded = await changeRequests.loadBatchChangeDraft({
       batchId: "payment.daily-close",
       mode: "change",
     });
 
     await expect(
-      governedChanges.previewBatchChange({
+      changeRequests.previewBatchChange({
         ...loaded,
-        governedChangeId: "bgc-20260901-payment-daily-close-0003",
+        changeRequestId: "bgc-20260901-payment-daily-close-0003",
         schedules: [
           ...loaded.schedules,
           {
@@ -462,7 +462,7 @@ describe("GitHub Lite governed change client", () => {
     ).resolves.toMatchObject({ hasEffectiveChanges: true });
   });
 
-  it("uses the governed change suffix to avoid same-second branch collisions", async () => {
+  it("uses the change request suffix to avoid same-second branch collisions", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-01T12:00:00.000Z"));
 
@@ -470,15 +470,15 @@ describe("GitHub Lite governed change client", () => {
       const client = createMockGitHubLiteClient(
         createGitHubLiteMockState({ currentUser: { login: "developer" } }),
       );
-      const governedChanges = createGitHubLiteGovernedChangeClient(
+      const changeRequests = createGitHubLiteChangeRequestClient(
         session(),
         client,
       );
-      const draft = { ...registrationDraft, governedChangeId: undefined };
-      const first = await governedChanges.createBatchChangeRequest(draft);
+      const draft = { ...registrationDraft, changeRequestId: undefined };
+      const first = await changeRequests.createBatchChangeRequest(draft);
       findCreatedPullRequest(client, first.request.requestLocator).state =
         "closed";
-      const second = await governedChanges.createBatchChangeRequest(draft);
+      const second = await changeRequests.createBatchChangeRequest(draft);
       const firstPullRequest = findCreatedPullRequest(
         client,
         first.request.requestLocator,
@@ -505,13 +505,13 @@ describe("GitHub Lite governed change client", () => {
         baseSha: "newer-base-sha",
       })),
     };
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
 
     await expect(
-      governedChanges.createBatchChangeRequest(registrationDraft),
+      changeRequests.createBatchChangeRequest(registrationDraft),
     ).rejects.toThrow("BASE_REVISION_CHANGED");
     expect(client.state.pullRequests.at(-1)).toMatchObject({ state: "closed" });
     expect(client.state.issueComments.at(-1)?.body).toContain(
@@ -524,19 +524,19 @@ describe("GitHub Lite governed change client", () => {
       currentUser: { login: "developer" },
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = client.state.pullRequests.find(
       (candidate) =>
         candidate.number === Number(created.request.requestLocator),
     );
 
     if (!pullRequest) {
-      throw new Error("Expected governed change pull request.");
+      throw new Error("Expected change request pull request.");
     }
 
     const definition = client.state.files.find(
@@ -553,7 +553,7 @@ describe("GitHub Lite governed change client", () => {
     client.state.currentUser.login = "maintainer";
 
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
@@ -565,13 +565,13 @@ describe("GitHub Lite governed change client", () => {
       currentUser: { login: "developer" },
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const initialCommentCount = client.state.issueComments.length;
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -601,7 +601,7 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({
@@ -609,7 +609,7 @@ describe("GitHub Lite governed change client", () => {
       reviewState: "REAPPROVAL_REQUIRED",
     });
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
@@ -621,12 +621,12 @@ describe("GitHub Lite governed change client", () => {
       currentUser: { login: "developer" },
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     preserveDefaultBranchRevision(client.state);
     client.state.branches.main = "unrelated-main-sha";
     client.state.files.push({
@@ -643,7 +643,7 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({
@@ -656,12 +656,12 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -672,7 +672,7 @@ describe("GitHub Lite governed change client", () => {
       '"requester":"attacker"',
     );
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
@@ -686,7 +686,7 @@ describe("GitHub Lite governed change client", () => {
       status: "modified",
     });
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
@@ -697,19 +697,17 @@ describe("GitHub Lite governed change client", () => {
       currentUser: { login: "developer" },
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
     );
-    const requestEvidence = parseGovernedChangeRequestEvidence(
-      pullRequest.body,
-    );
+    const requestEvidence = parseChangeRequestEvidence(pullRequest.body);
     const unrelatedFileBytes = new TextEncoder().encode("unrelated\n");
 
     if (!requestEvidence || !pullRequest.headSha) {
@@ -740,10 +738,10 @@ describe("GitHub Lite governed change client", () => {
       artifacts: forgedArtifacts,
       targetRevisionDigest: await createTargetRevisionDigest(forgedArtifacts),
     };
-    pullRequest.body = buildGovernedChangeRequestBody(forgedEvidence);
+    pullRequest.body = buildChangeRequestBody(forgedEvidence);
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({
@@ -756,11 +754,11 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
-    const created = await governedChanges.createBatchChangeRequest({
+    const created = await changeRequests.createBatchChangeRequest({
       ...registrationDraft,
       execution: {
         ...registrationDraft.execution,
@@ -774,7 +772,7 @@ describe("GitHub Lite governed change client", () => {
       client,
       created.request.requestLocator,
     );
-    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+    const evidence = parseChangeRequestEvidence(pullRequest.body);
     const definitionFile = client.state.files.find(
       (file) =>
         file.branch === pullRequest.head &&
@@ -856,14 +854,14 @@ describe("GitHub Lite governed change client", () => {
         };
       }),
     );
-    pullRequest.body = buildGovernedChangeRequestBody({
+    pullRequest.body = buildChangeRequestBody({
       ...evidence,
       artifacts,
       targetRevisionDigest: await createTargetRevisionDigest(artifacts),
     });
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
@@ -873,17 +871,17 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
     );
-    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+    const evidence = parseChangeRequestEvidence(pullRequest.body);
     const workflow = client.state.files.find(
       (file) =>
         file.branch === pullRequest.head &&
@@ -902,14 +900,14 @@ describe("GitHub Lite governed change client", () => {
         ? { ...artifact, afterDigest: workflowDigest }
         : artifact,
     );
-    pullRequest.body = buildGovernedChangeRequestBody({
+    pullRequest.body = buildChangeRequestBody({
       ...evidence,
       artifacts,
       targetRevisionDigest: await createTargetRevisionDigest(artifacts),
     });
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
@@ -919,17 +917,17 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
     );
-    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+    const evidence = parseChangeRequestEvidence(pullRequest.body);
 
     if (!evidence) throw new Error("Expected governed evidence.");
 
@@ -951,14 +949,14 @@ describe("GitHub Lite governed change client", () => {
         ? { ...artifact, afterDigest: null }
         : artifact,
     );
-    pullRequest.body = buildGovernedChangeRequestBody({
+    pullRequest.body = buildChangeRequestBody({
       ...evidence,
       artifacts,
       targetRevisionDigest: await createTargetRevisionDigest(artifacts),
     });
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
@@ -968,12 +966,12 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -986,7 +984,7 @@ describe("GitHub Lite governed change client", () => {
     );
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
@@ -996,23 +994,23 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
     );
-    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+    const evidence = parseChangeRequestEvidence(pullRequest.body);
 
     if (!evidence || !pullRequest.headSha)
       throw new Error("Expected v2 evidence.");
 
-    const requestDigest = await createGovernedChangeRequestDigest(evidence);
-    const body = buildGovernedChangeDecisionBody({
+    const requestDigest = await createChangeRequestDigest(evidence);
+    const body = buildChangeRequestDecisionBody({
       authorizationRevisionSha: "main-sha",
       headRevisionSha: pullRequest.headSha,
       decision: "APPROVED",
@@ -1042,7 +1040,7 @@ describe("GitHub Lite governed change client", () => {
     );
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "OPEN" });
@@ -1053,27 +1051,27 @@ describe("GitHub Lite governed change client", () => {
       currentUser: { login: "developer" },
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
 
     await expect(
-      governedChanges.rejectGovernedChange({
+      changeRequests.rejectChangeRequest({
         reason: " ",
         requestLocator: created.request.requestLocator,
       }),
     ).rejects.toThrow("rejection reason");
 
     await expect(
-      governedChanges.withdrawGovernedChange({
+      changeRequests.withdrawChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "WITHDRAWN" });
 
-    const legacy = await governedChanges.getGovernedChange({
+    const legacy = await changeRequests.getChangeRequest({
       requestLocator: "12",
     });
     expect(legacy).toMatchObject({
@@ -1093,13 +1091,13 @@ describe("GitHub Lite governed change client", () => {
       sha: "mock-workspace-policy-sha",
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
 
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
 
     expect(created.request).toMatchObject({
       decision: { decision: "APPROVED", source: "WORKSPACE_POLICY" },
@@ -1116,18 +1114,18 @@ describe("GitHub Lite governed change client", () => {
     ["base revision", '"baseRevisionSha":"attacker-sha"'],
     ["head revision", '"headRevisionSha":"attacker-sha"'],
     ["batch", '"batchId":"attacker.batch"'],
-    ["governed change ID", '"governedChangeId":"bgc-attacker"'],
+    ["change request ID", '"governedChangeId":"bgc-attacker"'],
     ["type", '"type":"DELETE"'],
   ])("does not trust a tampered request %s", async (_field, replacement) => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -1139,7 +1137,7 @@ describe("GitHub Lite governed change client", () => {
     pullRequest.body = pullRequest.body.replace(original[0], replacement);
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({
@@ -1152,12 +1150,12 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -1171,7 +1169,7 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
@@ -1182,19 +1180,19 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     client.state.currentUser.login = "maintainer";
     client.state.repositoryPermissions.push({
       permission: "maintain",
       roleName: "maintain",
       username: "maintainer",
     });
-    await governedChanges.approveGovernedChange({
+    await changeRequests.approveChangeRequest({
       requestLocator: created.request.requestLocator,
     });
 
@@ -1206,7 +1204,7 @@ describe("GitHub Lite governed change client", () => {
     );
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "MERGED" });
@@ -1216,19 +1214,19 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     client.state.currentUser.login = "maintainer";
     client.state.repositoryPermissions.push({
       permission: "maintain",
       roleName: "maintain",
       username: "maintainer",
     });
-    await governedChanges.rejectGovernedChange({
+    await changeRequests.rejectChangeRequest({
       reason: "Not ready.",
       requestLocator: created.request.requestLocator,
     });
@@ -1247,7 +1245,7 @@ describe("GitHub Lite governed change client", () => {
     );
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "REJECTED" });
@@ -1257,12 +1255,12 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -1273,7 +1271,7 @@ describe("GitHub Lite governed change client", () => {
       '"governedChangeId":"bgc-attacker"',
     );
 
-    const detail = await governedChanges.getGovernedChange({
+    const detail = await changeRequests.getChangeRequest({
       requestLocator: created.request.requestLocator,
     });
 
@@ -1297,12 +1295,12 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     client.state.repositoryPermissions = client.state.repositoryPermissions.map(
       (permission) =>
         permission.username === "developer"
@@ -1312,7 +1310,7 @@ describe("GitHub Lite governed change client", () => {
     const initialCommentCount = client.state.issueComments.length;
 
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).rejects.toThrow("SELF_APPROVAL_BLOCKED");
@@ -1336,15 +1334,15 @@ describe("GitHub Lite governed change client", () => {
           : permission,
     );
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
 
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "MERGED" });
@@ -1355,13 +1353,13 @@ describe("GitHub Lite governed change client", () => {
       currentUser: { login: "developer" },
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const initialCommentCount = client.state.issueComments.length;
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     preserveDefaultBranchRevision(client.state);
     client.state.branches.main = "authorization-current-sha";
     replaceDefaultFile(
@@ -1377,7 +1375,7 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).rejects.toThrow("APPROVER_ROLE_REQUIRED");
@@ -1401,13 +1399,13 @@ describe("GitHub Lite governed change client", () => {
           : permission,
     );
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const initialCommentCount = client.state.issueComments.length;
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     preserveDefaultBranchRevision(client.state);
     client.state.branches.main = "tightened-policy-sha";
     replaceDefaultFile(
@@ -1417,7 +1415,7 @@ describe("GitHub Lite governed change client", () => {
     );
 
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).rejects.toThrow("SELF_APPROVAL_BLOCKED");
@@ -1436,12 +1434,12 @@ describe("GitHub Lite governed change client", () => {
         sha: "",
       }),
     };
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     preserveDefaultBranchRevision(client.state);
     client.state.branches.main = "decision-authorization-sha";
     client.state.currentUser.login = "maintainer";
@@ -1452,11 +1450,11 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "APPROVED_PENDING_MERGE" });
-    const decision = parseGovernedChangeDecisionEvidence(
+    const decision = parseChangeRequestDecisionEvidence(
       client.state.issueComments.at(-1)?.body ?? "",
     );
 
@@ -1472,7 +1470,7 @@ describe("GitHub Lite governed change client", () => {
     );
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "OPEN" });
@@ -1487,12 +1485,12 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "APPROVED_PENDING_MERGE" });
     expect(
-      parseGovernedChangeDecisionEvidence(
+      parseChangeRequestDecisionEvidence(
         client.state.issueComments.at(-1)?.body ?? "",
       )?.authorizationRevisionSha,
     ).toBe("reapproval-authorization-sha");
@@ -1520,13 +1518,13 @@ describe("GitHub Lite governed change client", () => {
       }),
       getFile,
     };
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
 
     await expect(
-      governedChanges.createBatchChangeRequest(registrationDraft),
+      changeRequests.createBatchChangeRequest(registrationDraft),
     ).rejects.toThrow("BASE_REVISION_CHANGED");
     const authorizationReads = getFile.mock.calls
       .map(([params]) => params)
@@ -1564,13 +1562,13 @@ describe("GitHub Lite governed change client", () => {
         sha: "",
       }),
     };
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const initialCommentCount = client.state.issueComments.length;
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     client.state.currentUser.login = "maintainer";
     client.state.repositoryPermissions.push({
       permission: "maintain",
@@ -1579,14 +1577,14 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({
       canApplyApprovedChange: true,
       reviewState: "APPROVED_PENDING_MERGE",
     });
-    await governedChanges.approveGovernedChange({
+    await changeRequests.approveChangeRequest({
       requestLocator: created.request.requestLocator,
     });
 
@@ -1611,12 +1609,12 @@ describe("GitHub Lite governed change client", () => {
         return { merged: false, message: "head changed", sha: "" };
       }),
     };
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     client.state.currentUser.login = "maintainer";
     client.state.repositoryPermissions.push({
       permission: "maintain",
@@ -1624,7 +1622,7 @@ describe("GitHub Lite governed change client", () => {
       username: "maintainer",
     });
     await expect(
-      governedChanges.approveGovernedChange({
+      changeRequests.approveChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({
@@ -1633,14 +1631,14 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ canReject: true, canWithdraw: false });
 
     client.state.currentUser.login = "developer";
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ canWithdraw: true });
@@ -1650,12 +1648,12 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -1672,7 +1670,7 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({
@@ -1682,7 +1680,7 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.rejectGovernedChange({
+      changeRequests.rejectChangeRequest({
         reason: "Evidence is invalid.",
         requestLocator: created.request.requestLocator,
       }),
@@ -1696,12 +1694,12 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -1712,7 +1710,7 @@ describe("GitHub Lite governed change client", () => {
     );
 
     await expect(
-      governedChanges.withdrawGovernedChange({
+      changeRequests.withdrawChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({
@@ -1729,12 +1727,12 @@ describe("GitHub Lite governed change client", () => {
       ...mock,
       closeIssue: vi.fn().mockResolvedValue(undefined),
     };
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     client.state.currentUser.login = "maintainer";
     client.state.repositoryPermissions.push({
       permission: "maintain",
@@ -1743,7 +1741,7 @@ describe("GitHub Lite governed change client", () => {
     });
 
     await expect(
-      governedChanges.rejectGovernedChange({
+      changeRequests.rejectChangeRequest({
         reason: "Needs a different command.",
         requestLocator: created.request.requestLocator,
       }),
@@ -1754,17 +1752,17 @@ describe("GitHub Lite governed change client", () => {
     ["closed", false],
     ["merged", true],
   ])(
-    "does not mutate a verified %s governed change when rejecting it",
+    "does not mutate a verified %s change request when rejecting it",
     async (_description, merged) => {
       const client = createMockGitHubLiteClient(
         createGitHubLiteMockState({ currentUser: { login: "developer" } }),
       );
-      const governedChanges = createGitHubLiteGovernedChangeClient(
+      const changeRequests = createGitHubLiteChangeRequestClient(
         session(),
         client,
       );
       const created =
-        await governedChanges.createBatchChangeRequest(registrationDraft);
+        await changeRequests.createBatchChangeRequest(registrationDraft);
       const pullRequest = findCreatedPullRequest(
         client,
         created.request.requestLocator,
@@ -1780,7 +1778,7 @@ describe("GitHub Lite governed change client", () => {
       const commentCount = client.state.issueComments.length;
 
       await expect(
-        governedChanges.rejectGovernedChange({
+        changeRequests.rejectChangeRequest({
           reason: "Too late to reject.",
           requestLocator: created.request.requestLocator,
         }),
@@ -1793,17 +1791,17 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
     const created =
-      await governedChanges.createBatchChangeRequest(registrationDraft);
+      await changeRequests.createBatchChangeRequest(registrationDraft);
     findCreatedPullRequest(client, created.request.requestLocator).state =
       "closed";
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ reviewState: "CLOSED" });
@@ -1813,13 +1811,13 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
 
     await expect(
-      governedChanges.previewBatchChange(
+      changeRequests.previewBatchChange(
         changeDraft({
           existingArtifact: {
             fileName: "runner.jar",
@@ -1834,7 +1832,7 @@ describe("GitHub Lite governed change client", () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
@@ -1845,7 +1843,7 @@ describe("GitHub Lite governed change client", () => {
         upload: { bytes: new Uint8Array(), fileName: "empty.bin" },
       },
     };
-    const created = await governedChanges.createBatchChangeRequest(draft);
+    const created = await changeRequests.createBatchChangeRequest(draft);
     const pullRequest = findCreatedPullRequest(
       client,
       created.request.requestLocator,
@@ -1899,11 +1897,11 @@ describe("GitHub Lite governed change client", () => {
       sha: "old-artifact-sha",
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
     );
-    const created = await governedChanges.createBatchChangeRequest(
+    const created = await changeRequests.createBatchChangeRequest(
       changeDraft({
         artifact: { bytes: new Uint8Array([1]), fileName: "replacement.jar" },
         batchId: "payment.daily-close",
@@ -1930,7 +1928,7 @@ describe("GitHub Lite governed change client", () => {
       });
 
     await expect(
-      governedChanges.getGovernedChange({
+      changeRequests.getChangeRequest({
         requestLocator: created.request.requestLocator,
       }),
     ).resolves.toMatchObject({ evidence: { kind: "VERIFIED_V2" } });
@@ -1960,7 +1958,7 @@ describe("governed artifact preparation", () => {
   );
 
   it("preserves an opaque existing artifact locator without an upload", () => {
-    const prepared = prepareGovernedChange(
+    const prepared = prepareChangeRequest(
       changeDraft({
         existingArtifact: {
           fileName: "runner.jar",
@@ -1978,7 +1976,7 @@ describe("governed artifact preparation", () => {
   });
 
   it("replaces a same-name artifact at its opaque existing locator", () => {
-    const prepared = prepareGovernedChange(
+    const prepared = prepareChangeRequest(
       changeDraft({
         artifact: { bytes: new Uint8Array([1, 2]), fileName: "runner.jar" },
         existingArtifact: {
@@ -1999,7 +1997,7 @@ describe("governed artifact preparation", () => {
   });
 
   it("removes the old artifact and adds the new artifact for a rename", () => {
-    const prepared = prepareGovernedChange(
+    const prepared = prepareChangeRequest(
       changeDraft({
         artifact: { bytes: new Uint8Array([1]), fileName: "replacement.jar" },
         existingArtifact: {
@@ -2021,7 +2019,7 @@ describe("governed artifact preparation", () => {
   });
 
   it("keeps a zero-byte replacement distinct from an absent artifact", () => {
-    const prepared = prepareGovernedChange(
+    const prepared = prepareChangeRequest(
       changeDraft({
         artifact: { bytes: new Uint8Array(), fileName: "runner.jar" },
         existingArtifact: {
@@ -2040,7 +2038,7 @@ describe("governed artifact preparation", () => {
   });
 
   it("deletes the exact opaque artifact locator with its batch", () => {
-    const prepared = prepareGovernedChange(
+    const prepared = prepareChangeRequest(
       {
         ...changeDraft({
           existingArtifact: {
@@ -2061,7 +2059,7 @@ describe("governed artifact preparation", () => {
   });
 
   it("orders prepared artifact files deterministically", () => {
-    const prepared = prepareGovernedChange(
+    const prepared = prepareChangeRequest(
       changeDraft({
         artifact: { bytes: new Uint8Array([1]), fileName: "replacement.jar" },
         existingArtifact: {
@@ -2093,7 +2091,7 @@ function findCreatedPullRequest(
     (candidate) => candidate.number === Number(requestLocator),
   );
 
-  if (!pullRequest) throw new Error("Expected governed change pull request.");
+  if (!pullRequest) throw new Error("Expected change request pull request.");
 
   return pullRequest;
 }

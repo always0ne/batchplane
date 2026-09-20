@@ -1,19 +1,19 @@
 import {
-  authorizeGovernedChangeApproval,
-  authorizeGovernedChangeRejection,
-  authorizeGovernedChangeCreation,
+  authorizeChangeRequestApproval,
+  authorizeChangeRequestRejection,
+  authorizeChangeRequestCreation,
   resolveAutoApproval,
   validateRejectionReason,
 } from "@batchplane/domain";
 import {
-  buildGovernedChangeDecisionBody,
-  createGovernedChangeRequestDigest,
-  buildGovernedChangeRequestBody,
-  buildGovernedChangeWithdrawalBody,
-  buildUnverifiedGovernedChangeDispositionBody,
-  parseGovernedChangeRequestEvidence,
-  type GovernedChangeRequestEvidence,
-} from "./governed-change-evidence.js";
+  buildChangeRequestDecisionBody,
+  createChangeRequestDigest,
+  buildChangeRequestBody,
+  buildChangeRequestWithdrawalBody,
+  buildUnverifiedChangeRequestDispositionBody,
+  parseChangeRequestEvidence,
+  type ChangeRequestEvidence,
+} from "./change-request-evidence.js";
 import type {
   GitHubLiteClient,
   GitHubPullRequest,
@@ -23,9 +23,9 @@ import type {
   BatchChangeDraft,
   BatchChangeBlocker,
   BatchPlaneClient,
-  CreateGovernedChangeResult,
-  GovernedChangeDetail,
-  GovernedChangeRequest,
+  CreateChangeRequestResult,
+  ChangeRequestDetail,
+  ChangeRequest,
 } from "@batchplane/ui-client";
 
 import {
@@ -34,10 +34,10 @@ import {
   parseBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
 import {
-  parseGovernanceYaml,
-  stringifyGovernanceYaml,
-  type GovernanceYamlValue,
-} from "./governance-yaml.js";
+  parseRepositoryYaml,
+  stringifyRepositoryYaml,
+  type RepositoryYamlValue,
+} from "./repository-yaml.js";
 import {
   assertPreparedChangeTargets,
   createPreparedChangeArtifactEvidence,
@@ -45,73 +45,73 @@ import {
   hasEffectivePreparedChange,
   loadExistingBatchDefinition,
   loadPreparedChangePreviewFiles,
-  prepareGovernedChange,
+  prepareChangeRequest,
   toBatchChangeDraft,
-  writePreparedGovernedChange,
-} from "./governed-change-preparation.js";
+  writePreparedChangeRequest,
+} from "./change-request-preparation.js";
 import {
-  hasGovernedChangeRole,
-  loadGovernedChangePolicy,
-  loadGovernedChangeRoles,
-} from "./governed-change-policy.js";
+  hasChangeRequestRole,
+  loadChangeRequestPolicy,
+  loadChangeRequestRoles,
+} from "./change-request-policy.js";
 import {
-  hasAuthoritativeGovernedChangeRequest,
-  hasChangedGovernedChangeBase,
-} from "./governed-change-verifier.js";
+  hasAuthoritativeChangeRequest,
+  hasChangedChangeRequestBase,
+} from "./change-request-verifier.js";
 import {
   loadLastApprovedBatchRevision,
   verifyApprovedBatchRevision,
 } from "./approved-batch-revision.js";
-import { loadGovernedChangeDetail } from "./governed-change-projection.js";
+import { loadChangeRequestDetail } from "./change-request-projection.js";
 
-export function createGovernedChangeOperations(
+export function createChangeRequestOperations(
   session: { owner: string; repo: string },
   client: GitHubLiteClient,
-): GovernedChangeOperations {
+): ChangeRequestOperations {
   const context = {
     client,
     repository: { owner: session.owner, repo: session.repo },
   };
 
   return {
-    approveGovernedChange: (input) => approveGovernedChange(context, input),
+    approveChangeRequest: (input) => approveChangeRequest(context, input),
     createBatchChangeRequest: (draft) =>
       createBatchChangeRequest(context, draft),
     getBatchChangeBlocker: (input) => getBatchChangeBlocker(context, input),
     getBatchRemediationCapability: (input) =>
       getBatchRemediationCapability(context, input),
-    getGovernedChange: (input) => getGovernedChange(context, input),
+    getChangeRequest: (input) => getChangeRequest(context, input),
     loadBatchChangeDraft: (input) => loadBatchChangeDraft(context, input),
     previewBatchChange: (draft) => previewBatchChange(context, draft),
     requestBatchRemediation: (input) => requestBatchRemediation(context, input),
-    rejectGovernedChange: (input) => rejectGovernedChange(context, input),
-    withdrawGovernedChange: (input) => withdrawGovernedChange(context, input),
+    rejectChangeRequest: (input) => rejectChangeRequest(context, input),
+    withdrawChangeRequest: (input) => withdrawChangeRequest(context, input),
   };
 }
 
-type GovernedChangeOperations = Required<
+type ChangeRequestOperations = Required<
   Pick<
     BatchPlaneClient,
-    | "approveGovernedChange"
+    | "approveChangeRequest"
     | "createBatchChangeRequest"
-    | "getGovernedChange"
+    | "getChangeRequest"
     | "getBatchChangeBlocker"
     | "getBatchRemediationCapability"
     | "loadBatchChangeDraft"
     | "previewBatchChange"
     | "requestBatchRemediation"
-    | "rejectGovernedChange"
-    | "withdrawGovernedChange"
+    | "rejectChangeRequest"
+    | "withdrawChangeRequest"
   >
 >;
 
-type GovernedChangeOperationsContext = {
+type ChangeRequestOperationsContext = {
   client: GitHubLiteClient;
   repository: RepoRef;
 };
 
 async function loadBatchChangeDraft(
-  { client, repository }: GovernedChangeOperationsContext,
+  { client, repository }: ChangeRequestOperationsContext,
   { batchId, mode }: Parameters<BatchPlaneClient["loadBatchChangeDraft"]>[0],
 ) {
   if (mode === "create") {
@@ -121,7 +121,7 @@ async function loadBatchChangeDraft(
       batch: { ...empty.batch, owner: user.login },
       defaultOwner: user.login,
       execution: empty.execution,
-      governedChangeId: createGovernedChangeId("new-batch"),
+      changeRequestId: createChangeRequestId("new-batch"),
       mode,
       schedules: [],
     };
@@ -143,7 +143,7 @@ async function loadBatchChangeDraft(
   return {
     batch: { ...draft.batch, owner },
     defaultOwner: fallbackOwner,
-    governedChangeId: createGovernedChangeId(batch.batchId),
+    changeRequestId: createChangeRequestId(batch.batchId),
     execution: draft.execution,
     mode,
     schedules: batch.schedules ?? [],
@@ -166,7 +166,7 @@ async function loadExistingBatchDraftDefinition(
       path: getBatchDefinitionPath(batchId),
       ref: repo.defaultBranch,
     });
-    const parsed = file ? parseGovernanceYaml(file.content) : undefined;
+    const parsed = file ? parseRepositoryYaml(file.content) : undefined;
     const document = parsed?.ok ? parsed.value : undefined;
     const spec = isYamlRecord(document) ? document.spec : undefined;
 
@@ -180,7 +180,7 @@ async function loadExistingBatchDraftDefinition(
     }
 
     return parseBatchDefinitionYaml(
-      stringifyGovernanceYaml({
+      stringifyRepositoryYaml({
         ...document,
         spec: { ...spec, owner: fallbackOwner },
       }),
@@ -190,12 +190,12 @@ async function loadExistingBatchDraftDefinition(
 
 function isYamlRecord(
   value: unknown,
-): value is Record<string, GovernanceYamlValue | undefined> {
+): value is Record<string, RepositoryYamlValue | undefined> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 async function getBatchChangeBlocker(
-  { client, repository }: GovernedChangeOperationsContext,
+  { client, repository }: ChangeRequestOperationsContext,
   { batchId }: Parameters<BatchPlaneClient["getBatchChangeBlocker"]>[0],
 ) {
   return findPendingBatchControl(
@@ -206,7 +206,7 @@ async function getBatchChangeBlocker(
 }
 
 async function getBatchRemediationCapability(
-  context: GovernedChangeOperationsContext,
+  context: ChangeRequestOperationsContext,
   { batchId }: Parameters<BatchPlaneClient["getBatchRemediationCapability"]>[0],
 ) {
   assertCanonicalBatchId(batchId);
@@ -225,7 +225,7 @@ async function getBatchRemediationCapability(
     ) {
       return { availableKinds: [], canRequest: false };
     }
-    await loadGovernedChangeCreation(context);
+    await loadChangeRequestCreation(context);
     const historical = await loadLastApprovedBatchRevision({
       batchId,
       client: context.client,
@@ -246,7 +246,7 @@ async function getBatchRemediationCapability(
 }
 
 async function previewBatchChange(
-  { client, repository }: GovernedChangeOperationsContext,
+  { client, repository }: ChangeRequestOperationsContext,
   draft: BatchChangeDraft,
 ) {
   const normalizedDraft = normalizeDraftOwner(
@@ -254,10 +254,10 @@ async function previewBatchChange(
     (await client.getCurrentUser()).login,
   );
   assertChangeBatchIdentity(normalizedDraft);
-  const prepared = prepareGovernedChange(
+  const prepared = prepareChangeRequest(
     normalizedDraft,
-    normalizedDraft.governedChangeId ??
-      createGovernedChangeId(normalizedDraft.batch.batchId),
+    normalizedDraft.changeRequestId ??
+      createChangeRequestId(normalizedDraft.batch.batchId),
   );
   const defaultBranch = (await client.getRepository(repository)).defaultBranch;
   const files = await loadPreparedChangePreviewFiles(
@@ -280,9 +280,9 @@ async function previewBatchChange(
 }
 
 async function createBatchChangeRequest(
-  context: GovernedChangeOperationsContext,
+  context: ChangeRequestOperationsContext,
   draft: BatchChangeDraft,
-): Promise<CreateGovernedChangeResult> {
+): Promise<CreateChangeRequestResult> {
   assertChangeBatchIdentity(draft);
   await rejectPendingBatchControl(
     context.client,
@@ -290,21 +290,21 @@ async function createBatchChangeRequest(
     assertCanonicalBatchId(draft.batch.batchId),
   );
 
-  const creation = await loadGovernedChangeCreation(context);
+  const creation = await loadChangeRequestCreation(context);
   const normalizedDraft = normalizeDraftOwner(draft, creation.actor.login);
-  const preparedChange = await prepareNewGovernedChange(
+  const preparedChange = await prepareNewChangeRequest(
     context,
     normalizedDraft,
     creation.baseRevisionSha,
   );
-  const pullRequest = await openGovernedChangePullRequest(
+  const pullRequest = await openChangeRequestPullRequest(
     context,
     normalizedDraft,
     creation,
     preparedChange,
   );
 
-  return finishCreatedGovernedChange(context, creation, pullRequest);
+  return finishCreatedChangeRequest(context, creation, pullRequest);
 }
 
 function normalizeDraftOwner(
@@ -320,9 +320,9 @@ function normalizeDraftOwner(
 }
 
 async function requestBatchRemediation(
-  context: GovernedChangeOperationsContext,
+  context: ChangeRequestOperationsContext,
   input: Parameters<BatchPlaneClient["requestBatchRemediation"]>[0],
-): Promise<CreateGovernedChangeResult> {
+): Promise<CreateChangeRequestResult> {
   assertCanonicalBatchId(input.batchId);
   const control = await verifyApprovedBatchRevision({
     batchId: input.batchId,
@@ -382,7 +382,7 @@ async function requestBatchRemediation(
         ? { removeExistingArtifact: true }
         : {}),
     },
-    governedChangeId: createGovernedChangeId(input.batchId),
+    changeRequestId: createChangeRequestId(input.batchId),
     mode: current ? "change" : "create",
     remediation: "RESTORE_LAST_APPROVED",
     schedules: historical.batch.schedules ?? [],
@@ -390,19 +390,19 @@ async function requestBatchRemediation(
   });
 }
 
-async function getGovernedChange(
-  { client, repository }: GovernedChangeOperationsContext,
-  { requestLocator }: Parameters<BatchPlaneClient["getGovernedChange"]>[0],
+async function getChangeRequest(
+  { client, repository }: ChangeRequestOperationsContext,
+  { requestLocator }: Parameters<BatchPlaneClient["getChangeRequest"]>[0],
 ) {
   const pullRequest = await loadPullRequest(client, repository, requestLocator);
   return pullRequest
-    ? loadGovernedChangeDetail(client, repository, pullRequest)
+    ? loadChangeRequestDetail(client, repository, pullRequest)
     : null;
 }
 
-async function approveGovernedChange(
-  { client, repository }: GovernedChangeOperationsContext,
-  { requestLocator }: Parameters<BatchPlaneClient["approveGovernedChange"]>[0],
+async function approveChangeRequest(
+  { client, repository }: ChangeRequestOperationsContext,
+  { requestLocator }: Parameters<BatchPlaneClient["approveChangeRequest"]>[0],
 ) {
   const pullRequest = await requirePullRequest(
     client,
@@ -432,12 +432,12 @@ async function approveGovernedChange(
   });
 }
 
-async function rejectGovernedChange(
-  { client, repository }: GovernedChangeOperationsContext,
+async function rejectChangeRequest(
+  { client, repository }: ChangeRequestOperationsContext,
   {
     reason,
     requestLocator,
-  }: Parameters<BatchPlaneClient["rejectGovernedChange"]>[0],
+  }: Parameters<BatchPlaneClient["rejectChangeRequest"]>[0],
 ) {
   if (!validateRejectionReason(reason)) {
     throw new Error("A rejection reason is required.");
@@ -452,8 +452,8 @@ async function rejectGovernedChange(
     client,
     repository,
   );
-  const requestEvidence = parseGovernedChangeRequestEvidence(pullRequest.body);
-  const requestIsVerified = await hasAuthoritativeGovernedChangeRequest(
+  const requestEvidence = parseChangeRequestEvidence(pullRequest.body);
+  const requestIsVerified = await hasAuthoritativeChangeRequest(
     client,
     repository,
     pullRequest,
@@ -461,7 +461,7 @@ async function rejectGovernedChange(
   );
 
   if (!requestIsVerified || !requestEvidence) {
-    return rejectUnverifiedGovernedChange({
+    return rejectUnverifiedChangeRequest({
       client,
       pullRequest,
       reason,
@@ -470,7 +470,7 @@ async function rejectGovernedChange(
     });
   }
 
-  return rejectVerifiedGovernedChange({
+  return rejectVerifiedChangeRequest({
     authorizationRevisionSha,
     client,
     pullRequest,
@@ -481,9 +481,9 @@ async function rejectGovernedChange(
   });
 }
 
-async function withdrawGovernedChange(
-  { client, repository }: GovernedChangeOperationsContext,
-  { requestLocator }: Parameters<BatchPlaneClient["withdrawGovernedChange"]>[0],
+async function withdrawChangeRequest(
+  { client, repository }: ChangeRequestOperationsContext,
+  { requestLocator }: Parameters<BatchPlaneClient["withdrawChangeRequest"]>[0],
 ) {
   const pullRequest = await requirePullRequest(
     client,
@@ -491,13 +491,13 @@ async function withdrawGovernedChange(
     requestLocator,
   );
   const actor = await client.getCurrentUser();
-  const requestEvidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+  const requestEvidence = parseChangeRequestEvidence(pullRequest.body);
 
   if (pullRequest.author !== actor.login || pullRequest.state !== "open") {
-    throw new Error("Only the requester can withdraw an open governed change.");
+    throw new Error("Only the requester can withdraw an open change request.");
   }
 
-  const requestIsVerified = await hasAuthoritativeGovernedChangeRequest(
+  const requestIsVerified = await hasAuthoritativeChangeRequest(
     client,
     repository,
     pullRequest,
@@ -510,29 +510,29 @@ async function withdrawGovernedChange(
       pullRequest,
       repository,
     });
-    return loadRefreshedGovernedChange(client, repository, requestLocator);
+    return loadRefreshedChangeRequest(client, repository, requestLocator);
   }
 
   await client.createIssueComment({
     ...repository,
-    body: buildGovernedChangeWithdrawalBody({
+    body: buildChangeRequestWithdrawalBody({
       decision: "WITHDRAWN",
       governedChangeId: requestEvidence.governedChangeId,
       headRevisionSha: requireHeadSha(pullRequest),
-      requestDigest: await createGovernedChangeRequestDigest(requestEvidence),
+      requestDigest: await createChangeRequestDigest(requestEvidence),
       targetRevisionDigest: requestEvidence.targetRevisionDigest,
       version: "batchplane.io/governed-change/v2",
     }),
     issueNumber: pullRequest.number,
   });
   await client.closeIssue({ ...repository, issueNumber: pullRequest.number });
-  return loadRefreshedGovernedChange(client, repository, requestLocator);
+  return loadRefreshedChangeRequest(client, repository, requestLocator);
 }
 
-async function loadGovernedChangeCreation({
+async function loadChangeRequestCreation({
   client,
   repository,
-}: GovernedChangeOperationsContext) {
+}: ChangeRequestOperationsContext) {
   const [actor, workspace] = await Promise.all([
     client.getCurrentUser(),
     client.getRepository(repository),
@@ -546,13 +546,13 @@ async function loadGovernedChangeCreation({
     repository,
     baseRevisionSha,
   );
-  const actorHasRequesterRole = await hasGovernedChangeRole(
+  const actorHasRequesterRole = await hasChangeRequestRole(
     client,
     repository,
     actor.login,
     roleMapping.roles.requester,
   );
-  const creation = authorizeGovernedChangeCreation({ actorHasRequesterRole });
+  const creation = authorizeChangeRequestCreation({ actorHasRequesterRole });
 
   if (!creation.allowed) {
     throw new Error("Workspace requester role is required to create a change.");
@@ -567,14 +567,14 @@ async function loadGovernedChangeCreation({
   };
 }
 
-async function prepareNewGovernedChange(
-  { client, repository }: GovernedChangeOperationsContext,
+async function prepareNewChangeRequest(
+  { client, repository }: ChangeRequestOperationsContext,
   draft: BatchChangeDraft,
   baseRevisionSha: string,
 ) {
-  const governedChangeId =
-    draft.governedChangeId ?? createGovernedChangeId(draft.batch.batchId);
-  const prepared = prepareGovernedChange(draft, governedChangeId);
+  const changeRequestId =
+    draft.changeRequestId ?? createChangeRequestId(draft.batch.batchId);
+  const prepared = prepareChangeRequest(draft, changeRequestId);
   const previewFiles = await loadPreparedChangePreviewFiles(
     client,
     repository,
@@ -583,12 +583,12 @@ async function prepareNewGovernedChange(
   );
 
   if (!hasEffectivePreparedChange(previewFiles) && !draft.remediation) {
-    throw new Error("The proposed governed change does not modify any file.");
+    throw new Error("The proposed change request does not modify any file.");
   }
 
   assertPreparedChangeTargets(prepared.type, previewFiles);
   return {
-    governedChangeId,
+    changeRequestId,
     prepared,
     targetRevisionDigest: await createPreparedChangeTargetDigest({
       client,
@@ -599,21 +599,21 @@ async function prepareNewGovernedChange(
   };
 }
 
-async function openGovernedChangePullRequest(
-  { client, repository }: GovernedChangeOperationsContext,
+async function openChangeRequestPullRequest(
+  { client, repository }: ChangeRequestOperationsContext,
   draft: BatchChangeDraft,
-  creation: Awaited<ReturnType<typeof loadGovernedChangeCreation>>,
-  preparedChange: Awaited<ReturnType<typeof prepareNewGovernedChange>>,
+  creation: Awaited<ReturnType<typeof loadChangeRequestCreation>>,
+  preparedChange: Awaited<ReturnType<typeof prepareNewChangeRequest>>,
 ) {
   const { baseRevisionSha, defaultBranch } = creation;
-  const { governedChangeId, prepared, targetRevisionDigest } = preparedChange;
-  const branch = createGovernedChangeBranchName(
+  const { changeRequestId, prepared, targetRevisionDigest } = preparedChange;
+  const branch = createChangeRequestBranchName(
     prepared.batch.batchId,
     draft.mode,
-    governedChangeId,
+    changeRequestId,
   );
 
-  await writePreparedGovernedChange({
+  await writePreparedChangeRequest({
     branch,
     baseSha: baseRevisionSha,
     client,
@@ -624,7 +624,7 @@ async function openGovernedChangePullRequest(
   const createdPullRequest = await client.createPullRequest({
     ...repository,
     base: defaultBranch,
-    body: "BatchPlane governed change evidence is being prepared.",
+    body: "BatchPlane change request evidence is being prepared.",
     head: branch,
     title: prepared.title,
   });
@@ -635,7 +635,7 @@ async function openGovernedChangePullRequest(
     repository,
   });
 
-  const requestEvidence: GovernedChangeRequestEvidence = {
+  const requestEvidence: ChangeRequestEvidence = {
     artifacts: await createPreparedChangeArtifactEvidence({
       client,
       prepared,
@@ -644,7 +644,7 @@ async function openGovernedChangePullRequest(
     }),
     baseRevisionSha,
     batchId: prepared.batch.batchId,
-    governedChangeId,
+    governedChangeId: changeRequestId,
     headRevisionSha: requireHeadSha(createdPullRequest),
     repository: `${repository.owner}/${repository.repo}`,
     requester: creation.actor.login,
@@ -658,17 +658,17 @@ async function openGovernedChangePullRequest(
 
   return client.updatePullRequest({
     ...repository,
-    body: buildGovernedChangeRequestBody(requestEvidence),
+    body: buildChangeRequestBody(requestEvidence),
     pullNumber: createdPullRequest.number,
   });
 }
 
-async function finishCreatedGovernedChange(
-  { client, repository }: GovernedChangeOperationsContext,
-  creation: Awaited<ReturnType<typeof loadGovernedChangeCreation>>,
+async function finishCreatedChangeRequest(
+  { client, repository }: ChangeRequestOperationsContext,
+  creation: Awaited<ReturnType<typeof loadChangeRequestCreation>>,
   pullRequest: GitHubPullRequest,
-): Promise<CreateGovernedChangeResult> {
-  const request = await loadGovernedChangeDetail(
+): Promise<CreateChangeRequestResult> {
+  const request = await loadChangeRequestDetail(
     client,
     repository,
     pullRequest,
@@ -701,13 +701,13 @@ async function requireCurrentRejectionAuthorization(
   const actor = await client.getCurrentUser();
   const { authorizationRevisionSha, roleMapping } =
     await loadCurrentWorkspaceAuthorization(client, repository);
-  const actorHasApproverRole = await hasGovernedChangeRole(
+  const actorHasApproverRole = await hasChangeRequestRole(
     client,
     repository,
     actor.login,
     roleMapping.roles.approver,
   );
-  const authorization = authorizeGovernedChangeRejection({
+  const authorization = authorizeChangeRequestRejection({
     actorHasApproverRole,
   });
 
@@ -716,7 +716,7 @@ async function requireCurrentRejectionAuthorization(
   return authorizationRevisionSha;
 }
 
-async function rejectUnverifiedGovernedChange({
+async function rejectUnverifiedChangeRequest({
   client,
   pullRequest,
   reason,
@@ -728,9 +728,9 @@ async function rejectUnverifiedGovernedChange({
   reason: string;
   repository: RepoRef;
   requestLocator: string;
-}): Promise<GovernedChangeDetail> {
+}): Promise<ChangeRequestDetail> {
   if (pullRequest.state !== "open") {
-    throw new Error("The governed change is no longer awaiting a decision.");
+    throw new Error("The change request is no longer awaiting a decision.");
   }
 
   await closeUnverifiedChange({
@@ -740,10 +740,10 @@ async function rejectUnverifiedGovernedChange({
     pullRequest,
     repository,
   });
-  return loadRefreshedGovernedChange(client, repository, requestLocator);
+  return loadRefreshedChangeRequest(client, repository, requestLocator);
 }
 
-async function rejectVerifiedGovernedChange({
+async function rejectVerifiedChangeRequest({
   authorizationRevisionSha,
   client,
   pullRequest,
@@ -757,38 +757,38 @@ async function rejectVerifiedGovernedChange({
   pullRequest: GitHubPullRequest;
   reason: string;
   repository: RepoRef;
-  requestEvidence: GovernedChangeRequestEvidence;
+  requestEvidence: ChangeRequestEvidence;
   requestLocator: string;
-}): Promise<GovernedChangeDetail> {
+}): Promise<ChangeRequestDetail> {
   if (pullRequest.state !== "open") {
-    throw new Error("The governed change is no longer awaiting a decision.");
+    throw new Error("The change request is no longer awaiting a decision.");
   }
 
   await client.createIssueComment({
     ...repository,
-    body: buildGovernedChangeDecisionBody({
+    body: buildChangeRequestDecisionBody({
       authorizationRevisionSha,
       decision: "REJECTED",
       decisionSource: "USER",
       governedChangeId: requestEvidence.governedChangeId,
       headRevisionSha: pullRequest.headSha ?? "",
       rejectionReason: reason.trim(),
-      requestDigest: await createGovernedChangeRequestDigest(requestEvidence),
+      requestDigest: await createChangeRequestDigest(requestEvidence),
       targetRevisionDigest: requestEvidence.targetRevisionDigest,
       version: "batchplane.io/governed-change/v2",
     }),
     issueNumber: pullRequest.number,
   });
   await client.closeIssue({ ...repository, issueNumber: pullRequest.number });
-  return loadRefreshedGovernedChange(client, repository, requestLocator);
+  return loadRefreshedChangeRequest(client, repository, requestLocator);
 }
 
-async function loadRefreshedGovernedChange(
+async function loadRefreshedChangeRequest(
   client: GitHubLiteClient,
   repository: RepoRef,
   requestLocator: string,
-): Promise<GovernedChangeDetail> {
-  return loadGovernedChangeDetail(
+): Promise<ChangeRequestDetail> {
+  return loadChangeRequestDetail(
     client,
     repository,
     await requirePullRequest(client, repository, requestLocator),
@@ -815,7 +815,7 @@ async function requirePullRequest(
   const pullRequest = await loadPullRequest(client, repository, requestLocator);
 
   if (!pullRequest) {
-    throw new Error("The governed change could not be found.");
+    throw new Error("The change request could not be found.");
   }
 
   return pullRequest;
@@ -827,8 +827,8 @@ async function loadWorkspaceAuthorizationAtRevision(
   authorizationRevisionSha: string,
 ) {
   const [policy, roleMapping] = await Promise.all([
-    loadGovernedChangePolicy(client, repository, authorizationRevisionSha),
-    loadGovernedChangeRoles(client, repository, authorizationRevisionSha),
+    loadChangeRequestPolicy(client, repository, authorizationRevisionSha),
+    loadChangeRequestRoles(client, repository, authorizationRevisionSha),
   ]);
 
   return { authorizationRevisionSha, policy, roleMapping };
@@ -851,7 +851,7 @@ async function loadCurrentWorkspaceAuthorization(
   );
 }
 
-function createGovernedChangeId(batchId: string): string {
+function createChangeRequestId(batchId: string): string {
   const canonicalBatchId = assertCanonicalBatchId(batchId);
   const timestamp = new Date()
     .toISOString()
@@ -869,7 +869,7 @@ function assertChangeBatchIdentity(draft: BatchChangeDraft): void {
   if (draft.mode === "create") return;
 
   if (!draft.targetBatchId || draft.batch.batchId !== draft.targetBatchId) {
-    throw new Error("Batch ID cannot change in a governed change request.");
+    throw new Error("Batch ID cannot change in a change request.");
   }
 }
 
@@ -896,17 +896,17 @@ function createEmptyBatchDraft(): Pick<
   };
 }
 
-function createGovernedChangeBranchName(
+function createChangeRequestBranchName(
   batchId: string,
   mode: BatchChangeDraft["mode"],
-  governedChangeId: string,
+  changeRequestId: string,
 ): string {
   const timestamp = new Date()
     .toISOString()
     .replace(/[-:.TZ]/g, "")
     .slice(0, 14);
   const batchSlug = assertCanonicalBatchId(batchId).toLowerCase();
-  const changeSlug = toSafeBranchSegment(governedChangeId);
+  const changeSlug = toSafeBranchSegment(changeRequestId);
   const verb = mode === "create" ? "register" : mode;
 
   return `batchplane/${verb}/${batchSlug.slice(0, 48)}-${timestamp}-${changeSlug}`;
@@ -924,7 +924,7 @@ function toSafeBranchSegment(value: string): string {
 
 function requirePullRequestCreatedAt(pullRequest: GitHubPullRequest): string {
   if (!pullRequest.createdAt) {
-    throw new Error("GitHub did not return the governed change creation time.");
+    throw new Error("GitHub did not return the change request creation time.");
   }
 
   return pullRequest.createdAt;
@@ -932,7 +932,7 @@ function requirePullRequestCreatedAt(pullRequest: GitHubPullRequest): string {
 
 function requireBaseSha(pullRequest: GitHubPullRequest): string {
   if (!pullRequest.baseSha) {
-    throw new Error("GitHub did not return the governed change base SHA.");
+    throw new Error("GitHub did not return the change request base SHA.");
   }
 
   return pullRequest.baseSha;
@@ -940,7 +940,7 @@ function requireBaseSha(pullRequest: GitHubPullRequest): string {
 
 function requireHeadSha(pullRequest: GitHubPullRequest): string {
   if (!pullRequest.headSha) {
-    throw new Error("GitHub did not return the governed change head SHA.");
+    throw new Error("GitHub did not return the change request head SHA.");
   }
 
   return pullRequest.headSha;
@@ -950,12 +950,8 @@ async function requireApprovableChange(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
-): Promise<GovernedChangeDetail> {
-  const detail = await loadGovernedChangeDetail(
-    client,
-    repository,
-    pullRequest,
-  );
+): Promise<ChangeRequestDetail> {
+  const detail = await loadChangeRequestDetail(client, repository, pullRequest);
 
   if (!pullRequest.headSha || detail.reviewState === "LEGACY_UNAPPROVABLE") {
     return { ...detail, reviewState: "REAPPROVAL_REQUIRED" };
@@ -967,15 +963,15 @@ async function requireApprovableChange(
     detail.reviewState !== "OPEN" &&
     detail.reviewState !== "APPROVED_PENDING_MERGE"
   ) {
-    throw new Error("The governed change is no longer awaiting approval.");
+    throw new Error("The change request is no longer awaiting approval.");
   }
 
   if (
-    !(await hasAuthoritativeGovernedChangeRequest(
+    !(await hasAuthoritativeChangeRequest(
       client,
       repository,
       pullRequest,
-      parseGovernedChangeRequestEvidence(pullRequest.body),
+      parseChangeRequestEvidence(pullRequest.body),
     ))
   ) {
     return { ...detail, reviewState: "REAPPROVAL_REQUIRED" };
@@ -999,7 +995,7 @@ async function closeUnverifiedChange({
 }): Promise<void> {
   await client.createIssueComment({
     ...repository,
-    body: buildUnverifiedGovernedChangeDispositionBody({
+    body: buildUnverifiedChangeRequestDispositionBody({
       decision,
       ...(reason ? { reason } : {}),
       requestLocator: String(pullRequest.number),
@@ -1047,22 +1043,21 @@ async function approveAndMerge({
 }: {
   authorizationRevisionSha: string;
   client: GitHubLiteClient;
-  detail: GovernedChangeDetail;
+  detail: ChangeRequestDetail;
   decisionSource: "USER" | "WORKSPACE_POLICY";
   pullRequest: GitHubPullRequest;
   repository: RepoRef;
-}): Promise<GovernedChangeDetail> {
-  const requestEvidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+}): Promise<ChangeRequestDetail> {
+  const requestEvidence = parseChangeRequestEvidence(pullRequest.body);
 
   if (!requestEvidence || !pullRequest.headSha) {
     return { ...detail, reviewState: "REAPPROVAL_REQUIRED" };
   }
 
-  const requestDigest =
-    await createGovernedChangeRequestDigest(requestEvidence);
+  const requestDigest = await createChangeRequestDigest(requestEvidence);
   await client.createIssueComment({
     ...repository,
-    body: buildGovernedChangeDecisionBody({
+    body: buildChangeRequestDecisionBody({
       authorizationRevisionSha,
       headRevisionSha: pullRequest.headSha,
       decision: "APPROVED",
@@ -1080,7 +1075,7 @@ async function approveAndMerge({
     repository,
     String(pullRequest.number),
   );
-  const refreshedDetail = await loadGovernedChangeDetail(
+  const refreshedDetail = await loadChangeRequestDetail(
     client,
     repository,
     refreshedPullRequest,
@@ -1103,21 +1098,21 @@ async function mergeApprovedChange({
   repository,
 }: {
   client: GitHubLiteClient;
-  detail: GovernedChangeDetail;
+  detail: ChangeRequestDetail;
   pullRequest: GitHubPullRequest;
   repository: RepoRef;
-}): Promise<GovernedChangeDetail> {
+}): Promise<ChangeRequestDetail> {
   if (detail.reviewState !== "APPROVED_PENDING_MERGE") {
     return detail;
   }
 
-  const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+  const evidence = parseChangeRequestEvidence(pullRequest.body);
   if (
     !evidence ||
     !pullRequest.headSha ||
-    (await hasChangedGovernedChangeBase(client, repository, evidence))
+    (await hasChangedChangeRequestBase(client, repository, evidence))
   ) {
-    return loadGovernedChangeDetail(client, repository, pullRequest);
+    return loadChangeRequestDetail(client, repository, pullRequest);
   }
 
   // This check and the GitHub merge are not atomic; GitHub may advance base afterward.
@@ -1138,7 +1133,7 @@ async function mergeApprovedChange({
     return resolveUnmergedChangeState(client, repository, refreshed);
   }
 
-  return loadGovernedChangeDetail(client, repository, refreshed);
+  return loadChangeRequestDetail(client, repository, refreshed);
 }
 
 async function requireCurrentApprovalAuthorization({
@@ -1150,10 +1145,10 @@ async function requireCurrentApprovalAuthorization({
   pullRequest: GitHubPullRequest;
   repository: RepoRef;
 }): Promise<{ authorizationRevisionSha: string }> {
-  const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+  const evidence = parseChangeRequestEvidence(pullRequest.body);
 
   if (!evidence) {
-    throw new Error("The governed change request evidence is unavailable.");
+    throw new Error("The change request evidence is unavailable.");
   }
 
   const [actor, authorization] = await Promise.all([
@@ -1161,20 +1156,20 @@ async function requireCurrentApprovalAuthorization({
     loadCurrentWorkspaceAuthorization(client, repository),
   ]);
   const [actorHasApproverRole, actorHasRequesterRole] = await Promise.all([
-    hasGovernedChangeRole(
+    hasChangeRequestRole(
       client,
       repository,
       actor.login,
       authorization.roleMapping.roles.approver,
     ),
-    hasGovernedChangeRole(
+    hasChangeRequestRole(
       client,
       repository,
       actor.login,
       authorization.roleMapping.roles.requester,
     ),
   ]);
-  const decision = authorizeGovernedChangeApproval({
+  const decision = authorizeChangeRequestApproval({
     actorHasApproverRole,
     actorHasRequesterRole,
     actorIsRequester: actor.login === evidence.requester,
@@ -1195,7 +1190,7 @@ async function rejectPendingBatchControl(
 
   if (blocker) {
     throw new Error(
-      `A pending ${blocker.kind === "GOVERNED_CHANGE" ? "governed change" : "execution request"} already controls this batch: ${blocker.requestLocator}.`,
+      `A pending ${blocker.kind === "CHANGE_REQUEST" ? "change request" : "execution request"} already controls this batch: ${blocker.requestLocator}.`,
     );
   }
 }
@@ -1211,10 +1206,10 @@ async function findPendingBatchControl(
   ]);
 
   for (const pullRequest of pullRequests) {
-    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+    const evidence = parseChangeRequestEvidence(pullRequest.body);
     if (!evidence || evidence.batchId !== batchId) continue;
 
-    const detail = await loadGovernedChangeDetail(
+    const detail = await loadChangeRequestDetail(
       client,
       repository,
       pullRequest,
@@ -1224,7 +1219,7 @@ async function findPendingBatchControl(
       detail.reviewState === "APPROVED_PENDING_MERGE"
     ) {
       return {
-        kind: "GOVERNED_CHANGE",
+        kind: "CHANGE_REQUEST",
         requestLocator: String(pullRequest.number),
         title: pullRequest.title,
       };
@@ -1265,8 +1260,8 @@ async function resolveUnmergedChangeState(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
-): Promise<GovernedChangeDetail> {
-  return loadGovernedChangeDetail(client, repository, pullRequest);
+): Promise<ChangeRequestDetail> {
+  return loadChangeRequestDetail(client, repository, pullRequest);
 }
 
 async function applyWorkspaceAutoApproval({
@@ -1277,7 +1272,7 @@ async function applyWorkspaceAutoApproval({
   client: GitHubLiteClient;
   pullRequest: GitHubPullRequest;
   repository: RepoRef;
-}): Promise<GovernedChangeRequest> {
+}): Promise<ChangeRequest> {
   const refreshedPullRequest = await requirePullRequest(
     client,
     repository,
@@ -1288,15 +1283,13 @@ async function applyWorkspaceAutoApproval({
     repository,
     refreshedPullRequest,
   );
-  const evidence = parseGovernedChangeRequestEvidence(
-    refreshedPullRequest.body,
-  );
+  const evidence = parseChangeRequestEvidence(refreshedPullRequest.body);
 
   const actor = await client.getCurrentUser();
   const { authorizationRevisionSha, policy, roleMapping } =
     await loadCurrentWorkspaceAuthorization(client, repository);
   const actorHasRequesterRole = evidence
-    ? await hasGovernedChangeRole(
+    ? await hasChangeRequestRole(
         client,
         repository,
         actor.login,
@@ -1327,5 +1320,5 @@ async function applyWorkspaceAutoApproval({
     String(pullRequest.number),
   );
 
-  return loadGovernedChangeDetail(client, repository, projectedPullRequest);
+  return loadChangeRequestDetail(client, repository, projectedPullRequest);
 }

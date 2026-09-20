@@ -45,7 +45,7 @@ describe("BatchListPage", () => {
 
     expect(
       await screen.findByText(
-        "Connect a Workspace before viewing governed batches.",
+        "Connect a Workspace before viewing controlled batches.",
       ),
     ).toBeInTheDocument();
     expect(

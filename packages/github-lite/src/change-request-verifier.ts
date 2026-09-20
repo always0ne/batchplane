@@ -10,13 +10,13 @@ import {
 import { buildBatchWorkflowYaml } from "./github-workflow.js";
 import {
   createTargetRevisionDigest,
-  type GovernedChangeArtifact,
-  type GovernedChangeRequestEvidence,
-} from "./governed-change-evidence.js";
+  type ChangeRequestArtifact,
+  type ChangeRequestEvidence,
+} from "./change-request-evidence.js";
 import {
-  hasGovernedChangeRole,
-  loadGovernedChangeRoles,
-} from "./governed-change-policy.js";
+  hasChangeRequestRole,
+  loadChangeRequestRoles,
+} from "./change-request-policy.js";
 import type {
   GitHubFile,
   GitHubLiteClient,
@@ -24,11 +24,11 @@ import type {
   RepoRef,
 } from "./github-types.js";
 
-export async function hasAuthoritativeGovernedChangeRequest(
+export async function hasAuthoritativeChangeRequest(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
-  evidence: GovernedChangeRequestEvidence | null,
+  evidence: ChangeRequestEvidence | null,
   options: { propagateRequesterRoleReadFailure?: boolean } = {},
 ): Promise<boolean> {
   const workspace = await client.getRepository(repository);
@@ -50,12 +50,12 @@ export async function hasAuthoritativeGovernedChangeRequest(
   }
 
   try {
-    const roleMapping = await loadGovernedChangeRoles(
+    const roleMapping = await loadChangeRequestRoles(
       client,
       repository,
       request.baseRevisionSha,
     );
-    const authorHasRequesterRole = await hasGovernedChangeRole(
+    const authorHasRequesterRole = await hasChangeRequestRole(
       client,
       repository,
       pullRequest.author,
@@ -94,10 +94,10 @@ export async function hasAuthoritativeGovernedChangeRequest(
  * approval projection and immediately before merge; a subsequent GitHub-side
  * race remains possible and is intentionally not represented as a lock.
  */
-export async function hasChangedGovernedChangeBase(
+export async function hasChangedChangeRequestBase(
   client: GitHubLiteClient,
   repository: RepoRef,
-  evidence: GovernedChangeRequestEvidence,
+  evidence: ChangeRequestEvidence,
 ): Promise<boolean> {
   const workspace = await client.getRepository(repository);
   const currentBaseRevisionSha = await client.getBranchHeadSha({
@@ -140,8 +140,8 @@ function hasMatchingRequestMetadata(
   repository: RepoRef,
   defaultBranch: string,
   pullRequest: GitHubPullRequest,
-  evidence: GovernedChangeRequestEvidence | null,
-): evidence is GovernedChangeRequestEvidence {
+  evidence: ChangeRequestEvidence | null,
+): evidence is ChangeRequestEvidence {
   return Boolean(
     evidence &&
     pullRequest.headSha &&
@@ -161,8 +161,8 @@ async function loadActualArtifacts(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
-  evidence: GovernedChangeRequestEvidence,
-): Promise<GovernedChangeArtifact[]> {
+  evidence: ChangeRequestEvidence,
+): Promise<ChangeRequestArtifact[]> {
   return Promise.all(
     evidence.artifacts.map(async (artifact) => {
       const [baseFile, headFile] = await Promise.all([
@@ -192,7 +192,7 @@ async function hasMatchingDefinitionMeaning(
   client: GitHubLiteClient,
   repository: RepoRef,
   pullRequest: GitHubPullRequest,
-  evidence: GovernedChangeRequestEvidence,
+  evidence: ChangeRequestEvidence,
 ): Promise<boolean> {
   const definitionPath = getBatchDefinitionPath(evidence.batchId);
   const workflowPath = getBatchWorkflowPath(evidence.batchId);
@@ -283,7 +283,7 @@ function hasCanonicalWorkflow({
 }: {
   headDefinition: ReturnType<typeof parseBatchDefinitionYaml> | null;
   headWorkflow: GitHubFile | null;
-  type: GovernedChangeRequestEvidence["type"];
+  type: ChangeRequestEvidence["type"];
 }): boolean {
   if (type === "DELETE") return true;
 
@@ -302,7 +302,7 @@ function hasCanonicalWorkflowTransition({
 }: {
   baseWorkflow: GitHubFile | null;
   headWorkflow: GitHubFile | null;
-  type: GovernedChangeRequestEvidence["type"];
+  type: ChangeRequestEvidence["type"];
 }): boolean {
   if (type === "REGISTER") return !baseWorkflow && Boolean(headWorkflow);
   if (type === "CHANGE") return Boolean(baseWorkflow && headWorkflow);
@@ -316,11 +316,11 @@ function hasCanonicalArtifactEnvelope({
   headDefinition,
   type,
 }: {
-  artifacts: GovernedChangeArtifact[];
+  artifacts: ChangeRequestArtifact[];
   baseDefinition: ReturnType<typeof parseBatchDefinitionYaml> | null;
   batchId: string;
   headDefinition: ReturnType<typeof parseBatchDefinitionYaml> | null;
-  type: GovernedChangeRequestEvidence["type"];
+  type: ChangeRequestEvidence["type"];
 }): boolean {
   const artifactFiles = artifacts.filter(
     (artifact) => artifact.kind === "ARTIFACT",
@@ -386,9 +386,9 @@ function hasCanonicalArtifactEnvelope({
 }
 
 function findArtifact(
-  artifacts: GovernedChangeArtifact[],
+  artifacts: ChangeRequestArtifact[],
   path: string | undefined,
-): GovernedChangeArtifact | undefined {
+): ChangeRequestArtifact | undefined {
   return path
     ? artifacts.find((artifact) => artifact.path === path)
     : undefined;
@@ -419,8 +419,8 @@ function isCanonicalBatchArtifactPath(batchId: string, path: string): boolean {
 }
 
 function hasMatchingArtifactDigests(
-  expected: GovernedChangeArtifact[],
-  actual: GovernedChangeArtifact[],
+  expected: ChangeRequestArtifact[],
+  actual: ChangeRequestArtifact[],
 ): boolean {
   return (
     expected.length === actual.length &&
@@ -439,7 +439,7 @@ function hasMatchingArtifactDigests(
 }
 
 function hasExactChangedFileSet(
-  artifacts: GovernedChangeArtifact[],
+  artifacts: ChangeRequestArtifact[],
   files: Awaited<ReturnType<GitHubLiteClient["listPullRequestFiles"]>>,
 ): boolean {
   const expected = artifacts
@@ -466,7 +466,7 @@ function hasExactChangedFileSet(
   );
 }
 
-function toExpectedFileChange(artifact: GovernedChangeArtifact) {
+function toExpectedFileChange(artifact: ChangeRequestArtifact) {
   return {
     path: artifact.path,
     status:
@@ -500,8 +500,8 @@ function compareFileChanges(
 }
 
 function hasMatchingBatchMeaning(
-  evidence: GovernedChangeRequestEvidence,
-  artifacts: GovernedChangeArtifact[],
+  evidence: ChangeRequestEvidence,
+  artifacts: ChangeRequestArtifact[],
 ): boolean {
   const definition = artifacts.find(
     (artifact) => artifact.kind === "BATCH_DEFINITION",

@@ -70,20 +70,19 @@ export type ExecutionGateDecision = {
   reasonCode: string;
 };
 
-export type GovernedChangeRequestKind = "batch" | "schedule";
+export type ChangeRequestKind = "batch" | "schedule";
 
 export function isRegistrationApprovalRequest(
   pullRequest: RepositoryPullRequest,
 ): boolean {
   return (
-    pullRequest.state === "open" &&
-    getGovernedChangeRequestKind(pullRequest) !== null
+    pullRequest.state === "open" && getChangeRequestKind(pullRequest) !== null
   );
 }
 
-export function getGovernedChangeRequestKind(
+export function getChangeRequestKind(
   pullRequest: RepositoryPullRequest,
-): GovernedChangeRequestKind | null {
+): ChangeRequestKind | null {
   if (
     pullRequest.head.startsWith("batchplane/register/") ||
     pullRequest.head.startsWith("batchplane/change/") ||
@@ -128,7 +127,7 @@ export function buildRegistrationApprovalComment({
   const workspaceAutoApproved = approvalType === "WORKSPACE_AUTO_APPROVED";
 
   return [
-    "## BatchPlane Governed Change Approval",
+    "## BatchPlane Change Request Approval",
     "",
     `- Decision: APPROVED`,
     `- Approver: @${approver}`,
@@ -154,7 +153,7 @@ export function buildRegistrationRejectionComment({
   pullRequest: RepositoryPullRequest;
 }): string {
   return [
-    "## BatchPlane Governed Change Approval",
+    "## BatchPlane Change Request Approval",
     "",
     `- Decision: REJECTED`,
     `- Rejector: @${rejector}`,
