@@ -86,11 +86,23 @@ apps/web/src/
     dashboard/
     my-work/
     batches/
+      list/
+      detail/
     executions/
-      failures/ failure list and failure-owned follow-up code
+      list/
+      detail/ execution evidence, logs and failure follow-up interaction
+      failures/ failure list Page
+      ...shared execution-history region, row and query
     requests/
-      execution/ execution request creation, detail, decision, Hooks, and tests
-      changes/   registration/update/deletion forms, detail, preview, and tests
+      list/
+      execution/
+        new/
+        detail/
+        ...shared execution approval control
+      changes/
+        new/ registration/update/deletion share the current writing Page
+        detail/
+        ...shared change preview
     approvals/
     audit/
     workspace/
@@ -100,16 +112,40 @@ apps/web/src/
   assets/    BatchPlane brand and product-specific visual assets
   runtime/   Lite/Main implementation selection and client injection
   shared/    non-visual product-neutral support such as i18n
+  test/      cross-page integration tests and existing test support
 ```
 
 Organize for a person browsing by business concept, not only searching symbols.
-Keep a business area's Pages, components, Hooks, and tests together. Reuse does
-not transfer ownership: the approval inbox imports
+Apply the same page-level rule to every business group: keep each Page with its
+own components, Hooks and tests in the folder for that screen. Where multiple
+Pages exist, use `list`, `detail` and `new` to distinguish their responsibilities.
+These are source ownership folders, not a change to the current route contract.
+
+Dashboard, My Work, approvals, audit, Workspace and not-found each already have
+one Page-owned folder. Do not create redundant `dashboard/dashboard` or invented
+list/detail screens just to make every directory have the same depth. Review
+those groups under the same rule whenever another Page is actually introduced.
+
+Only actual shared business code stays at its common owner. Reuse does not
+transfer code to a global components folder: the approval inbox imports
 `pages/requests/execution/ExecutionApprovalActions.tsx`; the Batch change editor
 and change detail share `pages/requests/changes/GovernedChangePreviewPanel.tsx`.
 Registration, update, and deletion share the change-request area rather than
 three artificial copies of the same editor. Batch detail and its request-entry
-controls stay under `pages/batches`; the approval inbox stays under `pages/approvals`.
+controls stay under `pages/batches/detail`; the approval inbox stays under
+`pages/approvals`. Execution list and failure list share the existing history
+region, row and query at `pages/executions`; evidence, logs and follow-up input
+belong to `pages/executions/detail`, where those interactions are rendered.
+
+Keep page-only tests beside that Page. Existing tests covering more than one
+Page belong under `src/test`. Do not introduce empty common folders, per-page
+components/hooks/tests sublayers, barrel files or forwarding components merely
+to carry out a move. Names and source ownership should make the navigation clear.
+
+This is the project's approved directory convention, not a React-prescribed
+folder layout. It retains the existing named module imports described in
+[React's component import/export guide](https://18.react.dev/learn/importing-and-exporting-components)
+and the existing React Router route composition.
 
 Global `components` holds genuinely product-neutral controls such as Button and
 PageState. Do not introduce separate `ui` or `features` layers. Share business
@@ -182,24 +218,24 @@ Route screens and business components now live under their owning areas in
 implementation remains under `features` or `ui`. The inventory below records
 screen ownership, not blanket acceptance of every implementation detail.
 
-| Surface                         | Current Page                                              | Status                                                                                                        |
-| ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Batch list                      | `pages/batches/BatchListPage.tsx`                         | Migrated; first reference slice                                                                               |
-| Dashboard                       | `pages/dashboard/DashboardPage.tsx`                       | R5 product summary query and page-local operational sections                                                  |
-| My Work                         | `pages/my-work/MyWorkPage.tsx`                            | R3 product-client work queue; preserves request and failure follow-up destinations                            |
-| Batch registration and change   | `pages/requests/changes/BatchRegistrationPage.tsx`        | Migrated route page; form, schedule, review, and command state belong to change requests                      |
-| Batch detail                    | `pages/batches/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
-| Execution request creation      | `pages/requests/execution/ExecutionRequestPage.tsx`       | R3 route composition with page-local draft, preview, and submission responsibilities                          |
-| Execution request detail        | `pages/requests/execution/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
-| Execution list                  | `pages/executions/ExecutionListPage.tsx`                  | Product execution query and history view at `/executions`                                                     |
-| Failure list                    | `pages/executions/failures/FailureListPage.tsx`           | Failure-owned route Page using the existing execution inspection behavior                                     |
-| Execution detail                | `pages/executions/ExecutionDetailPage.tsx`                | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
-| Workspace requests              | `pages/requests/RequestListPage.tsx`                      | R3 product request inventory; local search and filters; not the deferred unified-request model                |
-| Approvals                       | `pages/approvals/ApprovalsPage.tsx`                       | R3 product inbox and reusable execution approval action                                                       |
-| Governed change approval detail | `pages/requests/changes/GovernedChangeDetailPage.tsx`     | Migrated route page; provider-neutral governed-change client only                                             |
-| Audit                           | `pages/audit/AuditPage.tsx`                               | R5 product timeline query, local filtering, and exact execution destinations                                  |
-| Workspace connection and setup  | `pages/workspace/WorkspacePage.tsx`                       | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
-| Standalone schedule definition  | None                                                      | Removed; schedules are edited inside the governed Batch form and the deep link redirects there                |
+| Surface                         | Current Page                                                     | Status                                                                                                        |
+| ------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Batch list                      | `pages/batches/list/BatchListPage.tsx`                           | Migrated; first reference slice                                                                               |
+| Dashboard                       | `pages/dashboard/DashboardPage.tsx`                              | R5 product summary query and page-local operational sections                                                  |
+| My Work                         | `pages/my-work/MyWorkPage.tsx`                                   | R3 product-client work queue; preserves request and failure follow-up destinations                            |
+| Batch registration and change   | `pages/requests/changes/new/BatchRegistrationPage.tsx`           | Migrated route page; form, schedule, review, and command state belong to change requests                      |
+| Batch detail                    | `pages/batches/detail/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
+| Execution request creation      | `pages/requests/execution/new/ExecutionRequestPage.tsx`          | R3 route composition with page-local draft, preview, and submission responsibilities                          |
+| Execution request detail        | `pages/requests/execution/detail/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
+| Execution list                  | `pages/executions/list/ExecutionListPage.tsx`                    | Product execution query and history view at `/executions`                                                     |
+| Failure list                    | `pages/executions/failures/FailureListPage.tsx`                  | Failure-owned route Page using the existing execution inspection behavior                                     |
+| Execution detail                | `pages/executions/detail/ExecutionDetailPage.tsx`                | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
+| Workspace requests              | `pages/requests/list/RequestListPage.tsx`                        | R3 product request inventory; local search and filters; not the deferred unified-request model                |
+| Approvals                       | `pages/approvals/ApprovalsPage.tsx`                              | R3 product inbox and reusable execution approval action                                                       |
+| Governed change approval detail | `pages/requests/changes/detail/GovernedChangeDetailPage.tsx`     | Migrated route page; provider-neutral governed-change client only                                             |
+| Audit                           | `pages/audit/AuditPage.tsx`                                      | R5 product timeline query, local filtering, and exact execution destinations                                  |
+| Workspace connection and setup  | `pages/workspace/WorkspacePage.tsx`                              | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
+| Standalone schedule definition  | None                                                             | Removed; schedules are edited inside the governed Batch form and the deep link redirects there                |
 
 New route screens must start under `pages`. A migration is complete only when
 the route composition, page-only state and components, product-client boundary,
@@ -441,7 +477,7 @@ accessible names and dimensions for icon-only controls. Extracting a region
 must not introduce a new state owner or a generic form/controller layer.
 
 The Batch form's cron preview and its deterministic timezone tests live together
-under `pages/requests/changes`. A retired schedule screen must not retain a separate
+under `pages/requests/changes/new`. A retired schedule screen must not retain a separate
 implementation that passes tests while the active form uses untested code.
 
 Action entry points separate environment input/output, authorization or dispatch
@@ -612,7 +648,7 @@ through a second state change.
 Custom Hooks make concrete stateful flows readable. Placement follows ownership:
 
 ```text
-page-only         pages/batches/useBatchList.ts
+page-only         pages/batches/list/useBatchList.ts
 component-owned   beside the component that uses it
 generic browser   shared/hooks (only for actual reusable browser behavior)
 pure calculation  ordinary function without a use prefix

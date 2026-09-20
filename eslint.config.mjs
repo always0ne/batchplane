@@ -162,10 +162,10 @@ export default tseslint.config(
       "apps/web/src/pages/approvals/ApprovalsPage.test.tsx",
       "apps/web/src/pages/audit/AuditPage.test.tsx",
       "apps/web/src/pages/dashboard/DashboardPage.test.tsx",
-      "apps/web/src/pages/executions/ExecutionDetailPage.test.tsx",
+      "apps/web/src/pages/executions/detail/ExecutionDetailPage.test.tsx",
       "apps/web/src/pages/executions/ExecutionHistoryRegion.test.tsx",
       "apps/web/src/pages/my-work/MyWorkPage.test.tsx",
-      "apps/web/src/pages/requests/RequestListPage.test.tsx",
+      "apps/web/src/pages/requests/list/RequestListPage.test.tsx",
     ],
     rules: {
       "no-restricted-imports": ["error", packageImportBypass],

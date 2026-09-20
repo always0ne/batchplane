@@ -67,6 +67,12 @@ file is the enforcement checklist.
 - Organize `pages` by business ownership so a maintainer can find related code
   by browsing folders, not only searching symbols. Keep route screens, their
   components, Hooks and tests together under the owning business area.
+- Apply page-level ownership to every business group, not just Batches. When
+  a group has multiple Pages, separate list, detail and writing Pages into
+  `list`, `detail` and `new`, with their page-only components, Hooks and tests.
+  An existing single-Page group is already a page folder; do not add redundant
+  nesting. Keep only genuinely shared business code at its closest common owner.
+  Cross-page integration tests belong under `src/test`, not one Page's folder.
 - Align page ownership with the product sitemap. Use `executions` for execution
   inspection, with failure-specific screens under `executions/failures`, and
   `workspace` for settings. Do not add overview/operations/control folder layers.
