@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import "../../i18n/i18n";
 import { i18next } from "../../i18n/i18n";
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
-import { BatchesPage } from "./BatchesPage";
+import { BatchListPage } from "./BatchListPage";
 
 const activeBatch: BatchListItem = {
   batchId: "payment.daily-close",
@@ -28,7 +28,7 @@ const activeBatch: BatchListItem = {
   status: "ACTIVE",
 };
 
-describe("BatchesPage", () => {
+describe("BatchListPage", () => {
   let client: BatchPlaneClient;
 
   beforeEach(async () => {
@@ -50,7 +50,7 @@ describe("BatchesPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Open Workspace" }),
-    ).toHaveAttribute("href", "/lite/setup");
+    ).toHaveAttribute("href", "/workspace");
   });
 
   it("renders the loading state while batch definitions are being fetched", () => {
@@ -137,7 +137,9 @@ describe("BatchesPage", () => {
     expect(
       screen.getByRole("link", { name: "Register batch" }),
     ).toHaveAttribute("href", "/batches/new");
-    expect(screen.getByRole("link", { name: "Request run" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Request execution" }),
+    ).toHaveAttribute(
       "href",
       "/batches/payment.daily-close/execution-requests/new",
     );
@@ -147,7 +149,9 @@ describe("BatchesPage", () => {
       "title",
       "Inactive batches cannot be requested for execution.",
     );
-    expect(screen.getByRole("button", { name: "Request run" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Request execution" }),
+    ).toBeDisabled();
   });
 
   it("keeps loaded columns reachable through a horizontal scroll container", async () => {
@@ -189,7 +193,7 @@ function renderPage(client: BatchPlaneClient) {
   render(
     <BatchPlaneClientContext.Provider value={client}>
       <MemoryRouter>
-        <BatchesPage />
+        <BatchListPage />
       </MemoryRouter>
     </BatchPlaneClientContext.Provider>,
   );

@@ -27,7 +27,7 @@
       "closedTitle": "No approval action",
       "note": "Approval records request evidence. The browser never dispatches the workflow directly.",
       "openSourceRequest": "Open source request",
-      "openRunDetail": "View run detail",
+      "openRunDetail": "View execution detail",
       "refresh": "Refresh",
       "reject": "Reject",
       "title": "Approval decision"
@@ -70,7 +70,7 @@
       "gateMissing": "BatchPlane Gate evidence is missing.",
       "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
       "requester": "Requester evidence is present.",
-      "title": "Governance checks"
+      "title": "Control checks"
     },
     "material": {
       "title": "Decision material"
@@ -117,14 +117,14 @@
     }
   },
   "runDetail": {
-    "sourceRunTitle": "Source run detail",
-    "title": "Execution run detail",
-    "subtitle": "Inspect workflow run {{runId}} evidence.",
+    "sourceRunTitle": "Source execution detail",
+    "title": "Execution detail",
+    "subtitle": "Inspect execution {{executionId}} evidence.",
     "actions": {
       "backToFailures": "Back to failures",
-      "backToRuns": "Back to runs",
+      "backToExecutions": "Back to executions",
       "openBatch": "Open batch",
-      "openGitHubRun": "Open source run",
+      "openGitHubRun": "Open source execution",
       "refresh": "Refresh"
     },
     "business": {
@@ -189,7 +189,8 @@
       "reasonCode": "Reason code",
       "requestId": "Request ID",
       "runAttempt": "Attempt",
-      "runId": "Run ID",
+      "executionId": "Execution ID",
+      "sourceRunId": "Source execution ID",
       "startedAt": "Started at",
       "workflow": "Execution target"
     },
@@ -247,7 +248,7 @@
       "error": "Failed to load execution run detail.",
       "loading": "Loading execution run detail...",
       "noSession": "Connect a Workspace before viewing execution runs.",
-      "notFound": "Execution run {{runId}} was not found."
+      "notFound": "Execution {{executionId}} was not found."
     },
     "status": {
       "BLOCKED": "Gate blocked",

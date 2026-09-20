@@ -27,7 +27,7 @@
       "closedTitle": "승인 작업 없음",
       "note": "승인은 요청 증적으로 기록됩니다. 브라우저는 Workflow를 직접 dispatch하지 않습니다.",
       "openSourceRequest": "원본 요청 열기",
-      "openRunDetail": "Run 상세 보기",
+      "openRunDetail": "실행 상세 보기",
       "refresh": "새로고침",
       "reject": "반려",
       "title": "승인 판단"
@@ -70,7 +70,7 @@
       "gateMissing": "BatchPlane Gate 증적이 누락되었습니다.",
       "gateRequired": "BatchPlane Gate는 배치 명령 전에 반드시 실행됩니다.",
       "requester": "요청자 증적이 존재합니다.",
-      "title": "통제 점검"
+      "title": "통제 확인"
     },
     "material": {
       "title": "판단 정보"
@@ -117,12 +117,12 @@
     }
   },
   "runDetail": {
-    "sourceRunTitle": "원본 Run 상세",
-    "title": "실행 Run 상세",
-    "subtitle": "{{runId}} workflow run 증적을 확인합니다.",
+    "sourceRunTitle": "원본 실행 상세",
+    "title": "실행 상세",
+    "subtitle": "실행 {{executionId}} 증적을 확인합니다.",
     "actions": {
       "backToFailures": "실패내역으로",
-      "backToRuns": "Runs로",
+      "backToExecutions": "실행 이력으로",
       "openBatch": "배치 열기",
       "openGitHubRun": "원본 실행 열기",
       "refresh": "새로고침"
@@ -189,7 +189,8 @@
       "reasonCode": "Reason code",
       "requestId": "Request ID",
       "runAttempt": "시도",
-      "runId": "Run ID",
+      "executionId": "실행 ID",
+      "sourceRunId": "원본 실행 ID",
       "startedAt": "시작 시각",
       "workflow": "실행 대상"
     },
@@ -247,7 +248,7 @@
       "error": "실행 run 상세를 불러오지 못했습니다.",
       "loading": "실행 run 상세를 불러오는 중...",
       "noSession": "실행 run을 보려면 Workspace를 먼저 연결하세요.",
-      "notFound": "실행 run {{runId}}를 찾을 수 없습니다."
+      "notFound": "실행 {{executionId}}를 찾을 수 없습니다."
     },
     "status": {
       "BLOCKED": "Gate 차단",

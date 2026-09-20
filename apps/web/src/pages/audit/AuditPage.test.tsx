@@ -84,7 +84,7 @@ describe("AuditPage", () => {
         const link = links.find(
           (item) =>
             item.getAttribute("href") ===
-            `/execution-runs/${encodeURIComponent(locator)}`,
+            `/executions/${encodeURIComponent(locator)}`,
         );
         expect(link).toBeDefined();
         const row = within(link!.closest("li")!);

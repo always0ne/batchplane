@@ -20,7 +20,7 @@ async function lintImport(path, source) {
 
 for (const [path, source] of [
   [
-    "apps/web/src/pages/batches/BatchesPage.tsx",
+    "apps/web/src/pages/batches/BatchListPage.tsx",
     'import "@batchplane/github-lite";',
   ],
   [
@@ -29,15 +29,15 @@ for (const [path, source] of [
   ],
   ["apps/web/src/components/Button.tsx", 'import "@batchplane/github-lite";'],
   [
-    "apps/web/src/pages/batches/BatchesPage.tsx",
+    "apps/web/src/pages/batches/BatchListPage.tsx",
     'import type { GitHubLiteClient } from "@batchplane/github-lite";',
   ],
   [
-    "apps/web/src/pages/batches/BatchesPage.tsx",
+    "apps/web/src/pages/batches/BatchListPage.tsx",
     'export { createGitHubLiteClient } from "@batchplane/github-lite";',
   ],
   [
-    "apps/web/src/pages/batches/BatchesPage.tsx",
+    "apps/web/src/pages/batches/BatchListPage.tsx",
     'import "../../runtime/runtime-fixtures";',
   ],
   [
@@ -80,7 +80,7 @@ for (const [path, source] of [
     'import "../../runtime/runtime-fixtures";',
   ],
   [
-    "apps/web/src/pages/batches/BatchesPage.tsx",
+    "apps/web/src/pages/batches/BatchListPage.tsx",
     'import type { BatchPlaneClient } from "@batchplane/ui-client";',
   ],
   [

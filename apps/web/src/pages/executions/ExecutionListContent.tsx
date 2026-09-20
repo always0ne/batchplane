@@ -2,7 +2,7 @@ import type { ExecutionRunPresentation as ExecutionRun } from "@batchplane/ui-cl
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { ExecutionRunRow } from "./ExecutionRunRow";
+import { ExecutionRow } from "./ExecutionRow";
 
 import {
   EmptyState,
@@ -12,16 +12,16 @@ import {
 
 import { isBusinessFailure } from "@batchplane/ui-client";
 import { formatInspectionError } from "../../client/inspection-errors";
-import type { ExecutionRunsState } from "./useExecutionRuns";
+import type { ExecutionsState } from "./useExecutions";
 
-export type ExecutionRunFilter =
+export type ExecutionFilter =
   | "active"
   | "all"
   | "blocked"
   | "canceled"
   | "failed"
   | "succeeded";
-export type ExecutionRunListView = "executions" | "failures";
+export type ExecutionListView = "executions" | "failures";
 
 const executionRunFilters = [
   "all",
@@ -33,18 +33,18 @@ const executionRunFilters = [
 ] as const;
 const failureRunFilters = ["all", "failed", "blocked"] as const;
 
-export function ExecutionRunListContent({
+export function ExecutionListContent({
   activeFilter,
   namespace,
   onFilterChange,
   state,
   view,
 }: {
-  activeFilter: ExecutionRunFilter;
+  activeFilter: ExecutionFilter;
   namespace: "executions" | "failures";
-  onFilterChange: (filter: ExecutionRunFilter) => void;
-  state: ExecutionRunsState;
-  view: ExecutionRunListView;
+  onFilterChange: (filter: ExecutionFilter) => void;
+  state: ExecutionsState;
+  view: ExecutionListView;
 }) {
   const { t } = useTranslation(namespace);
 
@@ -58,7 +58,7 @@ export function ExecutionRunListContent({
         action={
           <Link
             className="font-semibold text-bp-control underline"
-            to="/lite/setup"
+            to="/workspace"
           >
             {t("actions.openSetup")}
           </Link>
@@ -77,7 +77,7 @@ export function ExecutionRunListContent({
   }
 
   return (
-    <LoadedExecutionRunList
+    <LoadedExecutionList
       activeFilter={activeFilter}
       namespace={namespace}
       onFilterChange={onFilterChange}
@@ -87,18 +87,18 @@ export function ExecutionRunListContent({
   );
 }
 
-function LoadedExecutionRunList({
+function LoadedExecutionList({
   activeFilter,
   namespace,
   onFilterChange,
   runs,
   view,
 }: {
-  activeFilter: ExecutionRunFilter;
+  activeFilter: ExecutionFilter;
   namespace: "executions" | "failures";
-  onFilterChange: (filter: ExecutionRunFilter) => void;
+  onFilterChange: (filter: ExecutionFilter) => void;
   runs: ExecutionRun[];
-  view: ExecutionRunListView;
+  view: ExecutionListView;
 }) {
   const { t } = useTranslation(namespace);
   const visibleRuns = useMemo(
@@ -207,7 +207,7 @@ function LoadedExecutionRunList({
         ) : (
           <ul className="mt-5 divide-y divide-slate-100">
             {filteredRuns.map((run) => (
-              <ExecutionRunRow
+              <ExecutionRow
                 key={`${run.runId}:${run.runAttempt ?? 1}`}
                 namespace={namespace}
                 run={run}
@@ -246,7 +246,7 @@ function ExecutionMetric({
   );
 }
 
-function matchesFilter(run: ExecutionRun, filter: ExecutionRunFilter): boolean {
+function matchesFilter(run: ExecutionRun, filter: ExecutionFilter): boolean {
   if (filter === "all") {
     return true;
   }

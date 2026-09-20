@@ -43,7 +43,7 @@ export function GovernedChangeDetailPage() {
         action={
           <Link
             className="font-semibold text-bp-control underline"
-            to="/lite/setup"
+            to="/workspace"
           >
             {t("actions.openSetup")}
           </Link>

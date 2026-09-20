@@ -6,8 +6,8 @@ import { useCallback, useEffect, useRef } from "react";
 
 export function useFailureFollowUpActions(
   client: BatchPlaneClient,
-  runId: string,
-  acceptRunUpdate: (
+  executionId: string,
+  acceptExecutionUpdate: (
     update: (run: ExecutionRunPresentation) => ExecutionRunPresentation,
   ) => void,
 ) {
@@ -18,7 +18,7 @@ export function useFailureFollowUpActions(
     return () => {
       current.active = false;
     };
-  }, [client, runId, acceptRunUpdate]);
+  }, [client, executionId, acceptExecutionUpdate]);
   const record = useCallback(
     async (
       input: Omit<
@@ -32,10 +32,10 @@ export function useFailureFollowUpActions(
       try {
         const followUp = await client.createFailureFollowUp({
           ...input,
-          runId,
+          runId: executionId,
         });
         if (current.active)
-          acceptRunUpdate((run) => ({
+          acceptExecutionUpdate((run) => ({
             ...run,
             failureFollowUps: [
               ...(run.failureFollowUps ?? []).filter(
@@ -48,7 +48,7 @@ export function useFailureFollowUpActions(
         current.pending.delete("record");
       }
     },
-    [client, runId, acceptRunUpdate],
+    [client, executionId, acceptExecutionUpdate],
   );
   const review = useCallback(
     async (
@@ -63,10 +63,10 @@ export function useFailureFollowUpActions(
       try {
         const decision = await client.reviewFailureFollowUp({
           ...input,
-          runId,
+          runId: executionId,
         });
         if (current.active)
-          acceptRunUpdate((run) => ({
+          acceptExecutionUpdate((run) => ({
             ...run,
             failureFollowUps: (run.failureFollowUps ?? []).map((item) =>
               item.followUpId === decision.followUpId
@@ -87,7 +87,7 @@ export function useFailureFollowUpActions(
         current.pending.delete(input.followUpId);
       }
     },
-    [client, runId, acceptRunUpdate],
+    [client, executionId, acceptExecutionUpdate],
   );
   return { record, review };
 }

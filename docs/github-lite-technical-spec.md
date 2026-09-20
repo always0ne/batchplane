@@ -2,6 +2,22 @@
 
 This document captures implementation contracts for GitHub Lite.
 
+## Product Routing Boundary
+
+The shared React router exposes `/executions`, `/executions/:executionId`,
+`/executions/failures` and `/workspace` for execution inspection and settings.
+An execution route parameter remains the existing opaque product-client
+identifier; renaming the screen and path does not change provider IDs, source
+evidence, scheduled occurrences or attempts. Preserve existing filters and
+query context when constructing links, including when deployed below the
+GitHub Pages basename.
+
+Current change/execution request URLs and query modes remain unchanged.
+The [unified request feature specification](./unified-request-feature-spec.md)
+is explicitly deferred until after refactoring. Do not infer a new Issue/PR
+mapping or approval contract from its target routes. The current registration,
+execution, Gate and evidence contracts below continue to apply.
+
 ## Repository Layout
 
 Governance records live in the target GitHub repository:
@@ -521,7 +537,7 @@ The screen must include:
 
 - external source metadata and link
 - review state (open, approved pending merge, merged, rejected, closed)
-- governance checklist
+- control checklist
 - file status summary and head revision preview
 - refresh action
 

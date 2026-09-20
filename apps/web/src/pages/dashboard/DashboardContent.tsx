@@ -41,7 +41,7 @@ export function DashboardContent({ state }: { state: DashboardState }) {
         action={
           <Link
             className="font-semibold text-bp-control underline"
-            to="/lite/setup"
+            to="/workspace"
           >
             {t("actions.openSetup")}
           </Link>
@@ -287,7 +287,7 @@ function createDashboardCards(
       icon: GitBranch,
       key: "repoReadiness",
       tone: summary.installation.installed ? "success" : "warning",
-      to: "/lite/setup",
+      to: "/workspace",
       value: summary.installation.installed
         ? values.ready
         : values.actionRequired,
@@ -302,14 +302,14 @@ function createDashboardCards(
     {
       icon: AlertTriangle,
       key: "failedRuns",
-      to: "/failures?type=failed",
+      to: "/executions/failures?type=failed",
       tone: summary.failedRunCount > 0 ? "danger" : "neutral",
       value: summary.failedRunCount,
     },
     {
       icon: ShieldAlert,
       key: "gateBlocked",
-      to: "/failures?type=blocked",
+      to: "/executions/failures?type=blocked",
       tone: summary.gateBlockedRunCount > 0 ? "warning" : "neutral",
       value: summary.gateBlockedRunCount,
     },

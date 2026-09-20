@@ -4,24 +4,27 @@ import {
   type ExecutionRunPresentation,
 } from "@batchplane/ui-client";
 import { useEffect, useState } from "react";
+
 import { useBatchPlaneClient } from "../../client/batch-plane-client-context";
 
-export type ExecutionRunsState =
+export type ExecutionsState =
   | { type: "loading" }
   | { type: "no-session" }
   | { type: "error"; error: unknown }
   | { type: "loaded"; runs: ExecutionRunPresentation[] };
 
-export function useExecutionRuns() {
+export function useExecutions() {
   const client = useBatchPlaneClient();
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{
     client: BatchPlaneClient;
-    state: ExecutionRunsState;
+    state: ExecutionsState;
   }>();
+
   useEffect(() => {
     let active = true;
     setResult({ client, state: { type: "loading" } });
+
     async function load() {
       try {
         const runs = await client.listExecutionRuns({ limit: 100 });
@@ -36,11 +39,13 @@ export function useExecutionRuns() {
           });
       }
     }
+
     void load();
     return () => {
       active = false;
     };
   }, [client, revision]);
+
   return {
     state:
       result?.client === client ? result.state : ({ type: "loading" } as const),

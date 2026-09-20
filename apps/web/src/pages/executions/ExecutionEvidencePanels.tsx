@@ -9,9 +9,9 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getGateReasonDisplayKey } from "../../i18n/display-keys";
-import { DetailFact, RunStatusBadge } from "./RunDetailFacts";
+import { DetailFact, ExecutionStatusBadge } from "./ExecutionDetailFacts";
 
-export function RunSummaryPanel({ run }: { run: ExecutionRun }) {
+export function ExecutionSummaryPanel({ run }: { run: ExecutionRun }) {
   const { t } = useTranslation("executionRequests");
 
   return (
@@ -23,7 +23,7 @@ export function RunSummaryPanel({ run }: { run: ExecutionRun }) {
             {run.executionTarget?.name || t("runDetail.values.unknownWorkflow")}
           </h2>
         </div>
-        <RunStatusBadge
+        <ExecutionStatusBadge
           gateVerificationUnknown={
             run.status === "FAILED" && run.gateDecision?.allowed !== true
           }
@@ -31,7 +31,14 @@ export function RunSummaryPanel({ run }: { run: ExecutionRun }) {
         />
       </div>
       <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-        <DetailFact label={t("runDetail.fields.runId")} value={run.runId} />
+        <DetailFact
+          label={
+            run.evidenceScope === "SOURCE_RUN"
+              ? t("runDetail.fields.sourceRunId")
+              : t("runDetail.fields.executionId")
+          }
+          value={run.runId}
+        />
         <DetailFact
           label={t("runDetail.fields.requestId")}
           value={run.requestId || t("runDetail.values.unknown")}

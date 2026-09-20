@@ -7,17 +7,18 @@ import {
 import { ApprovalsPage } from "../pages/approvals/ApprovalsPage";
 import { AuditPage } from "../pages/audit/AuditPage";
 import { BatchDetailPage } from "../pages/batches/BatchDetailPage";
-import { BatchesPage } from "../pages/batches/BatchesPage";
+import { BatchListPage } from "../pages/batches/BatchListPage";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
-import { ExecutionRunDetailPage } from "../pages/execution-runs/ExecutionRunDetailPage";
-import { ExecutionRunListPage } from "../pages/execution-runs/ExecutionRunListPage";
+import { ExecutionDetailPage } from "../pages/executions/ExecutionDetailPage";
+import { ExecutionListPage } from "../pages/executions/ExecutionListPage";
+import { FailureListPage } from "../pages/executions/failures/FailureListPage";
 import { MyWorkPage } from "../pages/my-work/MyWorkPage";
 import { NotFoundPage } from "../pages/not-found/NotFoundPage";
 import { BatchRegistrationPage } from "../pages/requests/changes/BatchRegistrationPage";
 import { GovernedChangeDetailPage } from "../pages/requests/changes/GovernedChangeDetailPage";
 import { ExecutionRequestDetailPage } from "../pages/requests/execution/ExecutionRequestDetailPage";
 import { ExecutionRequestPage } from "../pages/requests/execution/ExecutionRequestPage";
-import { WorkspaceRequestsPage } from "../pages/requests/WorkspaceRequestsPage";
+import { RequestListPage } from "../pages/requests/RequestListPage";
 import { WorkspacePage } from "../pages/workspace/WorkspacePage";
 import { LiteGitHubConnectionEditor } from "../runtime/GitHubConnectionForm";
 import { RootLayout } from "./RootLayout";
@@ -36,7 +37,7 @@ export const appRoutes: RouteObject[] = [
       },
       { id: "dashboard", path: "dashboard", element: <DashboardPage /> },
       { id: "my-work", path: "my-work", element: <MyWorkPage /> },
-      { id: "batches", path: "batches", element: <BatchesPage /> },
+      { id: "batches", path: "batches", element: <BatchListPage /> },
       {
         id: "batch-registration",
         path: "batches/new",
@@ -63,24 +64,24 @@ export const appRoutes: RouteObject[] = [
         element: <ExecutionRequestDetailPage />,
       },
       {
-        id: "execution-run-detail",
-        path: "execution-runs/:runId",
-        element: <ExecutionRunDetailPage />,
+        id: "execution-detail",
+        path: "executions/:executionId",
+        element: <ExecutionDetailPage />,
       },
       {
-        id: "runs",
-        path: "runs",
-        element: <ExecutionRunListPage />,
+        id: "executions",
+        path: "executions",
+        element: <ExecutionListPage />,
       },
       {
         id: "failures",
-        path: "failures",
-        element: <ExecutionRunListPage view="failures" />,
+        path: "executions/failures",
+        element: <FailureListPage />,
       },
       {
         id: "requests",
         path: "requests",
-        element: <WorkspaceRequestsPage />,
+        element: <RequestListPage />,
       },
       {
         id: "approvals",
@@ -94,8 +95,8 @@ export const appRoutes: RouteObject[] = [
       },
       { id: "audit", path: "audit", element: <AuditPage /> },
       {
-        id: "lite-setup",
-        path: "lite/setup",
+        id: "workspace",
+        path: "workspace",
         element: (
           <WorkspacePage connectionEditor={LiteGitHubConnectionEditor} />
         ),

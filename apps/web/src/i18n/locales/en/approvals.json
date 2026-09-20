@@ -106,7 +106,7 @@
       "notFound": "Governed change request #{{requestLocator}} was not found in this Workspace."
     },
     "checklist": {
-      "title": "Governance checklist",
+      "title": "Control checklist",
       "batchPaths": "Batch definition and workflow paths are derived from Batch ID.",
       "deletePaths": "Batch definition and workflow are removed by this governed change.",
       "deleteArchiveRecorded": "Deleted batch snapshot is recorded for audit lookup.",
@@ -167,7 +167,7 @@
       }
     },
     "fileSummary": {
-      "title": "Governance change evidence",
+      "title": "Change evidence",
       "subtitle": "Shows the actual configuration changes recorded by this request.",
       "preview": "View change",
       "patch": "Recorded change",

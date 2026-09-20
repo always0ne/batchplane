@@ -34,7 +34,9 @@ describe("MyWorkPage", () => {
     expect(
       await screen.findByRole("heading", { name: "My Work" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Current user: @maintainer")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Current user: @maintainer"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Registration approval is waiting for review."),
     ).toBeInTheDocument();
@@ -94,7 +96,7 @@ describe("MyWorkPage", () => {
     expect(await screen.findByText("Gate blocked")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Review evidence" }),
-    ).toHaveAttribute("href", `/execution-runs/${gateBlockedRun.runId}`);
+    ).toHaveAttribute("href", `/executions/${gateBlockedRun.runId}`);
     expect(
       screen.queryByText("Failure follow-up has not been recorded."),
     ).not.toBeInTheDocument();
@@ -137,7 +139,7 @@ describe("MyWorkPage", () => {
     expect(screen.getByText("Failure review")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Review follow-up" }),
-    ).toHaveAttribute("href", `/execution-runs/${run.id}#failure-follow-up`);
+    ).toHaveAttribute("href", `/executions/${run.id}#failure-follow-up`);
   });
 
   it("does not create actionable failure-review work for a non-manager", async () => {
@@ -316,7 +318,7 @@ describe("MyWorkPage", () => {
     expect(updateActions).toHaveLength(2);
     expect(updateActions[0]).toHaveAttribute(
       "href",
-      `/execution-runs/${run.id}#failure-follow-up`,
+      `/executions/${run.id}#failure-follow-up`,
     );
   });
 

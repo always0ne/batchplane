@@ -38,7 +38,7 @@ export function ExecutionRequestDetailHeader({
         {attempt ? (
           <ButtonLink
             size="compact"
-            to={`/execution-runs/${encodeURIComponent(attempt.attemptLocator)}`}
+            to={`/executions/${encodeURIComponent(attempt.attemptLocator)}`}
           >
             <Activity className="h-4 w-4" aria-hidden="true" />
             {t("detail.actions.openRunDetail")}

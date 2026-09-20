@@ -223,7 +223,7 @@ describe("ApprovalsPage", () => {
 
     expect(
       await screen.findByRole("link", { name: "Open Workspace" }),
-    ).toHaveAttribute("href", "/lite/setup");
+    ).toHaveAttribute("href", "/workspace");
   });
 });
 

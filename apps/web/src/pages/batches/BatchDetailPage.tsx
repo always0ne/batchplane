@@ -52,7 +52,7 @@ function BatchDetailContent({ state }: { state: BatchDetailState }) {
         action={
           <Link
             className="font-semibold text-bp-control underline"
-            to="/lite/setup"
+            to="/workspace"
           >
             {t("actions.openSetup")}
           </Link>

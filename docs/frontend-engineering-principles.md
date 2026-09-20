@@ -55,14 +55,15 @@ not replace this architecture review.
 
 For the approved routing correction, use React Router's route tree, layout
 routes and `Outlet`, with `createBrowserRouter` and `RouterProvider`. Preserve
-product-client injection, existing URLs, Pages basename/redirect restoration,
+product-client injection, the current request URLs, Pages basename/redirect restoration,
 locale behavior, and fixture remount boundaries. This decision does not migrate
 page queries to loaders or commands to router actions.
 
 Official React Router references for the current v6 integration:
 
-- [Layout routes](https://reactrouter.com/6.30.1/route/route#layout-routes)
-- [createBrowserRouter](https://reactrouter.com/6.30.1/routers/create-browser-router)
+- [Layout routes](https://reactrouter.com/6.30.3/route/route#layout-routes)
+- [createBrowserRouter](https://reactrouter.com/6.30.3/routers/create-browser-router)
+- [NavLink matching](https://reactrouter.com/6.30.3/components/nav-link#end)
 
 ## Product Principle
 
@@ -82,9 +83,18 @@ audit concepts rather than GitHub transport concepts.
 apps/web/src/
   app/       router, top-level providers, and application composition
   pages/     route screens and related code grouped by business ownership
+    dashboard/
+    my-work/
+    batches/
+    executions/
+      failures/ failure list and failure-owned follow-up code
     requests/
       execution/ execution request creation, detail, decision, Hooks, and tests
       changes/   registration/update/deletion forms, detail, preview, and tests
+    approvals/
+    audit/
+    workspace/
+    not-found/
   components/ product-neutral common controls, their tests, and visual tokens
   client/    provider-neutral React access to the injected product client
   assets/    BatchPlane brand and product-specific visual assets
@@ -124,6 +134,46 @@ screen-level flow and navigation; components own the interaction or presentation
 expressed by their props. This is an ownership convention, not a custom React
 framework or a claim that React mandates these folder names.
 
+### Sitemap And Refactoring Boundary
+
+Page ownership follows the product sitemap. Do not introduce intermediate
+`overview`, `operations` or `control` directory layers. Execution inspection
+uses `executions`, not the provider's `runs` term; failure-specific screens are
+nested under `executions/failures`. Workspace settings are product-level even
+when Lite supplies the connection editor.
+
+| Product surface           | Current route                             |
+| ------------------------- | ----------------------------------------- |
+| Dashboard                 | `/dashboard`                              |
+| My Work                   | `/my-work`                                |
+| Batch list and detail     | `/batches`, `/batches/:batchId`           |
+| Execution list and detail | `/executions`, `/executions/:executionId` |
+| Failure list              | `/executions/failures`                    |
+| Request list              | `/requests`                               |
+| Approvals                 | `/approvals`                              |
+| Audit                     | `/audit`                                  |
+| Workspace settings        | `/workspace`                              |
+
+The existing Batch form remains at `/batches/new`, including current change
+and deletion query modes. Execution request writing remains at
+`/batches/:batchId/execution-requests/new`; current request detail routes remain
+`/execution-requests/:requestLocator` and
+`/approvals/registration/:requestLocator`. The existing schedule-change deep
+link remains unchanged. These are deliberate temporary exceptions, not a new
+request-model design or an assertion that those routes already match the target.
+
+The user deferred [unified requests](./unified-request-feature-spec.md) until
+after refactoring. `/requests/new` and `/requests/:requestId` are that feature's
+target routes, not current registrations. Do not introduce query-selected whole
+request types, draft storage or multi-item processing to complete this cleanup.
+My Work's current purpose is preserved pending a separate product discussion.
+
+Update internal links with the route they target, preserving existing filters,
+scheduled occurrence/attempt context and the Pages basename. Keep provider
+source links separate and unchanged. Use the router's normal matching and link
+APIs, not a generic path registry or custom route dispatcher. Do not add new
+legacy-route compatibility layers without a current requirement.
+
 ## Migration Status
 
 PR #198 established the Batch list as the first migrated vertical slice.
@@ -134,16 +184,17 @@ screen ownership, not blanket acceptance of every implementation detail.
 
 | Surface                         | Current Page                                              | Status                                                                                                        |
 | ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Batch list                      | `pages/batches/BatchesPage.tsx`                           | Migrated; first reference slice                                                                               |
+| Batch list                      | `pages/batches/BatchListPage.tsx`                         | Migrated; first reference slice                                                                               |
 | Dashboard                       | `pages/dashboard/DashboardPage.tsx`                       | R5 product summary query and page-local operational sections                                                  |
 | My Work                         | `pages/my-work/MyWorkPage.tsx`                            | R3 product-client work queue; preserves request and failure follow-up destinations                            |
 | Batch registration and change   | `pages/requests/changes/BatchRegistrationPage.tsx`        | Migrated route page; form, schedule, review, and command state belong to change requests                      |
 | Batch detail                    | `pages/batches/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
 | Execution request creation      | `pages/requests/execution/ExecutionRequestPage.tsx`       | R3 route composition with page-local draft, preview, and submission responsibilities                          |
 | Execution request detail        | `pages/requests/execution/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
-| Execution run list and failures | `pages/execution-runs/ExecutionRunListPage.tsx`           | R5 product execution query and route-preserving history/failure views                                         |
-| Execution run detail            | `pages/execution-runs/ExecutionRunDetailPage.tsx`         | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
-| Workspace requests              | `pages/requests/WorkspaceRequestsPage.tsx`                | R3 product request inventory; local search and filters                                                        |
+| Execution list                  | `pages/executions/ExecutionListPage.tsx`                  | Product execution query and history view at `/executions`                                                     |
+| Failure list                    | `pages/executions/failures/FailureListPage.tsx`           | Failure-owned route Page using the existing execution inspection behavior                                     |
+| Execution detail                | `pages/executions/ExecutionDetailPage.tsx`                | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
+| Workspace requests              | `pages/requests/RequestListPage.tsx`                      | R3 product request inventory; local search and filters; not the deferred unified-request model                |
 | Approvals                       | `pages/approvals/ApprovalsPage.tsx`                       | R3 product inbox and reusable execution approval action                                                       |
 | Governed change approval detail | `pages/requests/changes/GovernedChangeDetailPage.tsx`     | Migrated route page; provider-neutral governed-change client only                                             |
 | Audit                           | `pages/audit/AuditPage.tsx`                               | R5 product timeline query, local filtering, and exact execution destinations                                  |
@@ -328,8 +379,8 @@ blocked by the UI. The server validates membership and permissions; URL IDs
 are not authority. Shared-connection ownership, transfer approval and history
 visibility need separate product decisions, not assumptions in React code.
 
-R6 still implements one session-storage connection at `/lite/setup`. It does
-not implement a connection list, multiple IDs, new routes, Main identity,
+R6 still implements one session-storage connection, now at `/workspace`. It does
+not implement a connection list, multiple IDs, multi-Workspace routes, Main identity,
 Jenkins forms, sharing or transfer. Do not add fake identifiers, empty Pages or
 unused provider methods to imply readiness. The current single-session product
 client must still be extended in the multi-Workspace feature.
@@ -455,7 +506,7 @@ A Page must not:
 A healthy Page reads as screen composition:
 
 ```tsx
-export function BatchesPage() {
+export function BatchListPage() {
   const batchList = useBatchList();
 
   return (

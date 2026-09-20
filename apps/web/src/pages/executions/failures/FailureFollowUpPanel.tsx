@@ -6,9 +6,9 @@ import type {
 import { AlertTriangle, Save } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { formatInspectionError } from "../../client/inspection-errors";
+import { formatInspectionError } from "../../../client/inspection-errors";
 import { FailureFollowUpItem } from "./FailureFollowUpItem";
-const failureFollowUpStatuses = [
+const followUpStatuses = [
   "OPEN",
   "INVESTIGATING",
   "RESOLVED",
@@ -112,7 +112,7 @@ export function FailureFollowUpPanel({
             }
             value={status}
           >
-            {failureFollowUpStatuses.map((option) => (
+            {followUpStatuses.map((option) => (
               <option key={option} value={option}>
                 {t(`runDetail.followUp.statusValues.${option}`)}
               </option>

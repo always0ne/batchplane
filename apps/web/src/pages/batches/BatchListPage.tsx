@@ -5,7 +5,7 @@ import { BatchListContent } from "./BatchListContent";
 import { BatchListToolbar } from "./BatchListToolbar";
 import { useBatchList } from "./useBatchList";
 
-export function BatchesPage() {
+export function BatchListPage() {
   const { t } = useTranslation("batches");
   const batchList = useBatchList();
 

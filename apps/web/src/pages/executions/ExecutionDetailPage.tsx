@@ -10,26 +10,30 @@ import {
   ErrorState,
   LoadingState,
 } from "../../components/PageState";
-import { FailureFollowUpPanel } from "./FailureFollowUpPanel";
+import { FailureFollowUpPanel } from "./failures/FailureFollowUpPanel";
 import {
   BusinessOutcomePanel,
   GateOutcomePanel,
-  RunSummaryPanel,
-} from "./RunEvidencePanels";
-import { JobSummaryPanel } from "./RunJobLogs";
-import { useExecutionRunDetail } from "./useExecutionRunDetail";
-import { useFailureFollowUpActions } from "./useFailureFollowUpActions";
+  ExecutionSummaryPanel,
+} from "./ExecutionEvidencePanels";
+import { JobSummaryPanel } from "./ExecutionJobLogs";
+import { useExecutionDetail } from "./useExecutionDetail";
+import { useFailureFollowUpActions } from "./failures/useFailureFollowUpActions";
 
-export function ExecutionRunDetailPage() {
-  const { runId = "" } = useParams();
+export function ExecutionDetailPage() {
+  const { executionId = "" } = useParams();
   const [searchParams] = useSearchParams();
   const { t } = useTranslation("executionRequests");
   const client = useBatchPlaneClient();
-  const { state, refresh, acceptRunUpdate } = useExecutionRunDetail(
-    runId,
+  const { state, refresh, acceptExecutionUpdate } = useExecutionDetail(
+    executionId,
     searchParams.get("runAttempt"),
   );
-  const actions = useFailureFollowUpActions(client, runId, acceptRunUpdate);
+  const actions = useFailureFollowUpActions(
+    client,
+    executionId,
+    acceptExecutionUpdate,
+  );
   const loadExecutionRunJobLog = useCallback(
     (jobId: string) => client.getExecutionRunJobLog({ jobId }),
     [client],
@@ -45,7 +49,7 @@ export function ExecutionRunDetailPage() {
         action={
           <Link
             className="font-semibold text-bp-control underline"
-            to="/lite/setup"
+            to="/workspace"
           >
             {t("actions.openSetup")}
           </Link>
@@ -66,7 +70,9 @@ export function ExecutionRunDetailPage() {
             {t("actions.backToBatches")}
           </Link>
         }
-        message={t("runDetail.states.notFound", { runId: state.runId })}
+        message={t("runDetail.states.notFound", {
+          executionId: state.executionId,
+        })}
       />
     );
   }
@@ -90,12 +96,12 @@ export function ExecutionRunDetailPage() {
     source === "failures"
       ? {
           label: t("runDetail.actions.backToFailures"),
-          to: "/failures",
+          to: "/executions/failures",
         }
       : source === "runs"
         ? {
-            label: t("runDetail.actions.backToRuns"),
-            to: "/runs",
+            label: t("runDetail.actions.backToExecutions"),
+            to: "/executions",
           }
         : null;
 
@@ -108,7 +114,7 @@ export function ExecutionRunDetailPage() {
               ? "runDetail.sourceRunTitle"
               : "runDetail.title",
           )}
-          subtitle={t("runDetail.subtitle", { runId: run.runId })}
+          subtitle={t("runDetail.subtitle", { executionId: run.runId })}
         />
         <div className="flex flex-wrap gap-2">
           {backLink ? (
@@ -159,7 +165,7 @@ export function ExecutionRunDetailPage() {
         />
       ) : null}
       <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <RunSummaryPanel run={run} />
+        <ExecutionSummaryPanel run={run} />
         <aside className="space-y-4">
           <GateOutcomePanel run={run} />
           <BusinessOutcomePanel run={run} />

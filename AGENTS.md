@@ -67,6 +67,12 @@ file is the enforcement checklist.
 - Organize `pages` by business ownership so a maintainer can find related code
   by browsing folders, not only searching symbols. Keep route screens, their
   components, Hooks and tests together under the owning business area.
+- Align page ownership with the product sitemap. Use `executions` for execution
+  inspection, with failure-specific screens under `executions/failures`, and
+  `workspace` for settings. Do not add overview/operations/control folder layers.
+- Keep unified multi-Batch/multi-type requests outside the refactoring. Preserve
+  existing change/execution request routes and behavior until the separate
+  `docs/unified-request-feature-spec.md` is detailed and approved.
 - Group request code under `pages/requests/execution` and `pages/requests/changes`.
   Reuse from another screen does not change ownership: the approval inbox may
   use the execution request's approval control without moving it to a global folder.

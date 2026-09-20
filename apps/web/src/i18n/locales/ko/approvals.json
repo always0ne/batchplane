@@ -106,7 +106,7 @@
       "notFound": "Workspace에서 통제 변경 요청 #{{requestLocator}}를 찾지 못했습니다."
     },
     "checklist": {
-      "title": "거버넌스 체크리스트",
+      "title": "통제 확인",
       "batchPaths": "Batch ID 기준으로 배치정의/워크플로우 경로가 생성되었는지 확인",
       "deletePaths": "이 통제 변경으로 배치 정의와 Workflow가 제거되는지 확인",
       "deleteArchiveRecorded": "삭제 후 감사 조회를 위한 배치 스냅샷 기록",
@@ -167,7 +167,7 @@
       }
     },
     "fileSummary": {
-      "title": "거버넌스 변경 증적",
+      "title": "변경 증적",
       "subtitle": "이 요청에 기록된 실제 설정 변경 내용을 표시합니다.",
       "preview": "변경 보기",
       "patch": "기록된 변경 내용",

@@ -120,7 +120,7 @@ function DispatcherEvidence({
             {attempt ? (
               <Link
                 className="break-all font-mono text-bp-control underline"
-                to={`/execution-runs/${encodeURIComponent(attempt.attemptLocator)}`}
+                to={`/executions/${encodeURIComponent(attempt.attemptLocator)}`}
               >
                 {attempt.sourceLabel} {t(`runDetail.status.${attempt.status}`)}
               </Link>

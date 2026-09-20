@@ -394,8 +394,8 @@ function failureFollowUpRow(
     title: item.title,
     to:
       item.action === "REVIEW_GATE_EVIDENCE"
-        ? `/execution-runs/${encodeURIComponent(item.attemptLocator)}`
-        : `/execution-runs/${encodeURIComponent(item.attemptLocator)}#failure-follow-up`,
+        ? `/executions/${encodeURIComponent(item.attemptLocator)}`
+        : `/executions/${encodeURIComponent(item.attemptLocator)}#failure-follow-up`,
   };
 }
 

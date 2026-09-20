@@ -6,7 +6,7 @@
   "groups": {
     "overview": "Overview",
     "operations": "Operations",
-    "governance": "Governance",
+    "requestsAndAudit": "Requests and audit",
     "workspace": "Workspace"
   },
   "items": {
@@ -15,7 +15,7 @@
     "batches": "Batches",
     "requests": "Requests",
     "approvals": "Approvals",
-    "runs": "Runs",
+    "executions": "Executions",
     "failures": "Failures",
     "myWork": "My Work",
     "audit": "Audit",

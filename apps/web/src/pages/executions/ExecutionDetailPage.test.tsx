@@ -21,7 +21,7 @@ import {
   createRuntimeFixtureMockState,
   writeRuntimeFixtureSelection,
 } from "../../runtime/runtime-fixtures";
-import { ExecutionRunDetailPage } from "./ExecutionRunDetailPage";
+import { ExecutionDetailPage } from "./ExecutionDetailPage";
 
 const session = {
   owner: "always0ne",
@@ -29,7 +29,7 @@ const session = {
   token: "fixture-token",
 };
 
-describe("ExecutionRunDetailPage", () => {
+describe("ExecutionDetailPage", () => {
   beforeEach(async () => {
     sessionStorage.clear();
     await i18next.changeLanguage("en");
@@ -83,7 +83,7 @@ describe("ExecutionRunDetailPage", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Execution run detail" }),
+      await screen.findByRole("heading", { name: "Execution detail" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Gate blocked").length).toBeGreaterThan(0);
     expect(screen.getByText("RERUN_NOT_AUTHORIZED")).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe("ExecutionRunDetailPage", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open source run" }),
+      screen.getByRole("link", { name: "Open source execution" }),
     ).toHaveAttribute("href", run.url);
     expect(screen.getByText("Job conclusion summary")).toBeInTheDocument();
     expect(screen.getByText("BatchPlane Gate")).toBeInTheDocument();
@@ -396,7 +396,7 @@ describe("ExecutionRunDetailPage", () => {
       runAttempt: 1,
     });
     expect(
-      await screen.findByRole("heading", { name: "Source run detail" }),
+      await screen.findByRole("heading", { name: "Source execution detail" }),
     ).toBeInTheDocument();
     expect(getRun).toHaveBeenCalledWith({ runId: "900", runAttempt: 1 });
     expect(screen.getAllByText("Source job")).toHaveLength(4);
@@ -587,7 +587,7 @@ describe("ExecutionRunDetailPage", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Execution run detail" }),
+      await screen.findByRole("heading", { name: "Execution detail" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -661,18 +661,18 @@ function renderDetail({
   render(
     <MemoryRouter
       initialEntries={[
-        `/execution-runs/${encodeURIComponent(runId)}${runAttempt ? `?runAttempt=${runAttempt}` : ""}`,
+        `/executions/${encodeURIComponent(runId)}${runAttempt ? `?runAttempt=${runAttempt}` : ""}`,
       ]}
     >
       <Routes>
         <Route
-          path="/execution-runs/:runId"
+          path="/executions/:executionId"
           element={
             <RuntimeClientTestProvider
               createClient={createClient}
               readSession={readSession}
             >
-              <ExecutionRunDetailPage />
+              <ExecutionDetailPage />
             </RuntimeClientTestProvider>
           }
         />

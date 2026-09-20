@@ -142,7 +142,7 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
                 {item.execution ? (
                   <Link
                     className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-bp-graphite hover:border-bp-git"
-                    to={`/execution-runs/${encodeURIComponent(item.execution.locator)}${item.execution.sourceOnly ? `?runAttempt=${item.execution.runAttempt}` : ""}`}
+                    to={`/executions/${encodeURIComponent(item.execution.locator)}${item.execution.sourceOnly ? `?runAttempt=${item.execution.runAttempt}` : ""}`}
                   >
                     {t("audit:actions.openExecution")}
                   </Link>

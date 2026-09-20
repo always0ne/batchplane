@@ -15,7 +15,7 @@ function sourceFiles(directory: string): string[] {
 describe("execution inspection dependency boundaries", () => {
   it("keeps product pages and their local hooks free of transport/session/evidence parsing", () => {
     const files = [
-      "pages/execution-runs",
+      "pages/executions",
       "pages/audit",
       "pages/dashboard",
     ].flatMap((path) => sourceFiles(resolve("src", path)));

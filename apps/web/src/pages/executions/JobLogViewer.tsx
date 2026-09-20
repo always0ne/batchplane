@@ -5,8 +5,8 @@ import type {
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-export type ExecutionRunJobItem = NonNullable<ExecutionRun["jobs"]>[number];
-export type ExecutionRunJobKind = "business" | "gate" | "source";
+export type ExecutionJobItem = NonNullable<ExecutionRun["jobs"]>[number];
+export type ExecutionJobKind = "business" | "gate" | "source";
 type LogViewMode = "focused" | "full";
 const maxRenderedLogLines = 500;
 
@@ -17,8 +17,8 @@ export function JobLogViewer({
   searchTerm,
   setSearchTerm,
 }: {
-  job: ExecutionRunJobItem;
-  kind: ExecutionRunJobKind;
+  job: ExecutionJobItem;
+  kind: ExecutionJobKind;
   log: ExecutionJobLog;
   searchTerm: string;
   setSearchTerm: (value: string) => void;

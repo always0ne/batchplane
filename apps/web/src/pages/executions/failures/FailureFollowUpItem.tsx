@@ -6,7 +6,7 @@ import type {
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { formatInspectionError } from "../../client/inspection-errors";
+import { formatInspectionError } from "../../../client/inspection-errors";
 
 export function FailureFollowUpItem({
   followUp,
@@ -62,7 +62,9 @@ export function FailureFollowUpItem({
         <span className="rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-800">
           {t(`runDetail.followUp.statusValues.${followUp.status}`)}
         </span>
-        <span className={reviewStatusClassName(followUp.reviewStatus)}>
+        <span
+          className={getFailureFollowUpReviewStatusClass(followUp.reviewStatus)}
+        >
           {t(`runDetail.followUp.review.statusValues.${followUp.reviewStatus}`)}
         </span>
         <span className="text-xs font-semibold text-bp-muted">
@@ -174,7 +176,9 @@ function latestFailureFollowUpReview(
   return followUp.reviews[followUp.reviews.length - 1] ?? null;
 }
 
-function reviewStatusClassName(status: FailureFollowUp["reviewStatus"]) {
+function getFailureFollowUpReviewStatusClass(
+  status: FailureFollowUp["reviewStatus"],
+) {
   if (status === "APPROVED") {
     return "rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800";
   }

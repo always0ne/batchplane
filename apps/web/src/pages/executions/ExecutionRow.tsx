@@ -15,16 +15,16 @@ import { formatGateReasonDisplay } from "../../i18n/display-keys";
 
 import { isBusinessFailure } from "@batchplane/ui-client";
 
-import type { ExecutionRunListView } from "./ExecutionRunListContent";
+import type { ExecutionListView } from "./ExecutionListContent";
 
-export function ExecutionRunRow({
+export function ExecutionRow({
   namespace,
   run,
   view,
 }: {
   namespace: "executions" | "failures";
   run: ExecutionRun;
-  view: ExecutionRunListView;
+  view: ExecutionListView;
 }) {
   const { i18n, t } = useTranslation(namespace);
   const display = getRunStatusDisplay(run);
@@ -33,9 +33,11 @@ export function ExecutionRunRow({
   if (view === "failures") detailQuery.set("from", "failures");
   if (run.evidenceScope === "SOURCE_RUN")
     detailQuery.set("runAttempt", String(run.runAttempt ?? 1));
-  const runDetailPath = `/execution-runs/${encodeURIComponent(run.runId)}${detailQuery.size ? `?${detailQuery}` : ""}`;
+  const executionDetailPath = `/executions/${encodeURIComponent(run.runId)}${detailQuery.size ? `?${detailQuery}` : ""}`;
   const followUpPath =
-    view === "failures" ? `${runDetailPath}#failure-follow-up` : runDetailPath;
+    view === "failures"
+      ? `${executionDetailPath}#failure-follow-up`
+      : executionDetailPath;
   const hasFailureFollowUp = (run.failureFollowUps ?? []).length > 0;
   const failureFollowUpStatusKey = getFailureFollowUpStatusKey(run);
 
@@ -51,7 +53,7 @@ export function ExecutionRunRow({
           </span>
           <Link
             className="font-semibold text-bp-graphite hover:text-bp-control"
-            to={runDetailPath}
+            to={executionDetailPath}
           >
             {run.batchId || t("values.unknownBatch")}
           </Link>
@@ -65,7 +67,14 @@ export function ExecutionRunRow({
           </p>
         ) : null}
         <dl className="grid gap-3 text-xs md:grid-cols-2">
-          <ExecutionRunFact label={t("fields.runId")} value={run.runId} />
+          <ExecutionRunFact
+            label={
+              run.evidenceScope === "SOURCE_RUN"
+                ? t("fields.sourceRunId")
+                : t("fields.executionId")
+            }
+            value={run.runId}
+          />
           <ExecutionRunFact
             label={t("fields.requestId")}
             value={run.requestId || t("values.unknown")}
@@ -116,7 +125,7 @@ export function ExecutionRunRow({
               ? "border border-slate-300 bg-white text-bp-graphite"
               : "bg-bp-control text-white",
           ].join(" ")}
-          to={runDetailPath}
+          to={executionDetailPath}
         >
           {t("actions.openRun")}
         </Link>

@@ -35,7 +35,7 @@ const statusFilters = [
 
 type RequestStatusFilter = (typeof statusFilters)[number];
 
-export function WorkspaceRequestsPage() {
+export function RequestListPage() {
   const { t } = useTranslation("requests");
   const requests = useWorkspaceRequests();
 

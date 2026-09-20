@@ -5,27 +5,27 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBatchPlaneClient } from "../../client/batch-plane-client-context";
 
-export type ExecutionRunDetailState =
+export type ExecutionDetailState =
   | { type: "loading" }
   | { type: "no-session" }
-  | { type: "not-found"; runId: string }
+  | { type: "not-found"; executionId: string }
   | { type: "error"; error: unknown }
   | { type: "loaded"; run: ExecutionRunPresentation; refreshError?: unknown };
 
-export function useExecutionRunDetail(
-  runId: string,
+export function useExecutionDetail(
+  executionId: string,
   attemptParameter: string | null,
 ) {
   const client = useBatchPlaneClient();
   const scope = useMemo(
-    () => ({ client, runId, attemptParameter }),
-    [client, runId, attemptParameter],
+    () => ({ client, executionId, attemptParameter }),
+    [client, executionId, attemptParameter],
   );
   const version = useRef(0);
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{
     scope: typeof scope;
-    state: ExecutionRunDetailState;
+    state: ExecutionDetailState;
   }>();
   useEffect(() => {
     const requestVersion = ++version.current;
@@ -39,14 +39,16 @@ export function useExecutionRunDetail(
           (Number.isSafeInteger(runAttempt) && runAttempt > 0);
         const run = validAttempt
           ? await client.getExecutionRun({
-              runId,
+              runId: executionId,
               ...(runAttempt === undefined ? {} : { runAttempt }),
             })
           : null;
         if (active && version.current === requestVersion) {
           setResult({
             scope,
-            state: run ? { type: "loaded", run } : { type: "not-found", runId },
+            state: run
+              ? { type: "loaded", run }
+              : { type: "not-found", executionId },
           });
         }
       } catch (error) {
@@ -68,8 +70,8 @@ export function useExecutionRunDetail(
     return () => {
       active = false;
     };
-  }, [scope, client, runId, attemptParameter, revision]);
-  const acceptRunUpdate = useCallback(
+  }, [scope, client, executionId, attemptParameter, revision]);
+  const acceptExecutionUpdate = useCallback(
     (update: (run: ExecutionRunPresentation) => ExecutionRunPresentation) => {
       // A confirmed write is newer authority than an already-started read.
       version.current += 1;
@@ -85,6 +87,6 @@ export function useExecutionRunDetail(
     state:
       result?.scope === scope ? result.state : ({ type: "loading" } as const),
     refresh: () => setRevision((value) => value + 1),
-    acceptRunUpdate,
+    acceptExecutionUpdate,
   };
 }

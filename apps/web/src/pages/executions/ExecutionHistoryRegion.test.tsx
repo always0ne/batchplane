@@ -18,7 +18,7 @@ import {
   createSelectedBatchPlaneClient,
   writeRuntimeFixtureSelection,
 } from "../../runtime/runtime-fixtures";
-import { ExecutionRunListPage } from "./ExecutionRunListPage";
+import { ExecutionHistoryRegion } from "./ExecutionHistoryRegion";
 
 const session = {
   owner: "always0ne",
@@ -26,7 +26,7 @@ const session = {
   token: "fixture-token",
 };
 
-describe("ExecutionRunListPage", () => {
+describe("ExecutionHistoryRegion", () => {
   beforeEach(async () => {
     sessionStorage.clear();
     await i18next.changeLanguage("en");
@@ -74,7 +74,7 @@ describe("ExecutionRunListPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Executions" }),
     ).toBeInTheDocument();
-    expect(await screen.findByText("Execution runs")).toBeInTheDocument();
+    expect(await screen.findByText("Execution history")).toBeInTheDocument();
     expect(screen.getAllByText("Running").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Succeeded").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Business failed").length).toBeGreaterThan(0);
@@ -89,19 +89,19 @@ describe("ExecutionRunListPage", () => {
     ).toBeInTheDocument();
     expect(
       screen
-        .getAllByRole("link", { name: "Open run" })
+        .getAllByRole("link", { name: "Open execution" })
         .map((link) => link.getAttribute("href")),
     ).toEqual(
       expect.arrayContaining([
-        "/execution-runs/203",
-        "/execution-runs/204",
-        "/execution-runs/205",
-        "/execution-runs/208",
+        "/executions/203",
+        "/executions/204",
+        "/executions/205",
+        "/executions/208",
       ]),
     );
     expect(
       screen
-        .getAllByRole("link", { name: "Source run" })
+        .getAllByRole("link", { name: "Source execution" })
         .map((link) => link.getAttribute("href")),
     ).toEqual(
       expect.arrayContaining([
@@ -119,7 +119,7 @@ describe("ExecutionRunListPage", () => {
       readSession: () => session,
     });
 
-    expect(await screen.findByText("Execution runs")).toBeInTheDocument();
+    expect(await screen.findByText("Execution history")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Gate blocked" }));
 
@@ -127,10 +127,9 @@ describe("ExecutionRunListPage", () => {
     expect(
       screen.queryByText("Batch command failed after Gate allowed the run."),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open run" })).toHaveAttribute(
-      "href",
-      "/execution-runs/208",
-    );
+    expect(
+      screen.getByRole("link", { name: "Open execution" }),
+    ).toHaveAttribute("href", "/executions/208");
   });
 
   it("renders Gate reason messages in Korean while preserving reasonCode", async () => {
@@ -143,7 +142,7 @@ describe("ExecutionRunListPage", () => {
       readSession: () => session,
     });
 
-    expect(await screen.findByText("실행 Run")).toBeInTheDocument();
+    expect(await screen.findByText("실행 이력")).toBeInTheDocument();
     expect(
       screen.getByText(
         "RERUN_NOT_AUTHORIZED - GitHub Actions rerun은 허용되지 않습니다.",
@@ -157,7 +156,7 @@ describe("ExecutionRunListPage", () => {
     renderPage({
       createClient: () =>
         createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
-      initialPath: "/failures",
+      initialPath: "/executions/failures",
       readSession: () => session,
       view: "failures",
     });
@@ -171,15 +170,15 @@ describe("ExecutionRunListPage", () => {
       screen.getByRole("link", { name: "Record follow-up" }),
     ).toHaveAttribute(
       "href",
-      "/execution-runs/205?from=failures#failure-follow-up",
+      "/executions/205?from=failures#failure-follow-up",
     );
     expect(screen.queryByRole("button", { name: "Active" })).toBeNull();
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(
       screen
-        .getAllByRole("link", { name: "Open run" })
+        .getAllByRole("link", { name: "Open execution" })
         .map((link) => link.getAttribute("href")),
-    ).toEqual(expect.arrayContaining(["/execution-runs/205?from=failures"]));
+    ).toEqual(expect.arrayContaining(["/executions/205?from=failures"]));
   });
 
   it.each(["en", "ko"])(
@@ -191,17 +190,17 @@ describe("ExecutionRunListPage", () => {
       renderPage({
         createClient: () => runtime,
         readSession: () => session,
-        initialPath: "/failures",
+        initialPath: "/executions/failures",
         view: "failures",
       });
 
       const links = await screen.findAllByRole("link", {
-        name: locale === "en" ? "Open run" : "Run 열기",
+        name: locale === "en" ? "Open execution" : "실행 열기",
       });
       expect(links.map((link) => link.getAttribute("href")).sort()).toEqual(
         [
-          `/execution-runs/${encodeURIComponent(`native:btr-schedule-${"a".repeat(64)}:900:2`)}?from=failures`,
-          `/execution-runs/${encodeURIComponent(`native:btr-schedule-${"b".repeat(64)}:900:1`)}?from=failures`,
+          `/executions/${encodeURIComponent(`native:btr-schedule-${"a".repeat(64)}:900:2`)}?from=failures`,
+          `/executions/${encodeURIComponent(`native:btr-schedule-${"b".repeat(64)}:900:1`)}?from=failures`,
         ].sort(),
       );
       expect(
@@ -249,7 +248,7 @@ describe("ExecutionRunListPage", () => {
 
     renderPage({
       createClient: () => runtime,
-      initialPath: "/failures",
+      initialPath: "/executions/failures",
       readSession: () => session,
       view: "failures",
     });
@@ -264,7 +263,7 @@ describe("ExecutionRunListPage", () => {
     renderPage({
       createClient: () =>
         createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
-      initialPath: "/failures?type=active",
+      initialPath: "/executions/failures?type=active",
       readSession: () => session,
       view: "failures",
     });
@@ -288,7 +287,7 @@ describe("ExecutionRunListPage", () => {
             },
           ],
         }),
-      initialPath: "/failures",
+      initialPath: "/executions/failures",
       readSession: () => session,
       view: "failures",
     });
@@ -298,7 +297,7 @@ describe("ExecutionRunListPage", () => {
         "No failed or Gate-blocked workflow runs match this filter.",
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Open run" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open execution" })).toBeNull();
   });
 
   it("uses a compact unknown-verification badge with one explanatory outcome", async () => {
@@ -339,12 +338,14 @@ describe("ExecutionRunListPage", () => {
     writeRuntimeFixtureSelection("native-schedule-source-unconfirmed");
     const runtime = createSelectedBatchPlaneClient(session);
     renderPage({ createClient: () => runtime, readSession: () => session });
-    const links = await screen.findAllByRole("link", { name: "Open run" });
+    const links = await screen.findAllByRole("link", {
+      name: "Open execution",
+    });
     expect(links.map((link) => link.getAttribute("href")).sort()).toEqual([
-      "/execution-runs/900?runAttempt=1",
-      "/execution-runs/900?runAttempt=2",
+      "/executions/900?runAttempt=1",
+      "/executions/900?runAttempt=2",
     ]);
-    const sourceRunBadges = screen.getAllByText("Source run", {
+    const sourceRunBadges = screen.getAllByText("Source execution", {
       selector: "li span",
     });
     expect(sourceRunBadges).toHaveLength(2);
@@ -356,7 +357,7 @@ describe("ExecutionRunListPage", () => {
 
 function renderPage({
   createClient,
-  initialPath = "/runs",
+  initialPath = "/executions",
   readSession,
   view = "executions",
 }: {
@@ -369,24 +370,24 @@ function renderPage({
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route
-          path="/runs"
+          path="/executions"
           element={
             <RuntimeClientTestProvider
               createClient={createClient}
               readSession={readSession}
             >
-              <ExecutionRunListPage view={view} />
+              <ExecutionHistoryRegion view={view} />
             </RuntimeClientTestProvider>
           }
         />
         <Route
-          path="/failures"
+          path="/executions/failures"
           element={
             <RuntimeClientTestProvider
               createClient={createClient}
               readSession={readSession}
             >
-              <ExecutionRunListPage view={view} />
+              <ExecutionHistoryRegion view={view} />
             </RuntimeClientTestProvider>
           }
         />

@@ -8,10 +8,10 @@ import { useTranslation } from "react-i18next";
 import { formatInspectionError } from "../../client/inspection-errors";
 import {
   JobLogViewer,
-  type ExecutionRunJobItem,
-  type ExecutionRunJobKind,
+  type ExecutionJobItem,
+  type ExecutionJobKind,
 } from "./JobLogViewer";
-import { RunStatusBadge } from "./RunDetailFacts";
+import { ExecutionStatusBadge } from "./ExecutionDetailFacts";
 type LoadExecutionRunJobLog = (jobId: string) => Promise<ExecutionJobLog>;
 type JobLogState =
   | { type: "idle" }
@@ -66,7 +66,7 @@ export function JobSummaryPanel({
                   {t("runDetail.jobs.jobId", { jobId: job.jobId })}
                 </p>
               </div>
-              <RunStatusBadge status={job.status} variant="job" />
+              <ExecutionStatusBadge status={job.status} variant="job" />
               <p className="text-sm font-semibold text-bp-muted">
                 {job.conclusion || t("runDetail.values.inProgress")}
               </p>
@@ -87,7 +87,7 @@ export function JobSummaryPanel({
   );
 }
 
-function JobKindBadge({ kind }: { kind: ExecutionRunJobKind }) {
+function JobKindBadge({ kind }: { kind: ExecutionJobKind }) {
   const { t } = useTranslation("executionRequests");
   const className =
     kind === "gate" ? "bg-orange-50 text-orange-800" : "bg-sky-50 text-sky-800";
@@ -104,8 +104,8 @@ function JobLogAction({
   kind,
   onLoadLog,
 }: {
-  job: ExecutionRunJobItem;
-  kind: ExecutionRunJobKind;
+  job: ExecutionJobItem;
+  kind: ExecutionJobKind;
   onLoadLog: LoadExecutionRunJobLog;
 }) {
   const { t } = useTranslation("executionRequests");
@@ -215,7 +215,7 @@ function JobLogAction({
   );
 }
 
-function getJobKind(job: ExecutionRunJobItem): ExecutionRunJobKind {
+function getJobKind(job: ExecutionJobItem): ExecutionJobKind {
   if (job.role === "GATE") return "gate";
   if (job.role === "BUSINESS") return "business";
   return "business";

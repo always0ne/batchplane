@@ -4,14 +4,15 @@
   "approveCommand": "/bgcp approve requestDigest=...",
   "actions": {
     "githubRun": "원본 실행",
-    "openRun": "Run 열기",
+    "openRun": "실행 열기",
     "openSetup": "Workspace 열기",
     "refresh": "새로고침"
   },
   "fields": {
     "completedAt": "완료",
     "requestId": "Request ID",
-    "runId": "Run ID",
+    "executionId": "실행 ID",
+    "sourceRunId": "원본 실행 ID",
     "workflow": "실행 대상"
   },
   "filters": {
@@ -23,18 +24,18 @@
     "succeeded": "성공"
   },
   "list": {
-    "empty": "조건에 맞는 workflow run이 없습니다.",
-    "subtitle": "{{count}}건의 Run이 표시됩니다.",
-    "subtitle_plural": "{{count}}건의 Run이 표시됩니다.",
-    "title": "실행 Run"
+    "empty": "조건에 맞는 실행이 없습니다.",
+    "subtitle": "{{count}}건의 실행이 표시됩니다.",
+    "subtitle_plural": "{{count}}건의 실행이 표시됩니다.",
+    "title": "실행 이력"
   },
   "states": {
-    "error": "실행내역을 불러오지 못했습니다.",
-    "loading": "실행내역을 불러오는 중...",
+    "error": "실행을 불러오지 못했습니다.",
+    "loading": "실행을 불러오는 중...",
     "noSession": "실행내역을 보려면 Workspace를 먼저 연결하세요."
   },
   "status": {
-    "SOURCE_RUN": "원본 Run",
+    "SOURCE_RUN": "원본 실행",
     "BLOCKED": "Gate 차단",
     "CANCELED": "취소됨",
     "FAILED": "업무 실패",
@@ -53,13 +54,13 @@
     "UNCONFIRMED": "증적 확인 불가"
   },
   "summary": {
-    "active": "진행 중",
+    "active": "진행 중 실행",
     "followUp": "후속 확인",
     "succeeded": "성공",
-    "total": "전체 Run"
+    "total": "전체 실행"
   },
   "values": {
-    "sourceRunUnconfirmed": "원본 Run이 관측되었으나 스케줄 회차와 업무 결과는 확인되지 않았습니다.",
+    "sourceRunUnconfirmed": "원본 실행이 관측되었으나 스케줄 회차와 업무 결과는 확인되지 않았습니다.",
     "active": "Workflow run이 아직 진행 중입니다.",
     "businessFailure": "Gate 통과 후 배치 명령이 실패했습니다.",
     "canceled": "Workflow run이 취소되었거나 건너뛰어졌습니다.",

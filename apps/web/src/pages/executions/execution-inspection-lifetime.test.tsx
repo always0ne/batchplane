@@ -17,8 +17,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import { i18next } from "../../i18n/i18n";
 import { deferred, inspectionTestClient } from "../../test/inspection-client";
-import { ExecutionRunDetailPage } from "./ExecutionRunDetailPage";
-import { ExecutionRunListPage } from "./ExecutionRunListPage";
+import { ExecutionDetailPage } from "./ExecutionDetailPage";
+import { ExecutionListPage } from "./ExecutionListPage";
 
 function run(id: string): ExecutionRunPresentation {
   return {
@@ -79,26 +79,24 @@ function Navigate() {
   const navigate = useNavigate();
   return (
     <>
-      <button onClick={() => navigate("/execution-runs/second?runAttempt=2")}>
+      <button onClick={() => navigate("/executions/second?runAttempt=2")}>
         Next run
       </button>
-      <button onClick={() => navigate("/runs")}>Run list</button>
+      <button onClick={() => navigate("/executions")}>Execution list</button>
     </>
   );
 }
 function mount(client: BatchPlaneClient, other?: BatchPlaneClient) {
   return render(
     <Harness client={client} other={other}>
-      <MemoryRouter
-        initialEntries={["/execution-runs/first?from=failures#logs"]}
-      >
+      <MemoryRouter initialEntries={["/executions/first?from=failures#logs"]}>
         <Navigate />
         <Routes>
           <Route
-            path="/execution-runs/:runId"
-            element={<ExecutionRunDetailPage />}
+            path="/executions/:executionId"
+            element={<ExecutionDetailPage />}
           />
-          <Route path="/runs" element={<ExecutionRunListPage />} />
+          <Route path="/executions" element={<ExecutionListPage />} />
         </Routes>
       </MemoryRouter>
     </Harness>,
@@ -142,7 +140,7 @@ describe("execution inspection lifetime", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "Open source run" }),
+      screen.queryByRole("link", { name: "Open source execution" }),
     ).not.toBeInTheDocument();
   });
 
@@ -293,7 +291,7 @@ describe("execution inspection lifetime", () => {
         value={inspectionTestClient({ listExecutionRuns: list })}
       >
         <MemoryRouter>
-          <ExecutionRunListPage />
+          <ExecutionListPage />
         </MemoryRouter>
       </BatchPlaneClientContext.Provider>,
     );

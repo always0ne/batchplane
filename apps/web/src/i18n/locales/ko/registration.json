@@ -118,7 +118,7 @@
       "pending": "Batch ID를 입력하면 경로가 생성됩니다"
     },
     "checklist": {
-      "title": "통제 체크",
+      "title": "통제 확인",
       "batchDefinitionPath": "배치 정의 경로가 Batch ID 기준으로 생성됩니다.",
       "workflowPath": "Workflow 경로가 Batch ID 기준으로 생성됩니다.",
       "gateRequired": "BatchPlane Gate는 배치 명령 전에 반드시 실행됩니다.",

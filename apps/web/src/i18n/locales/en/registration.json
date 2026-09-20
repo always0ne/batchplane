@@ -118,7 +118,7 @@
       "pending": "Enter a Batch ID to generate the path"
     },
     "checklist": {
-      "title": "Governance checklist",
+      "title": "Control checklist",
       "batchDefinitionPath": "Batch definition path is generated from the Batch ID.",
       "workflowPath": "Workflow path is generated from the Batch ID.",
       "gateRequired": "BatchPlane Gate is mandatory before the batch command.",

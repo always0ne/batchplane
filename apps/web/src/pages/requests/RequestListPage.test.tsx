@@ -10,11 +10,11 @@ import "../../i18n/i18n";
 import { createGitHubLiteBatchPlaneClient } from "@batchplane/github-lite";
 import { createRuntimeBatchPlaneClient } from "../../runtime/runtime-batch-plane-client";
 import { createRuntimeFixtureMockState } from "../../runtime/runtime-fixtures";
-import { WorkspaceRequestsPage } from "./WorkspaceRequestsPage";
+import { RequestListPage } from "./RequestListPage";
 
 const session = { owner: "always0ne", repo: "batch", token: "fixture-token" };
 
-describe("WorkspaceRequestsPage", () => {
+describe("RequestListPage", () => {
   it("lists governed change and execution requests with internal detail and source links", async () => {
     const state = createRuntimeFixtureMockState("happy-path");
     state.pullRequests.push(governedChangePullRequest());
@@ -124,7 +124,7 @@ function renderPage(client: BatchPlaneClient) {
     <BatchPlaneClientContext.Provider value={client}>
       <MemoryRouter initialEntries={["/requests"]}>
         <Routes>
-          <Route path="/requests" element={<WorkspaceRequestsPage />} />
+          <Route path="/requests" element={<RequestListPage />} />
         </Routes>
       </MemoryRouter>
     </BatchPlaneClientContext.Provider>,

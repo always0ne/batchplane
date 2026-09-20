@@ -35,7 +35,7 @@ describe("GovernedChangeDetailPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Open Workspace" }),
-    ).toHaveAttribute("href", "/lite/setup");
+    ).toHaveAttribute("href", "/workspace");
   });
 
   it("requires a rejection reason and sends it through the product client", async () => {

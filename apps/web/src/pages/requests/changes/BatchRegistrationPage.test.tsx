@@ -212,7 +212,7 @@ describe("BatchRegistrationPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Open Workspace" }),
-    ).toHaveAttribute("href", "/lite/setup");
+    ).toHaveAttribute("href", "/workspace");
   });
 
   it("keeps schedule add and deletion inside the batch change draft", async () => {

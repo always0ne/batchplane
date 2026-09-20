@@ -24,7 +24,9 @@ describe("BatchListContent control rendering", () => {
       "title",
       expect.stringContaining("not been approved"),
     );
-    expect(screen.getByRole("button", { name: "Request run" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Request execution" }),
+    ).toBeDisabled();
     expect(screen.getByText("Unavailable")).toHaveAttribute(
       "title",
       expect.stringContaining("not been approved"),
@@ -57,7 +59,9 @@ describe("BatchListContent control rendering", () => {
       "title",
       "Manual execution is blocked because approved batch revision evidence is unavailable. Refresh the page and verify the Workspace connection and permissions.",
     );
-    expect(screen.getByRole("button", { name: "Request run" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Request execution" }),
+    ).toBeDisabled();
   });
 });
 

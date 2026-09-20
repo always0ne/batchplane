@@ -27,6 +27,22 @@ implementation is not complete until the user can understand the controlled
 object, the next action, and whether the visible item is approval work,
 execution evidence, or failure follow-up.
 
+### Product Sitemap And Deferred Requests
+
+Execution history uses `/executions`, an exact execution uses
+`/executions/:executionId`, and failure follow-up uses `/executions/failures`.
+Workspace settings use `/workspace`. Internal links must preserve the exact
+execution identity and existing occurrence/attempt context. Product navigation
+uses execution and request/audit terminology, not provider Run or Governance
+categories. Source links may still name the actual provider and its Run.
+
+The sitemap refactoring preserves current change/execution request creation
+and detail routes, single-request behavior, approval policy and evidence.
+Multi-Batch/multi-type requests and `/requests/new` plus `/requests/:requestId`
+are deferred to the separate [unified request feature specification](./unified-request-feature-spec.md).
+That document records agreed intent and open decisions; it is not a claim of
+current capability or authorization to implement the feature during refactoring.
+
 ## Installation Requirements
 
 Workspace settings use the shared product UI. A Lite-specific connection form
@@ -222,7 +238,7 @@ with:
 
 - generated file paths for the batch definition, workflow, and optional
   execution file
-- a governance checklist confirming Batch ID-derived paths, mandatory Gate,
+- a control checklist confirming Batch ID-derived paths, mandatory Gate,
   selected execution environment, and recorded Batch command
 - a YAML preview for the batch definition and generated workflow
 - a short note that the created request opens immediately in its internal detail
@@ -403,7 +419,7 @@ business-failure revisions while retaining that label.
 
 Each execution request must also have a BatchPlane detail screen. The detail
 screen must show request status, requester, batch, environment, workflow
-path/ref, runner, batch command, request digest, governance checks, canonical
+path/ref, runner, batch command, request digest, control checks, canonical
 request payload, approval evidence, dispatcher evidence, and Gate evidence when
 available. The detail screen is the primary place to explain why approval did or
 did not lead to dispatch.
@@ -463,7 +479,7 @@ immutable audit store.
 
 Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request
-metadata, review state, governance checklist, YAML change summary for governed
+metadata, review state, control checklist, YAML change summary for governed
 files, refresh action, and GitHub pull request link. Approval wording on this
 screen must be explicit that approval merges the registration pull request.
 Registration approve/reject actions are executed from this detail screen, not

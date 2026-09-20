@@ -8,7 +8,7 @@
     "requestChange": "Request change",
     "requestDelete": "Request delete",
     "createDeleteRequest": "Create delete request",
-    "requestRun": "Request run",
+    "requestRun": "Request execution",
     "cancel": "Cancel",
     "backToBatches": "Back to batches",
     "viewDetails": "Details"

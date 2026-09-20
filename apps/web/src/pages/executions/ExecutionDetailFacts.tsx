@@ -1,13 +1,13 @@
 import type { ExecutionRunPresentation as ExecutionRun } from "@batchplane/ui-client";
 import { useTranslation } from "react-i18next";
-export function RunStatusBadge({
+export function ExecutionStatusBadge({
   gateVerificationUnknown = false,
   status,
-  variant = "run",
+  variant = "execution",
 }: {
   gateVerificationUnknown?: boolean;
   status: ExecutionRun["status"];
-  variant?: "job" | "run";
+  variant?: "execution" | "job";
 }) {
   const { t } = useTranslation("executionRequests");
   const palette = gateVerificationUnknown

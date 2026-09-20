@@ -138,7 +138,9 @@ describe("BatchDetailPage", () => {
       screen.getByRole("link", { name: "Run payment.daily-close" }),
     ).toHaveAttribute("href", "/execution-requests/81");
     expect(screen.getByText("Daily close")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Request run" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Request execution" }),
+    ).toHaveAttribute(
       "href",
       "/batches/payment.daily-close/execution-requests/new",
     );
@@ -166,7 +168,7 @@ describe("BatchDetailPage", () => {
     );
 
     const runButton = await screen.findByRole("button", {
-      name: "Request run",
+      name: "Request execution",
     });
     expect(runButton).toBeDisabled();
     expect(runButton).toHaveAttribute(
@@ -199,7 +201,7 @@ describe("BatchDetailPage", () => {
     );
 
     const runButton = await screen.findByRole("button", {
-      name: "Request run",
+      name: "Request execution",
     });
     expect(runButton).toBeDisabled();
     expect(runButton).toHaveAttribute(

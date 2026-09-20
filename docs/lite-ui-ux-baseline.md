@@ -15,6 +15,23 @@ than a generic JSON form engine. No visual redesign is implied by this boundary.
 This document defines the UI/UX baseline for BatchPlane Lite screens.
 Every screen PR should check its scope against this baseline before review.
 
+## Product Navigation
+
+- Execution history, exact execution detail and failures use `/executions`,
+  `/executions/:executionId` and `/executions/failures`. Settings use `/workspace`.
+- Product navigation says Executions and Requests and audit (실행내역, 요청 및
+  감사), not provider Run or Governance categories. Provider source links retain
+  their actual provider names; do not disguise an external destination.
+- Failure history belongs to execution inspection. Its navigation state must
+  distinguish it from the all-execution list. Preserve direct entry, filters,
+  exact scheduled occurrence/attempt links and existing follow-up/log access.
+- This cleanup preserves the current My Work purpose and change/execution
+  request creation/detail routes. It must not introduce a second request-writing
+  journey or imply that unified requests are already available.
+- [Unified requests](./unified-request-feature-spec.md) are a separate deferred
+  feature; their complete writing/approval/item-processing UX is reviewed after
+  refactoring, before that feature is implemented.
+
 ## Operator Journey
 
 Lite must read as one connected operational flow:
@@ -48,7 +65,7 @@ approval. It links to the exact occurrence/attempt detail. See
   occurrences never become manual approval tasks or counts, including while
   their Gate/result evidence is not yet available.
 - Registration/change detail shows request status, external source metadata,
-  governance checklist, and YAML change summary before an internal decision.
+  control checklist, and YAML change summary before an internal decision.
 - Execution request detail shows the full judgment record for one request:
   request status, requester, batch context, workflow/ref, runner, command,
   digest, canonical payload, approval evidence, dispatcher evidence, and Gate

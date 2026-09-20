@@ -28,8 +28,8 @@ describe("ExecutionRequestDetailPage", () => {
     expect(screen.getByText("Source request status")).toBeInTheDocument();
     expect(screen.getByText("OPEN")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "View run detail" }),
-    ).toHaveAttribute("href", "/execution-runs/204");
+      screen.getByRole("link", { name: "View execution detail" }),
+    ).toHaveAttribute("href", "/executions/204");
     expect(
       screen.getByRole("button", { name: "Approve execution" }),
     ).toBeEnabled();
@@ -185,10 +185,10 @@ describe("ExecutionRequestDetailPage", () => {
       screen.getByRole("link", { name: "Back to request inventory" }),
     ).toHaveAttribute("href", "/requests");
     expect(
-      screen.getByRole("link", { name: "View run detail" }),
+      screen.getByRole("link", { name: "View execution detail" }),
     ).toHaveAttribute(
       "href",
-      `/execution-runs/${encodeURIComponent(occurrenceLocator)}`,
+      `/executions/${encodeURIComponent(occurrenceLocator)}`,
     );
     expect(
       screen.queryByRole("button", { name: "Approve execution" }),
@@ -251,16 +251,16 @@ describe("ExecutionRequestDetailPage", () => {
         }),
       );
       expect(
-        await screen.findByRole("link", { name: "View run detail" }),
+        await screen.findByRole("link", { name: "View execution detail" }),
       ).toHaveAttribute(
         "href",
-        "/execution-runs/native%3Abtr-schedule-a%3A900%3A2",
+        "/executions/native%3Abtr-schedule-a%3A900%3A2",
       );
       expect(
         screen.getByRole("link", { name: "900 Gate blocked" }),
       ).toHaveAttribute(
         "href",
-        "/execution-runs/native%3Abtr-schedule-a%3A900%3A2",
+        "/executions/native%3Abtr-schedule-a%3A900%3A2",
       );
     },
   );

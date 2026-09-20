@@ -5,22 +5,20 @@ import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../../components/PageHeader";
 
 import type {
-  ExecutionRunFilter,
-  ExecutionRunListView,
-} from "./ExecutionRunListContent";
-import { ExecutionRunListContent } from "./ExecutionRunListContent";
-import { useExecutionRuns } from "./useExecutionRuns";
+  ExecutionFilter,
+  ExecutionListView,
+} from "./ExecutionListContent";
+import { ExecutionListContent } from "./ExecutionListContent";
+import { useExecutions } from "./useExecutions";
 
-export function ExecutionRunListPage({
-  view = "executions",
-}: { view?: ExecutionRunListView } = {}) {
+export function ExecutionHistoryRegion({ view }: { view: ExecutionListView }) {
   const namespace = view === "failures" ? "failures" : "executions";
   const { t } = useTranslation(namespace);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { state, refresh } = useExecutionRuns();
-  const activeFilter = readExecutionRunFilter(searchParams, view);
+  const { state, refresh } = useExecutions();
+  const activeFilter = readExecutionFilter(searchParams, view);
 
-  function changeFilter(filter: ExecutionRunFilter) {
+  function changeFilter(filter: ExecutionFilter) {
     if (filter === "all") {
       setSearchParams({});
       return;
@@ -42,7 +40,7 @@ export function ExecutionRunListPage({
           {t("actions.refresh")}
         </button>
       </div>
-      <ExecutionRunListContent
+      <ExecutionListContent
         activeFilter={activeFilter}
         namespace={namespace}
         onFilterChange={changeFilter}
@@ -53,10 +51,10 @@ export function ExecutionRunListPage({
   );
 }
 
-function readExecutionRunFilter(
+function readExecutionFilter(
   searchParams: URLSearchParams,
-  view: ExecutionRunListView,
-): ExecutionRunFilter {
+  view: ExecutionListView,
+): ExecutionFilter {
   const type = searchParams.get("type");
   const validFilter =
     type === "active" ||
