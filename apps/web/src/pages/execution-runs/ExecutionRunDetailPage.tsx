@@ -4,8 +4,12 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useBatchPlaneClient } from "../../client/batch-plane-client-context";
 import { formatInspectionError } from "../../client/inspection-errors";
-import { PageHeader } from "../../ui/PageHeader";
-import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
+import { PageHeader } from "../../components/PageHeader";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../components/PageState";
 import { FailureFollowUpPanel } from "./FailureFollowUpPanel";
 import {
   BusinessOutcomePanel,

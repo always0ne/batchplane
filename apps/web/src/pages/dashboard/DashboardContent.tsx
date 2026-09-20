@@ -13,7 +13,11 @@ import {
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { formatInspectionError } from "../../client/inspection-errors";
-import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../components/PageState";
 import type { DashboardState } from "./useDashboard";
 
 type DashboardCard = {

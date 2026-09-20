@@ -6,8 +6,8 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../ui/Button";
-import { StatusRow } from "../../ui/StatusRow";
+import { Button } from "../../components/Button";
+import { StatusRow } from "../../components/StatusRow";
 import type { WorkspaceInspectionState } from "./useWorkspaceInspection";
 import { useWorkspacePolicy } from "./useWorkspacePolicy";
 import { formatWorkspaceError } from "./workspace-errors";

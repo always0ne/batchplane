@@ -5,7 +5,7 @@ import type {
 import { Play } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { Button, ButtonLink } from "../../ui/Button";
+import { Button, ButtonLink } from "../../components/Button";
 
 type Props = { batch: BatchDetailDefinition; control: BatchControl };
 

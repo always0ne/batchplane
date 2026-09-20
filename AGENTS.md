@@ -52,7 +52,7 @@ file is the enforcement checklist.
 
 - Lite and Main must share the same React product UI source and product
   semantics. They may not share runtime implementations or deployment artifacts.
-- React pages and shared components depend on the provider-neutral
+- React pages and their business components depend on the provider-neutral
   `BatchPlaneClient`.
   They must not access GitHub tokens, REST DTOs, Issues, pull requests, branches,
   repository paths, YAML evidence, or raw workflow data directly.
@@ -64,24 +64,26 @@ file is the enforcement checklist.
 ## Frontend Structure
 
 - `app` owns routing, providers, and composition.
-- `pages` owns route screens, route input, page queries, page composition, and
-  navigation.
-- `components` contains business components actually shared across pages.
-  Page-only components and Hooks stay beside their page. Do not introduce a
-  separate `features` layer or move page-local flows just to classify them.
-- `ui` contains product-agnostic visual primitives and stable interaction
-  patterns. It must not know BatchPlane domain or provider concepts.
+- Organize `pages` by business ownership so a maintainer can find related code
+  by browsing folders, not only searching symbols. Keep route screens, their
+  components, Hooks and tests together under the owning business area.
+- Group request code under `pages/requests/execution` and `pages/requests/changes`.
+  Reuse from another screen does not change ownership: the approval inbox may
+  use the execution request's approval control without moving it to a global folder.
+- `components` contains genuinely product-neutral common components such as
+  Button and PageState, plus their tests and existing visual tokens. Do not use
+  a separate `ui` folder inside this already-UI application, or a `features` layer.
 - `client` is the provider-neutral React bridge to `packages/ui-client`. It owns
   the narrow Context and Hook used to access the injected `BatchPlaneClient`.
 - `assets` owns brand and product-specific visual assets.
 - `runtime` owns Lite/Main implementation selection and dependency injection.
 - `shared` is limited to non-visual, product-neutral support such as i18n and
   generic formatting. Do not turn it into a miscellaneous folder.
-- App composes pages; pages compose local/shared components and UI primitives.
-  Shared components may compose UI primitives and other shared components.
-  App, pages, and shared components may use `client -> packages/ui-client`.
-  Shared components must not import pages or app composition. A page must not
-  import another page. There is no mandatory intermediate component layer.
+- App composes route Pages. Pages may reuse another business area's owned
+  components, but must not import that area's route Page or app composition.
+  Business UI uses `client -> packages/ui-client`. Global common components
+  must not depend on business folders, product/provider models or app composition.
+  Share at the narrowest actual business scope; do not add an empty common folder.
 
 ## React Rules
 
@@ -105,9 +107,9 @@ file is the enforcement checklist.
   parsing, policy, and rendering in one function.
 - Extract page-local components when they name a meaningful visual region,
   isolate interaction or state, improve readability, or deserve focused tests.
-- Promote code to shared `components` or `ui` only after its semantic contract is
-  stable.
-  Visual resemblance alone is not proof of reusable behavior.
+- Keep business components with their owner even when reused elsewhere. Promote
+  code to global `components` only when its responsibility is genuinely common
+  and its contract is stable. Reuse count or visual resemblance alone is not enough.
 - Establish a small semantic token, asset, and UI primitive foundation before
   repeating raw controls across screens. Grow it through real product screens;
   do not predict every future component.

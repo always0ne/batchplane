@@ -1,8 +1,8 @@
 import { KeyRound, Loader2, Plug, Trash2 } from "lucide-react";
 import type { FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../ui/Button";
-import { StatusRow } from "../ui/StatusRow";
+import { Button } from "../components/Button";
+import { StatusRow } from "../components/StatusRow";
 import type { WorkspaceConnectionEditorProps } from "../client/workspace-connection-editor";
 import { redactGitHubToken } from "./github-session";
 import { useGitHubConnection } from "./useGitHubConnection";

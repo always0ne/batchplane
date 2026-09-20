@@ -10,8 +10,12 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-import { PageHeader } from "../../ui/PageHeader";
-import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
+import { PageHeader } from "../../components/PageHeader";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../components/PageState";
 import { type MyWorkState, useMyWork } from "./useMyWork";
 
 type WorkKind = "approval" | "failureFollowUp" | "registration" | "request";

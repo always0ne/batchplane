@@ -8,9 +8,13 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { useBatchPlaneClient } from "../../client/batch-plane-client-context";
-import { ExecutionApprovalActions } from "../../components/execution-approval/ExecutionApprovalActions";
-import { PageHeader } from "../../ui/PageHeader";
-import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
+import { ExecutionApprovalActions } from "../requests/execution/ExecutionApprovalActions";
+import { PageHeader } from "../../components/PageHeader";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../components/PageState";
 import {
   useApprovalRequests,
   type ApprovalRequestsState,

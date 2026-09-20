@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
-import { Button } from "../../ui/Button";
+import { Button } from "../../components/Button";
 
 type Props = {
   batchId: string;

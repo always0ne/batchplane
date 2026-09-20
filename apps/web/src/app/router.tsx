@@ -5,18 +5,18 @@ import {
 } from "react-router-dom";
 
 import { ApprovalsPage } from "../pages/approvals/ApprovalsPage";
-import { GovernedChangeDetailPage } from "../pages/approvals/GovernedChangeDetailPage";
 import { AuditPage } from "../pages/audit/AuditPage";
 import { BatchDetailPage } from "../pages/batches/BatchDetailPage";
-import { BatchRegistrationPage } from "../pages/batches/BatchRegistrationPage";
 import { BatchesPage } from "../pages/batches/BatchesPage";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
-import { ExecutionRequestDetailPage } from "../pages/execution-requests/ExecutionRequestDetailPage";
-import { ExecutionRequestPage } from "../pages/execution-requests/ExecutionRequestPage";
 import { ExecutionRunDetailPage } from "../pages/execution-runs/ExecutionRunDetailPage";
 import { ExecutionRunListPage } from "../pages/execution-runs/ExecutionRunListPage";
 import { MyWorkPage } from "../pages/my-work/MyWorkPage";
 import { NotFoundPage } from "../pages/not-found/NotFoundPage";
+import { BatchRegistrationPage } from "../pages/requests/changes/BatchRegistrationPage";
+import { GovernedChangeDetailPage } from "../pages/requests/changes/GovernedChangeDetailPage";
+import { ExecutionRequestDetailPage } from "../pages/requests/execution/ExecutionRequestDetailPage";
+import { ExecutionRequestPage } from "../pages/requests/execution/ExecutionRequestPage";
 import { WorkspaceRequestsPage } from "../pages/requests/WorkspaceRequestsPage";
 import { WorkspacePage } from "../pages/workspace/WorkspacePage";
 import { LiteGitHubConnectionEditor } from "../runtime/GitHubConnectionForm";

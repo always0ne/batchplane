@@ -2,7 +2,7 @@ import type { BatchControl, BatchRemediationKind } from "@batchplane/ui-client";
 import { Loader2, Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "../../ui/Button";
+import { Button } from "../../components/Button";
 import { useBatchRemediation } from "./useBatchRemediation";
 
 export function BatchRemediationActions({

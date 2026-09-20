@@ -1,6 +1,6 @@
 import { AlertCircle, FilePlus2, Loader2, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../ui/Button";
+import { Button } from "../../components/Button";
 import { useWorkspaceInstallation } from "./useWorkspaceInstallation";
 import type { WorkspaceInspectionState } from "./useWorkspaceInspection";
 import { formatWorkspaceError } from "./workspace-errors";

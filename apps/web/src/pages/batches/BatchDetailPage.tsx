@@ -2,9 +2,13 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 
-import { Button } from "../../ui/Button";
-import { PageHeader } from "../../ui/PageHeader";
-import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
+import { Button } from "../../components/Button";
+import { PageHeader } from "../../components/PageHeader";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../components/PageState";
 import { BatchDeletedArchive } from "./BatchDeletedArchive";
 import { BatchProfile } from "./BatchProfile";
 import { BatchRequestActions } from "./BatchRequestActions";

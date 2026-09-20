@@ -1,7 +1,7 @@
 import { Loader2, Plus, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { Button, ButtonLink } from "../../ui/Button";
+import { Button, ButtonLink } from "../../components/Button";
 
 type BatchListToolbarProps = {
   isLoading: boolean;

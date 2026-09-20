@@ -4,7 +4,11 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { ExecutionRunRow } from "./ExecutionRunRow";
 
-import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../components/PageState";
 
 import { isBusinessFailure } from "@batchplane/ui-client";
 import { formatInspectionError } from "../../client/inspection-errors";

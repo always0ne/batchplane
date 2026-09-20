@@ -2,7 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 
-import { PageHeader } from "../../ui/PageHeader";
+import { PageHeader } from "../../components/PageHeader";
 
 import type {
   ExecutionRunFilter,

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { PageHeader } from "../../ui/PageHeader";
+import { PageHeader } from "../../components/PageHeader";
 import { BatchListContent } from "./BatchListContent";
 import { BatchListToolbar } from "./BatchListToolbar";
 import { useBatchList } from "./useBatchList";

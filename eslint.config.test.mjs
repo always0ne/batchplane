@@ -24,9 +24,10 @@ for (const [path, source] of [
     'import "@batchplane/github-lite";',
   ],
   [
-    "apps/web/src/components/execution-approval/ExecutionApprovalActions.tsx",
+    "apps/web/src/pages/requests/execution/ExecutionApprovalActions.tsx",
     'import "@batchplane/github-lite";',
   ],
+  ["apps/web/src/components/Button.tsx", 'import "@batchplane/github-lite";'],
   [
     "apps/web/src/pages/batches/BatchesPage.tsx",
     'import type { GitHubLiteClient } from "@batchplane/github-lite";',
@@ -40,8 +41,12 @@ for (const [path, source] of [
     'import "../../runtime/runtime-fixtures";',
   ],
   [
-    "apps/web/src/components/governed-changes/GovernedChangePreviewPanel.tsx",
-    'import "../../runtime/runtime-fixtures";',
+    "apps/web/src/components/Button.tsx",
+    'import "../runtime/runtime-fixtures";',
+  ],
+  [
+    "apps/web/src/pages/requests/changes/GovernedChangePreviewPanel.tsx",
+    'import "../../../runtime/runtime-fixtures";',
   ],
   ["packages/domain/src/index.ts", 'import "@batchplane/ui-client";'],
   ["packages/domain/src/index.ts", 'import "@batchplane/web";'],
@@ -79,7 +84,7 @@ for (const [path, source] of [
     'import type { BatchPlaneClient } from "@batchplane/ui-client";',
   ],
   [
-    "apps/web/src/components/governed-changes/GovernedChangePreviewPanel.tsx",
+    "apps/web/src/pages/requests/changes/GovernedChangePreviewPanel.tsx",
     'import type { GovernedChangePreviewFile } from "@batchplane/ui-client";',
   ],
 ]) {

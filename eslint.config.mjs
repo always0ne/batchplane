@@ -134,7 +134,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["apps/web/src/{client,components,pages,ui,shared}/**/*.{ts,tsx}"],
+    files: ["apps/web/src/{client,components,pages,shared}/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",

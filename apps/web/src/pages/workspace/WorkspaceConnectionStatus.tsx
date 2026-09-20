@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { StatusRow } from "../../ui/StatusRow";
+import { StatusRow } from "../../components/StatusRow";
 import type { WorkspaceInspectionState } from "./useWorkspaceInspection";
 import { formatWorkspaceError } from "./workspace-errors";
 

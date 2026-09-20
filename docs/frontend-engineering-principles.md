@@ -81,60 +81,71 @@ audit concepts rather than GitHub transport concepts.
 ```text
 apps/web/src/
   app/       router, top-level providers, and application composition
-  pages/     route screens, page queries, composition, and navigation
-  components/ business components actually shared across pages
-  ui/        product-agnostic visual primitives and interaction patterns
+  pages/     route screens and related code grouped by business ownership
+    requests/
+      execution/ execution request creation, detail, decision, Hooks, and tests
+      changes/   registration/update/deletion forms, detail, preview, and tests
+  components/ product-neutral common controls, their tests, and visual tokens
   client/    provider-neutral React access to the injected product client
   assets/    BatchPlane brand and product-specific visual assets
   runtime/   Lite/Main implementation selection and client injection
   shared/    non-visual product-neutral support such as i18n
 ```
 
-Keep page-only components and Hooks beside their owning Page. Shared business
-components belong in `components`; product-agnostic primitives belong in `ui`.
-For example, the approval inbox and request detail share
-`components/execution-approval/ExecutionApprovalActions.tsx`. The Batch editor
-and change detail share `components/governed-changes/GovernedChangePreviewPanel.tsx`.
-These are React components, not an independent business-use-case layer. Do not
-introduce a separate `features` layer or move page-local flows to fill one.
+Organize for a person browsing by business concept, not only searching symbols.
+Keep a business area's Pages, components, Hooks, and tests together. Reuse does
+not transfer ownership: the approval inbox imports
+`pages/requests/execution/ExecutionApprovalActions.tsx`; the Batch change editor
+and change detail share `pages/requests/changes/GovernedChangePreviewPanel.tsx`.
+Registration, update, and deletion share the change-request area rather than
+three artificial copies of the same editor. Batch detail and its request-entry
+controls stay under `pages/batches`; the approval inbox stays under `pages/approvals`.
+
+Global `components` holds genuinely product-neutral controls such as Button and
+PageState. Do not introduce separate `ui` or `features` layers. Share business
+code at its narrowest actual owner; do not add empty common folders or relocate
+a component globally just because another screen uses it.
 
 The target dependency direction is:
 
 ```text
-app -> pages -> page-local components / shared components / ui
-app, pages, shared components -> client -> packages/ui-client
-shared components -> other shared components / ui
+app -> pages -> owned business components / common components
+app, business UI -> client -> packages/ui-client
+common components -> other common components / product-neutral support
 
 runtime -> packages/github-lite -> packages/ui-client
 ```
 
 The arrows describe imports, not mandatory intermediate layers. A Page can use
-`ui` directly. Shared components must not import Pages or app composition, and
-a Page must not import another Page. Pages own screen-level flow and navigation;
-shared components own the interaction or presentation expressed by their props.
+`components` directly or another business area's owned component. It must not
+import another route Page or app composition. Global common components must not
+import business folders, product/provider models, or app composition. Pages own
+screen-level flow and navigation; components own the interaction or presentation
+expressed by their props. This is an ownership convention, not a custom React
+framework or a claim that React mandates these folder names.
 
 ## Migration Status
 
 PR #198 established the Batch list as the first migrated vertical slice.
-Route screens now live under `pages`, and the remaining shared components have
-moved from `features` to `components`. No current implementation remains under
-`features`. The inventory below records screen ownership, not blanket acceptance
-of every implementation detail.
+Route screens and business components now live under their owning areas in
+`pages`; product-neutral controls live under `components`. No current
+implementation remains under `features` or `ui`. The inventory below records
+screen ownership, not blanket acceptance of every implementation detail.
 
 | Surface                         | Current Page                                              | Status                                                                                                        |
 | ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Batch list                      | `pages/batches/BatchesPage.tsx`                           | Migrated; first reference slice                                                                               |
 | Dashboard                       | `pages/dashboard/DashboardPage.tsx`                       | R5 product summary query and page-local operational sections                                                  |
 | My Work                         | `pages/my-work/MyWorkPage.tsx`                            | R3 product-client work queue; preserves request and failure follow-up destinations                            |
-| Batch registration and change   | `pages/batches/BatchRegistrationPage.tsx`                 | Migrated route page; further R2-A split keeps form, schedule, review, and command state page-local            |
+| Batch registration and change   | `pages/requests/changes/BatchRegistrationPage.tsx`        | Migrated route page; form, schedule, review, and command state belong to change requests                      |
 | Batch detail                    | `pages/batches/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
-| Execution request creation      | `pages/execution-requests/ExecutionRequestPage.tsx`       | R3 route composition with page-local draft, preview, and submission responsibilities                          |
-| Execution request detail        | `pages/execution-requests/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
+| Execution request creation      | `pages/requests/execution/ExecutionRequestPage.tsx`       | R3 route composition with page-local draft, preview, and submission responsibilities                          |
+| Execution request detail        | `pages/requests/execution/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
 | Execution run list and failures | `pages/execution-runs/ExecutionRunListPage.tsx`           | R5 product execution query and route-preserving history/failure views                                         |
 | Execution run detail            | `pages/execution-runs/ExecutionRunDetailPage.tsx`         | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
 | Workspace requests              | `pages/requests/WorkspaceRequestsPage.tsx`                | R3 product request inventory; local search and filters                                                        |
 | Approvals                       | `pages/approvals/ApprovalsPage.tsx`                       | R3 product inbox and reusable execution approval action                                                       |
-| Governed change approval detail | `pages/approvals/GovernedChangeDetailPage.tsx`            | Migrated route page; provider-neutral governed-change client only                                             |
+| Governed change approval detail | `pages/requests/changes/GovernedChangeDetailPage.tsx`     | Migrated route page; provider-neutral governed-change client only                                             |
 | Audit                           | `pages/audit/AuditPage.tsx`                               | R5 product timeline query, local filtering, and exact execution destinations                                  |
 | Workspace connection and setup  | `pages/workspace/WorkspacePage.tsx`                       | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
 | Standalone schedule definition  | None                                                      | Removed; schedules are edited inside the governed Batch form and the deep link redirects there                |
@@ -379,7 +390,7 @@ accessible names and dimensions for icon-only controls. Extracting a region
 must not introduce a new state owner or a generic form/controller layer.
 
 The Batch form's cron preview and its deterministic timezone tests live together
-under `pages/batches`. A retired schedule screen must not retain a separate
+under `pages/requests/changes`. A retired schedule screen must not retain a separate
 implementation that passes tests while the active form uses untested code.
 
 Action entry points separate environment input/output, authorization or dispatch
@@ -459,26 +470,28 @@ export function BatchesPage() {
 }
 ```
 
-## Shared Component Contract
+## Business Component Ownership
 
-`components` holds business UI with actual consumers in multiple Pages. An
-approval control or governed-change preview does not need to own the complete
-approval or change-request use case to be reusable. Its props describe the
-data and callbacks it needs; its local state belongs to that interaction.
+Business components stay under their owning area in `pages`, even when used by
+another screen. ExecutionApprovalActions belongs to execution requests, not to
+the approval inbox or global `components`. GovernedChangePreviewPanel belongs
+to change requests. Their props describe the data and callbacks needed; local
+state belongs to the interaction. Neither component owns the complete use case.
 
 Keep single-page components, command/query Hooks, and presentation rules beside
-their Page. Extracting a component for readability does not require promoting
-it to a shared folder. Similar markup alone is not proof of shared semantics.
+their owner. Extracting a component for readability or reusing it does not
+require promotion to a global folder. Similar markup alone is not proof of
+shared semantics.
 
-Shared components use product-facing contracts and UI primitives, not provider
-evidence parsing. They may compose other shared components, but may not import
-Pages. Page-specific navigation and command coordination stay with the Page.
+Business components use product-facing contracts and common components, not
+provider evidence parsing. They may compose other owned components but may not
+import route Pages. Page-specific navigation and command coordination stay with the Page.
 Co-locate supporting functions, component-owned Hooks, and tests with their
 actual owner; do not create an empty layer or Hook for anticipated reuse.
 
-## UI Contract
+## Common Component Contract
 
-`ui` is the local design foundation. Its components do not understand Batch,
+`components` is the local common-component foundation. Its components do not understand Batch,
 Approval, GitHub, Gate, or any other product/provider concept. They accept
 bounded visual and interaction variants such as tone, size, disabled, loading,
 label, and accessible description.
@@ -499,9 +512,10 @@ Do not build a generic form builder, generic data-table engine, polymorphic
 component framework, or separate design-system package before a real second
 consumer or demonstrated complexity exists.
 
-Page-local visual components remain beside their Page until their contract is
-proven reusable. A component may still be extracted for naming, readability,
-state isolation, or testing even if it has one caller.
+Business visual components remain with their owner even when reusable. Global
+placement requires a genuinely product-neutral responsibility, not just a
+second caller. A component may still be extracted locally for naming,
+readability, state isolation, or testing even if it has one caller.
 
 ## Assets And Icons
 
@@ -564,7 +578,8 @@ screen state.
 
 ## Product Client And Adapters
 
-Pages and shared components use `packages/ui-client` product contracts. Queries return
+Pages and owned business components use `packages/ui-client` product contracts.
+Global common components do not consume product models. Queries return
 provider-neutral view models. Commands return the authoritative product result
 needed for immediate internal navigation and display.
 
@@ -655,7 +670,7 @@ reducers or policy-free presentation functions.
 A screen change is complete only when:
 
 - its place in the end-to-end user journey is coherent;
-- Page, shared component, UI, client, and adapter boundaries are respected;
+- Page, business component, common component, client, and adapter boundaries are respected;
 - loading, disconnected, error, empty, and success states are handled;
 - disabled actions communicate the reason, normally through the agreed tooltip
   pattern;
@@ -710,9 +725,10 @@ Batch list is the first proof surface.
       guidance; references and meaningful choices are stated, and any departure
       was approved before implementation.
 - [ ] The approved vertical scope and explicit non-goals are stated.
-- [ ] Route screens and page-only code live in `pages`; business components
-      actually shared across Pages live in `components`.
-- [ ] Page-only Hooks and components are co-located with their Page.
+- [ ] Route screens and business components live under their owning area in
+      `pages`, with related Hooks and tests; request code is grouped by request type.
+- [ ] Global `components` contains only product-neutral common components,
+      not business controls promoted merely because they have multiple callers.
 - [ ] UI code depends on `BatchPlaneClient`, not provider internals.
 - [ ] Render is pure; events and Effects have the correct ownership.
 - [ ] State is minimal and has one clear owner.

@@ -1,7 +1,7 @@
 import type { BatchDetailArchiveResult } from "@batchplane/ui-client";
 import { useTranslation } from "react-i18next";
 
-import { ButtonLink } from "../../ui/Button";
+import { ButtonLink } from "../../components/Button";
 import { BatchDetailFact } from "./BatchDetailFact";
 import { BatchExecutionTarget, BatchSchedules } from "./BatchProfile";
 
