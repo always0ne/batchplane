@@ -15,6 +15,7 @@ component hierarchy, state ownership, purity, Effects, and custom Hook guidance.
 Primary React references:
 
 - [Thinking in React](https://react.dev/learn/thinking-in-react)
+- [Importing and Exporting Components](https://18.react.dev/learn/importing-and-exporting-components)
 - [Choosing the State Structure](https://react.dev/learn/choosing-the-state-structure)
 - [You Might Not Need an Effect](https://react.dev/learn/you-might-not-need-an-effect)
 - [Reusing Logic with Custom Hooks](https://react.dev/learn/reusing-logic-with-custom-hooks)
@@ -81,7 +82,7 @@ audit concepts rather than GitHub transport concepts.
 apps/web/src/
   app/       router, top-level providers, and application composition
   pages/     route screens, page queries, composition, and navigation
-  features/  reusable complete user actions
+  components/ business components actually shared across pages
   ui/        product-agnostic visual primitives and interaction patterns
   client/    provider-neutral React access to the injected product client
   assets/    BatchPlane brand and product-specific visual assets
@@ -89,31 +90,36 @@ apps/web/src/
   shared/    non-visual product-neutral support such as i18n
 ```
 
-`features` is not a synonym for pages and is not a folder for every product
-noun. A route-ready Batch list belongs in `pages/batches`. An execution approval
-interaction that is used in an approval inbox and request detail belongs in
-`features/execution-approval`.
+Keep page-only components and Hooks beside their owning Page. Shared business
+components belong in `components`; product-agnostic primitives belong in `ui`.
+For example, the approval inbox and request detail share
+`components/execution-approval/ExecutionApprovalActions.tsx`. The Batch editor
+and change detail share `components/governed-changes/GovernedChangePreviewPanel.tsx`.
+These are React components, not an independent business-use-case layer. Do not
+introduce a separate `features` layer or move page-local flows to fill one.
 
 The target dependency direction is:
 
 ```text
-app -> pages -> features -> ui
- |       |          |
- +-------+----------+----> client -> packages/ui-client
+app -> pages -> page-local components / shared components / ui
+app, pages, shared components -> client -> packages/ui-client
+shared components -> other shared components / ui
 
 runtime -> packages/github-lite -> packages/ui-client
 ```
 
-The arrows describe imports. Lower layers do not import route pages or app
-composition. A page does not import another page. A feature does not import a
-page. A page composes multiple features instead of coupling features directly.
+The arrows describe imports, not mandatory intermediate layers. A Page can use
+`ui` directly. Shared components must not import Pages or app composition, and
+a Page must not import another Page. Pages own screen-level flow and navigation;
+shared components own the interaction or presentation expressed by their props.
 
 ## Migration Status
 
-This repository is transitioning from its original domain-folder structure to
-the target structure above. PR #198 establishes the Batch list as the first
-completed vertical slice; the remaining `*Page.tsx` files under `features` are
-legacy placement, not examples for new work.
+PR #198 established the Batch list as the first migrated vertical slice.
+Route screens now live under `pages`, and the remaining shared components have
+moved from `features` to `components`. No current implementation remains under
+`features`. The inventory below records screen ownership, not blanket acceptance
+of every implementation detail.
 
 | Surface                         | Current Page                                              | Status                                                                                                        |
 | ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -133,8 +139,7 @@ legacy placement, not examples for new work.
 | Workspace connection and setup  | `pages/workspace/WorkspacePage.tsx`                       | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
 | Standalone schedule definition  | None                                                      | Removed; schedules are edited inside the governed Batch form and the deep link redirects there                |
 
-New route screens must start under `pages`; the legacy paths above do not
-authorize adding another Page to `features`. A migration is complete only when
+New route screens must start under `pages`. A migration is complete only when
 the route composition, page-only state and components, product-client boundary,
 and tests follow this document. Moving a file without separating those
 responsibilities is not a completed slice.
@@ -423,7 +428,7 @@ A Page is a route boundary. It may:
 
 - read route parameters and query parameters;
 - call a page-local query or command Hook;
-- compose page-local components and reusable features;
+- compose page-local and shared components;
 - choose loading, error, empty, disconnected, and success presentation;
 - navigate using authoritative results returned by commands.
 
@@ -454,21 +459,22 @@ export function BatchesPage() {
 }
 ```
 
-## Feature Contract
+## Shared Component Contract
 
-A Feature represents a complete user action with product value, such as
-approving an execution, submitting a failure explanation, or previewing a
-governed change. It may contain a component, a concrete custom Hook, and focused
-pure presentation rules.
+`components` holds business UI with actual consumers in multiple Pages. An
+approval control or governed-change preview does not need to own the complete
+approval or change-request use case to be reusable. Its props describe the
+data and callbacks it needs; its local state belongs to that interaction.
 
-A Feature should exist when the action is used across pages or when a stable
-interaction contract clearly deserves independent ownership. Similar markup is
-not enough. Do not move one-off page sections into `features` merely to shorten a
-file.
+Keep single-page components, command/query Hooks, and presentation rules beside
+their Page. Extracting a component for readability does not require promoting
+it to a shared folder. Similar markup alone is not proof of shared semantics.
 
-Features consume product-facing client contracts and UI primitives. They do not
-parse provider evidence or import other features to build an implicit workflow.
-The Page owns cross-feature composition.
+Shared components use product-facing contracts and UI primitives, not provider
+evidence parsing. They may compose other shared components, but may not import
+Pages. Page-specific navigation and command coordination stay with the Page.
+Co-locate supporting functions, component-owned Hooks, and tests with their
+actual owner; do not create an empty layer or Hook for anticipated reuse.
 
 ## UI Contract
 
@@ -541,10 +547,10 @@ through a second state change.
 Custom Hooks make concrete stateful flows readable. Placement follows ownership:
 
 ```text
-page-only       pages/batches/useBatchList.ts
-shared action   features/execution-approval/useExecutionApproval.ts
-generic browser shared/hooks/useMediaQuery.ts
-pure calculation ordinary function without a use prefix
+page-only         pages/batches/useBatchList.ts
+component-owned   beside the component that uses it
+generic browser   shared/hooks (only for actual reusable browser behavior)
+pure calculation  ordinary function without a use prefix
 ```
 
 Avoid lifecycle-wrapper Hooks, a global miscellaneous Hooks folder, Hooks that
@@ -558,7 +564,7 @@ screen state.
 
 ## Product Client And Adapters
 
-Pages and features use `packages/ui-client` product contracts. Queries return
+Pages and shared components use `packages/ui-client` product contracts. Queries return
 provider-neutral view models. Commands return the authoritative product result
 needed for immediate internal navigation and display.
 
@@ -649,7 +655,7 @@ reducers or policy-free presentation functions.
 A screen change is complete only when:
 
 - its place in the end-to-end user journey is coherent;
-- Page, Feature, UI, client, and adapter boundaries are respected;
+- Page, shared component, UI, client, and adapter boundaries are respected;
 - loading, disconnected, error, empty, and success states are handled;
 - disabled actions communicate the reason, normally through the agreed tooltip
   pattern;
@@ -704,7 +710,8 @@ Batch list is the first proof surface.
       guidance; references and meaningful choices are stated, and any departure
       was approved before implementation.
 - [ ] The approved vertical scope and explicit non-goals are stated.
-- [ ] Route screens live in `pages`; reusable user actions live in `features`.
+- [ ] Route screens and page-only code live in `pages`; business components
+      actually shared across Pages live in `components`.
 - [ ] Page-only Hooks and components are co-located with their Page.
 - [ ] UI code depends on `BatchPlaneClient`, not provider internals.
 - [ ] Render is pure; events and Effects have the correct ownership.

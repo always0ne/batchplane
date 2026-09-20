@@ -52,7 +52,8 @@ file is the enforcement checklist.
 
 - Lite and Main must share the same React product UI source and product
   semantics. They may not share runtime implementations or deployment artifacts.
-- React pages and features depend on the provider-neutral `BatchPlaneClient`.
+- React pages and shared components depend on the provider-neutral
+  `BatchPlaneClient`.
   They must not access GitHub tokens, REST DTOs, Issues, pull requests, branches,
   repository paths, YAML evidence, or raw workflow data directly.
 - Provider-specific transport, evidence parsing, and repository behavior belong
@@ -65,8 +66,9 @@ file is the enforcement checklist.
 - `app` owns routing, providers, and composition.
 - `pages` owns route screens, route input, page queries, page composition, and
   navigation.
-- `features` contains only complete user actions that are genuinely reused or
-  composed across pages. It is not a bucket for route pages or product nouns.
+- `components` contains business components actually shared across pages.
+  Page-only components and Hooks stay beside their page. Do not introduce a
+  separate `features` layer or move page-local flows just to classify them.
 - `ui` contains product-agnostic visual primitives and stable interaction
   patterns. It must not know BatchPlane domain or provider concepts.
 - `client` is the provider-neutral React bridge to `packages/ui-client`. It owns
@@ -75,11 +77,11 @@ file is the enforcement checklist.
 - `runtime` owns Lite/Main implementation selection and dependency injection.
 - `shared` is limited to non-visual, product-neutral support such as i18n and
   generic formatting. Do not turn it into a miscellaneous folder.
-- Dependencies flow `app -> pages -> features -> ui`. App, pages, and features
-  may use `client -> packages/ui-client`. Lower layers must never import pages or
-  app composition.
-- A page must not import another page. A feature must not import a page. Pages
-  compose multiple features instead of features importing one another.
+- App composes pages; pages compose local/shared components and UI primitives.
+  Shared components may compose UI primitives and other shared components.
+  App, pages, and shared components may use `client -> packages/ui-client`.
+  Shared components must not import pages or app composition. A page must not
+  import another page. There is no mandatory intermediate component layer.
 
 ## React Rules
 
@@ -92,7 +94,7 @@ file is the enforcement checklist.
   dependency or distant shared state. Use reducers only for genuinely complex
   related state transitions.
 - Give custom Hooks concrete, high-level names. Keep page-only Hooks beside the
-  page, reusable business Hooks beside the feature, and truly generic browser
+  page, component-owned Hooks beside the component, and truly generic browser
   Hooks under `shared/hooks`.
 - Do not create lifecycle-wrapper Hooks, a global dumping-ground `hooks` folder,
   or Hooks for functions that do not call Hooks.
@@ -103,7 +105,8 @@ file is the enforcement checklist.
   parsing, policy, and rendering in one function.
 - Extract page-local components when they name a meaningful visual region,
   isolate interaction or state, improve readability, or deserve focused tests.
-- Promote code to `features` or `ui` only after its semantic contract is stable.
+- Promote code to shared `components` or `ui` only after its semantic contract is
+  stable.
   Visual resemblance alone is not proof of reusable behavior.
 - Establish a small semantic token, asset, and UI primitive foundation before
   repeating raw controls across screens. Grow it through real product screens;

@@ -3,7 +3,7 @@ import { CheckCircle2, Loader2, Undo2, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { GovernedChangePreviewPanel } from "../../features/governed-changes/GovernedChangePreviewPanel";
+import { GovernedChangePreviewPanel } from "../../components/governed-changes/GovernedChangePreviewPanel";
 import { Button } from "../../ui/Button";
 import type { GovernedChangeAction } from "./useGovernedChangeDetail";
 

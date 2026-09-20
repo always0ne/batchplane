@@ -24,6 +24,10 @@ for (const [path, source] of [
     'import "@batchplane/github-lite";',
   ],
   [
+    "apps/web/src/components/execution-approval/ExecutionApprovalActions.tsx",
+    'import "@batchplane/github-lite";',
+  ],
+  [
     "apps/web/src/pages/batches/BatchesPage.tsx",
     'import type { GitHubLiteClient } from "@batchplane/github-lite";',
   ],
@@ -33,6 +37,10 @@ for (const [path, source] of [
   ],
   [
     "apps/web/src/pages/batches/BatchesPage.tsx",
+    'import "../../runtime/runtime-fixtures";',
+  ],
+  [
+    "apps/web/src/components/governed-changes/GovernedChangePreviewPanel.tsx",
     'import "../../runtime/runtime-fixtures";',
   ],
   ["packages/domain/src/index.ts", 'import "@batchplane/ui-client";'],
@@ -69,6 +77,10 @@ for (const [path, source] of [
   [
     "apps/web/src/pages/batches/BatchesPage.tsx",
     'import type { BatchPlaneClient } from "@batchplane/ui-client";',
+  ],
+  [
+    "apps/web/src/components/governed-changes/GovernedChangePreviewPanel.tsx",
+    'import type { GovernedChangePreviewFile } from "@batchplane/ui-client";',
   ],
 ]) {
   test(`allows ${source} from ${path}`, async () => {

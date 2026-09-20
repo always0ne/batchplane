@@ -5,7 +5,7 @@ import type {
   GovernedChangePreview,
 } from "@batchplane/ui-client";
 
-import { GovernedChangePreviewPanel } from "../../features/governed-changes/GovernedChangePreviewPanel";
+import { GovernedChangePreviewPanel } from "../../components/governed-changes/GovernedChangePreviewPanel";
 import { Button } from "../../ui/Button";
 
 type PreviewState =

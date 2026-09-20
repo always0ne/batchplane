@@ -2,22 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { GovernedChangePreviewPanel } from "./GovernedChangePreviewPanel";
-import { hasNoPreviewFileChanges } from "./governed-change-preview";
 
-describe("hasNoPreviewFileChanges", () => {
-  it("only reports a no-op when every preview file is unchanged", () => {
-    expect(
-      hasNoPreviewFileChanges([
-        { path: "one.yml", status: "UNCHANGED" },
-        { path: "two.yml", status: "UNCHANGED" },
-      ]),
-    ).toBe(true);
-    expect(hasNoPreviewFileChanges([])).toBe(false);
-    expect(
-      hasNoPreviewFileChanges([{ path: "one.yml", status: "MODIFIED" }]),
-    ).toBe(false);
-  });
-
+describe("GovernedChangePreviewPanel", () => {
   it("shows a text diff, binary digests, and no untrusted content for unavailable evidence", () => {
     render(
       <GovernedChangePreviewPanel

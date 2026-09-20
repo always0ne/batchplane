@@ -4,7 +4,7 @@ import type {
 } from "@batchplane/ui-client";
 import { useTranslation } from "react-i18next";
 
-import { ExecutionApprovalActions } from "../../features/execution-approval/ExecutionApprovalActions";
+import { ExecutionApprovalActions } from "../../components/execution-approval/ExecutionApprovalActions";
 
 export function ExecutionRequestDecision({
   canAct,
