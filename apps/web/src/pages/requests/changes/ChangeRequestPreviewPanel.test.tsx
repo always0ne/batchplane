@@ -15,6 +15,18 @@ describe("ChangeRequestPreviewPanel", () => {
             status: "MODIFIED",
           },
           {
+            baseContent: "same\nleft\nright\n",
+            nextContent: "same\nright\nleft\n",
+            path: "tie-break.yml",
+            status: "MODIFIED",
+          },
+          {
+            baseContent: "",
+            nextContent: "",
+            path: "empty.yml",
+            status: "MODIFIED",
+          },
+          {
             afterDigest: "sha256:after",
             beforeDigest: "sha256:before",
             contentKind: "BINARY",
@@ -47,6 +59,13 @@ describe("ChangeRequestPreviewPanel", () => {
 
     expect(screen.getByText("- before")).toBeInTheDocument();
     expect(screen.getByText("+ after")).toBeInTheDocument();
+    const tieBreakSection = screen
+      .getByText("tie-break.yml")
+      .closest("section");
+    expect(tieBreakSection?.querySelector("pre")?.textContent).toBe(
+      "  same- left  right+ left",
+    );
+    expect(screen.getByText("Empty")).toBeInTheDocument();
     expect(screen.getByText("sha256:before")).toBeInTheDocument();
     expect(screen.getByText("sha256:after")).toBeInTheDocument();
     expect(screen.getByText("Evidence unavailable")).toBeInTheDocument();

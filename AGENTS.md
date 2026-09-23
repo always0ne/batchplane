@@ -11,6 +11,9 @@ file is the enforcement checklist.
   affected behavior, dependency direction, UX impact, and explicit non-goals.
 - Sol owns architecture, product judgment, and final review. Terra owns code
   implementation unless the user explicitly changes that assignment.
+- When the user permits task-based worker selection, consider available Sol 6
+  and Luna 6 alongside Terra. Choose for the approved scope and record the
+  actual model; availability does not authorize new work or extra agents.
 - Start new work from an updated `main`, inspect all existing planned issues and
   priorities before creating another issue, and avoid duplicate backlog items.
 - Never merge a pull request. Remote CI result tracking and merge decisions
@@ -124,6 +127,12 @@ file is the enforcement checklist.
   parsing, policy, and rendering in one function.
 - Extract page-local components when they name a meaningful visual region,
   isolate interaction or state, improve readability, or deserve focused tests.
+- Reuse is not a prerequisite for extraction. A Page should reveal the screen's
+  composition, and each component should reveal its named responsibility.
+  Do not retain tangled JSX just to avoid another component, or split trivial
+  markup merely to reduce line counts. Pure display calculations remain functions.
+- Preserve input state ownership, component identity and mount lifetime when
+  extracting components; readability cleanup must not change interaction behavior.
 - Keep business components with their owner even when reused elsewhere. Promote
   code to global `components` only when its responsibility is genuinely common
   and its contract is stable. Reuse count or visual resemblance alone is not enough.

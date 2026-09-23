@@ -122,7 +122,7 @@ function JobLogAction({
     };
   }, [job.jobId, onLoadLog]);
 
-  async function loadLog() {
+  async function toggleLogVisibility() {
     const current = lifetime.current;
     if (!current.active || current.pending) return;
     if (logState.type === "loaded") {
@@ -147,6 +147,9 @@ function JobLogAction({
     }
   }
 
+  const logButtonLabel = getLogButtonLabel(logState.type, kind);
+  const externalLogLabel = getExternalLogLabel(kind);
+
   return (
     <>
       <div className="space-y-2">
@@ -154,7 +157,7 @@ function JobLogAction({
           <button
             className="inline-flex w-fit items-center gap-2 rounded-md bg-bp-control px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             disabled={logState.type === "loading"}
-            onClick={loadLog}
+            onClick={toggleLogVisibility}
             type="button"
           >
             {logState.type === "loading" ? (
@@ -162,15 +165,7 @@ function JobLogAction({
             ) : (
               <GitBranch className="h-4 w-4" aria-hidden="true" />
             )}
-            {logState.type === "loaded"
-              ? t("runDetail.jobs.hideLog")
-              : logState.type === "loading"
-                ? t("runDetail.jobs.loadingLog")
-                : kind === "gate"
-                  ? t("runDetail.jobs.viewGateLog")
-                  : kind === "source"
-                    ? t("runDetail.jobs.viewSourceLog")
-                    : t("runDetail.jobs.viewBusinessLog")}
+            {t(logButtonLabel)}
           </button>
           {job.url ? (
             <a
@@ -181,11 +176,7 @@ function JobLogAction({
               target="_blank"
             >
               <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              {kind === "gate"
-                ? t("runDetail.jobs.openGateLog")
-                : kind === "source"
-                  ? t("runDetail.jobs.openSourceLog")
-                  : t("runDetail.jobs.openBusinessLog")}
+              {t(externalLogLabel)}
             </a>
           ) : null}
         </div>
@@ -213,6 +204,20 @@ function JobLogAction({
       ) : null}
     </>
   );
+}
+
+function getLogButtonLabel(state: JobLogState["type"], kind: ExecutionJobKind) {
+  if (state === "loaded") return "runDetail.jobs.hideLog";
+  if (state === "loading") return "runDetail.jobs.loadingLog";
+  if (kind === "gate") return "runDetail.jobs.viewGateLog";
+  if (kind === "source") return "runDetail.jobs.viewSourceLog";
+  return "runDetail.jobs.viewBusinessLog";
+}
+
+function getExternalLogLabel(kind: ExecutionJobKind) {
+  if (kind === "gate") return "runDetail.jobs.openGateLog";
+  if (kind === "source") return "runDetail.jobs.openSourceLog";
+  return "runDetail.jobs.openBusinessLog";
 }
 
 function getJobKind(job: ExecutionJobItem): ExecutionJobKind {

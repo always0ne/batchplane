@@ -1,5 +1,9 @@
 import type { ChangeRequestPreviewFile } from "@batchplane/ui-client";
 import { AlertTriangle, FileCode2, FileUp } from "lucide-react";
+import {
+  buildDiffLines,
+  type ChangeRequestDiffLine,
+} from "./change-request-diff";
 
 export type ChangeRequestPreviewLabels = {
   binarySummary: string;
@@ -9,11 +13,6 @@ export type ChangeRequestPreviewLabels = {
   status: Record<ChangeRequestPreviewFile["status"], string>;
   subtitle: string;
   title: string;
-};
-
-type DiffLine = {
-  kind: "added" | "context" | "removed";
-  text: string;
 };
 
 export function ChangeRequestPreviewPanel({
@@ -72,24 +71,35 @@ function ChangeRequestPreviewFileItem({
           {labels.status[file.status]}
         </span>
       </div>
-      {file.evidenceUnavailable ? (
-        <div
-          className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-          role="status"
-        >
-          <AlertTriangle
-            className="mt-0.5 h-4 w-4 shrink-0"
-            aria-hidden="true"
-          />
-          <p>{labels.evidenceUnavailable}</p>
-        </div>
-      ) : isBinary ? (
-        <BinaryDigestSummary file={file} label={labels.binarySummary} />
-      ) : (
-        <TextFileDiff file={file} labels={labels} />
-      )}
+      <ChangeRequestPreviewEvidence file={file} labels={labels} />
     </section>
   );
+}
+
+function ChangeRequestPreviewEvidence({
+  file,
+  labels,
+}: {
+  file: ChangeRequestPreviewFile;
+  labels: ChangeRequestPreviewLabels;
+}) {
+  if (file.evidenceUnavailable) {
+    return (
+      <div
+        className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        role="status"
+      >
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <p>{labels.evidenceUnavailable}</p>
+      </div>
+    );
+  }
+
+  if (file.contentKind === "BINARY") {
+    return <BinaryDigestSummary file={file} label={labels.binarySummary} />;
+  }
+
+  return <TextFileDiff file={file} labels={labels} />;
 }
 
 function TextFileDiff({
@@ -154,72 +164,26 @@ function DigestValue({
   );
 }
 
-function buildDiffLines(baseContent: string, nextContent: string): DiffLine[] {
-  const baseLines = splitLines(baseContent);
-  const nextLines = splitLines(nextContent);
-  const table = Array.from({ length: baseLines.length + 1 }, () =>
-    Array<number>(nextLines.length + 1).fill(0),
-  );
-
-  for (let baseIndex = baseLines.length - 1; baseIndex >= 0; baseIndex -= 1) {
-    for (let nextIndex = nextLines.length - 1; nextIndex >= 0; nextIndex -= 1) {
-      table[baseIndex]![nextIndex] =
-        baseLines[baseIndex] === nextLines[nextIndex]
-          ? table[baseIndex + 1]![nextIndex + 1]! + 1
-          : Math.max(
-              table[baseIndex + 1]![nextIndex]!,
-              table[baseIndex]![nextIndex + 1]!,
-            );
-    }
+function formatDiffLine(line: ChangeRequestDiffLine): string {
+  let prefix = "  ";
+  if (line.kind === "added") {
+    prefix = "+ ";
+  } else if (line.kind === "removed") {
+    prefix = "- ";
   }
 
-  const lines: DiffLine[] = [];
-  let baseIndex = 0;
-  let nextIndex = 0;
-
-  while (baseIndex < baseLines.length && nextIndex < nextLines.length) {
-    if (baseLines[baseIndex] === nextLines[nextIndex]) {
-      lines.push({ kind: "context", text: baseLines[baseIndex]! });
-      baseIndex += 1;
-      nextIndex += 1;
-    } else if (
-      table[baseIndex + 1]![nextIndex]! >= table[baseIndex]![nextIndex + 1]!
-    ) {
-      lines.push({ kind: "removed", text: baseLines[baseIndex]! });
-      baseIndex += 1;
-    } else {
-      lines.push({ kind: "added", text: nextLines[nextIndex]! });
-      nextIndex += 1;
-    }
-  }
-
-  while (baseIndex < baseLines.length) {
-    lines.push({ kind: "removed", text: baseLines[baseIndex]! });
-    baseIndex += 1;
-  }
-
-  while (nextIndex < nextLines.length) {
-    lines.push({ kind: "added", text: nextLines[nextIndex]! });
-    nextIndex += 1;
-  }
-
-  return lines;
+  return `${prefix}${line.text || " "}`;
 }
 
-function splitLines(content: string): string[] {
-  return content ? content.replace(/\n$/, "").split("\n") : [];
-}
-
-function formatDiffLine(line: DiffLine): string {
-  return `${line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  "}${line.text || " "}`;
-}
-
-function diffLineClassName(kind: DiffLine["kind"]): string {
-  return kind === "added"
-    ? "block text-emerald-200"
-    : kind === "removed"
-      ? "block text-red-200"
-      : "block text-slate-200";
+function diffLineClassName(kind: ChangeRequestDiffLine["kind"]): string {
+  switch (kind) {
+    case "added":
+      return "block text-emerald-200";
+    case "removed":
+      return "block text-red-200";
+    case "context":
+      return "block text-slate-200";
+  }
 }
 
 function statusClassName(status: ChangeRequestPreviewFile["status"]): string {

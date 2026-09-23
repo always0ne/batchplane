@@ -26,6 +26,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createGitHubLiteChangeRequestClient } from "./change-request-client.js";
 import {
   assertPreparedChangeTargets,
+  loadPreparedChangePreviewFiles,
   prepareChangeRequest,
 } from "./change-request-preparation.js";
 
@@ -60,7 +61,7 @@ const installedWorkspacePolicy = readFileSync(
   "utf8",
 );
 
-describe("GitHub Lite change request client", () => {
+describe("change request drafts and creation", () => {
   it("normalizes a cleared owner before preview and persists the same owner", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
@@ -493,7 +494,9 @@ describe("GitHub Lite change request client", () => {
       vi.useRealTimers();
     }
   });
+});
 
+describe("change request evidence and target integrity", () => {
   it("closes and records a stale-base pull request before requiring a retry", async () => {
     const mock = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
@@ -961,7 +964,9 @@ describe("GitHub Lite change request client", () => {
       }),
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
   });
+});
 
+describe("change request decisions", () => {
   it("keeps a manually crafted request from a non-requester unapprovable", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
@@ -1079,7 +1084,9 @@ describe("GitHub Lite change request client", () => {
       reviewState: "LEGACY_UNAPPROVABLE",
     });
   });
+});
 
+describe("change request automatic approval", () => {
   it("records Workspace policy as the automatic approval source", async () => {
     const state = createGitHubLiteMockState({
       currentUser: { login: "developer" },
@@ -1105,7 +1112,9 @@ describe("GitHub Lite change request client", () => {
     });
     expect(created.request.decision?.actor).toBeUndefined();
   });
+});
 
+describe("change request evidence tampering", () => {
   it.each([
     ["requester", '"requester":"attacker"'],
     ["request time", '"requestedAt":"2026-09-02T00:00:00.000Z"'],
@@ -1175,7 +1184,9 @@ describe("GitHub Lite change request client", () => {
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
     expect(pullRequest.merged).toBe(false);
   });
+});
 
+describe("historical change request evidence", () => {
   it("keeps a merged historical request verified after the default branch changes", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
@@ -1290,7 +1301,9 @@ describe("GitHub Lite change request client", () => {
       true,
     );
   });
+});
 
+describe("current change request authorization", () => {
   it("rejects a forged self approval when self approval is blocked", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
@@ -1549,7 +1562,9 @@ describe("GitHub Lite change request client", () => {
       ),
     ).toBe(true);
   });
+});
 
+describe("change request decision finalization", () => {
   it("keeps a same-head approval actionable after a merge failure without another comment", async () => {
     const mock = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
@@ -1806,7 +1821,9 @@ describe("GitHub Lite change request client", () => {
       }),
     ).resolves.toMatchObject({ reviewState: "CLOSED" });
   });
+});
 
+describe("change request artifact effects", () => {
   it("rejects a referenced artifact that is missing without a replacement", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
@@ -1936,6 +1953,47 @@ describe("GitHub Lite change request client", () => {
 });
 
 describe("governed artifact preparation", () => {
+  it("keeps inherited, deleted, and empty uploaded file states distinct", async () => {
+    const state = createGitHubLiteMockState();
+    state.files.push({
+      branch: "main",
+      content: "old artifact",
+      path: "vendor/releases/runner.jar",
+      sha: "old-artifact-sha",
+    });
+    const client = createMockGitHubLiteClient(state);
+    const files = await loadPreparedChangePreviewFiles(
+      client,
+      session(),
+      "main",
+      [
+        {
+          bytes: undefined,
+          kind: "ARTIFACT",
+          path: "vendor/releases/runner.jar",
+        },
+        { bytes: null, kind: "ARTIFACT", path: "vendor/releases/runner.jar" },
+        {
+          bytes: new Uint8Array(),
+          kind: "ARTIFACT",
+          path: "vendor/releases/empty.jar",
+        },
+      ],
+    );
+
+    expect(files.map((file) => file.status)).toEqual([
+      "UNCHANGED",
+      "DELETED",
+      "ADDED",
+    ]);
+    expect(files[0]?.afterDigest).toBe(files[0]?.beforeDigest);
+    expect(files[1]?.afterDigest).toBeNull();
+    expect(files[2]).toMatchObject({
+      beforeDigest: null,
+      afterDigest: await sha256BytesHex(new Uint8Array()),
+    });
+  });
+
   it.each([
     ["definition", "MODIFIED", "DELETED"],
     ["workflow", "DELETED", "MODIFIED"],

@@ -280,6 +280,11 @@ describe("GitHub Lite execution approval client", () => {
       kind: "SELF_APPROVAL_ALLOWED",
       mode: "AUTO_APPROVE",
     });
+    expect(
+      vi.mocked(context.client.createIssue).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(context.client.createIssueComment).mock.invocationCallOrder[0]!,
+    );
     expect(context.client.getIssue).not.toHaveBeenCalled();
     expect(context.client.listIssues).not.toHaveBeenCalled();
   });
@@ -360,6 +365,22 @@ describe("GitHub Lite execution approval client", () => {
         },
       ],
     });
+  });
+
+  it("omits a recognized change request whose summary cannot be projected", async () => {
+    const invalidChange = { ...sourceChange(), body: "" };
+    Object.defineProperty(invalidChange, "body", {
+      get() {
+        throw new Error("projection failed");
+      },
+    });
+    const context = createContext({
+      listRegistrationRequests: vi.fn().mockResolvedValue([invalidChange]),
+    });
+
+    await expect(
+      createGitHubLiteExecutionApprovalClient(context).listWorkspaceRequests(),
+    ).resolves.toEqual({ requests: [] });
   });
 
   it("projects the exact existing change request locator for a matching approved revision", async () => {
@@ -477,6 +498,127 @@ describe("GitHub Lite execution approval client", () => {
     });
   });
 
+  it("lists review, revision, and ongoing follow-ups in that order for one run", async () => {
+    const baseFollowUp = {
+      actionTaken: "Checked the ledger.",
+      author: "developer",
+      batchId: "payment.daily-close",
+      createdAt: "2026-09-11T09:02:00.000Z",
+      explanation: "The ledger was delayed.",
+      owner: "developer",
+      requestId: draft.requestId,
+      reviews: [],
+      runId: "run-1",
+      status: "OPEN" as const,
+    };
+    const context = createContext({
+      executionRuns: [
+        {
+          batchId: "payment.daily-close",
+          failureFollowUps: [
+            {
+              ...baseFollowUp,
+              followUpId: "ongoing",
+              reviewStatus: "AWAITING_REVIEW",
+            },
+            { ...baseFollowUp, followUpId: "revise", reviewStatus: "REJECTED" },
+            {
+              ...baseFollowUp,
+              followUpId: "review",
+              reviewStatus: "AWAITING_REVIEW",
+              reviewCapability: { canReview: true },
+            },
+          ],
+          requestId: draft.requestId,
+          runId: "run-1",
+          status: "FAILED",
+        },
+      ],
+    });
+    const items = (
+      await createGitHubLiteExecutionApprovalClient(context).getMyWork()
+    ).items;
+
+    expect(
+      items.map((item) =>
+        item.itemType === "FAILURE_FOLLOW_UP" ? item.action : null,
+      ),
+    ).toEqual(["REVIEW_FOLLOW_UP", "UPDATE_FOLLOW_UP", "CONTINUE_FOLLOW_UP"]);
+  });
+
+  it("assigns a failed manual run's first follow-up to its requester", async () => {
+    const context = createContext({
+      executionRuns: [
+        {
+          batchId: "payment.daily-close",
+          requestId: draft.requestId,
+          runId: "manual-run",
+          status: "FAILED",
+        },
+      ],
+      listExecutionRequestIssues: vi.fn().mockResolvedValue([createIssue()]),
+    });
+    const items = (
+      await createGitHubLiteExecutionApprovalClient(context).getMyWork()
+    ).items;
+
+    expect(
+      items.filter((item) => item.itemType === "FAILURE_FOLLOW_UP"),
+    ).toMatchObject([
+      {
+        action: "WRITE_FOLLOW_UP",
+        isGateBlocked: false,
+        itemLocator: "run:manual-run:follow-up-needed",
+      },
+    ]);
+  });
+
+  it("assigns a blocked scheduled run's first Gate review to the batch owner", async () => {
+    const built = await buildExecutionRequestIssue({
+      approvedBatchRevision: draft.approvedBatchRevision,
+      batch: batchDefinition(),
+      requestId: draft.requestId,
+      requestedAt: new Date("2026-09-11T09:00:00.000Z"),
+      requestedBy: "developer",
+      schedule: {
+        definitionCommitSha: "schedule-sha",
+        definitionPath: ".batch-governance/batches/payment.daily-close.yml",
+        repositoryId: "always0ne/batch",
+        scheduleId: "daily",
+        sourceRunAttempt: 1,
+        sourceRunId: "scheduled-run",
+      },
+      triggerType: "SCHEDULE",
+    });
+    const context = createContext({
+      executionRuns: [
+        {
+          batchId: "payment.daily-close",
+          requestId: draft.requestId,
+          runId: "scheduled-run",
+          status: "BLOCKED",
+        },
+      ],
+      listExecutionRequestIssues: vi
+        .fn()
+        .mockResolvedValue([{ ...createIssue(), body: built.body }]),
+    });
+    context.client.getCurrentUser = vi.fn().mockResolvedValue({ login: "ops" });
+    const items = (
+      await createGitHubLiteExecutionApprovalClient(context).getMyWork()
+    ).items;
+
+    expect(
+      items.filter((item) => item.itemType === "FAILURE_FOLLOW_UP"),
+    ).toMatchObject([
+      {
+        action: "REVIEW_GATE_EVIDENCE",
+        isGateBlocked: true,
+        itemLocator: "run:scheduled-run:follow-up-needed",
+      },
+    ]);
+  });
+
   it("keeps legacy execution work ordering timestamps", async () => {
     const requested = {
       ...createIssue(),
@@ -552,6 +694,41 @@ describe("GitHub Lite execution approval client", () => {
     });
     expect(context.client.getIssue).not.toHaveBeenCalled();
     expect(context.client.listIssues).not.toHaveBeenCalled();
+  });
+
+  it("does not report a post-create comment error when later evidence parsing fails", async () => {
+    const issue = createIssue();
+    const context = createContext({
+      createExecutionRequest: vi.fn().mockResolvedValue(issue),
+    });
+    context.client.createIssueComment = vi
+      .fn()
+      .mockImplementation(async ({ body }) => {
+        const comment = {
+          author: "developer",
+          body,
+          createdAt: "2026-09-11T09:01:00.000Z",
+          id: 12,
+          issueNumber: 71,
+        };
+        Object.defineProperty(comment, "body", {
+          get() {
+            throw new Error("approval evidence parse failed");
+          },
+        });
+        return comment;
+      });
+
+    await expect(
+      createGitHubLiteExecutionApprovalClient(context).createExecutionRequest({
+        draft,
+        expiresAt: "2026-09-11T10:00:00.000Z",
+        parameters: [],
+        reason: "Close after reconciliation.",
+        targetRevision: "main",
+      }),
+    ).rejects.toThrow("approval evidence parse failed");
+    expect(context.client.createIssueComment).toHaveBeenCalledTimes(1);
   });
 });
 

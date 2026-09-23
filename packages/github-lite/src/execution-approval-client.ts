@@ -1,4 +1,7 @@
-import type { GitHubRepositoryContext } from "./github-types.js";
+import type {
+  GitHubRepository,
+  GitHubRepositoryContext,
+} from "./github-types.js";
 import { ExecutionRequestCreationUnavailableError } from "@batchplane/ui-client";
 import type {
   ApprovalRequestInventory,
@@ -38,7 +41,10 @@ import {
   loadWorkspacePolicy,
   toRepositoryIssue,
 } from "./inspection-context.js";
-import type { RepositoryPullRequest } from "./repository-evidence-types.js";
+import type {
+  RepositoryIssueComment,
+  RepositoryPullRequest,
+} from "./repository-evidence-types.js";
 import type { GitHubExecutionRun } from "./repository-evidence-types.js";
 import {
   buildExecutionRequestIssue,
@@ -61,6 +67,10 @@ type ExecutionApprovalClient = Pick<
 type ExecutionRequestInventoryItem = Extract<
   RequestInventoryItem,
   { kind: "EXECUTION" }
+>;
+type ChangeRequestInventoryItem = Extract<
+  RequestInventoryItem,
+  { kind: "CHANGE_REQUEST" }
 >;
 
 export function createGitHubLiteExecutionApprovalClient(
@@ -126,55 +136,15 @@ export function createGitHubLiteExecutionApprovalClient(
       const createdRequest = requireParsedRequest(created, []);
 
       if (input.draft.workspaceApprovalMode !== "AUTO_APPROVE") {
-        return {
-          request: projectRequest(
-            createdRequest,
-            capabilityFor(createdRequest, input.draft),
-            undefined,
-            input.draft.workspaceLabel,
-            approvalNoticeFor(createdRequest, input.draft),
-          ),
-        };
+        return { request: projectCreatedRequest(createdRequest, input.draft) };
       }
 
-      const approvalBody = buildExecutionApprovalComment({
-        approvalMode: input.draft.workspaceApprovalMode,
-        approvalType: "WORKSPACE_AUTO_APPROVED",
-        approvedAt: new Date(),
-        approver: input.draft.requestedBy,
-        request: createdRequest,
-      });
-      let approvalComment;
-
-      try {
-        approvalComment = await context.client.createIssueComment({
-          ...context.repositoryRef,
-          body: approvalBody,
-          issueNumber: created.number,
-        });
-      } catch {
-        return {
-          postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" },
-          request: projectRequest(
-            createdRequest,
-            capabilityFor(createdRequest, input.draft),
-            undefined,
-            input.draft.workspaceLabel,
-            approvalNoticeFor(createdRequest, input.draft),
-          ),
-        };
-      }
-      const approvedRequest = requireParsedRequest(created, [approvalComment]);
-
-      return {
-        request: projectRequest(
-          approvedRequest,
-          capabilityFor(approvedRequest, input.draft),
-          undefined,
-          input.draft.workspaceLabel,
-          approvalNoticeFor(approvedRequest, input.draft),
-        ),
-      };
+      return recordAutomaticApproval(
+        context,
+        created,
+        createdRequest,
+        input.draft,
+      );
     },
 
     async getExecutionRequest({ requestLocator }) {
@@ -555,17 +525,17 @@ async function loadExecutionRequestItems(
 async function loadRequestInventory(
   context: GitHubRepositoryContext,
 ): Promise<RequestInventoryItem[]> {
-  const [execution, governed] = await Promise.all([
+  const [execution, changeRequests] = await Promise.all([
     loadExecutionRequestItems(context),
     loadChangeRequestItems(context),
   ]);
 
-  return [...execution, ...governed];
+  return [...execution, ...changeRequests];
 }
 
 async function loadChangeRequestItems(
   context: GitHubRepositoryContext,
-): Promise<Extract<RequestInventoryItem, { kind: "CHANGE_REQUEST" }>[]> {
+): Promise<ChangeRequestInventoryItem[]> {
   const repository = await context.client.getRepository(context.repositoryRef);
   const pullRequests = await context.client.listPullRequests({
     ...context.repositoryRef,
@@ -584,37 +554,49 @@ async function loadChangeRequestItems(
   return pullRequests.flatMap((pullRequest, index) => {
     const kind = getChangeRequestKind(pullRequest);
     if (!kind) return [];
-
-    try {
-      const summary = parseRegistrationRequestSummary(pullRequest);
-      const decision = parseRegistrationApprovalDecision(comments[index] ?? []);
-      const reviewState = deriveRegistrationReviewState(pullRequest, decision);
-
-      return [
-        {
-          actor: pullRequest.author,
-          changeKind: toChangeRequestKind(kind, summary.requestType),
-          kind: "CHANGE_REQUEST" as const,
-          request: {
-            batchId: summary.batchId,
-            requestLocator: String(pullRequest.number),
-            requester: pullRequest.author,
-            reviewState,
-            sourceLabel: `PR #${pullRequest.number}`,
-            sourceState: pullRequest.state === "open" ? "OPEN" : "CLOSED",
-            sourceUrl: pullRequest.url,
-            title: `#${pullRequest.number} ${pullRequest.title}`,
-            workspaceLabel: workspaceLabel(repository),
-          },
-          targetLabel: summary.batchId,
-          title: pullRequest.title,
-          updatedAt: pullRequest.updatedAt ?? pullRequest.createdAt ?? "",
-        },
-      ];
-    } catch {
-      return [];
-    }
+    const item = tryProjectChangeRequestItem(
+      pullRequest,
+      kind,
+      comments[index] ?? [],
+      repository,
+    );
+    return item ? [item] : [];
   });
+}
+
+function tryProjectChangeRequestItem(
+  pullRequest: RepositoryPullRequest,
+  kind: NonNullable<ReturnType<typeof getChangeRequestKind>>,
+  comments: RepositoryIssueComment[],
+  repository: GitHubRepository,
+): ChangeRequestInventoryItem | null {
+  try {
+    const summary = parseRegistrationRequestSummary(pullRequest);
+    const decision = parseRegistrationApprovalDecision(comments);
+    const reviewState = deriveRegistrationReviewState(pullRequest, decision);
+
+    return {
+      actor: pullRequest.author,
+      changeKind: toChangeRequestKind(kind, summary.requestType),
+      kind: "CHANGE_REQUEST",
+      request: {
+        batchId: summary.batchId,
+        requestLocator: String(pullRequest.number),
+        requester: pullRequest.author,
+        reviewState,
+        sourceLabel: `PR #${pullRequest.number}`,
+        sourceState: pullRequest.state === "open" ? "OPEN" : "CLOSED",
+        sourceUrl: pullRequest.url,
+        title: `#${pullRequest.number} ${pullRequest.title}`,
+        workspaceLabel: workspaceLabel(repository),
+      },
+      targetLabel: summary.batchId,
+      title: pullRequest.title,
+      updatedAt: pullRequest.updatedAt ?? pullRequest.createdAt ?? "",
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function loadAttempts(
@@ -870,93 +852,155 @@ function failureFollowUpWorkItems(
       .filter((item) => item.request.requestedBy === actor)
       .map((item) => item.request.requestId),
   );
-  return runs.flatMap((run) => {
-    if (run.status !== "FAILED" && run.status !== "BLOCKED") return [];
-    const request = requestsById.get(run.requestId);
-    const assignedInitialFollowUp =
-      request?.triggerType === "SCHEDULE"
-        ? request.batch.owner === actor
-        : requestedByMe.has(run.requestId);
-    const followUps = run.failureFollowUps ?? [];
-    const source = toAttempt(run);
-    const title = `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`;
-    const base = {
-      attemptLocator: run.runId,
-      batchId: run.batchId,
-      isGateBlocked: run.status === "BLOCKED",
-      requestId: run.requestId,
-      sourceLabel: source.sourceLabel,
-      ...(source.sourceUrl ? { sourceUrl: source.sourceUrl } : {}),
-      title,
-    };
-    const reviewable = followUps.filter(
-      (followUp) =>
-        followUp.reviewStatus === "AWAITING_REVIEW" &&
-        followUp.reviewCapability?.canReview,
-    );
-    const revise = followUps.filter(
-      (followUp) =>
-        ["CHANGES_REQUESTED", "REJECTED"].includes(followUp.reviewStatus) &&
-        (followUp.owner === actor || followUp.author === actor),
-    );
-    const ongoing = followUps.filter(
-      (followUp) =>
-        followUp.reviewStatus === "AWAITING_REVIEW" &&
-        ["OPEN", "INVESTIGATING"].includes(followUp.status) &&
-        (followUp.owner === actor || followUp.author === actor) &&
-        !reviewable.some(
-          (candidate) => candidate.followUpId === followUp.followUpId,
-        ),
-    );
-    return [
-      ...reviewable.map((followUp) => ({
-        ...base,
-        action: "REVIEW_FOLLOW_UP" as const,
-        actor: followUp.author,
-        itemType: "FAILURE_FOLLOW_UP" as const,
-        itemLocator: `follow-up:${followUp.followUpId}`,
-        occurredAt: followUp.createdAt,
-        priority: "HIGH" as const,
-      })),
-      ...revise.map((followUp) => ({
-        ...base,
-        action: "UPDATE_FOLLOW_UP" as const,
-        actor: followUp.author,
-        itemType: "FAILURE_FOLLOW_UP" as const,
-        itemLocator: `follow-up:${followUp.followUpId}`,
-        occurredAt: followUp.createdAt,
-        priority: "HIGH" as const,
-        revisionReason: followUp.reviewStatus as
-          | "CHANGES_REQUESTED"
-          | "REJECTED",
-      })),
-      ...ongoing.map((followUp) => ({
-        ...base,
-        action: "CONTINUE_FOLLOW_UP" as const,
-        actor: followUp.author,
-        itemType: "FAILURE_FOLLOW_UP" as const,
-        itemLocator: `follow-up:${followUp.followUpId}`,
-        occurredAt: followUp.createdAt,
-        priority: "NORMAL" as const,
-      })),
-      ...(followUps.length === 0 && assignedInitialFollowUp
-        ? [
-            {
-              ...base,
-              action:
-                run.status === "BLOCKED"
-                  ? ("REVIEW_GATE_EVIDENCE" as const)
-                  : ("WRITE_FOLLOW_UP" as const),
-              actor: run.actor ?? "",
-              itemType: "FAILURE_FOLLOW_UP" as const,
-              itemLocator: `run:${run.runId}:follow-up-needed`,
-              occurredAt: run.completedAt ?? run.startedAt ?? "",
-              priority: "HIGH" as const,
-            },
-          ]
-        : []),
-    ];
+  return runs.flatMap((run) =>
+    followUpWorkItemsForRun(
+      run,
+      requestsById.get(run.requestId),
+      requestedByMe,
+      actor,
+    ),
+  );
+}
+
+function followUpWorkItemsForRun(
+  run: GitHubExecutionRun,
+  request: ExecutionRequest | undefined,
+  requestedByMe: Set<string>,
+  actor: string,
+): MyWorkItem[] {
+  if (run.status !== "FAILED" && run.status !== "BLOCKED") return [];
+
+  const assignedInitialFollowUp =
+    request?.triggerType === "SCHEDULE"
+      ? request.batch.owner === actor
+      : requestedByMe.has(run.requestId);
+  const followUps = run.failureFollowUps ?? [];
+  const source = toAttempt(run);
+  const title = `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`;
+  const base = {
+    attemptLocator: run.runId,
+    batchId: run.batchId,
+    isGateBlocked: run.status === "BLOCKED",
+    requestId: run.requestId,
+    sourceLabel: source.sourceLabel,
+    ...(source.sourceUrl ? { sourceUrl: source.sourceUrl } : {}),
+    title,
+  };
+  const itemFor = (followUp: (typeof followUps)[number]) => ({
+    ...base,
+    actor: followUp.author,
+    itemType: "FAILURE_FOLLOW_UP" as const,
+    itemLocator: `follow-up:${followUp.followUpId}`,
+    occurredAt: followUp.createdAt,
   });
+  const { reviewTargets, revisionTargets, ongoingTargets } =
+    selectFollowUpTargets(followUps, actor);
+
+  return [
+    ...reviewTargets.map((followUp) => ({
+      ...itemFor(followUp),
+      action: "REVIEW_FOLLOW_UP" as const,
+      priority: "HIGH" as const,
+    })),
+    ...revisionTargets.map((followUp) => ({
+      ...itemFor(followUp),
+      action: "UPDATE_FOLLOW_UP" as const,
+      priority: "HIGH" as const,
+      revisionReason: followUp.reviewStatus as "CHANGES_REQUESTED" | "REJECTED",
+    })),
+    ...ongoingTargets.map((followUp) => ({
+      ...itemFor(followUp),
+      action: "CONTINUE_FOLLOW_UP" as const,
+      priority: "NORMAL" as const,
+    })),
+    ...(followUps.length === 0 && assignedInitialFollowUp
+      ? [
+          {
+            ...base,
+            action:
+              run.status === "BLOCKED"
+                ? ("REVIEW_GATE_EVIDENCE" as const)
+                : ("WRITE_FOLLOW_UP" as const),
+            actor: run.actor ?? "",
+            itemType: "FAILURE_FOLLOW_UP" as const,
+            itemLocator: `run:${run.runId}:follow-up-needed`,
+            occurredAt: run.completedAt ?? run.startedAt ?? "",
+            priority: "HIGH" as const,
+          },
+        ]
+      : []),
+  ];
+}
+
+function selectFollowUpTargets(
+  followUps: NonNullable<GitHubExecutionRun["failureFollowUps"]>,
+  actor: string,
+) {
+  const reviewTargets = followUps.filter(
+    (followUp) =>
+      followUp.reviewStatus === "AWAITING_REVIEW" &&
+      followUp.reviewCapability?.canReview,
+  );
+  const revisionTargets = followUps.filter(
+    (followUp) =>
+      ["CHANGES_REQUESTED", "REJECTED"].includes(followUp.reviewStatus) &&
+      (followUp.owner === actor || followUp.author === actor),
+  );
+  const ongoingTargets = followUps.filter(
+    (followUp) =>
+      followUp.reviewStatus === "AWAITING_REVIEW" &&
+      ["OPEN", "INVESTIGATING"].includes(followUp.status) &&
+      (followUp.owner === actor || followUp.author === actor) &&
+      !reviewTargets.some(
+        (candidate) => candidate.followUpId === followUp.followUpId,
+      ),
+  );
+  return { reviewTargets, revisionTargets, ongoingTargets };
+}
+
+function projectCreatedRequest(
+  request: ExecutionApprovalRequest,
+  draft: ExecutionRequestDraft,
+): ExecutionRequest {
+  return projectRequest(
+    request,
+    capabilityFor(request, draft),
+    undefined,
+    draft.workspaceLabel,
+    approvalNoticeFor(request, draft),
+  );
+}
+
+async function recordAutomaticApproval(
+  context: GitHubRepositoryContext,
+  createdIssue: Awaited<ReturnType<typeof createApprovedExecutionRequest>>,
+  createdRequest: ExecutionApprovalRequest,
+  draft: ExecutionRequestDraft,
+) {
+  const approvalBody = buildExecutionApprovalComment({
+    approvalMode: draft.workspaceApprovalMode,
+    approvalType: "WORKSPACE_AUTO_APPROVED",
+    approvedAt: new Date(),
+    approver: draft.requestedBy,
+    request: createdRequest,
+  });
+  let approvalComment;
+
+  try {
+    approvalComment = await context.client.createIssueComment({
+      ...context.repositoryRef,
+      body: approvalBody,
+      issueNumber: createdIssue.number,
+    });
+  } catch {
+    return {
+      postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" as const },
+      request: projectCreatedRequest(createdRequest, draft),
+    };
+  }
+
+  const approvedRequest = requireParsedRequest(createdIssue, [approvalComment]);
+  return { request: projectCreatedRequest(approvedRequest, draft) };
 }
 
 function requireParsedRequest(

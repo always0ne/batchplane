@@ -596,6 +596,29 @@ import route Pages. Page-specific navigation and command coordination stay with 
 Co-locate supporting functions, component-owned Hooks, and tests with their
 actual owner; do not create an empty layer or Hook for anticipated reuse.
 
+### Extraction For Readability
+
+Reuse is not a prerequisite for component extraction. The acceptance test is
+whether reading the Page reveals the screen's composition and reading each
+component reveals its responsibility, not whether files became shorter.
+
+Extract a named region or interaction when it makes the flow easier to read,
+even with one caller. A failure-explanation review form or deletion confirmation
+can justify a page-local component; splitting each error message and button into
+separate files usually does not. Keep page-only components beside their Page
+and shared business components under their narrowest actual business owner.
+Only genuinely product-neutral controls belong in global `components`.
+
+Separate multi-state display decisions and data preparation from complex JSX
+using named values or pure functions, not artificial visual components. Simple
+conditional expressions and list rendering remain appropriate. Do not replace
+them with generic form, table, state, or rendering frameworks.
+
+Define extracted components at module scope. Preserve state ownership, stable
+identity, keys and mount lifetime so extraction does not reset user input or
+change the interaction. Component boundaries must clarify the existing behavior,
+not introduce a new behavior or require more indirection to understand it.
+
 ## Common Component Contract
 
 `components` is the local common-component foundation. Its components do not understand Batch,
@@ -840,6 +863,9 @@ Batch list is the first proof surface.
 - [ ] Render is pure; events and Effects have the correct ownership.
 - [ ] State is minimal and has one clear owner.
 - [ ] Functions and files remain readable without speculative abstractions.
+- [ ] Pages reveal screen composition; named regions and interactions are
+      extracted where useful even without reuse, without trivial fragmentation
+      or changes to input state and component lifetime.
 - [ ] Changed entry points read clearly through their helpers; any retained
       large function or file has a concrete reason, not merely a passing test.
 - [ ] The active plan records current status, evidence, unresolved decisions,

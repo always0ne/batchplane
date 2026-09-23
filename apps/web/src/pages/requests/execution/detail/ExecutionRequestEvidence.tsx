@@ -59,12 +59,29 @@ function DispatcherEvidence({
 }) {
   const { t } = useTranslation("executionRequests");
   const scheduled = request.triggerType === "SCHEDULE";
-  const gateEvidence = request.gateDecision
-    ? `${request.gateDecision.allowed ? t("detail.dispatcher.gateAllowed") : t("detail.dispatcher.gateBlocked")} ${formatGateReasonDisplay(request.gateDecision.reasonCode, t, t("detail.dispatcher.none"))}`
-    : "";
-  const approvalEvidence = request.approvalDecision
-    ? `${request.approvalDecision.decision} by @${request.approvalDecision.actor}${request.approvalDecision.reason ? `: ${request.approvalDecision.reason}` : ""}`
-    : t("detail.dispatcher.none");
+  let gateEvidence = "";
+  if (request.gateDecision) {
+    const gateResult = request.gateDecision.allowed
+      ? t("detail.dispatcher.gateAllowed")
+      : t("detail.dispatcher.gateBlocked");
+    const gateReason = formatGateReasonDisplay(
+      request.gateDecision.reasonCode,
+      t,
+      t("detail.dispatcher.none"),
+    );
+    gateEvidence = `${gateResult} ${gateReason}`;
+  }
+
+  let approvalEvidence = t("detail.dispatcher.none");
+  if (request.approvalDecision) {
+    const { actor, decision, reason } = request.approvalDecision;
+    approvalEvidence = `${decision} by @${actor}${reason ? `: ${reason}` : ""}`;
+  }
+
+  let workflowRunEvidence = t("detail.dispatcher.noWorkflowRun");
+  if (request.attempts.type === "unavailable") {
+    workflowRunEvidence = t("detail.dispatcher.workflowRunUnavailable");
+  }
   return (
     <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="text-base font-bold text-bp-graphite">
@@ -124,10 +141,8 @@ function DispatcherEvidence({
               >
                 {attempt.sourceLabel} {t(`runDetail.status.${attempt.status}`)}
               </Link>
-            ) : request.attempts.type === "unavailable" ? (
-              t("detail.dispatcher.workflowRunUnavailable")
             ) : (
-              t("detail.dispatcher.noWorkflowRun")
+              workflowRunEvidence
             )}
           </dd>
         </div>

@@ -165,6 +165,12 @@ async function loadActualChangeRequestFiles(
       const baseBytes = baseFile ? fileBytes(baseFile) : undefined;
       const headBytes = headFile ? fileBytes(headFile) : undefined;
       const isBinary = artifact.kind === "ARTIFACT";
+      const status = actualFileStatus(
+        Boolean(baseFile),
+        Boolean(headFile),
+        baseBytes,
+        headBytes,
+      );
 
       return {
         ...(isBinary
@@ -179,16 +185,22 @@ async function loadActualChangeRequestFiles(
               nextContent: headFile?.content ?? "",
             }),
         path: artifact.path,
-        status: !baseFile
-          ? "ADDED"
-          : !headFile
-            ? "DELETED"
-            : bytesEqual(baseBytes, headBytes)
-              ? "UNCHANGED"
-              : "MODIFIED",
+        status,
       };
     }),
   );
+}
+
+function actualFileStatus(
+  baseFileExists: boolean,
+  headFileExists: boolean,
+  baseBytes: Uint8Array | undefined,
+  headBytes: Uint8Array | undefined,
+): ChangeRequestPreviewFile["status"] {
+  if (!baseFileExists) return "ADDED";
+  if (!headFileExists) return "DELETED";
+  if (bytesEqual(baseBytes, headBytes)) return "UNCHANGED";
+  return "MODIFIED";
 }
 
 async function loadChangeRequestCapabilities(

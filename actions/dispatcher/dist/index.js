@@ -9204,7 +9204,14 @@ function hasMatchingBatchMeaning(evidence, artifacts) {
     return false;
   if (workflow.path !== getBatchWorkflowPath(evidence.batchId))
     return false;
-  return evidence.type === "REGISTER" ? definition.beforeDigest === null && definition.afterDigest !== null && workflow.beforeDigest === null && workflow.afterDigest !== null : evidence.type === "DELETE" ? definition.beforeDigest !== null && definition.afterDigest === null && workflow.beforeDigest !== null && workflow.afterDigest === null : definition.beforeDigest !== null && definition.afterDigest !== null && workflow.beforeDigest !== null && workflow.afterDigest !== null;
+  switch (evidence.type) {
+    case "REGISTER":
+      return definition.beforeDigest === null && definition.afterDigest !== null && workflow.beforeDigest === null && workflow.afterDigest !== null;
+    case "DELETE":
+      return definition.beforeDigest !== null && definition.afterDigest === null && workflow.beforeDigest !== null && workflow.afterDigest === null;
+    case "CHANGE":
+      return definition.beforeDigest !== null && definition.afterDigest !== null && workflow.beforeDigest !== null && workflow.afterDigest !== null;
+  }
 }
 function digestFile(file) {
   return sha256BytesHex(fileBytes(file));

@@ -30,11 +30,7 @@ export function RecentExecutionRequests({
                 {request.title}
               </Link>
               <p className="mt-1 text-xs font-semibold text-bp-muted">
-                {request.scheduled
-                  ? t("executionRequests:detail.status.SCHEDULE_RECORDED")
-                  : t(
-                      `detail.recentRuns.status.${request.status.toLowerCase().replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())}`,
-                    )}
+                {recentExecutionRequestStatus(request, t)}
               </p>
               <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
                 <BatchDetailFact
@@ -64,6 +60,20 @@ export function RecentExecutionRequests({
       )}
     </article>
   );
+}
+
+function recentExecutionRequestStatus(
+  request: BatchRecentExecutionRequestSummary,
+  translate: (key: string) => string,
+): string {
+  if (request.scheduled) {
+    return translate("executionRequests:detail.status.SCHEDULE_RECORDED");
+  }
+
+  const statusKey = request.status
+    .toLowerCase()
+    .replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+  return translate(`detail.recentRuns.status.${statusKey}`);
 }
 
 function formatTimestamp(value: string, locale: string): string {

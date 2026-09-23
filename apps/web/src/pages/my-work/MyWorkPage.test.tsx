@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
@@ -47,6 +47,49 @@ describe("MyWorkPage", () => {
     expect(
       screen.getAllByRole("link", { name: "Review" }).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("keeps request-kind filters and each request detail route intact", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage(
+      runtimeClient(
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
+      ),
+    );
+
+    const registrationDescription = await screen.findByText(
+      "Registration approval is waiting for review.",
+    );
+    const registrationRow = registrationDescription.closest("li");
+    expect(registrationRow).not.toBeNull();
+    expect(
+      within(registrationRow!).getByRole("link", { name: "Review" }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/approvals\/registration\//),
+    );
+
+    const executionDescription = screen.getByText(
+      "Execution approval is waiting for a maintainer.",
+    );
+    const executionRow = executionDescription.closest("li");
+    expect(executionRow).not.toBeNull();
+    expect(
+      within(executionRow!).getByRole("link", { name: "Review" }),
+    ).toHaveAttribute("href", expect.stringMatching(/^\/execution-requests\//));
+
+    fireEvent.click(screen.getByRole("button", { name: /Failure follow-up/ }));
+    expect(
+      screen.queryByText("Execution approval is waiting for a maintainer."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No work items match this view."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    expect(
+      screen.getByText("Execution approval is waiting for a maintainer."),
+    ).toBeInTheDocument();
   });
 
   it("routes a current requester's runs without follow-up evidence to write follow-up", async () => {

@@ -136,6 +136,10 @@ describe("ExecutionDetailPage", () => {
     });
 
     expect(screen.getByText(/evidence verified/u)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide logs" }));
+    expect(screen.queryByLabelText("Search log")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "View Gate logs" }));
+    expect(await screen.findByLabelText("Search log")).toHaveValue("verified");
   });
 
   it("shows business failure when Gate allowed but the batch job failed", async () => {
@@ -400,6 +404,11 @@ describe("ExecutionDetailPage", () => {
     ).toBeInTheDocument();
     expect(getRun).toHaveBeenCalledWith({ runId: "900", runAttempt: 1 });
     expect(screen.getAllByText("Source job")).toHaveLength(4);
+    expect(
+      screen.getByText(
+        "This source run is not correlated with a recorded schedule occurrence. Its jobs and logs are available, but no business result is attributed.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Business job")).not.toBeInTheDocument();
     fireEvent.click(
       screen.getAllByRole("button", { name: "View source logs" })[1]!,
@@ -625,6 +634,34 @@ describe("ExecutionDetailPage", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Business failed")).not.toBeInTheDocument();
+  });
+
+  it("keeps canceled business status distinct from a failed business result", async () => {
+    renderDetail({
+      createClient: () =>
+        inspectionTestClient({
+          getExecutionRun: async () => ({
+            batchId: "payment.daily-close",
+            jobs: [],
+            requestId: "",
+            runId: "207",
+            status: "CANCELED",
+          }),
+        }),
+      readSession: () => session,
+      runId: 207,
+    });
+
+    expect(
+      await screen.findByText("Business execution status: Canceled."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Business failed")).not.toBeInTheDocument();
+    const businessHeading = screen.getByRole("heading", {
+      name: "Business execution",
+    });
+    expect(businessHeading.previousElementSibling).toHaveClass(
+      "text-slate-500",
+    );
   });
 
   it("shows an actionable permission message when Actions evidence is forbidden", async () => {

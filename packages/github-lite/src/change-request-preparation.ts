@@ -190,17 +190,27 @@ export async function loadPreparedChangePreviewFiles(
         contentKind: isBinary ? "BINARY" : "TEXT",
         nextContent,
         path: file.path,
-        status:
-          !baseFile && file.bytes !== null
-            ? "ADDED"
-            : baseFile && file.bytes === null
-              ? "DELETED"
-              : bytesEqual(baseBytes, nextBytes ?? undefined)
-                ? "UNCHANGED"
-                : "MODIFIED",
+        status: preparedFileStatus(
+          Boolean(baseFile),
+          file.bytes,
+          baseBytes,
+          nextBytes,
+        ),
       };
     }),
   );
+}
+
+function preparedFileStatus(
+  baseFileExists: boolean,
+  requestedBytes: PreparedChangeRequestFile["bytes"],
+  baseBytes: Uint8Array | undefined,
+  nextBytes: Uint8Array | null | undefined,
+): ChangeRequestPreviewFile["status"] {
+  if (!baseFileExists && requestedBytes !== null) return "ADDED";
+  if (baseFileExists && requestedBytes === null) return "DELETED";
+  if (bytesEqual(baseBytes, nextBytes ?? undefined)) return "UNCHANGED";
+  return "MODIFIED";
 }
 
 export function hasEffectivePreparedChange(

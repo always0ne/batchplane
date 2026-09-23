@@ -85,48 +85,21 @@ export function ExecutionSummaryPanel({ run }: { run: ExecutionRun }) {
 
 export function GateOutcomePanel({ run }: { run: ExecutionRun }) {
   const { t } = useTranslation("executionRequests");
-  const blocked = run.status === "BLOCKED";
-  const allowed = run.gateDecision?.allowed === true;
-  const tone = blocked ? "blocked" : allowed ? "allowed" : "unknown";
-  const Icon =
-    tone === "blocked" ? XCircle : tone === "allowed" ? ShieldCheck : Loader2;
-  const panelClass = {
-    allowed: "border-emerald-200 bg-emerald-50",
-    blocked: "border-orange-200 bg-orange-50",
-    unknown: "border-slate-200 bg-slate-50",
-  }[tone];
-  const iconClass = {
-    allowed: "text-emerald-700",
-    blocked: "text-orange-700",
-    unknown: "text-bp-muted",
-  }[tone];
-  const titleClass = {
-    allowed: "text-emerald-950",
-    blocked: "text-orange-950",
-    unknown: "text-bp-graphite",
-  }[tone];
-  const messageClass = {
-    allowed: "text-emerald-900",
-    blocked: "text-orange-900",
-    unknown: "text-bp-muted",
-  }[tone];
+  const display = getGateOutcomeDisplay(run);
+  const Icon = display.Icon;
 
   return (
-    <article className={`rounded-lg border p-5 shadow-sm ${panelClass}`}>
+    <article
+      className={`rounded-lg border p-5 shadow-sm ${display.panelClass}`}
+    >
       <div className="flex items-center gap-2">
-        <Icon className={`h-5 w-5 ${iconClass}`} aria-hidden="true" />
-        <h2 className={`text-base font-bold ${titleClass}`}>
-          {blocked
-            ? t("runDetail.gate.blockedTitle")
-            : t("runDetail.gate.title")}
+        <Icon className={`h-5 w-5 ${display.iconClass}`} aria-hidden="true" />
+        <h2 className={`text-base font-bold ${display.titleClass}`}>
+          {t(display.titleKey)}
         </h2>
       </div>
-      <p className={`mt-3 text-sm font-semibold ${messageClass}`}>
-        {blocked
-          ? t("runDetail.gate.blockedMessage")
-          : allowed
-            ? t("runDetail.gate.allowedMessage")
-            : t("runDetail.gate.noEvidence")}
+      <p className={`mt-3 text-sm font-semibold ${display.messageClass}`}>
+        {t(display.messageKey)}
       </p>
       <dl className="mt-4 grid gap-3 text-sm">
         <DetailFact
@@ -152,30 +125,8 @@ export function GateOutcomePanel({ run }: { run: ExecutionRun }) {
 
 export function BusinessOutcomePanel({ run }: { run: ExecutionRun }) {
   const { t } = useTranslation("executionRequests");
-  const businessFailed =
-    run.status === "FAILED" && run.gateDecision?.allowed === true;
-  const blocked = run.status === "BLOCKED";
-  const succeeded = run.status === "SUCCEEDED";
-  const inFlight = run.status === "QUEUED" || run.status === "RUNNING";
-  const canceled = run.status === "CANCELED";
-  const Icon = businessFailed
-    ? AlertTriangle
-    : succeeded
-      ? CheckCircle2
-      : blocked
-        ? XCircle
-        : inFlight
-          ? Loader2
-          : AlertTriangle;
-  const iconClass = businessFailed
-    ? "text-red-700"
-    : succeeded
-      ? "text-emerald-700"
-      : blocked
-        ? "text-orange-700"
-        : canceled
-          ? "text-slate-500"
-          : "text-sky-700";
+  const { Icon, iconClass } = getBusinessOutcomeIcon(run);
+  const messageKey = getBusinessOutcomeMessageKey(run);
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -186,18 +137,79 @@ export function BusinessOutcomePanel({ run }: { run: ExecutionRun }) {
         </h2>
       </div>
       <p className="mt-3 text-sm font-semibold text-bp-muted">
-        {run.evidenceScope === "SOURCE_RUN"
-          ? t("runDetail.business.sourceRunUnconfirmed")
-          : blocked
-            ? t("runDetail.business.notReached")
-            : businessFailed
-              ? t("runDetail.business.failed")
-              : run.status === "FAILED"
-                ? t("runDetail.business.verificationUnknown")
-                : t("runDetail.business.current", {
-                    status: t(`runDetail.status.${run.status}`),
-                  })}
+        {messageKey === "runDetail.business.current"
+          ? t(messageKey, {
+              status: t(`runDetail.status.${run.status}`),
+            })
+          : t(messageKey)}
       </p>
     </article>
   );
+}
+
+function getGateOutcomeDisplay(run: ExecutionRun) {
+  if (run.status === "BLOCKED") {
+    return {
+      Icon: XCircle,
+      iconClass: "text-orange-700",
+      messageClass: "text-orange-900",
+      messageKey: "runDetail.gate.blockedMessage" as const,
+      panelClass: "border-orange-200 bg-orange-50",
+      titleClass: "text-orange-950",
+      titleKey: "runDetail.gate.blockedTitle" as const,
+    };
+  }
+  if (run.gateDecision?.allowed === true) {
+    return {
+      Icon: ShieldCheck,
+      iconClass: "text-emerald-700",
+      messageClass: "text-emerald-900",
+      messageKey: "runDetail.gate.allowedMessage" as const,
+      panelClass: "border-emerald-200 bg-emerald-50",
+      titleClass: "text-emerald-950",
+      titleKey: "runDetail.gate.title" as const,
+    };
+  }
+  return {
+    Icon: Loader2,
+    iconClass: "text-bp-muted",
+    messageClass: "text-bp-muted",
+    messageKey: "runDetail.gate.noEvidence" as const,
+    panelClass: "border-slate-200 bg-slate-50",
+    titleClass: "text-bp-graphite",
+    titleKey: "runDetail.gate.title" as const,
+  };
+}
+
+function getBusinessOutcomeIcon(run: ExecutionRun) {
+  if (run.status === "FAILED" && run.gateDecision?.allowed === true) {
+    return { Icon: AlertTriangle, iconClass: "text-red-700" };
+  }
+  if (run.status === "SUCCEEDED") {
+    return { Icon: CheckCircle2, iconClass: "text-emerald-700" };
+  }
+  if (run.status === "BLOCKED") {
+    return { Icon: XCircle, iconClass: "text-orange-700" };
+  }
+  if (run.status === "QUEUED" || run.status === "RUNNING") {
+    return { Icon: Loader2, iconClass: "text-sky-700" };
+  }
+  if (run.status === "CANCELED") {
+    return { Icon: AlertTriangle, iconClass: "text-slate-500" };
+  }
+  return { Icon: AlertTriangle, iconClass: "text-sky-700" };
+}
+
+function getBusinessOutcomeMessageKey(run: ExecutionRun) {
+  if (run.evidenceScope === "SOURCE_RUN") {
+    return "runDetail.business.sourceRunUnconfirmed" as const;
+  }
+  if (run.status === "BLOCKED") return "runDetail.business.notReached" as const;
+  if (run.status === "FAILED" && run.gateDecision?.allowed === true) {
+    return "runDetail.business.failed" as const;
+  }
+  if (run.status === "FAILED") {
+    return "runDetail.business.verificationUnknown" as const;
+  }
+  return "runDetail.business.current" as const;
 }

@@ -1,5 +1,4 @@
 import type { TFunction } from "i18next";
-import type { ExecutionAuditItem } from "@batchplane/ui-client";
 import type { ExecutionAuditItem as AuditTimelineItem } from "@batchplane/ui-client";
 import { ExternalLink, Filter, History } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -11,6 +10,7 @@ import {
   ErrorState,
   LoadingState,
 } from "../../components/PageState";
+import { formatAuditSummary } from "./audit-summary";
 import type { AuditTimelineState } from "./useAuditTimeline";
 
 export function AuditContent({ state }: { state: AuditTimelineState }) {
@@ -103,68 +103,88 @@ function LoadedAudit({ items }: { items: AuditTimelineItem[] }) {
       ) : (
         <ol className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white shadow-sm">
           {filteredItems.map((item) => (
-            <li
-              className="grid gap-3 p-4 md:grid-cols-[10rem_minmax(0,1fr)_auto]"
-              key={item.itemId}
-            >
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 rounded-md bg-slate-100 p-1.5 text-bp-git">
-                  <History className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-sm font-bold text-bp-graphite">
-                    {item.execution?.sourceOnly
-                      ? t("executions:status.SOURCE_RUN")
-                      : item.execution?.locator
-                        ? t("audit:values.scheduleExecution")
-                        : t(`common:status.auditTimelineType.${item.type}`)}
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-bp-muted">
-                    {formatAuditTime(
-                      item.occurredAt,
-                      t("audit:values.unknownTime"),
-                    )}
-                  </p>
-                </div>
-              </div>
-              <div className="min-w-0">
-                <p className="break-words text-sm font-semibold text-bp-graphite">
-                  {formatAuditSummary(item, t)}
-                </p>
-                <p className="mt-1 break-words text-xs font-semibold text-bp-muted">
-                  {t("audit:values.actor", {
-                    actor: item.actor || t("audit:values.unknownActor"),
-                  })}
-                </p>
-                <AuditMetadata item={item} />
-              </div>
-              <div className="flex min-w-0 flex-wrap items-start gap-2">
-                {item.execution ? (
-                  <Link
-                    className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-bp-graphite hover:border-bp-git"
-                    to={`/executions/${encodeURIComponent(item.execution.locator)}${item.execution.sourceOnly ? `?runAttempt=${item.execution.runAttempt}` : ""}`}
-                  >
-                    {t("audit:actions.openExecution")}
-                  </Link>
-                ) : null}
-                {item.sourceUrl ? (
-                  <a
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-bp-graphite hover:border-bp-git"
-                    href={item.sourceUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                    {t("audit:actions.openSource")}
-                  </a>
-                ) : null}
-              </div>
-            </li>
+            <AuditEventItem item={item} key={item.itemId} translate={t} />
           ))}
         </ol>
       )}
     </div>
   );
+}
+
+function AuditEventItem({
+  item,
+  translate,
+}: {
+  item: AuditTimelineItem;
+  translate: TFunction;
+}) {
+  const title = formatAuditEventType(item, translate);
+
+  return (
+    <li className="grid gap-3 p-4 md:grid-cols-[10rem_minmax(0,1fr)_auto]">
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 rounded-md bg-slate-100 p-1.5 text-bp-git">
+          <History className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div>
+          <p className="text-sm font-bold text-bp-graphite">{title}</p>
+          <p className="mt-1 text-xs font-semibold text-bp-muted">
+            {formatAuditTime(
+              item.occurredAt,
+              translate("audit:values.unknownTime"),
+            )}
+          </p>
+        </div>
+      </div>
+      <div className="min-w-0">
+        <p className="break-words text-sm font-semibold text-bp-graphite">
+          {formatAuditSummary(item, translate)}
+        </p>
+        <p className="mt-1 break-words text-xs font-semibold text-bp-muted">
+          {translate("audit:values.actor", {
+            actor: item.actor || translate("audit:values.unknownActor"),
+          })}
+        </p>
+        <AuditMetadata item={item} />
+      </div>
+      <div className="flex min-w-0 flex-wrap items-start gap-2">
+        {item.execution ? (
+          <Link
+            className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-bp-graphite hover:border-bp-git"
+            to={`/executions/${encodeURIComponent(item.execution.locator)}${item.execution.sourceOnly ? `?runAttempt=${item.execution.runAttempt}` : ""}`}
+          >
+            {translate("audit:actions.openExecution")}
+          </Link>
+        ) : null}
+        {item.sourceUrl ? (
+          <a
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-bp-graphite hover:border-bp-git"
+            href={item.sourceUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            {translate("audit:actions.openSource")}
+          </a>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+function formatAuditEventType(
+  item: AuditTimelineItem,
+  translate: TFunction,
+): string {
+  if (item.execution?.sourceOnly) {
+    return translate("executions:status.SOURCE_RUN");
+  }
+
+  if (item.execution?.locator) {
+    return translate("audit:values.scheduleExecution");
+  }
+
+  return translate(`common:status.auditTimelineType.${item.type}`);
 }
 
 function AuditMetadata({ item }: { item: AuditTimelineItem }) {
@@ -243,49 +263,4 @@ function formatAuditTime(value: string, fallback: string): string {
   const date = new Date(value);
 
   return Number.isNaN(date.getTime()) ? fallback : date.toLocaleString();
-}
-
-function formatAuditSummary(
-  item: ExecutionAuditItem,
-  translate: TFunction,
-): string {
-  const key = item.execution?.sourceOnly
-    ? "SOURCE_RUN_OBSERVED"
-    : item.execution
-      ? "NATIVE_SCHEDULE_OBSERVED"
-      : item.type;
-  return translate(`audit:summaries.${key}`, {
-    ...toAuditSummaryValues(item, translate),
-    defaultValue: item.summary,
-  });
-}
-
-function toAuditSummaryValues(
-  item: ExecutionAuditItem,
-  translate: (key: string) => string,
-): Record<string, string | number> {
-  const gateResult = String(item.metadata?.gateResult ?? "");
-
-  return {
-    batchId: String(item.metadata?.batchId ?? item.subjectId),
-    conclusion: String(item.metadata?.conclusion ?? ""),
-    decision: String(item.metadata?.decision ?? ""),
-    followUpId: String(item.metadata?.followUpId ?? ""),
-    gateResult: gateResult
-      ? translate(`audit:values.gateResult.${gateResult}`)
-      : "",
-    pullNumber: Number(item.metadata?.pullNumber ?? 0),
-    reasonCode: String(item.metadata?.reasonCode ?? ""),
-    requestId: String(item.metadata?.requestId ?? item.subjectId),
-    reviewId: String(item.metadata?.reviewId ?? ""),
-    reviewStatus: String(item.metadata?.reviewStatus ?? ""),
-    runId: Number(item.metadata?.runId ?? 0),
-    runAttempt: Number(item.execution?.runAttempt ?? 1),
-    scheduleId: String(item.execution?.scheduleId ?? ""),
-    observation: item.execution?.observation
-      ? translate(`executions:nativeObservation.${item.execution.observation}`)
-      : "",
-    selfReview: String(item.metadata?.selfReview ?? ""),
-    status: String(item.metadata?.status ?? ""),
-  };
 }

@@ -27,7 +27,7 @@ export function useExecutionRequestDetail({
   requestLocator: string;
 }) {
   const client = useBatchPlaneClient();
-  const version = useRef(0);
+  const readGeneration = useRef(0);
   const actionEpoch = useRef(0);
   const actionInFlight = useRef(false);
   const authoritativeRequest = useRef<ExecutionRequest | null>(initialRequest);
@@ -57,8 +57,8 @@ export function useExecutionRequestDetail({
   }, [client, initialRequest, requestLocator]);
 
   useEffect(() => {
-    const requestVersion = version.current + 1;
-    version.current = requestVersion;
+    const currentReadGeneration = readGeneration.current + 1;
+    readGeneration.current = currentReadGeneration;
     const keepInitialRequest = Boolean(initialRequest) && refreshVersion === 0;
     if (!keepInitialRequest) setState({ type: "loading" });
     setActionError(null);
@@ -67,35 +67,16 @@ export function useExecutionRequestDetail({
     void client
       .getExecutionRequest({ requestLocator })
       .then((request) => {
-        if (version.current !== requestVersion) return;
-        const retainedRequest = authoritativeRequest.current;
-        if (!request && retainedRequest) {
-          setState({
-            readState: "pending",
-            request: retainedRequest,
-            type: "loaded",
-          });
-          return;
-        }
-        if (!request) {
-          setState({ type: "not-found" });
-          return;
-        }
-        if (delayedRead(retainedRequest, request)) {
-          setState({
-            readState: "pending",
-            request: retainedRequest!,
-            type: "loaded",
-          });
-          return;
-        }
-        if (request.status !== "REQUESTED") {
-          authoritativeRequest.current = request;
-        }
-        setState({ readState: "current", request, type: "loaded" });
+        if (readGeneration.current !== currentReadGeneration) return;
+        const selected = selectReadResult(
+          request,
+          authoritativeRequest.current,
+        );
+        authoritativeRequest.current = selected.authoritativeRequest;
+        setState(selected.state);
       })
       .catch((error) => {
-        if (version.current !== requestVersion) return;
+        if (readGeneration.current !== currentReadGeneration) return;
         if (isWorkspaceNotConnectedError(error)) {
           setState({ type: "workspace-not-connected" });
           return;
@@ -112,14 +93,16 @@ export function useExecutionRequestDetail({
       });
 
     return () => {
-      if (version.current === requestVersion) version.current += 1;
+      if (readGeneration.current === currentReadGeneration) {
+        readGeneration.current += 1;
+      }
     };
   }, [client, initialRequest, refreshVersion, requestLocator]);
 
   const applyAction = useCallback(
     async (action: ExecutionRequestAction, rejectionReason = "") => {
       if (actionInFlight.current) return false;
-      const requestVersion = version.current;
+      const currentReadGeneration = readGeneration.current;
       const currentActionEpoch = actionEpoch.current;
       actionInFlight.current = true;
       setRunningAction(action);
@@ -134,19 +117,19 @@ export function useExecutionRequestDetail({
                 requestLocator,
               });
         if (
-          version.current !== requestVersion ||
+          readGeneration.current !== currentReadGeneration ||
           actionEpoch.current !== currentActionEpoch
         ) {
           return false;
         }
-        version.current += 1;
+        readGeneration.current += 1;
         authoritativeRequest.current = request;
         setState({ readState: "current", request, type: "loaded" });
         setCompletedAction(action);
         return true;
       } catch (error) {
         if (
-          version.current !== requestVersion ||
+          readGeneration.current !== currentReadGeneration ||
           actionEpoch.current !== currentActionEpoch
         ) {
           return false;
@@ -174,6 +157,44 @@ export function useExecutionRequestDetail({
     refresh,
     runningAction,
     state,
+  };
+}
+
+function selectReadResult(
+  request: ExecutionRequest | null,
+  authoritativeRequest: ExecutionRequest | null,
+): {
+  authoritativeRequest: ExecutionRequest | null;
+  state: ExecutionRequestDetailState;
+} {
+  if (!request) {
+    return {
+      authoritativeRequest,
+      state: authoritativeRequest
+        ? {
+            readState: "pending",
+            request: authoritativeRequest,
+            type: "loaded",
+          }
+        : { type: "not-found" },
+    };
+  }
+
+  if (authoritativeRequest && delayedRead(authoritativeRequest, request)) {
+    return {
+      authoritativeRequest,
+      state: {
+        readState: "pending",
+        request: authoritativeRequest,
+        type: "loaded",
+      },
+    };
+  }
+
+  return {
+    authoritativeRequest:
+      request.status === "REQUESTED" ? authoritativeRequest : request,
+    state: { readState: "current", request, type: "loaded" },
   };
 }
 

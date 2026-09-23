@@ -146,6 +146,29 @@ describe("BatchDetailPage", () => {
     );
   });
 
+  it("shows the recorded schedule status instead of the request status", async () => {
+    const [recentRequest] = activeDetail.recentExecutionRequests;
+    renderDetail(
+      createClient({
+        ...activeDetail,
+        recentExecutionRequests: [
+          { ...recentRequest!, scheduled: true, status: "DISPATCHED" },
+        ],
+      }),
+    );
+
+    expect(
+      await screen.findByText("Scheduled occurrence recorded"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Dispatched")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: recentRequest!.title }),
+    ).toHaveAttribute(
+      "href",
+      `/execution-requests/${encodeURIComponent(recentRequest!.locator)}`,
+    );
+  });
+
   it("blocks bypassed manual execution and navigates only after an explicit remediation request", async () => {
     const requestBatchRemediation = vi.fn(async () =>
       changeRequestResult("121"),
@@ -327,7 +350,20 @@ describe("BatchDetailPage", () => {
     expect(
       screen.getByRole("button", { name: "Create delete request" }),
     ).toBeDisabled();
-    fireEvent.change(confirmation, {
+    fireEvent.change(confirmation, { target: { value: "payment" } });
+    expect(
+      screen.getByRole("button", { name: "Create delete request" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request delete" }));
+    const reopenedConfirmation = screen.getByLabelText(
+      "Type Batch ID to confirm",
+    );
+    expect(reopenedConfirmation).toHaveValue("");
+    expect(
+      screen.getByRole("button", { name: "Create delete request" }),
+    ).toBeDisabled();
+    fireEvent.change(reopenedConfirmation, {
       target: { value: "payment.daily-close" },
     });
     fireEvent.click(

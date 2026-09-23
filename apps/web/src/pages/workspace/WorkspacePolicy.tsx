@@ -1,4 +1,5 @@
 import type { WorkspaceApprovalMode } from "@batchplane/ui-client";
+import type { TFunction } from "i18next";
 import {
   AlertCircle,
   FilePlus2,
@@ -27,22 +28,14 @@ export function WorkspacePolicy({
   const policy = useWorkspacePolicy(inspection);
   const { state, mode, currentPolicy } = policy;
   const currentMode = currentPolicy?.approval.mode;
-  const unavailable =
-    inspection.type !== "loaded"
-      ? t("workspacePolicy.checkFirst")
-      : state.type === "creating"
-        ? t("workspacePolicy.creating")
-        : state.type === "success"
-          ? t("workspacePolicy.pendingRequest")
-          : mode === currentMode
-            ? t("workspacePolicy.chooseDifferentMode")
-            : undefined;
-  const error =
-    state.type === "error"
-      ? state.error
-      : inspection.type === "error"
-        ? inspection.error
-        : undefined;
+  const unavailable = policyActionUnavailableMessage(
+    inspection,
+    state,
+    mode,
+    currentMode,
+    t,
+  );
+  const error = workspacePolicyError(state, inspection);
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -165,4 +158,45 @@ export function WorkspacePolicy({
       </div>
     </article>
   );
+}
+
+function policyActionUnavailableMessage(
+  inspection: WorkspaceInspectionState,
+  state: ReturnType<typeof useWorkspacePolicy>["state"],
+  mode: WorkspaceApprovalMode,
+  currentMode: WorkspaceApprovalMode | undefined,
+  translate: TFunction,
+): string | undefined {
+  if (inspection.type !== "loaded") {
+    return translate("workspacePolicy.checkFirst");
+  }
+
+  if (state.type === "creating") {
+    return translate("workspacePolicy.creating");
+  }
+
+  if (state.type === "success") {
+    return translate("workspacePolicy.pendingRequest");
+  }
+
+  if (mode === currentMode) {
+    return translate("workspacePolicy.chooseDifferentMode");
+  }
+
+  return undefined;
+}
+
+function workspacePolicyError(
+  state: ReturnType<typeof useWorkspacePolicy>["state"],
+  inspection: WorkspaceInspectionState,
+): unknown | undefined {
+  if (state.type === "error") {
+    return state.error;
+  }
+
+  if (inspection.type === "error") {
+    return inspection.error;
+  }
+
+  return undefined;
 }
