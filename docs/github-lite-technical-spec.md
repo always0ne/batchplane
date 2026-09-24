@@ -2,9 +2,25 @@
 
 This document captures implementation contracts for GitHub Lite.
 
+## Product Routing Boundary
+
+The shared React router exposes `/executions`, `/executions/:executionId`,
+`/executions/failures` and `/workspace` for execution inspection and settings.
+An execution route parameter remains the existing opaque product-client
+identifier; renaming the screen and path does not change provider IDs, source
+evidence, scheduled occurrences or attempts. Preserve existing filters and
+query context when constructing links, including when deployed below the
+GitHub Pages basename.
+
+Current change/execution request URLs and query modes remain unchanged.
+The [unified request feature specification](./unified-request-feature-spec.md)
+is explicitly deferred until after refactoring. Do not infer a new Issue/PR
+mapping or approval contract from its target routes. The current registration,
+execution, Gate and evidence contracts below continue to apply.
+
 ## Repository Layout
 
-Governance records live in the target GitHub repository:
+Control and audit records live in the target GitHub repository:
 
 ```text
 .batch-governance/
@@ -117,7 +133,7 @@ BatchPlane template or when a legacy BatchTrail workflow path is still present.
 The update PR must write the current canonical workflow content and delete the
 legacy workflow file from the update branch when it replaces that workflow.
 
-The update flow must not compare or overwrite repository-owned governance
+The update flow must not compare or overwrite repository-owned control
 configuration such as `.batch-governance/workspace.yml` or
 `.batch-governance/policies/role-mapping.yml`; those files are changed only
 through their dedicated policy/configuration workflows.
@@ -157,7 +173,7 @@ Supported `spec.approval.mode` values are:
   `approvalMode=AUTO_APPROVE`; the evidence must also identify
   `approvalSource=WORKSPACE_POLICY`. Gate allows that evidence only when the
   merged Workspace policy is `AUTO_APPROVE`. Dispatcher remains responsible for
-  `workflow_dispatch`; the browser UI must not dispatch governed workflows
+  `workflow_dispatch`; the browser UI must not dispatch controlled workflows
   directly. This is the highest approval-relaxation level and includes
   `SELF_APPROVAL_ALLOWED` behavior for manual approvals, including a manager's
   manual self-review of failure follow-up evidence. It does not synthesize a
@@ -180,6 +196,27 @@ auditable.
 
 ## Batch Definition
 
+The repository document is a GitHub Lite persistence and execution contract,
+not the shared product `BatchDefinition`. Product identity, ownership, business
+status and schedules are independent from GitHub workflow/ref/runner fields.
+The Lite adapter maps the typed platform settings into this document and the
+generated workflow. Product UI receives execution information for display and
+does not parse repository YAML or choose its authority from displayed values.
+
+Registration and change compose shared business inputs with typed GitHub
+execution settings in one Page and one preview/submission flow. Platform fields
+are not hidden in an arbitrary JSON map or collected through imperative form
+refs. Detail and execution-request surfaces preserve platform, command, runner,
+revision and artifact information. Platform input ownership does not introduce
+a second Lite/Main screen or a generic form framework.
+
+The UI client may define the typed input contract of the currently supported
+GitHub Actions platform. This is not a REST DTO or a repository file schema.
+Runner labels remain explicitly platform-specific editing data; renaming them
+to a generic environment field does not make their semantics portable. Display
+models retain the execution file name and location without interpreting them
+as authorization evidence.
+
 The batch definition is serialized as deterministic YAML:
 
 ```yaml
@@ -201,6 +238,31 @@ spec:
 ```
 
 `gateRequired` is always `true` for Lite-registered batches.
+
+### Repository YAML
+
+Repository YAML syntax is read through the public `yaml` v2 document API, with
+line/column diagnostics. Valid quoted scalars, block sequences, multiline
+strings, comments and indentation follow YAML syntax instead of a hand-written
+two-space-only parser. Parsed documents still pass the appropriate file schema
+and current authorization/Gate checks. Successful parsing never authorizes work.
+Web and Action consumers use the same repository file parsing implementation rather
+than a fallback parser with a different interpretation.
+
+Newly requested repository configuration content is serialized through the public library
+API with deterministic output options. API versions, fields and evidence meaning
+remain unchanged; quoting and sequence layout need not reproduce the previous
+serializer's byte layout. Existing repository files, Issues and pull requests
+are never automatically reformatted by this refactor. Approval verification
+continues to hash original artifact bytes, not a parsed-and-reserialized copy.
+Pure formatting is not a business change, and historical requests must remain
+verifiable without regeneration. Workflow templates, cron conversion and the
+canonical JSON digest algorithm are separate and are not rewritten here.
+
+The checked-in Node 24 Action bundles remain self-contained. Their ESM build
+provides Node's `createRequire(import.meta.url)` for bundled CommonJS dependencies
+used by `yaml`; runners do not install workspace packages before executing an
+Action. Bundle execution and rebuild parity are both part of local verification.
 
 ## Generated Batch Workflow
 
@@ -256,7 +318,7 @@ available after checkout.
 
 The Gate action must deny direct GitHub Actions reruns by default. When
 `GITHUB_RUN_ATTEMPT` is greater than `1`, Gate returns
-`RERUN_NOT_AUTHORIZED`. Retrying a governed batch requires a new BatchPlane
+`RERUN_NOT_AUTHORIZED`. Retrying a controlled batch requires a new BatchPlane
 execution request or a future explicit retry-approval flow.
 
 The Gate action must not trust `workflow_dispatch` inputs alone. The generated
@@ -316,7 +378,13 @@ not merely display metadata.
 
 ## Approval Comment Contract
 
-Governed-change decision comments are auditable repository evidence, not an
+Product code calls registration, modification and deletion requests
+`ChangeRequest`. This source terminology does not migrate stored evidence:
+`governedChangeId`, `batchplane:governed-change-*`, and
+`batchplane.io/governed-change/v2` retain their existing spelling and digest
+meaning. Repository paths and request URLs are unchanged.
+
+Change-request decision comments are auditable repository evidence, not an
 authorization token. Apply and merge reload the current
 `.batch-governance/workspace.yml` and role mapping, and re-authorize the actor
 under the current approval mode. A recorded `authorizationRevisionSha` preserves
@@ -329,7 +397,7 @@ CHANGE, and DELETE must respectively produce definition/workflow transitions
 `null -> digest`, `digest -> digest`, and `digest -> null`. Optional artifacts
 are restricted to the retained opaque base path or a canonical
 `.batch-governance/batches/{batchId}/artifacts/` path; no other repository file
-can enter the governed artifact set.
+can enter the controlled artifact set.
 
 Execution approval comments must start with the dispatcher command:
 
@@ -425,7 +493,7 @@ and markerless command-looking comments. The dispatcher action also repeats the
 actionable approval check and returns `IGNORED_COMMENT` without writing failure
 evidence when the comment is not marker-backed approval evidence.
 
-The browser UI must not directly dispatch governed batch workflows in Lite mode.
+The browser UI must not directly dispatch controlled batch workflows in Lite mode.
 Scheduled occurrences do not use a second workflow or dispatcher. The native
 Run records its request, Gate decision and result around the same-Run business
 job. Schedule evidence/comments are not actionable manual approvals; dispatcher
@@ -458,10 +526,10 @@ The dispatcher writes state evidence as Issue labels and comments:
 
 ## Registration Approval Detail Contract
 
-The registration/change detail screen reads governed change requests from the
-approvals queue and shows governed file change summaries.
+The registration/change detail screen reads change requests from the
+approvals queue and shows controlled file change summaries.
 
-For each governed path (batch definition, workflow, optional execution file),
+For each controlled path (batch definition, workflow, optional execution file),
 the UI compares:
 
 - base ref (`pullRequest.base`)
@@ -475,19 +543,19 @@ The screen must include:
 
 - external source metadata and link
 - review state (open, approved pending merge, merged, rejected, closed)
-- governance checklist
+- control checklist
 - file status summary and head revision preview
 - refresh action
 
 Delete requests use the same registration approval detail contract with request
 type `DELETE`. Registration, change, and delete pages call `BatchPlaneClient`
 product operations; the GitHub Lite adapter creates the branch, applies the
-governed file set, and opens the pull request. If either the batch definition
+controlled file set, and opens the pull request. If either the batch definition
 or workflow is missing on the base branch, the adapter must block the delete
 request instead of creating a partial deletion request.
 
 When a batch definition is no longer present on the default branch, the batch
-detail route may recover a deleted batch archive by searching merged governed
+detail route may recover a deleted batch archive by searching merged change-request
 change pull requests for the latest `DELETE` request matching the Batch ID.
 The adapter must parse the v2 request evidence, read
 `.batch-governance/batches/{batchId}.yml` at the evidence
@@ -513,24 +581,24 @@ digest must not create a second `workflow_dispatch` call once `DISPATCHING` or
 
 GitHub Lite treats mutation responses as authoritative immediate handoff
 evidence. Registration, change, and deletion route directly to the returned
-internal governed-change detail. The legacy execution-request flow may retain
+internal change-request detail. The legacy execution-request flow may retain
 its returned Issue in `sessionStorage` until the approvals inbox observes the
 Issue from GitHub list APIs.
 
 The execution-request handoff entry is pruned when the corresponding GitHub
 list API returns the same Issue, or when the user completes an approval or
 rejection action. This keeps the legacy execution flow deterministic during
-GitHub API propagation without treating the browser as the source of governance
+GitHub API propagation without treating the browser as the source of control
 truth.
 
-For a governed `CHANGE`, a new `governedChangeId` is an audit revision marker,
+For a `CHANGE` request, a new `governedChangeId` is an audit revision marker,
 not an effective product change by itself. `BatchPlaneClient.previewBatchChange`
 returns `hasEffectiveChanges` for both the submit state and adapter mutation
 guard. The exact YAML preview may still show the marker byte difference, but the
 adapter must not create a branch or request when no batch behavior, definition,
 schedule, workflow, or artifact changes.
 
-Pending control is a batch-wide guard. An open governed request in `OPEN` or
+Pending control is a batch-wide guard. An open change request in `OPEN` or
 `APPROVED_PENDING_MERGE` blocks another registration, change, or delete request
 for that Batch. An execution request in `REQUESTED`, `APPROVED`, or
 `DISPATCHING` also blocks it; `DISPATCH_FAILED`, `DISPATCHED`, `GATE_BLOCKED`,
@@ -713,7 +781,7 @@ an execution request records approval evidence but does not execute the batch.
 ## Schedule Occurrence Contract
 
 Schedules are stored only in `BatchDefinition.spec.schedules` and approved as
-part of the governed Batch revision:
+part of the controlled Batch revision:
 
 ```text
 .batch-governance/batches/{batchId}.yml
@@ -757,7 +825,7 @@ R2-A governs request creation, verified change review, and adapter-owned
 repository mutation. R2-B additionally binds every new execution request to
 the approved Batch `governedChangeId` and target revision digest. Manual
 creation, scheduled occurrence creation, dispatcher mutation, and Gate each
-revalidate that binding against the newest applicable merged governed Batch
+revalidate that binding against the newest applicable merged controlled Batch
 change. The check compares the registered definition, workflow, and artifact
 only; unrelated Batch and README changes do not invalidate a revision.
 
@@ -767,7 +835,7 @@ compares the workflow source SHA in the execution context to the registered
 approved artifacts. A failed or unavailable GitHub API read blocks execution:
 an unavailable API is an unknown control result, not invented bypass evidence.
 
-An unapproved current revision is remediated through a new governed change to
+An unapproved current revision is remediated through a new change request to
 review the current revision or restore the newest verifiably approved revision.
 Creating that request does not unlock execution; ordinary role, self-approval,
 and auto-approval policy still apply. Auto approval never silently repairs a

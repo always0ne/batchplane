@@ -21,6 +21,13 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+Run `pnpm dev` from the repository root. It builds the internal package
+prerequisites, then starts one TypeScript package watcher alongside Vite.
+Changes to package sources are rebuilt automatically. Stop both with Ctrl-C.
+The Web app and TypeScript resolve internal packages through pnpm workspace
+links and their declared `exports`, without source-path aliases or an extra
+development plugin. Package `dist` directories are generated, not committed.
+
 ## Local Verification
 
 BatchPlane requires Node 24 or later. CI and the checked-in JavaScript Actions

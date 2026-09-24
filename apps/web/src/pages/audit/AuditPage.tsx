@@ -1,6 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { PageHeader } from "../../ui/PageHeader";
+import { PageHeader } from "../../components/PageHeader";
 import { AuditContent } from "./AuditTimeline";
 import { useAuditTimeline } from "./useAuditTimeline";
 

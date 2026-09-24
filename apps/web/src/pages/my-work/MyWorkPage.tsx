@@ -1,4 +1,4 @@
-import type { MyWorkItem } from "@batchplane/ui-client";
+import type { MyWorkItem, RequestInventoryItem } from "@batchplane/ui-client";
 import {
   AlertTriangle,
   GitPullRequest,
@@ -10,8 +10,12 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-import { PageHeader } from "../../ui/PageHeader";
-import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
+import { PageHeader } from "../../components/PageHeader";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../components/PageState";
 import { type MyWorkState, useMyWork } from "./useMyWork";
 
 type WorkKind = "approval" | "failureFollowUp" | "registration" | "request";
@@ -168,52 +172,54 @@ function LoadedMyWork({
         ) : (
           <ul className="divide-y divide-slate-200">
             {filteredItems.map((item) => (
-              <li
-                className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto]"
-                key={item.itemId}
-              >
-                <div className="flex min-w-0 gap-3">
-                  <WorkIcon kind={item.kind} priority={item.priority} />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-bp-muted">
-                        {t(`itemLabels.${item.labelKey}`)}
-                      </span>
-                      {item.priority === "high" ? (
-                        <span className="rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-700">
-                          {t("values.highPriority")}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-2 break-words text-sm font-bold text-bp-graphite">
-                      {item.title}
-                    </p>
-                    <p className="mt-1 break-words text-sm text-bp-muted">
-                      {t(`itemDescriptions.${item.descriptionKey}`)}
-                    </p>
-                    <p className="mt-2 text-xs font-semibold text-bp-muted">
-                      {t("values.actorTime", {
-                        actor: item.actor || t("values.unknownActor"),
-                        time: formatWorkTime(
-                          item.occurredAt,
-                          t("values.unknownTime"),
-                        ),
-                      })}
-                    </p>
-                  </div>
-                </div>
-                <Link
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-bp-control px-3 text-sm font-semibold text-white hover:bg-bp-graphite"
-                  to={item.to}
-                >
-                  {t(`itemActions.${item.actionKey}`)}
-                </Link>
-              </li>
+              <MyWorkListItem item={item} key={item.itemId} />
             ))}
           </ul>
         )}
       </section>
     </div>
+  );
+}
+
+function MyWorkListItem({ item }: { item: WorkRow }) {
+  const { t } = useTranslation("myWork");
+
+  return (
+    <li className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="flex min-w-0 gap-3">
+        <WorkIcon kind={item.kind} priority={item.priority} />
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-bp-muted">
+              {t(`itemLabels.${item.labelKey}`)}
+            </span>
+            {item.priority === "high" ? (
+              <span className="rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-700">
+                {t("values.highPriority")}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-2 break-words text-sm font-bold text-bp-graphite">
+            {item.title}
+          </p>
+          <p className="mt-1 break-words text-sm text-bp-muted">
+            {t(`itemDescriptions.${item.descriptionKey}`)}
+          </p>
+          <p className="mt-2 text-xs font-semibold text-bp-muted">
+            {t("values.actorTime", {
+              actor: item.actor || t("values.unknownActor"),
+              time: formatWorkTime(item.occurredAt, t("values.unknownTime")),
+            })}
+          </p>
+        </div>
+      </div>
+      <Link
+        className="inline-flex h-10 items-center justify-center rounded-md bg-bp-control px-3 text-sm font-semibold text-white hover:bg-bp-graphite"
+        to={item.to}
+      >
+        {t(`itemActions.${item.actionKey}`)}
+      </Link>
+    </li>
   );
 }
 
@@ -282,65 +288,103 @@ function toWorkRow(item: MyWorkItem): WorkRow {
   return requestWorkRow(item);
 }
 
-function requestWorkRow(
-  item: Extract<
-    MyWorkItem,
-    { itemType: "REQUESTED_BY_YOU" | "AWAITING_YOUR_DECISION" }
-  >,
+type RequestWorkItem = Extract<
+  MyWorkItem,
+  { itemType: "REQUESTED_BY_YOU" | "AWAITING_YOUR_DECISION" }
+>;
+
+function requestWorkRow(item: RequestWorkItem): WorkRow {
+  const requestItem = item.request;
+
+  if (requestItem.kind === "EXECUTION") {
+    return executionRequestWorkRow(item, requestItem);
+  }
+
+  return changeRequestWorkRow(item, requestItem);
+}
+
+function executionRequestWorkRow(
+  item: RequestWorkItem,
+  requestItem: Extract<RequestInventoryItem, { kind: "EXECUTION" }>,
 ): WorkRow {
-  const { itemType, request: requestItem } = item;
+  const isApproval = item.itemType === "AWAITING_YOUR_DECISION";
   const request = requestItem.request;
-  const isApproval = itemType === "AWAITING_YOUR_DECISION";
-  const isExecution = requestItem.kind === "EXECUTION";
-  const governedChange =
-    requestItem.kind === "GOVERNED_CHANGE" ? requestItem : null;
-  const kind: WorkKind = isApproval
-    ? "approval"
-    : isExecution
-      ? "request"
-      : "registration";
 
   return {
-    actionKey: isApproval
-      ? "reviewApproval"
-      : isExecution
-        ? "viewRequest"
-        : "viewRegistration",
+    actionKey: isApproval ? "reviewApproval" : "viewRequest",
     actor: requestItem.actor,
-    descriptionKey: isApproval
-      ? isExecution
-        ? "executionApproval"
-        : governedChange?.changeKind.startsWith("SCHEDULE")
-          ? "scheduleReview"
-          : "registrationReview"
-      : isExecution
-        ? "executionMine"
-        : governedChange?.changeKind.startsWith("SCHEDULE")
-          ? "scheduleMine"
-          : "registrationMine",
-    itemId: `${itemType}-${requestItem.kind}-${request.requestLocator}`,
-    kind,
-    labelKey: isApproval
-      ? isExecution
-        ? "executionApproval"
-        : governedChange?.changeKind.startsWith("SCHEDULE")
-          ? "scheduleApproval"
-          : "registrationApproval"
-      : isExecution
-        ? "request"
-        : governedChange?.changeKind.startsWith("SCHEDULE")
-          ? "schedule"
-          : "registration",
+    descriptionKey: isApproval ? "executionApproval" : "executionMine",
+    itemId: `${item.itemType}-${requestItem.kind}-${request.requestLocator}`,
+    kind: isApproval ? "approval" : "request",
+    labelKey: isApproval ? "executionApproval" : "request",
     occurredAt: item.occurredAt,
     priority: item.priority === "HIGH" ? "high" : "normal",
-    title:
-      requestItem.kind === "EXECUTION"
-        ? `${requestItem.request.batchId} - ${requestItem.request.requestId}`
-        : `${requestItem.request.sourceLabel} ${requestItem.request.title}`,
-    to:
-      requestItem.kind === "EXECUTION"
-        ? `/execution-requests/${encodeURIComponent(request.requestLocator)}`
-        : `/approvals/registration/${encodeURIComponent(request.requestLocator)}`,
+    title: `${request.batchId} - ${request.requestId}`,
+    to: `/execution-requests/${encodeURIComponent(request.requestLocator)}`,
+  };
+}
+
+function changeRequestWorkRow(
+  item: RequestWorkItem,
+  requestItem: Extract<RequestInventoryItem, { kind: "CHANGE_REQUEST" }>,
+): WorkRow {
+  const { request } = requestItem;
+  const display = changeRequestDisplay(item, requestItem);
+
+  return {
+    ...display,
+    actor: requestItem.actor,
+    itemId: `${item.itemType}-${requestItem.kind}-${request.requestLocator}`,
+    occurredAt: item.occurredAt,
+    priority: item.priority === "HIGH" ? "high" : "normal",
+    title: `${request.sourceLabel} ${request.title}`,
+    to: `/approvals/registration/${encodeURIComponent(request.requestLocator)}`,
+  };
+}
+
+type ChangeRequestDisplay = Pick<
+  WorkRow,
+  "actionKey" | "descriptionKey" | "kind" | "labelKey"
+>;
+
+function changeRequestDisplay(
+  item: RequestWorkItem,
+  requestItem: Extract<RequestInventoryItem, { kind: "CHANGE_REQUEST" }>,
+): ChangeRequestDisplay {
+  const isSchedule = requestItem.changeKind.startsWith("SCHEDULE");
+
+  if (item.itemType === "AWAITING_YOUR_DECISION") {
+    if (isSchedule) {
+      return {
+        actionKey: "reviewApproval",
+        descriptionKey: "scheduleReview",
+        kind: "approval",
+        labelKey: "scheduleApproval",
+      };
+    }
+
+    return {
+      actionKey: "reviewApproval",
+      descriptionKey: "registrationReview",
+      kind: "approval",
+      labelKey: "registrationApproval",
+    };
+  }
+
+  if (isSchedule) {
+    return {
+      actionKey: "viewRegistration",
+      descriptionKey: "scheduleMine",
+      kind: "registration",
+      labelKey: "schedule",
+    };
+  }
+
+  return {
+    actionKey: "viewRegistration",
+    descriptionKey: "registrationMine",
+    kind: "registration",
+    labelKey: "registration",
   };
 }
 
@@ -390,8 +434,8 @@ function failureFollowUpRow(
     title: item.title,
     to:
       item.action === "REVIEW_GATE_EVIDENCE"
-        ? `/execution-runs/${encodeURIComponent(item.attemptLocator)}`
-        : `/execution-runs/${encodeURIComponent(item.attemptLocator)}#failure-follow-up`,
+        ? `/executions/${encodeURIComponent(item.attemptLocator)}`
+        : `/executions/${encodeURIComponent(item.attemptLocator)}#failure-follow-up`,
   };
 }
 

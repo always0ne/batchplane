@@ -8,9 +8,13 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { useBatchPlaneClient } from "../../client/batch-plane-client-context";
-import { ExecutionApprovalActions } from "../../features/execution-approval/ExecutionApprovalActions";
-import { PageHeader } from "../../ui/PageHeader";
-import { EmptyState, ErrorState, LoadingState } from "../../ui/PageState";
+import { ExecutionApprovalActions } from "../requests/execution/ExecutionApprovalActions";
+import { PageHeader } from "../../components/PageHeader";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../components/PageState";
 import {
   useApprovalRequests,
   type ApprovalRequestsState,
@@ -146,7 +150,7 @@ function ApprovalContent({
         action={
           <Link
             className="font-semibold text-bp-control underline"
-            to="/lite/setup"
+            to="/workspace"
           >
             {t("actions.openSetup")}
           </Link>
@@ -160,14 +164,14 @@ function ApprovalContent({
     return <ErrorState message={state.message || t("states.error")} />;
   }
 
-  const governedChanges = state.inventory.requests.filter(
-    (item) => item.kind === "GOVERNED_CHANGE",
+  const changeRequests = state.inventory.requests.filter(
+    (item) => item.kind === "CHANGE_REQUEST",
   );
   const executionRequests = state.inventory.requests.filter(
     (item) => item.kind === "EXECUTION",
   );
 
-  if (governedChanges.length === 0 && executionRequests.length === 0) {
+  if (changeRequests.length === 0 && executionRequests.length === 0) {
     return (
       <EmptyState
         message={t("states.empty", {
@@ -179,10 +183,10 @@ function ApprovalContent({
 
   return (
     <div className="space-y-6">
-      {governedChanges.length > 0 ? (
+      {changeRequests.length > 0 ? (
         <ApprovalSection title={t("sections.registration")}>
-          {governedChanges.map((item) => (
-            <GovernedChangeApproval
+          {changeRequests.map((item) => (
+            <ChangeRequestApproval
               key={item.request.requestLocator}
               item={item}
             />
@@ -221,10 +225,10 @@ function ApprovalSection({
   );
 }
 
-function GovernedChangeApproval({
+function ChangeRequestApproval({
   item,
 }: {
-  item: Extract<RequestInventoryItem, { kind: "GOVERNED_CHANGE" }>;
+  item: Extract<RequestInventoryItem, { kind: "CHANGE_REQUEST" }>;
 }) {
   const { t } = useTranslation("approvals");
   const request = item.request;
@@ -250,7 +254,7 @@ function GovernedChangeApproval({
             />
             <ApprovalMeta
               label={t("fields.requestType")}
-              value={governedChangeTypeLabel(item.changeKind, t)}
+              value={changeRequestTypeLabel(item.changeKind, t)}
             />
             <ApprovalMeta
               label={t("fields.repository")}
@@ -356,23 +360,25 @@ function ExecutionApproval({
         <ApprovalMeta
           label={t("fields.workflow")}
           value={
-            request.workflow
-              ? `${request.workflow.path}@${request.workflow.ref}`
+            request.executionTarget
+              ? `${request.executionTarget.targetName}@${request.executionTarget.targetRevision}`
               : t("values.unknown")
           }
         />
         <ApprovalMeta
           label={t("fields.runsOn")}
-          value={runnerLabel(request.execution?.runsOn) || t("values.unknown")}
+          value={
+            request.executionTarget?.executionEnvironment || t("values.unknown")
+          }
         />
         <ApprovalMeta
           label={t("fields.command")}
-          value={request.execution?.command ?? t("values.unknown")}
+          value={request.executionTarget?.command ?? t("values.unknown")}
         />
         <ApprovalMeta
           label={t("fields.gate")}
           value={
-            request.execution?.gateRequired
+            request.batch.gateRequired
               ? t("values.gateRequired")
               : t("values.gateNonCompliant")
           }
@@ -426,10 +432,10 @@ function approvalDisabledReason(
   return "";
 }
 
-function governedChangeTypeLabel(
+function changeRequestTypeLabel(
   changeKind: Extract<
     RequestInventoryItem,
-    { kind: "GOVERNED_CHANGE" }
+    { kind: "CHANGE_REQUEST" }
   >["changeKind"],
   t: (key: string) => string,
 ) {
@@ -439,12 +445,6 @@ function governedChangeTypeLabel(
       ? "DELETE"
       : "CHANGE";
   return t(`values.registrationRequestTypes.${requestType}`);
-}
-
-function runnerLabel(
-  value: NonNullable<ExecutionRequest["execution"]>["runsOn"] | undefined,
-) {
-  return Array.isArray(value) ? value.join(", ") : (value ?? "");
 }
 
 function messageFrom(error: unknown): string {

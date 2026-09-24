@@ -6,15 +6,15 @@ the installable control-plane implementation.
 
 ## Scope
 
-GitHub Lite uses a GitHub repository as the governance store and audit surface.
+GitHub Lite stores configuration and audit evidence in a GitHub repository.
 The React/Vite UI runs without a BatchPlane server and calls GitHub APIs with a
 user-provided token stored only in session storage.
 
 GitHub Lite must support:
 
 - Repository installation through a setup pull request.
-- Batch registration, change, and deletion through governed change requests.
-- Governed change approval through the request detail route and approvals inbox.
+- Batch registration, change, and deletion through change requests.
+- Change request approval through the request detail route and approvals inbox.
 - Execution requests through GitHub Issues.
 - Execution approval evidence through GitHub Issue comments.
 - Dispatcher handoff through a repository workflow.
@@ -26,6 +26,22 @@ UI work must also follow the Lite UX baseline in
 implementation is not complete until the user can understand the controlled
 object, the next action, and whether the visible item is approval work,
 execution evidence, or failure follow-up.
+
+### Product Sitemap And Deferred Requests
+
+Execution history uses `/executions`, an exact execution uses
+`/executions/:executionId`, and failure follow-up uses `/executions/failures`.
+Workspace settings use `/workspace`. Internal links must preserve the exact
+execution identity and existing occurrence/attempt context. Product navigation
+uses execution and request/audit terminology, not provider Run or Governance
+categories. Source links may still name the actual provider and its Run.
+
+The sitemap refactoring preserves current change/execution request creation
+and detail routes, single-request behavior, approval policy and evidence.
+Multi-Batch/multi-type requests and `/requests/new` plus `/requests/:requestId`
+are deferred to the separate [unified request feature specification](./unified-request-feature-spec.md).
+That document records agreed intent and open decisions; it is not a claim of
+current capability or authorization to implement the feature during refactoring.
 
 ## Installation Requirements
 
@@ -115,7 +131,7 @@ their setup artifacts.
 Registration creates `.batch-governance/batches/{batchId}.yml`.
 
 The `batchId` is mandatory. The UI must not create fallback identifiers such as
-`new-batch` for persistent governance paths.
+`new-batch` for persistent repository paths.
 
 ### Workflow Generation
 
@@ -202,14 +218,27 @@ If the command field is empty when a file is uploaded, the UI may populate a
 default command that executes the uploaded artifact. The command must update if
 it was auto-generated and the Batch ID changes.
 
+Business metadata and platform execution settings have separate typed owners.
+GitHub-specific runner/ref fields are handled by the GitHub execution settings
+component, while the shared page retains the same registration/change flow.
+This separation must not remove command, runner, revision or execution-file
+information from Batch detail or execution requests, add a separate save step,
+or require a second change request. It does not implement a new platform.
+
+Repository file readers must use the same standard YAML interpretation in the
+Lite adapter and Actions. Syntax diagnostics retain line/column information;
+file-schema and authorization validation remain mandatory. A parser/formatter
+change must not rewrite existing evidence or invalidate a historical approval
+by hashing reformatted content in place of the original artifact bytes.
+
 ### Registration Review UX
 
-Before creating a governed change request, the UI must show a review panel
+Before creating a change request, the UI must show a review panel
 with:
 
 - generated file paths for the batch definition, workflow, and optional
   execution file
-- a governance checklist confirming Batch ID-derived paths, mandatory Gate,
+- a control checklist confirming Batch ID-derived paths, mandatory Gate,
   selected execution environment, and recorded Batch command
 - a YAML preview for the batch definition and generated workflow
 - a short note that the created request opens immediately in its internal detail
@@ -218,8 +247,8 @@ with:
 The registration, change, and deletion pages invoke `BatchPlaneClient` product
 operations. The GitHub Lite adapter owns branch, file, and pull-request
 mechanics; the page does not treat a pull-request body as its command contract.
-Each successful mutation routes directly to the returned internal governed
-change detail page. The approvals inbox may still lag behind GitHub list APIs,
+Each successful mutation routes directly to the returned internal change request
+detail page. The approvals inbox may still lag behind GitHub list APIs,
 so the direct detail route remains immediately available.
 
 The review panel is the primary operator surface. YAML preview is supporting
@@ -227,7 +256,7 @@ evidence, not the first thing the user should have to interpret.
 
 ### Batch Deletion Request Requirements
 
-Batch deletion is a governed change request, not a direct repository mutation.
+Batch deletion is a change request, not a direct repository mutation.
 The batch detail screen must offer a delete request action in the same request
 area as execution and change requests. Creating a delete request must open a
 pull request titled `Delete batch {batchId}` and remove:
@@ -237,7 +266,7 @@ pull request titled `Delete batch {batchId}` and remove:
 - the optional execution artifact path, when one is registered and present
 
 The delete request must preserve enough verified evidence to recover the
-deleted batch archive after merge. The governed change evidence must include
+deleted batch archive after merge. The change request evidence must include
 the deletion base revision and the `beforeDigest` for the BatchDefinition
 artifact. The archive source of truth is the BatchDefinition at that recorded
 `baseRevisionSha`, not the editable PR body summary. The recovered definition
@@ -308,7 +337,7 @@ digest as the primary decision material.
 
 ## Approval Requirements
 
-For governed registration, change, and deletion requests, GitHub PR comments
+For controlled registration, change, and deletion requests, GitHub PR comments
 are repository-backed audit evidence only. They never grant merge authority on
 their own. Before every approval or approved-change apply attempt, BatchPlane
 must reload the current Workspace policy and role mapping, re-authorize the
@@ -319,7 +348,7 @@ The authoritative verifier must read the PR head rather than trust request
 evidence alone. It must require the canonical BatchDefinition and generated
 Gate-first workflow transition for the requested operation, and it may govern
 only the definition, generated workflow, and the permitted batch artifact
-envelope. Arbitrary repository paths are never governed artifacts.
+envelope. Arbitrary repository paths are never controlled artifacts.
 
 Execution approval happens in the approvals inbox.
 
@@ -390,7 +419,7 @@ business-failure revisions while retaining that label.
 
 Each execution request must also have a BatchPlane detail screen. The detail
 screen must show request status, requester, batch, environment, workflow
-path/ref, runner, batch command, request digest, governance checks, canonical
+path/ref, runner, batch command, request digest, control checks, canonical
 request payload, approval evidence, dispatcher evidence, and Gate evidence when
 available. The detail screen is the primary place to explain why approval did or
 did not lead to dispatch.
@@ -450,7 +479,7 @@ immutable audit store.
 
 Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request
-metadata, review state, governance checklist, YAML change summary for governed
+metadata, review state, control checklist, YAML change summary for controlled
 files, refresh action, and GitHub pull request link. Approval wording on this
 screen must be explicit that approval merges the registration pull request.
 Registration approve/reject actions are executed from this detail screen, not
@@ -535,7 +564,7 @@ auditable after the BatchPlane rebrand.
 ## Schedule Requirements
 
 Schedules are stored only in `BatchDefinition.spec.schedules` and are changed
-through the owning Batch's governed registration or change request.
+through the owning Batch's controlled registration or change request.
 
 An approved schedule embedded in a BatchDefinition revision means:
 
@@ -557,7 +586,7 @@ revision and include:
 - current batch/workflow target
 - occurrence-specific request digest
 
-The original governed change and verified revision authorize the occurrence.
+The original change request and verified revision authorize the occurrence.
 No per-occurrence approval comment is required or fabricated, regardless of
 Workspace manual approval mode. Gate verifies the actual schedule event,
 workflow source, active definition, approved revision and source occurrence.
@@ -587,7 +616,7 @@ shared UI, correlation, failure and verification acceptance criteria.
 
 Each execution occurrence must retain its request, authorization source, Gate
 decision and actual result evidence. Manual authorization is an execution
-approval; scheduled authorization is the verified owning governed revision.
+approval; scheduled authorization is the verified owning controlled revision.
 Missing result evidence is not proof of business failure or success.
 
 For scheduled runs, Issue volume is acceptable in GitHub Lite. Issues and

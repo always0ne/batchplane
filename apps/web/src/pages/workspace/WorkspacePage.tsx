@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { WorkspaceConnectionEditor } from "../../client/workspace-connection-editor";
-import { PageHeader } from "../../ui/PageHeader";
+import { PageHeader } from "../../components/PageHeader";
 import { WorkspaceConnectionStatus } from "./WorkspaceConnectionStatus";
 import { WorkspaceInstallation } from "./WorkspaceInstallation";
 import { WorkspacePolicy } from "./WorkspacePolicy";

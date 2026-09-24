@@ -87,6 +87,13 @@ describe("shared Workspace page", () => {
       screen.getByRole("button", { name: "Create policy request" }),
     ).toBeDisabled();
     expect(
+      screen.getByRole("button", { name: "Create policy request" })
+        .parentElement,
+    ).toHaveAttribute(
+      "title",
+      i18next.t("settings:workspacePolicy.checkFirst"),
+    );
+    expect(
       screen.getByRole("button", { name: "Create installation request" }),
     ).toBeDisabled();
     expect(inspectWorkspace).not.toHaveBeenCalled();
@@ -224,6 +231,13 @@ describe("shared Workspace page", () => {
     expect(
       screen.getByRole("button", { name: "Create policy request" }),
     ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Create policy request" })
+        .parentElement,
+    ).toHaveAttribute(
+      "title",
+      i18next.t("settings:workspacePolicy.pendingRequest"),
+    );
     expect(requestWorkspacePolicyChange).toHaveBeenCalledWith({
       policy: requestedPolicy,
     });

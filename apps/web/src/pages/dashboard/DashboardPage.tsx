@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { PageHeader } from "../../ui/PageHeader";
+import { PageHeader } from "../../components/PageHeader";
 import { DashboardContent } from "./DashboardContent";
 import { useDashboard } from "./useDashboard";
 

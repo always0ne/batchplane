@@ -15,6 +15,7 @@ component hierarchy, state ownership, purity, Effects, and custom Hook guidance.
 Primary React references:
 
 - [Thinking in React](https://react.dev/learn/thinking-in-react)
+- [Importing and Exporting Components](https://18.react.dev/learn/importing-and-exporting-components)
 - [Choosing the State Structure](https://react.dev/learn/choosing-the-state-structure)
 - [You Might Not Need an Effect](https://react.dev/learn/you-might-not-need-an-effect)
 - [Reusing Logic with Custom Hooks](https://react.dev/learn/reusing-logic-with-custom-hooks)
@@ -29,6 +30,11 @@ recommended patterns is mandatory. Contributors should be able to recognize
 the library's normal usage without first learning a project-specific substitute.
 This requirement applies to implementation, delegated worker instructions, and
 final review, not only to initial architecture planning.
+
+The purpose is recognizable code that another contributor can understand and
+maintain using the library's normal model. Minimizing the diff is not a reason
+to retain unnecessary special paths. A supported escape hatch is not the same
+as the recommended baseline; explain that distinction before choosing one.
 
 Before changing a library integration, identify the installed version and read
 the applicable official documentation. Separate a documented recommendation
@@ -49,14 +55,15 @@ not replace this architecture review.
 
 For the approved routing correction, use React Router's route tree, layout
 routes and `Outlet`, with `createBrowserRouter` and `RouterProvider`. Preserve
-product-client injection, existing URLs, Pages basename/redirect restoration,
+product-client injection, the current request URLs, Pages basename/redirect restoration,
 locale behavior, and fixture remount boundaries. This decision does not migrate
 page queries to loaders or commands to router actions.
 
 Official React Router references for the current v6 integration:
 
-- [Layout routes](https://reactrouter.com/6.30.1/route/route#layout-routes)
-- [createBrowserRouter](https://reactrouter.com/6.30.1/routers/create-browser-router)
+- [Layout routes](https://reactrouter.com/6.30.3/route/route#layout-routes)
+- [createBrowserRouter](https://reactrouter.com/6.30.3/routers/create-browser-router)
+- [NavLink matching](https://reactrouter.com/6.30.3/components/nav-link#end)
 
 ## Product Principle
 
@@ -67,7 +74,7 @@ is not complete merely because its local controls render or call an API.
 
 BatchPlane is a multi-platform batch control and audit product. GitHub Actions is
 the first provider, not the product model. Shared UI must therefore speak in
-Workspace, Batch, governed change, approval, execution, schedule, failure, and
+Workspace, Batch, change request, approval, execution, schedule, failure, and
 audit concepts rather than GitHub transport concepts.
 
 ## Target Source Structure
@@ -75,61 +82,182 @@ audit concepts rather than GitHub transport concepts.
 ```text
 apps/web/src/
   app/       router, top-level providers, and application composition
-  pages/     route screens, page queries, composition, and navigation
-  features/  reusable complete user actions
-  ui/        product-agnostic visual primitives and interaction patterns
+  pages/     route screens and related code grouped by business ownership
+    dashboard/
+    my-work/
+    batches/
+      list/
+      detail/
+    executions/
+      list/
+      detail/ execution evidence, logs and failure follow-up interaction
+      failures/ failure list Page
+      ...shared execution-history region, row and query
+    requests/
+      list/
+      execution/
+        new/
+        detail/
+        ...shared execution approval control
+      changes/
+        new/ registration/update/deletion share the current writing Page
+        detail/
+        ...shared change preview
+    approvals/
+    audit/
+    workspace/
+    not-found/
+  components/ product-neutral common controls, their tests, and visual tokens
   client/    provider-neutral React access to the injected product client
   assets/    BatchPlane brand and product-specific visual assets
   runtime/   Lite/Main implementation selection and client injection
   shared/    non-visual product-neutral support such as i18n
+  test/      cross-page integration tests and existing test support
 ```
 
-`features` is not a synonym for pages and is not a folder for every product
-noun. A route-ready Batch list belongs in `pages/batches`. An execution approval
-interaction that is used in an approval inbox and request detail belongs in
-`features/execution-approval`.
+Organize for a person browsing by business concept, not only searching symbols.
+Apply the same page-level rule to every business group: keep each Page with its
+own components, Hooks and tests in the folder for that screen. Where multiple
+Pages exist, use `list`, `detail` and `new` to distinguish their responsibilities.
+These are source ownership folders, not a change to the current route contract.
+
+Dashboard, My Work, approvals, audit, Workspace and not-found each already have
+one Page-owned folder. Do not create redundant `dashboard/dashboard` or invented
+list/detail screens just to make every directory have the same depth. Review
+those groups under the same rule whenever another Page is actually introduced.
+
+Only actual shared business code stays at its common owner. Reuse does not
+transfer code to a global components folder: the approval inbox imports
+`pages/requests/execution/ExecutionApprovalActions.tsx`; the Batch change editor
+and change detail share `pages/requests/changes/ChangeRequestPreviewPanel.tsx`.
+Registration, update, and deletion share the change-request area rather than
+three artificial copies of the same editor. Batch detail and its request-entry
+controls stay under `pages/batches/detail`; the approval inbox stays under
+`pages/approvals`. Execution list and failure list share the existing history
+region, row and query at `pages/executions`; evidence, logs and follow-up input
+belong to `pages/executions/detail`, where those interactions are rendered.
+
+Keep page-only tests beside that Page. Existing tests covering more than one
+Page belong under `src/test`. Do not introduce empty common folders, per-page
+components/hooks/tests sublayers, barrel files or forwarding components merely
+to carry out a move. Names and source ownership should make the navigation clear.
+
+This is the project's approved directory convention, not a React-prescribed
+folder layout. It retains the existing named module imports described in
+[React's component import/export guide](https://18.react.dev/learn/importing-and-exporting-components)
+and the existing React Router route composition.
+
+### Product Naming
+
+Use `ChangeRequest` for registration, modification and deletion requests.
+`GovernedChange` is a retired product-code name, not an additional request type.
+Keep file, export, Hook, client operation and translation terminology aligned.
+Renaming a type does not authorize a change to its approval or evidence behavior.
+
+Product execution pages use `Execution`, and connection/settings pages use
+`Workspace`. GitHub adapter filenames such as `execution-run-client.ts` still
+describe actual workflow-run API access; provider vocabulary is appropriate there.
+Likewise, `github-lite` and `github-actions-execution.ts` name real provider-specific
+implementations rather than Lite-only product screens.
+
+Storage names are separate from source names. `.batch-governance` paths,
+`governedChangeId` evidence fields, `batchplane:governed-change-*` markers and
+`batchplane.io/governed-change/v2` remain existing repository formats. Their
+preservation is intentional and must not lead to new compatibility branches or
+parallel old exports. Existing request URLs also stay fixed until the approved
+unified-request work. Historical research is not rewritten to hide old names.
+
+Global `components` holds genuinely product-neutral controls such as Button and
+PageState. Do not introduce separate `ui` or `features` layers. Share business
+code at its narrowest actual owner; do not add empty common folders or relocate
+a component globally just because another screen uses it.
 
 The target dependency direction is:
 
 ```text
-app -> pages -> features -> ui
- |       |          |
- +-------+----------+----> client -> packages/ui-client
+app -> pages -> owned business components / common components
+app, business UI -> client -> packages/ui-client
+common components -> other common components / product-neutral support
 
 runtime -> packages/github-lite -> packages/ui-client
 ```
 
-The arrows describe imports. Lower layers do not import route pages or app
-composition. A page does not import another page. A feature does not import a
-page. A page composes multiple features instead of coupling features directly.
+The arrows describe imports, not mandatory intermediate layers. A Page can use
+`components` directly or another business area's owned component. It must not
+import another route Page or app composition. Global common components must not
+import business folders, product/provider models, or app composition. Pages own
+screen-level flow and navigation; components own the interaction or presentation
+expressed by their props. This is an ownership convention, not a custom React
+framework or a claim that React mandates these folder names.
+
+### Sitemap And Refactoring Boundary
+
+Page ownership follows the product sitemap. Do not introduce intermediate
+`overview`, `operations` or `control` directory layers. Execution inspection
+uses `executions`, not the provider's `runs` term; failure-specific screens are
+nested under `executions/failures`. Workspace settings are product-level even
+when Lite supplies the connection editor.
+
+| Product surface           | Current route                             |
+| ------------------------- | ----------------------------------------- |
+| Dashboard                 | `/dashboard`                              |
+| My Work                   | `/my-work`                                |
+| Batch list and detail     | `/batches`, `/batches/:batchId`           |
+| Execution list and detail | `/executions`, `/executions/:executionId` |
+| Failure list              | `/executions/failures`                    |
+| Request list              | `/requests`                               |
+| Approvals                 | `/approvals`                              |
+| Audit                     | `/audit`                                  |
+| Workspace settings        | `/workspace`                              |
+
+The existing Batch form remains at `/batches/new`, including current change
+and deletion query modes. Execution request writing remains at
+`/batches/:batchId/execution-requests/new`; current request detail routes remain
+`/execution-requests/:requestLocator` and
+`/approvals/registration/:requestLocator`. The existing schedule-change deep
+link remains unchanged. These are deliberate temporary exceptions, not a new
+request-model design or an assertion that those routes already match the target.
+
+The user deferred [unified requests](./unified-request-feature-spec.md) until
+after refactoring. `/requests/new` and `/requests/:requestId` are that feature's
+target routes, not current registrations. Do not introduce query-selected whole
+request types, draft storage or multi-item processing to complete this cleanup.
+My Work's current purpose is preserved pending a separate product discussion.
+
+Update internal links with the route they target, preserving existing filters,
+scheduled occurrence/attempt context and the Pages basename. Keep provider
+source links separate and unchanged. Use the router's normal matching and link
+APIs, not a generic path registry or custom route dispatcher. Do not add new
+legacy-route compatibility layers without a current requirement.
 
 ## Migration Status
 
-This repository is transitioning from its original domain-folder structure to
-the target structure above. PR #198 establishes the Batch list as the first
-completed vertical slice; the remaining `*Page.tsx` files under `features` are
-legacy placement, not examples for new work.
+PR #198 established the Batch list as the first migrated vertical slice.
+Route screens and business components now live under their owning areas in
+`pages`; product-neutral controls live under `components`. No current
+implementation remains under `features` or `ui`. The inventory below records
+screen ownership, not blanket acceptance of every implementation detail.
 
-| Surface                         | Current Page                                              | Status                                                                                                        |
-| ------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Batch list                      | `pages/batches/BatchesPage.tsx`                           | Migrated; first reference slice                                                                               |
-| Dashboard                       | `pages/dashboard/DashboardPage.tsx`                       | R5 product summary query and page-local operational sections                                                  |
-| My Work                         | `pages/my-work/MyWorkPage.tsx`                            | R3 product-client work queue; preserves request and failure follow-up destinations                            |
-| Batch registration and change   | `pages/batches/BatchRegistrationPage.tsx`                 | Migrated route page; further R2-A split keeps form, schedule, review, and command state page-local            |
-| Batch detail                    | `pages/batches/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
-| Execution request creation      | `pages/execution-requests/ExecutionRequestPage.tsx`       | R3 route composition with page-local draft, preview, and submission responsibilities                          |
-| Execution request detail        | `pages/execution-requests/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
-| Execution run list and failures | `pages/execution-runs/ExecutionRunListPage.tsx`           | R5 product execution query and route-preserving history/failure views                                         |
-| Execution run detail            | `pages/execution-runs/ExecutionRunDetailPage.tsx`         | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
-| Workspace requests              | `pages/requests/WorkspaceRequestsPage.tsx`                | R3 product request inventory; local search and filters                                                        |
-| Approvals                       | `pages/approvals/ApprovalsPage.tsx`                       | R3 product inbox and reusable execution approval action                                                       |
-| Governed change approval detail | `pages/approvals/GovernedChangeDetailPage.tsx`            | Migrated route page; provider-neutral governed-change client only                                             |
-| Audit                           | `pages/audit/AuditPage.tsx`                               | R5 product timeline query, local filtering, and exact execution destinations                                  |
-| Workspace connection and setup  | `pages/workspace/WorkspacePage.tsx`                       | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
-| Standalone schedule definition  | None                                                      | Removed; schedules are edited inside the governed Batch form and the deep link redirects there                |
+| Surface                        | Current Page                                                     | Status                                                                                                        |
+| ------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Batch list                     | `pages/batches/list/BatchListPage.tsx`                           | Migrated; first reference slice                                                                               |
+| Dashboard                      | `pages/dashboard/DashboardPage.tsx`                              | R5 product summary query and page-local operational sections                                                  |
+| My Work                        | `pages/my-work/MyWorkPage.tsx`                                   | R3 product-client work queue; preserves request and failure follow-up destinations                            |
+| Batch registration and change  | `pages/requests/changes/new/BatchRegistrationPage.tsx`           | Migrated route page; form, schedule, review, and command state belong to change requests                      |
+| Batch detail                   | `pages/batches/detail/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
+| Execution request creation     | `pages/requests/execution/new/ExecutionRequestPage.tsx`          | R3 route composition with page-local draft, preview, and submission responsibilities                          |
+| Execution request detail       | `pages/requests/execution/detail/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
+| Execution list                 | `pages/executions/list/ExecutionListPage.tsx`                    | Product execution query and history view at `/executions`                                                     |
+| Failure list                   | `pages/executions/failures/FailureListPage.tsx`                  | Failure-owned route Page using the existing execution inspection behavior                                     |
+| Execution detail               | `pages/executions/detail/ExecutionDetailPage.tsx`                | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
+| Workspace requests             | `pages/requests/list/RequestListPage.tsx`                        | R3 product request inventory; local search and filters; not the deferred unified-request model                |
+| Approvals                      | `pages/approvals/ApprovalsPage.tsx`                              | R3 product inbox and reusable execution approval action                                                       |
+| Change request approval detail | `pages/requests/changes/detail/ChangeRequestDetailPage.tsx`      | Migrated route page; provider-neutral change-request client only                                              |
+| Audit                          | `pages/audit/AuditPage.tsx`                                      | R5 product timeline query, local filtering, and exact execution destinations                                  |
+| Workspace connection and setup | `pages/workspace/WorkspacePage.tsx`                              | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
+| Standalone schedule definition | None                                                             | Removed; schedules are edited inside the controlled Batch form and the deep link redirects there              |
 
-New route screens must start under `pages`; the legacy paths above do not
-authorize adding another Page to `features`. A migration is complete only when
+New route screens must start under `pages`. A migration is complete only when
 the route composition, page-only state and components, product-client boundary,
 and tests follow this document. Moving a file without separating those
 responsibilities is not a completed slice.
@@ -144,7 +272,7 @@ Migrated Pages remain subject to the same readability and official-pattern
 criteria as new Pages. A short Page delegating all unrelated work to one large
 Hook is not the intended end state.
 
-- Governed-change detail tracks committed request lifetime in Effects and event
+- Change-request detail tracks committed request lifetime in Effects and event
   handlers, never by mutating refs during render. Switching the request/client,
   unmounting, and StrictMode cleanup must discard obsolete async results.
 - The Batch editor separates loading an editing session, local field/schedule
@@ -307,8 +435,8 @@ blocked by the UI. The server validates membership and permissions; URL IDs
 are not authority. Shared-connection ownership, transfer approval and history
 visibility need separate product decisions, not assumptions in React code.
 
-R6 still implements one session-storage connection at `/lite/setup`. It does
-not implement a connection list, multiple IDs, new routes, Main identity,
+R6 still implements one session-storage connection, now at `/workspace`. It does
+not implement a connection list, multiple IDs, multi-Workspace routes, Main identity,
 Jenkins forms, sharing or transfer. Do not add fake identifiers, empty Pages or
 unused provider methods to imply readiness. The current single-session product
 client must still be extended in the multi-Workspace feature.
@@ -332,13 +460,93 @@ changing language does not reset page state. The route table retains legacy
 schedule redirects and their encoded query and hash. This composition cleanup
 does not count the remaining legacy route Pages as migrated.
 
+### Runtime And Adapter Ownership
+
+The Web runtime selects the current session and live or fixture implementation,
+then injects the provider-neutral `BatchPlaneClient`. Resolve the current session
+for each operation so a saved or disconnected connection is not replaced by an
+old captured session. Preserve the list's disconnected outcome and the named
+connection error for other operations.
+
+The GitHub Lite adapter owns repository inventory, deleted Batch reconstruction,
+execution request evidence, approval orchestration, installation and product
+result projection. Compose these operations from the concrete GitHub client and
+repository context. Do not move a generic runtime Port aggregate into another
+package and rename it, or create a forwarding service hierarchy to keep its
+former shape alive.
+
+Development fixtures remain part of the selected implementation, with shared
+mock state and one-time approved-revision preparation. Fixture construction is
+not a product policy or a substitute for live GitHub verification. Production
+adapters must not import the Web application or its fixtures.
+
+When retiring a legacy helper, establish its real consumers first. Keep tests
+of current product behavior and repository integration at their new owner; keep
+session selection and React behavior tests in Web. Remove assertions of dead
+wrapper mechanics only when the current behavioral coverage is identified.
+Legacy external evidence readers and API versions are not dead merely because
+their name contains `legacy`.
+
+### R7 Readability Ownership
+
+Execution request Pages retain route input, query lifetime, form-session state
+and navigation. Page-local components own the form, parameter rows, request
+review, detail commands and evidence regions. Use the existing Button and
+ButtonLink for matching controls; preserve explicit submit semantics and
+accessible names and dimensions for icon-only controls. Extracting a region
+must not introduce a new state owner or a generic form/controller layer.
+
+The Batch form's cron preview and its deterministic timezone tests live together
+under `pages/requests/changes/new`. A retired schedule screen must not retain a separate
+implementation that passes tests while the active form uses untested code.
+
+Action entry points separate environment input/output, authorization or dispatch
+orchestration, GitHub transport, and evidence parsing. Keep each Action's real
+checks and side-effect order visible; do not replace them with a configurable
+verification pipeline or split every helper into a file. A structural extraction
+does not authorize new policy, retries, evidence formats, or public APIs.
+
+### Package Entry Points
+
+Internal packages resolve through pnpm workspace links and their `package.json`
+exports. TypeScript and Vite use the same declared package entry points; do not
+point either tool at sibling-package source files with paths or aliases.
+The packages expose compiled ESM under `dist`, and project references establish
+the prerequisite build order. Keep development, type checking, package builds,
+Pages output and self-contained Action bundles working through this boundary.
+
+The root development command must build its package prerequisites and run one
+TypeScript package-graph watcher alongside Vite. Contributors should not need
+repeated manual builds or an additional watch terminal. Use the existing pnpm
+and TypeScript commands, not a custom process manager, resolver or build system.
+Validate clean startup, package-source updates and child-process shutdown when
+changing this workflow.
+
+Package entry modules expose purposeful external contracts. Package-internal
+code and tests import their owning modules directly; tests alone do not justify
+adding production exports. Real runtime fixtures remain supported consumers.
+Do not replace one broad barrel with an arbitrary subpath for every source file.
+
+Use ESLint's existing static import restrictions for the approved product and
+adapter boundaries. Keep genuine test integrations distinct from production UI
+access. These checks do not prove dynamic import behavior or semantic policy
+correctness; they complement code review and behavioral tests.
+
+Official references:
+
+- [TypeScript workspace-package resolution](https://www.typescriptlang.org/docs/handbook/modules/reference.html#paths-should-not-point-to-monorepo-packages-or-node_modules-packages)
+- [TypeScript project references](https://www.typescriptlang.org/docs/handbook/project-references.html)
+- [pnpm 10 script execution](https://pnpm.io/10.x/cli/run)
+- [Node package entry points](https://nodejs.org/api/packages.html#package-entry-points)
+- [ESLint static import restrictions](https://eslint.org/docs/latest/rules/no-restricted-imports)
+
 ## Page Contract
 
 A Page is a route boundary. It may:
 
 - read route parameters and query parameters;
 - call a page-local query or command Hook;
-- compose page-local components and reusable features;
+- compose page-local and shared components;
 - choose loading, error, empty, disconnected, and success presentation;
 - navigate using authoritative results returned by commands.
 
@@ -354,7 +562,7 @@ A Page must not:
 A healthy Page reads as screen composition:
 
 ```tsx
-export function BatchesPage() {
+export function BatchListPage() {
   const batchList = useBatchList();
 
   return (
@@ -369,25 +577,51 @@ export function BatchesPage() {
 }
 ```
 
-## Feature Contract
+## Business Component Ownership
 
-A Feature represents a complete user action with product value, such as
-approving an execution, submitting a failure explanation, or previewing a
-governed change. It may contain a component, a concrete custom Hook, and focused
-pure presentation rules.
+Business components stay under their owning area in `pages`, even when used by
+another screen. ExecutionApprovalActions belongs to execution requests, not to
+the approval inbox or global `components`. ChangeRequestPreviewPanel belongs
+to change requests. Their props describe the data and callbacks needed; local
+state belongs to the interaction. Neither component owns the complete use case.
 
-A Feature should exist when the action is used across pages or when a stable
-interaction contract clearly deserves independent ownership. Similar markup is
-not enough. Do not move one-off page sections into `features` merely to shorten a
-file.
+Keep single-page components, command/query Hooks, and presentation rules beside
+their owner. Extracting a component for readability or reusing it does not
+require promotion to a global folder. Similar markup alone is not proof of
+shared semantics.
 
-Features consume product-facing client contracts and UI primitives. They do not
-parse provider evidence or import other features to build an implicit workflow.
-The Page owns cross-feature composition.
+Business components use product-facing contracts and common components, not
+provider evidence parsing. They may compose other owned components but may not
+import route Pages. Page-specific navigation and command coordination stay with the Page.
+Co-locate supporting functions, component-owned Hooks, and tests with their
+actual owner; do not create an empty layer or Hook for anticipated reuse.
 
-## UI Contract
+### Extraction For Readability
 
-`ui` is the local design foundation. Its components do not understand Batch,
+Reuse is not a prerequisite for component extraction. The acceptance test is
+whether reading the Page reveals the screen's composition and reading each
+component reveals its responsibility, not whether files became shorter.
+
+Extract a named region or interaction when it makes the flow easier to read,
+even with one caller. A failure-explanation review form or deletion confirmation
+can justify a page-local component; splitting each error message and button into
+separate files usually does not. Keep page-only components beside their Page
+and shared business components under their narrowest actual business owner.
+Only genuinely product-neutral controls belong in global `components`.
+
+Separate multi-state display decisions and data preparation from complex JSX
+using named values or pure functions, not artificial visual components. Simple
+conditional expressions and list rendering remain appropriate. Do not replace
+them with generic form, table, state, or rendering frameworks.
+
+Define extracted components at module scope. Preserve state ownership, stable
+identity, keys and mount lifetime so extraction does not reset user input or
+change the interaction. Component boundaries must clarify the existing behavior,
+not introduce a new behavior or require more indirection to understand it.
+
+## Common Component Contract
+
+`components` is the local common-component foundation. Its components do not understand Batch,
 Approval, GitHub, Gate, or any other product/provider concept. They accept
 bounded visual and interaction variants such as tone, size, disabled, loading,
 label, and accessible description.
@@ -408,9 +642,10 @@ Do not build a generic form builder, generic data-table engine, polymorphic
 component framework, or separate design-system package before a real second
 consumer or demonstrated complexity exists.
 
-Page-local visual components remain beside their Page until their contract is
-proven reusable. A component may still be extracted for naming, readability,
-state isolation, or testing even if it has one caller.
+Business visual components remain with their owner even when reusable. Global
+placement requires a genuinely product-neutral responsibility, not just a
+second caller. A component may still be extracted locally for naming,
+readability, state isolation, or testing even if it has one caller.
 
 ## Assets And Icons
 
@@ -456,10 +691,10 @@ through a second state change.
 Custom Hooks make concrete stateful flows readable. Placement follows ownership:
 
 ```text
-page-only       pages/batches/useBatchList.ts
-shared action   features/execution-approval/useExecutionApproval.ts
-generic browser shared/hooks/useMediaQuery.ts
-pure calculation ordinary function without a use prefix
+page-only         pages/batches/list/useBatchList.ts
+component-owned   beside the component that uses it
+generic browser   shared/hooks (only for actual reusable browser behavior)
+pure calculation  ordinary function without a use prefix
 ```
 
 Avoid lifecycle-wrapper Hooks, a global miscellaneous Hooks folder, Hooks that
@@ -473,7 +708,8 @@ screen state.
 
 ## Product Client And Adapters
 
-Pages and features use `packages/ui-client` product contracts. Queries return
+Pages and owned business components use `packages/ui-client` product contracts.
+Global common components do not consume product models. Queries return
 provider-neutral view models. Commands return the authoritative product result
 needed for immediate internal navigation and display.
 
@@ -502,6 +738,44 @@ Code is maintained by people before it is optimized for abstraction count.
 Splitting is based on responsibility, not a mechanical line limit. Moving a
 1,000-line Page into a 1,000-line Hook is not a refactor.
 
+Read the changed flow from its entry point as a maintainer. Names should expose
+the action and result; side effects should be visible; helpers should let the
+reader understand the main flow without chasing unnecessary forwarding layers.
+Review function size, file size, and navigation cost together. Extract coherent
+responsibilities when executable logic spans unrelated decisions or state
+lifetimes. Do not create one file per function or type just to meet a line count.
+Declaration lists and fixtures can be longer than executable logic, but mixed
+ownership still needs correction. Explain any retained large unit in the review.
+
+Readability, applicable official-library patterns, manageable function/file size,
+and absence of speculative engineering are mandatory acceptance checks. They
+apply to adapters and tests as well as React, and must be included in delegated
+instructions. Passing tests does not waive these checks. Official React guidance
+also does not prescribe our folder names or a numerical file-size threshold.
+
+## Refactoring Plan Discipline
+
+When the checkout has a local execution ledger, start or resume from its latest
+entry and linked active plan, then verify the branch and source state. The active
+plan owns the detailed work-item status; the ledger owns the current pointer and
+handoff. Historical records must not override that pointer. A local plan does not
+replace committed product requirements or authorize an unapproved feature.
+
+Record the approved scope, current item, source-to-target responsibilities,
+unchanged behavior, excluded work, decision owner, and observable completion
+criteria before delegation. Update that same plan when an item completes, a
+decision changes, work is handed off, or work stops. Keep implementation,
+verification, PR delivery, and user merge distinct; record the tested revision
+and unverified areas. Do not restart completed work or pick an easier issue
+without an explicit change to the agreed sequence.
+
+At each review, inspect the actual changed flow and dependency direction, not
+only filenames or test totals. A new behavior, parser replacement, dependency,
+fallback, or public-contract change requires an explicit scope decision before
+implementation. Future extensibility means keeping today's ownership clear,
+not building engines or defensive paths with no present requirement. Existing
+trust-boundary checks are not removable simply because they look defensive.
+
 ## Tests
 
 Co-locate focused unit, Hook, and component tests with the implementation they
@@ -526,7 +800,7 @@ reducers or policy-free presentation functions.
 A screen change is complete only when:
 
 - its place in the end-to-end user journey is coherent;
-- Page, Feature, UI, client, and adapter boundaries are respected;
+- Page, business component, common component, client, and adapter boundaries are respected;
 - loading, disconnected, error, empty, and success states are handled;
 - disabled actions communicate the reason, normally through the agreed tooltip
   pattern;
@@ -581,12 +855,21 @@ Batch list is the first proof surface.
       guidance; references and meaningful choices are stated, and any departure
       was approved before implementation.
 - [ ] The approved vertical scope and explicit non-goals are stated.
-- [ ] Route screens live in `pages`; reusable user actions live in `features`.
-- [ ] Page-only Hooks and components are co-located with their Page.
+- [ ] Route screens and business components live under their owning area in
+      `pages`, with related Hooks and tests; request code is grouped by request type.
+- [ ] Global `components` contains only product-neutral common components,
+      not business controls promoted merely because they have multiple callers.
 - [ ] UI code depends on `BatchPlaneClient`, not provider internals.
 - [ ] Render is pure; events and Effects have the correct ownership.
 - [ ] State is minimal and has one clear owner.
 - [ ] Functions and files remain readable without speculative abstractions.
+- [ ] Pages reveal screen composition; named regions and interactions are
+      extracted where useful even without reuse, without trivial fragmentation
+      or changes to input state and component lifetime.
+- [ ] Changed entry points read clearly through their helpers; any retained
+      large function or file has a concrete reason, not merely a passing test.
+- [ ] The active plan records current status, evidence, unresolved decisions,
+      and the next step without claiming user merge or unperformed validation.
 - [ ] Tests cover the relevant observable states and remain correctly located.
 - [ ] UI/UX, accessibility, English/Korean, desktop/mobile checks are complete.
 - [ ] Verification matches the changed risk: full local verification for code,

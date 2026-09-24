@@ -4,11 +4,14 @@ import type {
   FailureFollowUp,
   GateDecision,
 } from "@batchplane/domain";
-import type { ExecutionRunPresentation } from "@batchplane/ui-client";
-import type { GitHubWorkflowJob, GitHubWorkflowRun } from "./index.js";
+import type { GitHubWorkflowJob, GitHubWorkflowRun } from "./github-types.js";
+import type { GitHubExecutionRun } from "./repository-evidence-types.js";
 import { type ExecutionRequestForRun } from "./inspection-context.js";
 import { type NativeSchedulePresentation } from "./native-schedule-projections.js";
-export type ExecutionRunFacts = ExecutionRunPresentation & {
+export type ExecutionRunFacts = GitHubExecutionRun & {
+  evidenceScope?: "SOURCE_RUN";
+  nativeSchedule?: NativeSchedulePresentation;
+  observedAt?: string;
   sourceStatus: string;
   sourceConclusion?: string;
 };
@@ -78,16 +81,16 @@ export function toExecutionRun(
     runId: nativeSchedule?.executionLocator ?? String(run.id),
     ...(run.startedAt ? { startedAt: run.startedAt } : {}),
     status,
-    workflowName: workflow?.name ?? run.name,
-    workflowPath: workflow?.path ?? run.workflowPath,
-    workflowRunId: String(run.id),
-    workflowRunUrl: run.url,
-    ...(request
-      ? {
-          requestIssueNumber: request.issue.number,
-          requestIssueUrl: request.issue.url,
-        }
+    ...(request ? { requestIssueNumber: request.issue.number } : {}),
+    ...(request ? { requestIssueUrl: request.issue.url } : {}),
+    ...(workflow?.name || run.name
+      ? { workflowName: workflow?.name ?? run.name }
       : {}),
+    ...(workflow?.path || run.workflowPath
+      ? { workflowPath: workflow?.path ?? run.workflowPath }
+      : {}),
+    workflowRunId: String(run.id),
+    ...(run.url ? { workflowRunUrl: run.url } : {}),
   };
 }
 

@@ -1,20 +1,20 @@
 import type { BatchChangeDraft } from "@batchplane/ui-client";
-import { createGovernedChangeRequestDigest } from "@batchplane/domain";
 import { describe, expect, it, vi } from "vitest";
 
 import { verifyApprovedBatchRevision } from "./approved-batch-revision.js";
-import { createGitHubLiteGovernedChangeClient } from "./governed-change-client.js";
+import { createGitHubLiteChangeRequestClient } from "./change-request-client.js";
 import {
-  buildGovernedChangeDecisionBody,
-  parseGovernedChangeRequestEvidence,
-} from "./governed-change-evidence.js";
+  buildChangeRequestDecisionBody,
+  createChangeRequestDigest,
+  parseChangeRequestEvidence,
+} from "./change-request-evidence.js";
 import {
   getBatchArtifactPath,
   getBatchDefinitionPath,
   getBatchWorkflowPath,
-  createGitHubLiteMockState,
-  createMockGitHubLiteClient,
-} from "./index.js";
+} from "./batch-definition-codec.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
 
 const repository = { owner: "always0ne", repo: "batch" };
 
@@ -52,7 +52,7 @@ describe("approved Batch revision verification", () => {
     const firstEvidence = verifiedEvidence(first.created.request.evidence);
     const second = await approveBatchRevision(first.client, {
       ...batchDraft({
-        governedChangeId: "bgc-20260901-payment-month-end-0002",
+        changeRequestId: "bgc-20260901-payment-month-end-0002",
         name: "Month-end close, amended",
       }),
       mode: "change",
@@ -94,7 +94,7 @@ describe("approved Batch revision verification", () => {
     await approveBatchRevision(first.client, {
       ...batchDraft({
         batchId: "risk.daily-close",
-        governedChangeId: "bgc-20260901-risk-daily-close-0001",
+        changeRequestId: "bgc-20260901-risk-daily-close-0001",
         name: "Risk daily close",
       }),
       mode: "create",
@@ -156,9 +156,10 @@ describe("approved Batch revision verification", () => {
       bytes: new TextEncoder().encode("approved payload"),
       fileName: "payload.txt",
     };
+    const initialDraft = batchDraft();
     const { client, created } = await createApprovedBatchRevision({
-      ...batchDraft(),
-      artifact,
+      ...initialDraft,
+      execution: { ...initialDraft.execution, upload: artifact },
     });
     const evidence = verifiedEvidence(created.request.evidence);
 
@@ -222,22 +223,20 @@ describe("approved Batch revision verification", () => {
       issues: [],
     });
     const client = createMockGitHubLiteClient(state);
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       { ...repository, token: "test-token" },
       client,
     );
-    const created =
-      await governedChanges.createBatchChangeRequest(batchDraft());
+    const created = await changeRequests.createBatchChangeRequest(batchDraft());
     const pullRequest = client.state.pullRequests.find(
       (candidate) =>
         candidate.number === Number(created.request.requestLocator),
     );
-    const request =
-      pullRequest && parseGovernedChangeRequestEvidence(pullRequest.body);
+    const request = pullRequest && parseChangeRequestEvidence(pullRequest.body);
 
     if (!pullRequest || !request) throw new Error("Expected governed request.");
 
-    const requestDigest = await createGovernedChangeRequestDigest(request);
+    const requestDigest = await createChangeRequestDigest(request);
     client.state.currentUser.login = "maintainer";
     client.state.repositoryPermissions.push({
       permission: "maintain",
@@ -256,12 +255,12 @@ describe("approved Batch revision verification", () => {
     };
     await client.createIssueComment({
       ...repository,
-      body: buildGovernedChangeDecisionBody(approval),
+      body: buildChangeRequestDecisionBody(approval),
       issueNumber: pullRequest.number,
     });
     await client.createIssueComment({
       ...repository,
-      body: buildGovernedChangeDecisionBody({
+      body: buildChangeRequestDecisionBody({
         ...approval,
         decision: "REJECTED",
         rejectionReason: "Requires correction",
@@ -345,7 +344,7 @@ describe("approved Batch revision verification", () => {
 
   it("offers remediation only for a clean observed bypass, never verified, unknown, or pending control", async () => {
     const approved = await createApprovedBatchRevision();
-    const approvedChanges = createGitHubLiteGovernedChangeClient(
+    const approvedChanges = createGitHubLiteChangeRequestClient(
       { ...repository, token: "test-token" },
       approved.client,
     );
@@ -360,7 +359,7 @@ describe("approved Batch revision verification", () => {
       ...approved.client,
       getBranchHeadSha: vi.fn().mockRejectedValue(new Error("unavailable")),
     };
-    const unknownChanges = createGitHubLiteGovernedChangeClient(
+    const unknownChanges = createGitHubLiteChangeRequestClient(
       { ...repository, token: "test-token" },
       unknownClient,
     );
@@ -373,7 +372,7 @@ describe("approved Batch revision verification", () => {
     const pendingClient = createMockGitHubLiteClient(
       createGitHubLiteMockState(),
     );
-    const pendingChanges = createGitHubLiteGovernedChangeClient(
+    const pendingChanges = createGitHubLiteChangeRequestClient(
       { ...repository, token: "test-token" },
       pendingClient,
     );
@@ -391,21 +390,21 @@ describe("approved Batch revision verification", () => {
       client,
       getBatchDefinitionPath("payment.month-end"),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       { ...repository, token: "test-token" },
       client,
     );
 
-    const ordinaryDraft = await governedChanges.loadBatchChangeDraft({
+    const ordinaryDraft = await changeRequests.loadBatchChangeDraft({
       batchId: "payment.month-end",
       mode: "change",
     });
     await expect(
-      governedChanges.createBatchChangeRequest(ordinaryDraft),
+      changeRequests.createBatchChangeRequest(ordinaryDraft),
     ).rejects.toThrow("does not modify any file");
 
     client.state.currentUser.login = "developer";
-    const review = await governedChanges.requestBatchRemediation({
+    const review = await changeRequests.requestBatchRemediation({
       batchId: "payment.month-end",
       kind: "REVIEW_CURRENT",
     });
@@ -419,7 +418,7 @@ describe("approved Batch revision verification", () => {
       bypassedRevision(),
     );
     await expect(
-      governedChanges.getBatchRemediationCapability({
+      changeRequests.getBatchRemediationCapability({
         batchId: "payment.month-end",
       }),
     ).resolves.toEqual({ availableKinds: [], canRequest: false });
@@ -431,13 +430,13 @@ describe("approved Batch revision verification", () => {
       client,
       getBatchDefinitionPath("payment.month-end"),
     );
-    const governedChanges = createGitHubLiteGovernedChangeClient(
+    const changeRequests = createGitHubLiteChangeRequestClient(
       { ...repository, token: "test-token" },
       client,
     );
 
     client.state.currentUser.login = "developer";
-    const restoration = await governedChanges.requestBatchRemediation({
+    const restoration = await changeRequests.requestBatchRemediation({
       batchId: "payment.month-end",
       kind: "RESTORE_LAST_APPROVED",
     });
@@ -452,7 +451,7 @@ describe("approved Batch revision verification", () => {
     );
 
     client.state.currentUser.login = "maintainer";
-    await governedChanges.approveGovernedChange({
+    await changeRequests.approveChangeRequest({
       requestLocator: restoration.request.requestLocator,
     });
 
@@ -517,14 +516,14 @@ async function approveBatchRevision(
     | "AUTO_APPROVE" = "SELF_APPROVAL_BLOCKED",
 ) {
   client.state.currentUser.login = "developer";
-  const governedChanges = createGitHubLiteGovernedChangeClient(
+  const changeRequests = createGitHubLiteChangeRequestClient(
     { ...repository, token: "test-token" },
     client,
   );
-  const created = await governedChanges.createBatchChangeRequest(draft);
+  const created = await changeRequests.createBatchChangeRequest(draft);
   if (approvalMode === "AUTO_APPROVE") return created;
   if (approvalMode === "SELF_APPROVAL_ALLOWED") {
-    await governedChanges.approveGovernedChange({
+    await changeRequests.approveChangeRequest({
       requestLocator: created.request.requestLocator,
     });
     return created;
@@ -535,7 +534,7 @@ async function approveBatchRevision(
     roleName: "maintain",
     username: "maintainer",
   });
-  await governedChanges.approveGovernedChange({
+  await changeRequests.approveChangeRequest({
     requestLocator: created.request.requestLocator,
   });
 
@@ -544,10 +543,10 @@ async function approveBatchRevision(
 
 function batchDraft(
   overrides: Partial<BatchChangeDraft["batch"]> & {
-    governedChangeId?: string;
+    changeRequestId?: string;
   } = {},
 ): BatchChangeDraft {
-  const { governedChangeId, ...batch } = overrides;
+  const { changeRequestId, ...batch } = overrides;
 
   return {
     batch: {
@@ -557,13 +556,16 @@ function batchDraft(
       environment: "PROD",
       name: "Month-end close",
       owner: "ops-team",
-      runCommand: "echo close",
-      runnerLabel: "ubuntu-latest",
       status: "ACTIVE",
-      workflowRef: "main",
       ...batch,
     },
-    governedChangeId: governedChangeId ?? "bgc-20260901-payment-month-end-0001",
+    execution: {
+      command: "echo close",
+      platform: "GITHUB_ACTIONS",
+      ref: "main",
+      runnerLabel: "ubuntu-latest",
+    },
+    changeRequestId: changeRequestId ?? "bgc-20260901-payment-month-end-0001",
     mode: "create",
     schedules: [],
   };
@@ -637,10 +639,8 @@ function requestEvidence(
   const pullRequest = client.state.pullRequests.find(
     (candidate) => candidate.number === Number(requestLocator),
   );
-  const evidence =
-    pullRequest && parseGovernedChangeRequestEvidence(pullRequest.body);
-  if (!evidence)
-    throw new Error("Expected canonical governed change evidence.");
+  const evidence = pullRequest && parseChangeRequestEvidence(pullRequest.body);
+  if (!evidence) throw new Error("Expected canonical change request evidence.");
 
   return evidence;
 }

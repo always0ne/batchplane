@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
 import {
-  buildExecutionRequestIssue,
-  type BatchDefinition,
-} from "@batchplane/domain";
-import {
   buildBatchWorkflowYaml,
+  buildExecutionRequestIssue,
   getNativeScheduleWorkflowJobIdentity,
   inspectNativeScheduleExecution,
   serializeBatchDefinitionYaml,
+  type GitHubBatchDefinition,
   type GitHubLiteClient,
 } from "@batchplane/github-lite";
 
@@ -22,7 +20,7 @@ import {
   buildExecutionApprovalCommentBody,
   buildExecutionIssueBody,
   sharedBatchId as batchId,
-  sharedGovernedChangeId,
+  sharedChangeRequestId,
   sharedRequestDigest as requestDigest,
   sharedRequestId as requestId,
   sharedTargetRevisionDigest,
@@ -31,14 +29,14 @@ import {
   parseExecutionApprovalEvidence,
   parseExecutionRequestEvidence,
 } from "../../dispatcher/src";
-import type { WorkspaceApprovalMode } from "./gate-schema";
+import type { WorkspaceApprovalMode } from "@batchplane/domain";
 const workflowPath = ".github/workflows/payment.daily-close.yml";
 const verifiedSha = "a".repeat(40);
 
 async function verifyApprovedRevision() {
   return {
     approvedRevision: {
-      governedChangeId: sharedGovernedChangeId,
+      governedChangeId: sharedChangeRequestId,
       targetRevisionDigest: sharedTargetRevisionDigest,
     },
     controlStatus: "VERIFIED" as const,
@@ -227,7 +225,7 @@ describe("Gate action runtime", () => {
         expect.objectContaining({
           executionWorkflowSha: verifiedSha,
           expectedRevision: {
-            governedChangeId: sharedGovernedChangeId,
+            governedChangeId: sharedChangeRequestId,
             targetRevisionDigest: sharedTargetRevisionDigest,
           },
         }),
@@ -982,7 +980,7 @@ function buildRequestIssueBody({
         metadata: { batchId, requestId },
         spec: {
           approvedBatchRevision: {
-            governedChangeId: sharedGovernedChangeId,
+            governedChangeId: sharedChangeRequestId,
             targetRevisionDigest: sharedTargetRevisionDigest,
           },
           requestedBy: "developer",
@@ -1138,7 +1136,7 @@ function buildWorkspacePolicyYaml(mode: WorkspaceApprovalMode) {
 }
 
 async function createNativeScheduleEvidence() {
-  const nativeBatch: BatchDefinition = {
+  const nativeBatch: GitHubBatchDefinition = {
     batchId,
     criticality: "HIGH",
     domain: "payments",

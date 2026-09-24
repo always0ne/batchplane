@@ -8,10 +8,10 @@ export function RuntimeClientTestProvider({
 }: Parameters<typeof createRuntimeBatchPlaneClient>[0] & {
   children: ReactNode;
 }) {
-  const { createRuntime, readSession } = dependencies;
+  const { createClient, readSession } = dependencies;
   const client = useMemo(
-    () => createRuntimeBatchPlaneClient({ createRuntime, readSession }),
-    [createRuntime, readSession],
+    () => createRuntimeBatchPlaneClient({ createClient, readSession }),
+    [createClient, readSession],
   );
   return (
     <BatchPlaneClientContext.Provider value={client}>

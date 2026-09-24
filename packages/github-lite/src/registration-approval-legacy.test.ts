@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchplane/domain";
+} from "./repository-evidence-types.js";
 
 import {
   deriveRegistrationFilePaths,
@@ -219,7 +219,7 @@ describe("registration approval model", () => {
       {
         author: "maintainer",
         body: [
-          "## BatchPlane Governed Change Approval",
+          "## BatchPlane Change Request Approval",
           "",
           "- Decision: APPROVED",
           "- Approver: @maintainer",

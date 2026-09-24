@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -58,7 +64,7 @@ const disconnectedClient = {
   getDashboardSummary: async () => {
     throw new WorkspaceNotConnectedError();
   },
-  approveGovernedChange: async () => {
+  approveChangeRequest: async () => {
     throw new Error("Workspace is not connected.");
   },
   createBatchChangeRequest: async () => {
@@ -72,7 +78,7 @@ const disconnectedClient = {
     availableKinds: [],
     canRequest: false,
   }),
-  getGovernedChange: async () => null,
+  getChangeRequest: async () => null,
   listBatches: async () => ({ type: "workspace-not-connected" as const }),
   loadBatchChangeDraft: async (): Promise<BatchChangeDraft> => ({
     batch: {
@@ -82,12 +88,15 @@ const disconnectedClient = {
       environment: "PROD",
       name: "",
       owner: "",
-      runCommand: "",
-      runnerLabel: "ubuntu-latest",
       status: "ACTIVE",
-      workflowRef: "main",
     },
-    governedChangeId: "test-change",
+    execution: {
+      command: "",
+      platform: "GITHUB_ACTIONS",
+      ref: "main",
+      runnerLabel: "ubuntu-latest",
+    },
+    changeRequestId: "test-change",
     mode: "create",
     schedules: [],
   }),
@@ -127,10 +136,10 @@ const disconnectedClient = {
   requestBatchRemediation: async () => {
     throw new Error("Workspace is not connected.");
   },
-  rejectGovernedChange: async () => {
+  rejectChangeRequest: async () => {
     throw new Error("Workspace is not connected.");
   },
-  withdrawGovernedChange: async () => {
+  withdrawChangeRequest: async () => {
     throw new Error("Workspace is not connected.");
   },
 } satisfies BatchPlaneClient;
@@ -161,17 +170,17 @@ describe("app router", () => {
       path: "/batches/payment.daily-close/execution-requests/new",
     },
     { id: "execution-request-detail", path: "/execution-requests/42" },
-    { id: "execution-run-detail", path: "/execution-runs/204" },
-    { id: "runs", path: "/runs" },
-    { id: "failures", path: "/failures" },
+    { id: "execution-detail", path: "/executions/204?runAttempt=2#logs" },
+    { id: "executions", path: "/executions" },
+    { id: "failures", path: "/executions/failures?type=blocked" },
     { id: "requests", path: "/requests" },
     { id: "approvals", path: "/approvals" },
     {
-      id: "governed-change-detail",
+      id: "change-request-detail",
       path: "/approvals/registration/42",
     },
     { id: "audit", path: "/audit" },
-    { id: "lite-setup", path: "/lite/setup" },
+    { id: "workspace", path: "/workspace" },
     { id: "not-found", path: "/unknown" },
   ])(
     "renders the $id route from the shared memory route tree",
@@ -221,6 +230,38 @@ describe("app router", () => {
       screen
         .getAllByRole("link", { name: "Dashboard" })
         .every((link) => link.getAttribute("href") === "/batchplane/dashboard"),
+    ).toBe(true);
+  });
+
+  it("keeps execution details under Executions and activates only Failures there", async () => {
+    const detailRouter = renderRouter("/executions/204");
+
+    await waitFor(() => {
+      expect(detailRouter.state.matches.at(-1)?.route.id).toBe(
+        "execution-detail",
+      );
+    });
+    expect(
+      screen
+        .getAllByRole("link", { name: "Executions" })
+        .every((link) => link.className.includes("bg-bp-control")),
+    ).toBe(true);
+
+    cleanup();
+    const failureRouter = renderRouter("/executions/failures");
+
+    await waitFor(() => {
+      expect(failureRouter.state.matches.at(-1)?.route.id).toBe("failures");
+    });
+    expect(
+      screen
+        .getAllByRole("link", { name: "Executions" })
+        .every((link) => !link.className.includes("bg-bp-control")),
+    ).toBe(true);
+    expect(
+      screen
+        .getAllByRole("link", { name: "Failures" })
+        .every((link) => link.className.includes("bg-bp-control")),
     ).toBe(true);
   });
 

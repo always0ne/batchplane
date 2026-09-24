@@ -1,31 +1,27 @@
+import type { RepoRef } from "./github-types.js";
+import type { WorkspacePolicy } from "@batchplane/domain";
+import { defaultWorkspacePolicy } from "@batchplane/domain";
+import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
+import {
+  formatRepositoryYamlDiagnostics,
+  parseRepositoryYaml,
+} from "./repository-yaml.js";
+import { validateWorkspacePolicyFile } from "./repository-schema.js";
 import type {
   RepositoryIssue,
   RepositoryIssueComment,
   RepositoryPullRequest,
-  WorkspacePolicy,
-} from "@batchplane/domain";
-import {
-  defaultWorkspacePolicy,
-  formatYamlDiagnostics,
-  parseYamlDocument,
-  validateWorkspacePolicyFile,
-} from "@batchplane/domain";
-import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
+} from "./repository-evidence-types.js";
 import type {
   GitHubIssue,
   GitHubIssueComment,
   GitHubLiteClient,
   GitHubPullRequest,
-} from "./index.js";
+} from "./github-types.js";
 
-export type RuntimeRepositoryRef = { owner: string; repo: string };
 export type ExecutionRequestForRun = NonNullable<
   ReturnType<typeof parseExecutionRequestDetail>
 >;
-export type ExecutionInspectionContext = {
-  client: GitHubLiteClient;
-  repositoryRef: RuntimeRepositoryRef;
-};
 const liteWorkspacePolicyPath = ".batch-governance/workspace.yml";
 export function toRepositoryIssue(issue: GitHubIssue): RepositoryIssue {
   return {
@@ -48,7 +44,7 @@ export function toRepositoryPullRequest(
 
 export async function loadExecutionApprovalRequests(
   client: GitHubLiteClient,
-  repositoryRef: RuntimeRepositoryRef,
+  repositoryRef: RepoRef,
 ): Promise<ExecutionRequestForRun[]> {
   const issues = await client.listIssues({
     ...repositoryRef,
@@ -74,10 +70,10 @@ export async function loadExecutionApprovalRequests(
 }
 
 export function parseWorkspacePolicyFile(content: string): WorkspacePolicy {
-  const parsed = parseYamlDocument(content);
+  const parsed = parseRepositoryYaml(content);
 
   if (!parsed.ok) {
-    throw new Error(formatYamlDiagnostics(parsed.diagnostics));
+    throw new Error(formatRepositoryYamlDiagnostics(parsed.diagnostics));
   }
 
   const validated = validateWorkspacePolicyFile(parsed.value);
@@ -100,7 +96,7 @@ export async function loadWorkspacePolicy({
 }: {
   client: GitHubLiteClient;
   ref?: string;
-  repositoryRef: RuntimeRepositoryRef;
+  repositoryRef: RepoRef;
 }): Promise<WorkspacePolicy> {
   const repository = await client.getRepository(repositoryRef);
   const file = await client.getFile({

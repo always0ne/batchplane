@@ -1,13 +1,16 @@
 import type {
-  ExecutionRequestPayload,
-  RepositoryIssue,
-  RepositoryIssueComment,
-  RepositoryPullRequest,
-  RunnerLabel,
   WorkspaceApprovalMode,
   WorkspacePolicy,
 } from "@batchplane/domain";
-import { buildExecutionApprovalComment as buildExecutionApprovalEvidence } from "@batchplane/domain";
+import {
+  buildExecutionApprovalComment as buildExecutionApprovalEvidence,
+  type ExecutionRequestPayload,
+} from "./execution-request-evidence.js";
+import type {
+  RepositoryIssue,
+  RepositoryIssueComment,
+  RepositoryPullRequest,
+} from "./repository-evidence-types.js";
 
 export type ExecutionRequestDisplayStatus =
   | "REQUESTED"
@@ -27,7 +30,7 @@ export type ExecutionApprovalRequest = {
     artifactPath?: string;
     command: string;
     gateRequired: boolean;
-    runsOn: RunnerLabel;
+    runsOn: string | string[];
   };
   expiresAt: string;
   gateDecision?: ExecutionGateDecision;
@@ -67,20 +70,19 @@ export type ExecutionGateDecision = {
   reasonCode: string;
 };
 
-export type GovernedChangeRequestKind = "batch" | "schedule";
+export type ChangeRequestKind = "batch" | "schedule";
 
 export function isRegistrationApprovalRequest(
   pullRequest: RepositoryPullRequest,
 ): boolean {
   return (
-    pullRequest.state === "open" &&
-    getGovernedChangeRequestKind(pullRequest) !== null
+    pullRequest.state === "open" && getChangeRequestKind(pullRequest) !== null
   );
 }
 
-export function getGovernedChangeRequestKind(
+export function getChangeRequestKind(
   pullRequest: RepositoryPullRequest,
-): GovernedChangeRequestKind | null {
+): ChangeRequestKind | null {
   if (
     pullRequest.head.startsWith("batchplane/register/") ||
     pullRequest.head.startsWith("batchplane/change/") ||
@@ -125,7 +127,7 @@ export function buildRegistrationApprovalComment({
   const workspaceAutoApproved = approvalType === "WORKSPACE_AUTO_APPROVED";
 
   return [
-    "## BatchPlane Governed Change Approval",
+    "## BatchPlane Change Request Approval",
     "",
     `- Decision: APPROVED`,
     `- Approver: @${approver}`,
@@ -151,7 +153,7 @@ export function buildRegistrationRejectionComment({
   pullRequest: RepositoryPullRequest;
 }): string {
   return [
-    "## BatchPlane Governed Change Approval",
+    "## BatchPlane Change Request Approval",
     "",
     `- Decision: REJECTED`,
     `- Rejector: @${rejector}`,

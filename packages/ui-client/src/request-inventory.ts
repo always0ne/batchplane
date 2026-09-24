@@ -1,6 +1,6 @@
 import type { ExecutionRequest } from "./execution-requests.js";
 
-export type GovernedChangeRequestInventory = {
+export type ChangeRequestInventory = {
   batchId: string;
   requestLocator: string;
   requester: string;
@@ -34,8 +34,8 @@ export type RequestInventoryItem =
         | "BATCH_DELETE"
         | "SCHEDULE_REGISTER"
         | "SCHEDULE_CHANGE";
-      kind: "GOVERNED_CHANGE";
-      request: GovernedChangeRequestInventory;
+      kind: "CHANGE_REQUEST";
+      request: ChangeRequestInventory;
       targetLabel: string;
       title: string;
       updatedAt: string;

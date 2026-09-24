@@ -1,8 +1,5 @@
-import type {
-  BatchDefinition,
-  BatchSchedule,
-  RunnerLabel,
-} from "@batchplane/domain";
+import type { BatchSchedule } from "@batchplane/domain";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
 import { getBatchDefinitionPath } from "./batch-definition-codec.js";
 
@@ -24,7 +21,9 @@ export type NativeScheduleWorkflowJobIdentity = {
   controlJobName: string;
 };
 
-export function buildBatchWorkflowYaml(definition: BatchDefinition): string {
+export function buildBatchWorkflowYaml(
+  definition: GitHubBatchDefinition,
+): string {
   const workflowName = definition.name || definition.batchId || "New batch";
   const batchId = definition.batchId || "batch-id";
   const runCommandLines = indentRunCommand(definition.execution?.command ?? "");
@@ -164,7 +163,7 @@ function indentRunCommand(runCommand: string): string[] {
   return lines.map((line) => `          ${line}`);
 }
 
-function formatRunnerLabel(runnerLabel: RunnerLabel): string {
+function formatRunnerLabel(runnerLabel: string | string[]): string {
   if (Array.isArray(runnerLabel)) {
     return `[${runnerLabel.map(yamlString).join(", ")}]`;
   }

@@ -56,7 +56,7 @@ describe("Lite Workspace route composition", () => {
 
   it("routes directly to the shared page with the concrete Lite editor", () => {
     const root = appRoutes[0]!;
-    const route = root.children?.find((entry) => entry.id === "lite-setup");
+    const route = root.children?.find((entry) => entry.id === "workspace");
     const element = route?.element as ReactElement<{
       connectionEditor: typeof LiteGitHubConnectionEditor;
     }>;

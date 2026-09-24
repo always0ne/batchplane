@@ -70,14 +70,14 @@ function createClient(
 ): BatchPlaneClient {
   return {
     approveExecutionRequest: unsupported,
-    approveGovernedChange: unsupported,
+    approveChangeRequest: unsupported,
     createBatchChangeRequest: unsupported,
     createExecutionRequest: unsupported,
     getBatchChangeBlocker: unsupported,
     getBatchDetail: unsupported,
     getBatchRemediationCapability: unsupported,
     getExecutionRequest: unsupported,
-    getGovernedChange: unsupported,
+    getChangeRequest: unsupported,
     getMyWork: unsupported,
     listExecutionRuns: unsupported,
     inspectWorkspace: unsupported,
@@ -98,9 +98,9 @@ function createClient(
     previewBatchChange: unsupported,
     previewExecutionRequest: unsupported,
     rejectExecutionRequest: unsupported,
-    rejectGovernedChange: unsupported,
+    rejectChangeRequest: unsupported,
     requestBatchRemediation: unsupported,
-    withdrawGovernedChange: unsupported,
+    withdrawChangeRequest: unsupported,
     ...overrides,
   };
 }
@@ -121,6 +121,7 @@ function inventory(title: string): ApprovalRequestInventory {
             criticality: "HIGH",
             domain: "payments",
             environment: "PROD",
+            gateRequired: true,
             name: "Daily Close",
             owner: "ops-team",
           },
@@ -131,10 +132,12 @@ function inventory(title: string): ApprovalRequestInventory {
             canonicalPayload: null,
             requestDigest: "sha256:request",
           },
-          execution: {
+          executionTarget: {
             command: "echo mock batch",
-            gateRequired: true,
-            runsOn: "ubuntu-latest",
+            executionEnvironment: "ubuntu-latest",
+            platformName: "GitHub Actions",
+            targetName: ".github/workflows/payment.daily-close.yml",
+            targetRevision: "main",
           },
           expiresAt: "2026-06-01T01:00:00.000Z",
           reason: "Close payments.",
@@ -149,10 +152,6 @@ function inventory(title: string): ApprovalRequestInventory {
           triggerType: "MANUAL",
           updatedAt: "2026-06-01T00:00:00.000Z",
           workspaceLabel: "always0ne/batch",
-          workflow: {
-            path: ".github/workflows/payment.daily-close.yml",
-            ref: "main",
-          },
         },
         targetLabel: "payment.daily-close",
         title,

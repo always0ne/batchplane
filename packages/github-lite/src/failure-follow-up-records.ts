@@ -4,9 +4,9 @@ import type {
   FailureFollowUpReviewDecisionValue,
   FailureFollowUpReviewStatus,
   FailureFollowUpStatus,
-  RepositoryIssueComment,
   WorkspaceApprovalMode,
 } from "@batchplane/domain";
+import type { RepositoryIssueComment } from "./repository-evidence-types.js";
 
 export const failureFollowUpStatuses = [
   "OPEN",

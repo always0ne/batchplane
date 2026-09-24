@@ -18,7 +18,7 @@
     "batches": "Batches"
   },
   "readiness": {
-    "title": "Governance readiness",
+    "title": "Control readiness",
     "installed": "Required Lite files are present.",
     "missing": "{{count}} required file is missing.",
     "missing_plural": "{{count}} required files are missing.",
@@ -31,8 +31,8 @@
   "cards": {
     "repoReadiness": "Workspace readiness",
     "pendingApprovals": "Pending approvals",
-    "failedRuns": "Failed runs",
-    "gateBlocked": "Gate blocked runs",
+    "failedRuns": "Failed executions",
+    "gateBlocked": "Gate blocked executions",
     "auditTrail": "Audit trail"
   },
   "cardHints": {

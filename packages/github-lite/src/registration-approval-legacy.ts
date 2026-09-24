@@ -1,7 +1,7 @@
 import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchplane/domain";
+} from "./repository-evidence-types.js";
 
 import { isRegistrationApprovalRequest } from "./execution-approval-legacy.js";
 
@@ -152,8 +152,8 @@ export function parseRegistrationApprovalDecision(
     }
 
     if (
-      !comment.body.includes("## BatchPlane Governed Change Decision") &&
-      !comment.body.includes("## BatchPlane Governed Change Approval") &&
+      !comment.body.includes("## BatchPlane Change Request Decision") &&
+      !comment.body.includes("## BatchPlane Change Request Approval") &&
       !comment.body.includes("## BatchPlane Registration Approval")
     ) {
       continue;

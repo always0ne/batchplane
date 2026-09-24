@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
@@ -6,11 +6,11 @@ import {
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
 } from "@batchplane/github-lite";
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import type { MockGitHubLiteClient } from "@batchplane/github-lite";
 import type { BatchPlaneClient } from "@batchplane/ui-client";
 
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { createGitHubLiteBatchPlaneClient } from "@batchplane/github-lite";
 import { createRuntimeBatchPlaneClient } from "../../runtime/runtime-batch-plane-client";
 import "../../i18n/i18n";
 import { MyWorkPage } from "./MyWorkPage";
@@ -25,12 +25,18 @@ describe("MyWorkPage", () => {
   it("aggregates approval work for the current maintainer", async () => {
     const client = createMockGitHubLiteClient(createGitHubLiteMockState());
 
-    renderPage(runtimeClient(createGitHubLiteRuntime(session, { client })));
+    renderPage(
+      runtimeClient(
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
+      ),
+    );
 
     expect(
       await screen.findByRole("heading", { name: "My Work" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Current user: @maintainer")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Current user: @maintainer"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Registration approval is waiting for review."),
     ).toBeInTheDocument();
@@ -43,12 +49,59 @@ describe("MyWorkPage", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("keeps request-kind filters and each request detail route intact", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage(
+      runtimeClient(
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
+      ),
+    );
+
+    const registrationDescription = await screen.findByText(
+      "Registration approval is waiting for review.",
+    );
+    const registrationRow = registrationDescription.closest("li");
+    expect(registrationRow).not.toBeNull();
+    expect(
+      within(registrationRow!).getByRole("link", { name: "Review" }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/approvals\/registration\//),
+    );
+
+    const executionDescription = screen.getByText(
+      "Execution approval is waiting for a maintainer.",
+    );
+    const executionRow = executionDescription.closest("li");
+    expect(executionRow).not.toBeNull();
+    expect(
+      within(executionRow!).getByRole("link", { name: "Review" }),
+    ).toHaveAttribute("href", expect.stringMatching(/^\/execution-requests\//));
+
+    fireEvent.click(screen.getByRole("button", { name: /Failure follow-up/ }));
+    expect(
+      screen.queryByText("Execution approval is waiting for a maintainer."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No work items match this view."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    expect(
+      screen.getByText("Execution approval is waiting for a maintainer."),
+    ).toBeInTheDocument();
+  });
+
   it("routes a current requester's runs without follow-up evidence to write follow-up", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
 
-    renderPage(runtimeClient(createGitHubLiteRuntime(session, { client })));
+    renderPage(
+      runtimeClient(
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
+      ),
+    );
 
     expect(
       await screen.findByRole("heading", { name: "My Work" }),
@@ -67,9 +120,12 @@ describe("MyWorkPage", () => {
       currentUser: { login: "developer" },
     });
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
     const gateBlockedRun = (
-      await runtime.executions.listExecutionRuns({ limit: 100 })
+      await runtime.listExecutionRuns({ limit: 100 })
     ).find((run) => run.status === "BLOCKED");
 
     if (!gateBlockedRun) {
@@ -77,13 +133,13 @@ describe("MyWorkPage", () => {
     }
 
     renderPage(
-      runtimeClient(runtimeForRun(runtime, Number(gateBlockedRun.runId))),
+      runtimeClient(runtimeForRun(client, Number(gateBlockedRun.runId))),
     );
 
     expect(await screen.findByText("Gate blocked")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Review evidence" }),
-    ).toHaveAttribute("href", `/execution-runs/${gateBlockedRun.runId}`);
+    ).toHaveAttribute("href", `/executions/${gateBlockedRun.runId}`);
     expect(
       screen.queryByText("Failure follow-up has not been recorded."),
     ).not.toBeInTheDocument();
@@ -92,7 +148,10 @@ describe("MyWorkPage", () => {
   it("surfaces submitted failure follow-ups for Workspace manager review", async () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
     const run = state.workflowRuns.find(
       (candidate) =>
         candidate.batchId === "payment.daily-close" &&
@@ -104,7 +163,7 @@ describe("MyWorkPage", () => {
     }
 
     client.state.currentUser = { login: "developer" };
-    await runtime.executions.createFailureFollowUp({
+    await runtime.createFailureFollowUp({
       actionTaken: "Reprocessed after upstream correction.",
       explanation: "The upstream ledger file arrived late.",
       owner: "ops-team",
@@ -123,13 +182,16 @@ describe("MyWorkPage", () => {
     expect(screen.getByText("Failure review")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Review follow-up" }),
-    ).toHaveAttribute("href", `/execution-runs/${run.id}#failure-follow-up`);
+    ).toHaveAttribute("href", `/executions/${run.id}#failure-follow-up`);
   });
 
   it("does not create actionable failure-review work for a non-manager", async () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
     const run = state.workflowRuns.find(
       (candidate) => candidate.conclusion === "failure",
     );
@@ -139,7 +201,7 @@ describe("MyWorkPage", () => {
     }
 
     client.state.currentUser = { login: "developer" };
-    await runtime.executions.createFailureFollowUp({
+    await runtime.createFailureFollowUp({
       actionTaken: "Reprocessed after upstream correction.",
       explanation: "The upstream ledger file arrived late.",
       owner: "ops-team",
@@ -158,7 +220,10 @@ describe("MyWorkPage", () => {
   it("does not show missing follow-up work to a requester after awaiting review is submitted", async () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
     const run = state.workflowRuns.find(
       (candidate) => candidate.conclusion === "failure",
     );
@@ -168,7 +233,7 @@ describe("MyWorkPage", () => {
     }
 
     client.state.currentUser = { login: "developer" };
-    await runtime.executions.createFailureFollowUp({
+    await runtime.createFailureFollowUp({
       actionTaken: "Reprocessed after upstream correction.",
       explanation: "The upstream ledger file arrived late.",
       owner: "ops-team",
@@ -176,7 +241,7 @@ describe("MyWorkPage", () => {
       status: "RESOLVED",
     });
 
-    renderPage(runtimeClient(runtimeForRun(runtime, run.id)));
+    renderPage(runtimeClient(runtimeForRun(client, run.id)));
 
     await screen.findByRole("heading", { name: "My Work" });
     expect(
@@ -190,7 +255,10 @@ describe("MyWorkPage", () => {
   it("clears requester follow-up work after a resolved follow-up is approved", async () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
     const run = state.workflowRuns.find(
       (candidate) => candidate.conclusion === "failure",
     );
@@ -200,7 +268,7 @@ describe("MyWorkPage", () => {
     }
 
     client.state.currentUser = { login: "developer" };
-    const followUp = await runtime.executions.createFailureFollowUp({
+    const followUp = await runtime.createFailureFollowUp({
       actionTaken: "Reprocessed after upstream correction.",
       explanation: "The upstream ledger file arrived late.",
       owner: "ops-team",
@@ -208,7 +276,7 @@ describe("MyWorkPage", () => {
       status: "RESOLVED",
     });
     client.state.currentUser = { login: "maintainer" };
-    await runtime.executions.reviewFailureFollowUp({
+    await runtime.reviewFailureFollowUp({
       decision: "APPROVED",
       followUpId: followUp.followUpId,
       reason: "Evidence is sufficient.",
@@ -216,7 +284,7 @@ describe("MyWorkPage", () => {
     });
     client.state.currentUser = { login: "developer" };
 
-    renderPage(runtimeClient(runtimeForRun(runtime, run.id)));
+    renderPage(runtimeClient(runtimeForRun(client, run.id)));
 
     await screen.findByRole("heading", { name: "My Work" });
     expect(screen.queryByRole("link", { name: "Write follow-up" })).toBeNull();
@@ -231,7 +299,10 @@ describe("MyWorkPage", () => {
   it("routes changes-requested and rejected follow-ups to an update action", async () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);
-    const runtime = createGitHubLiteRuntime(session, { client });
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
     const run = state.workflowRuns.find(
       (candidate) => candidate.conclusion === "failure",
     );
@@ -242,14 +313,14 @@ describe("MyWorkPage", () => {
 
     client.state.currentUser = { login: "developer" };
     const followUps = await Promise.all([
-      runtime.executions.createFailureFollowUp({
+      runtime.createFailureFollowUp({
         actionTaken: "First corrective action.",
         explanation: "First explanation.",
         owner: "ops-team",
         runId: String(run.id),
         status: "RESOLVED",
       }),
-      runtime.executions.createFailureFollowUp({
+      runtime.createFailureFollowUp({
         actionTaken: "Second corrective action.",
         explanation: "Second explanation.",
         owner: "ops-team",
@@ -258,13 +329,13 @@ describe("MyWorkPage", () => {
       }),
     ]);
     client.state.currentUser = { login: "maintainer" };
-    await runtime.executions.reviewFailureFollowUp({
+    await runtime.reviewFailureFollowUp({
       decision: "CHANGES_REQUESTED",
       followUpId: followUps[0].followUpId,
       reason: "Please add the validation evidence.",
       runId: String(run.id),
     });
-    await runtime.executions.reviewFailureFollowUp({
+    await runtime.reviewFailureFollowUp({
       decision: "REJECTED",
       followUpId: followUps[1].followUpId,
       reason: "The corrective action is not sufficient.",
@@ -272,7 +343,7 @@ describe("MyWorkPage", () => {
     });
     client.state.currentUser = { login: "developer" };
 
-    renderPage(runtimeClient(runtimeForRun(runtime, run.id)));
+    renderPage(runtimeClient(runtimeForRun(client, run.id)));
 
     expect(
       await screen.findByText(
@@ -290,14 +361,14 @@ describe("MyWorkPage", () => {
     expect(updateActions).toHaveLength(2);
     expect(updateActions[0]).toHaveAttribute(
       "href",
-      `/execution-runs/${run.id}#failure-follow-up`,
+      `/executions/${run.id}#failure-follow-up`,
     );
   });
 
   it("renders an empty state when no runtime session is available", async () => {
     renderPage(
       createRuntimeBatchPlaneClient({
-        createRuntime: () => {
+        createClient: () => {
           throw new Error("A runtime must not be created without a session.");
         },
         readSession: () => null,
@@ -311,8 +382,9 @@ describe("MyWorkPage", () => {
 
   it("renders a product-client My Work error", async () => {
     const client = runtimeClient(
-      createGitHubLiteRuntime(session, {
+      createGitHubLiteBatchPlaneClient({
         client: createMockGitHubLiteClient(createGitHubLiteMockState()),
+        repositoryRef: session,
       }),
     );
     renderPage({
@@ -328,9 +400,9 @@ describe("MyWorkPage", () => {
   });
 });
 
-function runtimeClient(runtime: BatchPlaneRuntimePorts): BatchPlaneClient {
+function runtimeClient(runtime: BatchPlaneClient): BatchPlaneClient {
   return createRuntimeBatchPlaneClient({
-    createRuntime: () => runtime,
+    createClient: () => runtime,
     readSession: () => session,
   });
 }
@@ -346,22 +418,18 @@ function renderPage(client: BatchPlaneClient) {
 }
 
 function runtimeForRun(
-  runtime: BatchPlaneRuntimePorts,
+  client: MockGitHubLiteClient,
   runId: number,
-): BatchPlaneRuntimePorts {
-  const listExecutionRuns = runtime.executions.listExecutionRuns.bind(
-    runtime.executions,
-  );
-
-  return {
-    ...runtime,
-    executions: {
-      ...runtime.executions,
-      async listExecutionRuns(params) {
-        return (await listExecutionRuns(params)).filter(
-          (run) => run.workflowRunId === String(runId),
+): BatchPlaneClient {
+  return createGitHubLiteBatchPlaneClient({
+    client: {
+      ...client,
+      async listWorkflowRuns(params) {
+        return (await client.listWorkflowRuns(params)).filter(
+          (run) => run.id === runId,
         );
       },
     },
-  };
+    repositoryRef: session,
+  });
 }

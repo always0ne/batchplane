@@ -1,0 +1,397 @@
+import { inspectionTestClient } from "../../test/inspection-client";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { beforeEach, describe, expect, it } from "vitest";
+import { RuntimeClientTestProvider } from "../../test/RuntimeClientTestProvider";
+
+import type { BatchPlaneClient } from "@batchplane/ui-client";
+import {
+  createGitHubLiteMockState,
+  createMockGitHubLiteClient,
+} from "@batchplane/github-lite";
+
+import type { GitHubSession } from "../../runtime/github-session";
+import "../../i18n/i18n";
+import { i18next } from "../../i18n/i18n";
+import { createGitHubLiteBatchPlaneClient } from "@batchplane/github-lite";
+import {
+  createSelectedBatchPlaneClient,
+  writeRuntimeFixtureSelection,
+} from "../../runtime/runtime-fixtures";
+import { ExecutionHistoryRegion } from "./ExecutionHistoryRegion";
+
+const session = {
+  owner: "always0ne",
+  repo: "batch",
+  token: "fixture-token",
+};
+
+describe("ExecutionHistoryRegion", () => {
+  beforeEach(async () => {
+    sessionStorage.clear();
+    await i18next.changeLanguage("en");
+  });
+
+  it.each(["en", "ko"])(
+    "distinguishes unknown completion from active execution in %s",
+    async (locale) => {
+      await i18next.changeLanguage(locale);
+      const statuses = ["QUEUED", "RUNNING", "UNCONFIRMED", "BLOCKED"] as const;
+      const runtime = inspectionTestClient({
+        listExecutionRuns: async () =>
+          statuses.map((status, index) => ({
+            batchId: "payment.daily-close",
+            requestId: "",
+            runId: String(900 + index),
+            status,
+          })),
+      });
+      renderPage({ createClient: () => runtime, readSession: () => session });
+      const labels = await screen.findAllByText(
+        locale === "en" ? "Completed" : "완료",
+      );
+      expect(
+        labels.map(
+          (label) => label.parentElement?.querySelector("dd")?.textContent,
+        ),
+      ).toEqual(
+        locale === "en"
+          ? ["In progress", "In progress", "Unknown", "Unknown"]
+          : ["진행 중", "진행 중", "알 수 없음", "알 수 없음"],
+      );
+    },
+  );
+
+  it("lists execution runs with status filters and run detail links", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage({
+      createClient: () =>
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Executions" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Execution history")).toBeInTheDocument();
+    expect(screen.getAllByText("Running").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Succeeded").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Business failed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Gate blocked").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Batch command failed after Gate allowed the run."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "RERUN_NOT_AUTHORIZED - GitHub Actions rerun is not authorized.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: "Open execution" })
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(
+      expect.arrayContaining([
+        "/executions/203",
+        "/executions/204",
+        "/executions/205",
+        "/executions/208",
+      ]),
+    );
+    expect(
+      screen
+        .getAllByRole("link", { name: "Source execution" })
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(
+      expect.arrayContaining([
+        "https://github.com/always0ne/batch/actions/runs/205",
+      ]),
+    );
+  });
+
+  it("filters the list to Gate blocked runs", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage({
+      createClient: () =>
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
+      readSession: () => session,
+    });
+
+    expect(await screen.findByText("Execution history")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gate blocked" }));
+
+    expect(screen.getAllByText("Gate blocked").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("Batch command failed after Gate allowed the run."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open execution" }),
+    ).toHaveAttribute("href", "/executions/208");
+  });
+
+  it("renders Gate reason messages in Korean while preserving reasonCode", async () => {
+    await i18next.changeLanguage("ko");
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage({
+      createClient: () =>
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
+      readSession: () => session,
+    });
+
+    expect(await screen.findByText("실행 이력")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "RERUN_NOT_AUTHORIZED - GitHub Actions rerun은 허용되지 않습니다.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a failure-focused follow-up view", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage({
+      createClient: () =>
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
+      initialPath: "/executions/failures",
+      readSession: () => session,
+      view: "failures",
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Failures" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Failure follow-up")).toBeInTheDocument();
+    expect(screen.getByText("Explanation needed")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Record follow-up" }),
+    ).toHaveAttribute(
+      "href",
+      "/executions/205?from=failures#failure-follow-up",
+    );
+    expect(screen.queryByRole("button", { name: "Active" })).toBeNull();
+    expect(screen.queryByText("Running")).not.toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: "Open execution" })
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(expect.arrayContaining(["/executions/205?from=failures"]));
+  });
+
+  it.each(["en", "ko"])(
+    "localizes native failure outcomes and exact attempt links in %s",
+    async (locale) => {
+      await i18next.changeLanguage(locale);
+      writeRuntimeFixtureSelection("native-schedule-mixed");
+      const runtime = createSelectedBatchPlaneClient(session);
+      renderPage({
+        createClient: () => runtime,
+        readSession: () => session,
+        initialPath: "/executions/failures",
+        view: "failures",
+      });
+
+      const links = await screen.findAllByRole("link", {
+        name: locale === "en" ? "Open execution" : "실행 열기",
+      });
+      expect(links.map((link) => link.getAttribute("href")).sort()).toEqual(
+        [
+          `/executions/${encodeURIComponent(`native:btr-schedule-${"a".repeat(64)}:900:2`)}?from=failures`,
+          `/executions/${encodeURIComponent(`native:btr-schedule-${"b".repeat(64)}:900:1`)}?from=failures`,
+        ].sort(),
+      );
+      expect(
+        screen.getAllByText(locale === "en" ? "Business failed" : "업무 실패")
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(locale === "en" ? "Gate blocked" : "Gate 차단")
+          .length,
+      ).toBeGreaterThan(0);
+      expect(screen.queryByText(/nativeObservation\./)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(
+          locale === "en" ? "Evidence unconfirmed" : "증적 확인 불가",
+        ),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("distinguishes submitted failure follow-up review state", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const runtime = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
+    const run = state.workflowRuns.find(
+      (candidate) =>
+        candidate.batchId === "payment.daily-close" &&
+        candidate.conclusion === "failure",
+    );
+
+    if (!run) {
+      throw new Error("Expected a business failed workflow run fixture.");
+    }
+
+    client.state.currentUser = { login: "developer" };
+    await runtime.createFailureFollowUp({
+      actionTaken: "Reprocessed after upstream correction.",
+      explanation: "The upstream ledger file arrived late.",
+      owner: "ops-team",
+      runId: String(run.id),
+      status: "RESOLVED",
+    });
+
+    renderPage({
+      createClient: () => runtime,
+      initialPath: "/executions/failures",
+      readSession: () => session,
+      view: "failures",
+    });
+
+    expect(await screen.findByText("Review pending")).toBeInTheDocument();
+    expect(screen.queryByText("Explanation needed")).not.toBeInTheDocument();
+  });
+
+  it("defaults invalid failure filters to all follow-up runs", async () => {
+    const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+
+    renderPage({
+      createClient: () =>
+        createGitHubLiteBatchPlaneClient({ client, repositoryRef: session }),
+      initialPath: "/executions/failures?type=active",
+      readSession: () => session,
+      view: "failures",
+    });
+
+    expect(await screen.findByText("Failure follow-up")).toBeInTheDocument();
+    expect(screen.getAllByText("Business failed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Gate blocked").length).toBeGreaterThan(0);
+  });
+
+  it("keeps unknown Gate verification out of business-failure follow-up filters", async () => {
+    renderPage({
+      createClient: () =>
+        inspectionTestClient({
+          listExecutionRuns: async () => [
+            {
+              batchId: "payment.daily-close",
+              requestId: "",
+              runId: "209",
+              status: "FAILED",
+              sourceUrl: "https://github.com/always0ne/batch/actions/runs/209",
+            },
+          ],
+        }),
+      initialPath: "/executions/failures",
+      readSession: () => session,
+      view: "failures",
+    });
+
+    expect(
+      await screen.findByText(
+        "No failed or Gate-blocked workflow runs match this filter.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open execution" })).toBeNull();
+  });
+
+  it("uses a compact unknown-verification badge with one explanatory outcome", async () => {
+    renderPage({
+      createClient: () =>
+        inspectionTestClient({
+          listExecutionRuns: async () => [
+            {
+              batchId: "payment.daily-close",
+              requestId: "",
+              runId: "208",
+              status: "FAILED",
+            },
+          ],
+        }),
+      readSession: () => session,
+    });
+
+    expect(
+      await screen.findByText("Gate verification unknown"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("The run failed, but Gate verification is unknown."),
+    ).toHaveLength(1);
+  });
+
+  it("shows an empty state when no runtime session is available", async () => {
+    renderPage({ readSession: () => null });
+
+    expect(
+      await screen.findByText(
+        "Connect a Workspace before reviewing executions.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("links each uncorrelated source attempt to its numeric Run detail without a false outcome", async () => {
+    writeRuntimeFixtureSelection("native-schedule-source-unconfirmed");
+    const runtime = createSelectedBatchPlaneClient(session);
+    renderPage({ createClient: () => runtime, readSession: () => session });
+    const links = await screen.findAllByRole("link", {
+      name: "Open execution",
+    });
+    expect(links.map((link) => link.getAttribute("href")).sort()).toEqual([
+      "/executions/900?runAttempt=1",
+      "/executions/900?runAttempt=2",
+    ]);
+    const sourceRunBadges = screen.getAllByText("Source execution", {
+      selector: "li span",
+    });
+    expect(sourceRunBadges).toHaveLength(2);
+    expect(
+      screen.queryByText("Batch command failed after Gate allowed the run."),
+    ).not.toBeInTheDocument();
+  });
+});
+
+function renderPage({
+  createClient,
+  initialPath = "/executions",
+  readSession,
+  view = "executions",
+}: {
+  createClient?: (session: GitHubSession) => BatchPlaneClient;
+  initialPath?: string;
+  readSession?: () => GitHubSession | null;
+  view?: "executions" | "failures";
+} = {}) {
+  render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Routes>
+        <Route
+          path="/executions"
+          element={
+            <RuntimeClientTestProvider
+              createClient={createClient}
+              readSession={readSession}
+            >
+              <ExecutionHistoryRegion view={view} />
+            </RuntimeClientTestProvider>
+          }
+        />
+        <Route
+          path="/executions/failures"
+          element={
+            <RuntimeClientTestProvider
+              createClient={createClient}
+              readSession={readSession}
+            >
+              <ExecutionHistoryRegion view={view} />
+            </RuntimeClientTestProvider>
+          }
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}

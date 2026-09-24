@@ -1,20 +1,33 @@
+import type { GitHubLiteClient } from "./github-types.js";
+import { verifyApprovedBatchRevision } from "./approved-batch-revision.js";
+import * as batchRepository from "./batch-repository.js";
+import { listExecutionRunFacts } from "./execution-run-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
+import { serializeBatchDefinitionYaml } from "./batch-definition-codec.js";
+import { buildWorkspacePolicyYaml } from "./workspace-installation-templates.js";
+vi.mock("./approved-batch-revision.js", () => ({
+  verifyApprovedBatchRevision: vi.fn(),
+}));
+vi.mock("./execution-run-client.js", () => ({
+  listExecutionRunFacts: vi.fn(),
+}));
+import type { ExecutionRun } from "@batchplane/domain";
+import { buildExecutionRequestIssue } from "./execution-request-evidence.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 import type {
-  BatchDefinition,
-  BatchPlaneRuntimePorts,
-  ExecutionRun,
   RepositoryIssue,
   RepositoryPullRequest,
-} from "@batchplane/domain";
-import {
-  buildExecutionRequestIssue,
-  governedChangeEvidenceVersion,
-  type GovernedChangeRequestEvidence,
-} from "@batchplane/domain";
+} from "./repository-evidence-types.js";
 import { isExecutionRequestCreationUnavailableError } from "@batchplane/ui-client";
 import { describe, expect, it, vi } from "vitest";
 
 import { createGitHubLiteExecutionApprovalClient } from "./execution-approval-client.js";
-import { buildGovernedChangeRequestBody } from "./governed-change-evidence.js";
+import {
+  buildChangeRequestBody,
+  changeRequestEvidenceVersion,
+  type ChangeRequestEvidence,
+} from "./change-request-evidence.js";
 
 const draft = {
   approvedBatchRevision: {
@@ -26,13 +39,17 @@ const draft = {
     criticality: "HIGH",
     domain: "payments",
     environment: "PROD",
-    execution: { command: "echo close", runsOn: "ubuntu-latest" },
+    executionTarget: {
+      command: "echo close",
+      executionEnvironment: "ubuntu-latest",
+      platformName: "GitHub Actions",
+      targetName: ".github/workflows/payment.daily-close.yml",
+      targetRevision: "main",
+    },
     gateRequired: true,
     name: "Daily Close",
     owner: "ops",
     status: "ACTIVE" as const,
-    workflowPath: ".github/workflows/payment.daily-close.yml",
-    workflowRef: "main",
   },
   creationCapability: { canCreate: true, unavailableReasons: [] },
   requestId: "btr-20260911090000-payment.daily-close-abcdefgh",
@@ -43,9 +60,62 @@ const draft = {
 };
 
 describe("GitHub Lite execution approval client", () => {
+  it("records a manual approval on the current Issue without closing it", async () => {
+    const context = createContext({
+      getExecutionRequestIssue: vi.fn().mockResolvedValue(createIssue()),
+    });
+    const closeIssue = vi.spyOn(context.client, "closeIssue");
+    const product = createGitHubLiteExecutionApprovalClient(context);
+    const result = await product.approveExecutionRequest({
+      requestLocator: "71",
+    });
+    expect(result.status).toBe("APPROVED");
+    expect(context.client.getIssue).toHaveBeenCalledWith({
+      ...context.repositoryRef,
+      issueNumber: 71,
+    });
+    expect(context.client.listIssueComments).toHaveBeenCalledWith({
+      ...context.repositoryRef,
+      issueNumber: 71,
+    });
+    expect(context.client.createIssueComment).toHaveBeenCalledWith({
+      ...context.repositoryRef,
+      issueNumber: 71,
+      body: expect.stringContaining("batchplane:execution-approval"),
+    });
+    expect(closeIssue).not.toHaveBeenCalled();
+  });
+
+  it("records rejection evidence before closing the current Issue", async () => {
+    const context = createContext({
+      getExecutionRequestIssue: vi.fn().mockResolvedValue(createIssue()),
+    });
+    const closeIssue = vi
+      .spyOn(context.client, "closeIssue")
+      .mockResolvedValue();
+    const product = createGitHubLiteExecutionApprovalClient(context);
+    const result = await product.rejectExecutionRequest({
+      requestLocator: "71",
+      reason: "  Reconciliation changed  ",
+    });
+    expect(result.status).toBe("REJECTED");
+    expect(context.client.createIssueComment).toHaveBeenCalledWith({
+      ...context.repositoryRef,
+      issueNumber: 71,
+      body: expect.stringContaining("Reconciliation changed"),
+    });
+    expect(closeIssue).toHaveBeenCalledWith({
+      ...context.repositoryRef,
+      issueNumber: 71,
+    });
+    expect(
+      vi.mocked(context.client.createIssueComment).mock.invocationCallOrder[0],
+    ).toBeLessThan(closeIssue.mock.invocationCallOrder[0]!);
+  });
+
   it("returns a named not-found outcome when the loaded batch is absent", async () => {
-    const runtime = createRuntime({ batchDefinitions: [] });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const context = createContext({ batchDefinitions: [] });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
     await expect(
       client.loadExecutionRequestDraft({ batchId: "missing.batch" }),
@@ -53,7 +123,18 @@ describe("GitHub Lite execution approval client", () => {
   });
 
   it("projects creation readiness and rejects a direct create that bypasses it", async () => {
-    const runtime = createRuntime({
+    const definitions = [
+      {
+        ...batchDefinition(),
+        execution: { command: "", runsOn: "ubuntu-latest" },
+        gateRequired: false,
+        status: "INACTIVE" as const,
+      },
+    ];
+    vi.spyOn(batchRepository, "loadBatchDefinitions").mockResolvedValueOnce(
+      definitions,
+    );
+    const context = createContext({
       batchDefinitions: [
         {
           ...batchDefinition(),
@@ -63,7 +144,7 @@ describe("GitHub Lite execution approval client", () => {
         },
       ],
     });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
     const result = await client.loadExecutionRequestDraft({
       batchId: "payment.daily-close",
     });
@@ -89,7 +170,7 @@ describe("GitHub Lite execution approval client", () => {
         expiresAt: "2026-09-11T10:00:00.000Z",
         parameters: [],
         reason: "Close after reconciliation.",
-        workflowRef: "main",
+        targetRevision: "main",
       })
       .then(
         () => {
@@ -99,45 +180,96 @@ describe("GitHub Lite execution approval client", () => {
           expect(isExecutionRequestCreationUnavailableError(error)).toBe(true);
         },
       );
-    expect(runtime.executions.createExecutionRequest).not.toHaveBeenCalled();
+    expect(context.client.createIssue).not.toHaveBeenCalled();
   });
 
-  it("previews from the loaded draft without another runtime read", async () => {
-    const runtime = createRuntime();
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+  it("uses the authoritative GitHub execution shape for preview and creation", async () => {
+    const authoritative = {
+      ...batchDefinition(),
+      execution: {
+        artifactPath: "vendor/releases/close.jar",
+        command: "./close --settle",
+        runsOn: ["self-hosted", "linux"],
+      },
+    };
+    const createExecutionRequest = vi
+      .fn()
+      .mockImplementation(async ({ body }) => ({
+        ...createIssue(),
+        body,
+      }));
+    const context = createContext({
+      batchDefinitions: [authoritative],
+      createExecutionRequest,
+    });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
-    await expect(
-      client.previewExecutionRequest({
-        draft,
-        expiresAt: "2026-09-11T10:00:00.000Z",
-        parameters: [],
-        reason: "Close after reconciliation.",
-        workflowRef: "main",
-      }),
-    ).resolves.toMatchObject({
+    const input = {
+      draft: {
+        ...draft,
+        batch: {
+          ...draft.batch,
+          executionTarget: {
+            ...draft.batch.executionTarget!,
+            command: "display-only command must not be used",
+            executionEnvironment: "display-only runner must not be used",
+          },
+        },
+      },
+      expiresAt: "2026-09-11T10:00:00.000Z",
+      parameters: [],
+      reason: "Close after reconciliation.",
+      targetRevision: "release/2026-09",
+    };
+    const preview = await client.previewExecutionRequest(input);
+    expect(preview).toMatchObject({
       request: {
         batchId: "payment.daily-close",
         evidence: { approvedBatchRevision: draft.approvedBatchRevision },
         requestId: draft.requestId,
       },
     });
-    expect(runtime.settings.getRepository).not.toHaveBeenCalled();
-    expect(runtime.executions.getApprovedBatchRevision).not.toHaveBeenCalled();
+    const previewPayload = JSON.parse(
+      preview.request.evidence.canonicalPayload ?? "{}",
+    ) as { spec?: { execution?: unknown; workflow?: unknown } };
+    expect(previewPayload.spec?.execution).toEqual({
+      artifactPath: "vendor/releases/close.jar",
+      command: "./close --settle",
+      gateRequired: true,
+      runsOn: ["self-hosted", "linux"],
+    });
+    expect(previewPayload.spec?.workflow).toEqual({
+      path: ".github/workflows/payment.daily-close.yml",
+      ref: "release/2026-09",
+    });
+    await client.createExecutionRequest(input);
+    const createdPayload = JSON.parse(
+      String(createExecutionRequest.mock.calls[0]?.[0]?.body)
+        .split("```json\n")[1]!
+        .split("\n```")[0]!,
+    ) as { spec?: { execution?: unknown; workflow?: unknown } };
+    expect(createdPayload.spec).toMatchObject(previewPayload.spec ?? {});
+    expect(context.client.getRepository).toHaveBeenCalled();
+    expect(verifyApprovedBatchRevision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedRevision: draft.approvedBatchRevision,
+      }),
+    );
   });
 
   it("projects AUTO_APPROVE from the returned Issue and approval comment", async () => {
     const issue = createIssue();
-    const runtime = createRuntime({
+    const context = createContext({
       createExecutionRequest: vi.fn().mockResolvedValue(issue),
     });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
     const result = await client.createExecutionRequest({
       draft,
       expiresAt: "2026-09-11T10:00:00.000Z",
       parameters: [],
       reason: "Close after reconciliation.",
-      workflowRef: "main",
+      targetRevision: "main",
     });
 
     expect(result.request.status).toBe("APPROVED");
@@ -148,17 +280,22 @@ describe("GitHub Lite execution approval client", () => {
       kind: "SELF_APPROVAL_ALLOWED",
       mode: "AUTO_APPROVE",
     });
-    expect(runtime.approvals.getExecutionRequestIssue).not.toHaveBeenCalled();
-    expect(runtime.approvals.listExecutionRequestIssues).not.toHaveBeenCalled();
+    expect(
+      vi.mocked(context.client.createIssue).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(context.client.createIssueComment).mock.invocationCallOrder[0]!,
+    );
+    expect(context.client.getIssue).not.toHaveBeenCalled();
+    expect(context.client.listIssues).not.toHaveBeenCalled();
   });
 
   it("keeps a self-request visible in the approval inventory with a disabled approve capability", async () => {
     const issue = createIssue();
-    const runtime = createRuntime({
+    const context = createContext({
       listExecutionRequestIssues: vi.fn().mockResolvedValue([issue]),
       workspaceApprovalMode: "SELF_APPROVAL_BLOCKED",
     });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
     await expect(client.listApprovalRequests()).resolves.toMatchObject({
       requests: [
@@ -178,11 +315,11 @@ describe("GitHub Lite execution approval client", () => {
 
   it("projects the self-approval-allowed notice from current policy and actor", async () => {
     const issue = createIssue();
-    const runtime = createRuntime({
+    const context = createContext({
       listExecutionRequestIssues: vi.fn().mockResolvedValue([issue]),
       workspaceApprovalMode: "SELF_APPROVAL_ALLOWED",
     });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
     await expect(client.listApprovalRequests()).resolves.toMatchObject({
       requests: [
@@ -200,12 +337,12 @@ describe("GitHub Lite execution approval client", () => {
   });
 
   it("excludes closed pending issues from the approval inventory", async () => {
-    const runtime = createRuntime({
+    const context = createContext({
       listExecutionRequestIssues: vi
         .fn()
         .mockResolvedValue([{ ...createIssue(), state: "closed" }]),
     });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
     await expect(client.listApprovalRequests()).resolves.toEqual({
       requests: [],
@@ -214,10 +351,10 @@ describe("GitHub Lite execution approval client", () => {
   });
 
   it("keeps the raw source title on workspace inventory rows", async () => {
-    const runtime = createRuntime({
+    const context = createContext({
       listExecutionRequestIssues: vi.fn().mockResolvedValue([createIssue()]),
     });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
     await expect(client.listWorkspaceRequests()).resolves.toMatchObject({
       requests: [
@@ -230,13 +367,29 @@ describe("GitHub Lite execution approval client", () => {
     });
   });
 
-  it("projects the exact existing governed change locator for a matching approved revision", async () => {
+  it("omits a recognized change request whose summary cannot be projected", async () => {
+    const invalidChange = { ...sourceChange(), body: "" };
+    Object.defineProperty(invalidChange, "body", {
+      get() {
+        throw new Error("projection failed");
+      },
+    });
+    const context = createContext({
+      listRegistrationRequests: vi.fn().mockResolvedValue([invalidChange]),
+    });
+
+    await expect(
+      createGitHubLiteExecutionApprovalClient(context).listWorkspaceRequests(),
+    ).resolves.toEqual({ requests: [] });
+  });
+
+  it("projects the exact existing change request locator for a matching approved revision", async () => {
     const issue = await createCanonicalIssue();
-    const runtime = createRuntime({
+    const context = createContext({
       getExecutionRequestIssue: vi.fn().mockResolvedValue(issue),
       listRegistrationRequests: vi.fn().mockResolvedValue([sourceChange()]),
     });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
     await expect(
       client.getExecutionRequest({ requestLocator: "71" }),
@@ -255,13 +408,13 @@ describe("GitHub Lite execution approval client", () => {
     "keeps mismatched source evidence inspectable without a link: %j",
     async (mismatch) => {
       const issue = await createCanonicalIssue();
-      const runtime = createRuntime({
+      const context = createContext({
         getExecutionRequestIssue: vi.fn().mockResolvedValue(issue),
         listRegistrationRequests: vi
           .fn()
           .mockResolvedValue([sourceChange(mismatch)]),
       });
-      const client = createGitHubLiteExecutionApprovalClient({ runtime });
+      const client = createGitHubLiteExecutionApprovalClient(context);
 
       const result = await client.getExecutionRequest({ requestLocator: "71" });
 
@@ -275,13 +428,13 @@ describe("GitHub Lite execution approval client", () => {
   it.each([[], [sourceChange(), { ...sourceChange(), number: 43 }]])(
     "does not choose a source link when the matching record is missing or ambiguous",
     async (...records) => {
-      const runtime = createRuntime({
+      const context = createContext({
         getExecutionRequestIssue: vi
           .fn()
           .mockResolvedValue(await createCanonicalIssue()),
         listRegistrationRequests: vi.fn().mockResolvedValue(records),
       });
-      const client = createGitHubLiteExecutionApprovalClient({ runtime });
+      const client = createGitHubLiteExecutionApprovalClient(context);
       expect(
         (await client.getExecutionRequest({ requestLocator: "71" }))?.evidence
           .sourceChange,
@@ -290,7 +443,7 @@ describe("GitHub Lite execution approval client", () => {
   );
 
   it("surfaces a source lookup failure instead of silently claiming no matching change", async () => {
-    const runtime = createRuntime({
+    const context = createContext({
       getExecutionRequestIssue: vi
         .fn()
         .mockResolvedValue(await createCanonicalIssue()),
@@ -299,14 +452,14 @@ describe("GitHub Lite execution approval client", () => {
         .mockRejectedValue(new Error("Source lookup unavailable")),
     });
     await expect(
-      createGitHubLiteExecutionApprovalClient({ runtime }).getExecutionRequest({
+      createGitHubLiteExecutionApprovalClient(context).getExecutionRequest({
         requestLocator: "71",
       }),
     ).rejects.toThrow("Source lookup unavailable");
   });
 
   it("keeps a stable product locator for each failure follow-up work item", async () => {
-    const runtime = createRuntime({
+    const context = createContext({
       executionRuns: [
         {
           batchId: "payment.daily-close",
@@ -332,7 +485,7 @@ describe("GitHub Lite execution approval client", () => {
         },
       ],
     });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
     await expect(client.getMyWork()).resolves.toMatchObject({
       items: [
@@ -343,6 +496,127 @@ describe("GitHub Lite execution approval client", () => {
         },
       ],
     });
+  });
+
+  it("lists review, revision, and ongoing follow-ups in that order for one run", async () => {
+    const baseFollowUp = {
+      actionTaken: "Checked the ledger.",
+      author: "developer",
+      batchId: "payment.daily-close",
+      createdAt: "2026-09-11T09:02:00.000Z",
+      explanation: "The ledger was delayed.",
+      owner: "developer",
+      requestId: draft.requestId,
+      reviews: [],
+      runId: "run-1",
+      status: "OPEN" as const,
+    };
+    const context = createContext({
+      executionRuns: [
+        {
+          batchId: "payment.daily-close",
+          failureFollowUps: [
+            {
+              ...baseFollowUp,
+              followUpId: "ongoing",
+              reviewStatus: "AWAITING_REVIEW",
+            },
+            { ...baseFollowUp, followUpId: "revise", reviewStatus: "REJECTED" },
+            {
+              ...baseFollowUp,
+              followUpId: "review",
+              reviewStatus: "AWAITING_REVIEW",
+              reviewCapability: { canReview: true },
+            },
+          ],
+          requestId: draft.requestId,
+          runId: "run-1",
+          status: "FAILED",
+        },
+      ],
+    });
+    const items = (
+      await createGitHubLiteExecutionApprovalClient(context).getMyWork()
+    ).items;
+
+    expect(
+      items.map((item) =>
+        item.itemType === "FAILURE_FOLLOW_UP" ? item.action : null,
+      ),
+    ).toEqual(["REVIEW_FOLLOW_UP", "UPDATE_FOLLOW_UP", "CONTINUE_FOLLOW_UP"]);
+  });
+
+  it("assigns a failed manual run's first follow-up to its requester", async () => {
+    const context = createContext({
+      executionRuns: [
+        {
+          batchId: "payment.daily-close",
+          requestId: draft.requestId,
+          runId: "manual-run",
+          status: "FAILED",
+        },
+      ],
+      listExecutionRequestIssues: vi.fn().mockResolvedValue([createIssue()]),
+    });
+    const items = (
+      await createGitHubLiteExecutionApprovalClient(context).getMyWork()
+    ).items;
+
+    expect(
+      items.filter((item) => item.itemType === "FAILURE_FOLLOW_UP"),
+    ).toMatchObject([
+      {
+        action: "WRITE_FOLLOW_UP",
+        isGateBlocked: false,
+        itemLocator: "run:manual-run:follow-up-needed",
+      },
+    ]);
+  });
+
+  it("assigns a blocked scheduled run's first Gate review to the batch owner", async () => {
+    const built = await buildExecutionRequestIssue({
+      approvedBatchRevision: draft.approvedBatchRevision,
+      batch: batchDefinition(),
+      requestId: draft.requestId,
+      requestedAt: new Date("2026-09-11T09:00:00.000Z"),
+      requestedBy: "developer",
+      schedule: {
+        definitionCommitSha: "schedule-sha",
+        definitionPath: ".batch-governance/batches/payment.daily-close.yml",
+        repositoryId: "always0ne/batch",
+        scheduleId: "daily",
+        sourceRunAttempt: 1,
+        sourceRunId: "scheduled-run",
+      },
+      triggerType: "SCHEDULE",
+    });
+    const context = createContext({
+      executionRuns: [
+        {
+          batchId: "payment.daily-close",
+          requestId: draft.requestId,
+          runId: "scheduled-run",
+          status: "BLOCKED",
+        },
+      ],
+      listExecutionRequestIssues: vi
+        .fn()
+        .mockResolvedValue([{ ...createIssue(), body: built.body }]),
+    });
+    context.client.getCurrentUser = vi.fn().mockResolvedValue({ login: "ops" });
+    const items = (
+      await createGitHubLiteExecutionApprovalClient(context).getMyWork()
+    ).items;
+
+    expect(
+      items.filter((item) => item.itemType === "FAILURE_FOLLOW_UP"),
+    ).toMatchObject([
+      {
+        action: "REVIEW_GATE_EVIDENCE",
+        isGateBlocked: true,
+        itemLocator: "run:scheduled-run:follow-up-needed",
+      },
+    ]);
   });
 
   it("keeps legacy execution work ordering timestamps", async () => {
@@ -361,12 +635,12 @@ describe("GitHub Lite execution approval client", () => {
       number: 72,
       updatedAt: "2026-09-11T10:00:00.000Z",
     };
-    const runtime = createRuntime({
+    const context = createContext({
       listExecutionRequestIssues: vi
         .fn()
         .mockResolvedValue([requested, missingRequestedAt]),
     });
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
     const result = await client.getMyWork();
     const executionWorkItems = result.items.flatMap((item) => {
       if (
@@ -398,13 +672,13 @@ describe("GitHub Lite execution approval client", () => {
 
   it("returns the created pending request when AUTO_APPROVE recording fails", async () => {
     const issue = createIssue();
-    const runtime = createRuntime({
+    const context = createContext({
       createExecutionRequest: vi.fn().mockResolvedValue(issue),
     });
-    runtime.approvals.approveExecution = vi
+    context.client.createIssueComment = vi
       .fn()
       .mockRejectedValue(new Error("comment write failed"));
-    const client = createGitHubLiteExecutionApprovalClient({ runtime });
+    const client = createGitHubLiteExecutionApprovalClient(context);
 
     await expect(
       client.createExecutionRequest({
@@ -412,18 +686,53 @@ describe("GitHub Lite execution approval client", () => {
         expiresAt: "2026-09-11T10:00:00.000Z",
         parameters: [],
         reason: "Close after reconciliation.",
-        workflowRef: "main",
+        targetRevision: "main",
       }),
     ).resolves.toMatchObject({
       postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" },
       request: { requestId: draft.requestId, status: "REQUESTED" },
     });
-    expect(runtime.approvals.getExecutionRequestIssue).not.toHaveBeenCalled();
-    expect(runtime.approvals.listExecutionRequestIssues).not.toHaveBeenCalled();
+    expect(context.client.getIssue).not.toHaveBeenCalled();
+    expect(context.client.listIssues).not.toHaveBeenCalled();
+  });
+
+  it("does not report a post-create comment error when later evidence parsing fails", async () => {
+    const issue = createIssue();
+    const context = createContext({
+      createExecutionRequest: vi.fn().mockResolvedValue(issue),
+    });
+    context.client.createIssueComment = vi
+      .fn()
+      .mockImplementation(async ({ body }) => {
+        const comment = {
+          author: "developer",
+          body,
+          createdAt: "2026-09-11T09:01:00.000Z",
+          id: 12,
+          issueNumber: 71,
+        };
+        Object.defineProperty(comment, "body", {
+          get() {
+            throw new Error("approval evidence parse failed");
+          },
+        });
+        return comment;
+      });
+
+    await expect(
+      createGitHubLiteExecutionApprovalClient(context).createExecutionRequest({
+        draft,
+        expiresAt: "2026-09-11T10:00:00.000Z",
+        parameters: [],
+        reason: "Close after reconciliation.",
+        targetRevision: "main",
+      }),
+    ).rejects.toThrow("approval evidence parse failed");
+    expect(context.client.createIssueComment).toHaveBeenCalledTimes(1);
   });
 });
 
-function createRuntime({
+function createContext({
   batchDefinitions = [batchDefinition()],
   createExecutionRequest = vi
     .fn()
@@ -434,50 +743,67 @@ function createRuntime({
   executionRuns = [],
   workspaceApprovalMode = "AUTO_APPROVE",
 }: {
-  batchDefinitions?: BatchDefinition[];
-  createExecutionRequest?: ReturnType<typeof vi.fn>;
+  batchDefinitions?: GitHubBatchDefinition[];
+  createExecutionRequest?: GitHubLiteClient["createIssue"];
   executionRuns?: ExecutionRun[];
-  getExecutionRequestIssue?: ReturnType<typeof vi.fn>;
-  listExecutionRequestIssues?: ReturnType<typeof vi.fn>;
-  listRegistrationRequests?: ReturnType<typeof vi.fn>;
+  getExecutionRequestIssue?: GitHubLiteClient["getIssue"];
+  listExecutionRequestIssues?: GitHubLiteClient["listIssues"];
+  listRegistrationRequests?: GitHubLiteClient["listPullRequests"];
   workspaceApprovalMode?:
     | "AUTO_APPROVE"
     | "SELF_APPROVAL_ALLOWED"
     | "SELF_APPROVAL_BLOCKED";
-} = {}): BatchPlaneRuntimePorts {
-  return {
-    approvals: {
-      approveExecution: vi.fn().mockImplementation(async ({ body }) => ({
-        author: "developer",
-        body,
-        createdAt: "2026-09-11T09:01:00.000Z",
-        id: 12,
-        issueNumber: 71,
-      })),
-      getExecutionRequestIssue,
-      listExecutionRequestComments: vi.fn().mockResolvedValue([]),
-      listExecutionRequestIssues,
-      listRegistrationRequests,
+} = {}) {
+  const state = createGitHubLiteMockState({
+    currentUser: { login: "developer" },
+  });
+  state.files = [
+    ...state.files.filter(
+      (file) =>
+        !file.path.startsWith(".batch-governance/batches/") &&
+        file.path !== ".batch-governance/workspace.yml",
+    ),
+    ...batchDefinitions.map((batch) => ({
+      branch: "main",
+      content: serializeBatchDefinitionYaml(batch),
+      path: `.batch-governance/batches/${batch.batchId}.yml`,
+      sha: "definition-sha",
+    })),
+    {
+      branch: "main",
+      content: buildWorkspacePolicyYaml(workspaceApprovalMode),
+      path: ".batch-governance/workspace.yml",
+      sha: "policy-sha",
     },
-    executions: {
-      createExecutionRequest,
-      getApprovedBatchRevision: vi.fn(),
-      listExecutionRuns: vi.fn().mockResolvedValue(executionRuns),
-    },
-    batches: {
-      listBatchDefinitions: vi.fn().mockResolvedValue(batchDefinitions),
-    },
-    settings: {
-      getCurrentUser: vi.fn().mockResolvedValue({ login: "developer" }),
-      getRepository: vi.fn().mockResolvedValue({ defaultBranch: "main" }),
-      getWorkspacePolicy: vi.fn().mockResolvedValue({
-        approval: { mode: workspaceApprovalMode },
-      }),
-    },
-  } as unknown as BatchPlaneRuntimePorts;
+  ];
+  const client = createMockGitHubLiteClient(state);
+  client.createIssue = createExecutionRequest;
+  client.getIssue = getExecutionRequestIssue;
+  client.listIssues = listExecutionRequestIssues;
+  client.listPullRequests = listRegistrationRequests;
+  client.listIssueComments = vi.fn().mockResolvedValue([]);
+  client.createIssueComment = vi.fn().mockImplementation(async ({ body }) => ({
+    author: "developer",
+    body,
+    createdAt: "2026-09-11T09:01:00.000Z",
+    id: 12,
+    issueNumber: 71,
+  }));
+  vi.spyOn(client, "getRepository");
+  vi.mocked(verifyApprovedBatchRevision).mockReset().mockResolvedValue({
+    controlStatus: "VERIFIED",
+    approvedRevision: draft.approvedBatchRevision,
+    verifiedSha: "approved-sha",
+  });
+  vi.mocked(listExecutionRunFacts)
+    .mockReset()
+    .mockResolvedValue(
+      executionRuns.map((run) => ({ ...run, sourceStatus: "completed" })),
+    );
+  return { client, repositoryRef: { owner: "always0ne", repo: "batch" } };
 }
 
-function batchDefinition(): BatchDefinition {
+function batchDefinition(): GitHubBatchDefinition {
   return {
     batchId: "payment.daily-close",
     criticality: "HIGH",
@@ -545,9 +871,9 @@ async function createCanonicalIssue(): Promise<RepositoryIssue> {
 }
 
 function sourceChange(
-  overrides: Partial<GovernedChangeRequestEvidence> = {},
+  overrides: Partial<ChangeRequestEvidence> = {},
 ): RepositoryPullRequest {
-  const evidence: GovernedChangeRequestEvidence = {
+  const evidence: ChangeRequestEvidence = {
     artifacts: [],
     baseRevisionSha: "base-sha",
     batchId: "payment.daily-close",
@@ -558,7 +884,7 @@ function sourceChange(
     requester: "developer",
     targetRevisionDigest: draft.approvedBatchRevision.targetRevisionDigest,
     type: "CHANGE",
-    version: governedChangeEvidenceVersion,
+    version: changeRequestEvidenceVersion,
     workspace: "always0ne/batch",
     ...overrides,
   };
@@ -566,7 +892,7 @@ function sourceChange(
   return {
     author: "developer",
     base: "main",
-    body: buildGovernedChangeRequestBody(evidence),
+    body: buildChangeRequestBody(evidence),
     head: "batchplane/change/payment.daily-close",
     merged: true,
     number: 42,

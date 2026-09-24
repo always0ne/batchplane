@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createGitHubLiteClient,
-  createGitHubLiteMockState,
-  createMockGitHubLiteClient,
-} from "./index";
+import { createGitHubLiteClient } from "./github-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
 
 describe("createGitHubLiteClient", () => {
   it("adds GitHub auth headers and maps the current user", async () => {
@@ -493,7 +491,7 @@ describe("createGitHubLiteClient", () => {
     });
   });
 
-  it("sends the expected head SHA when applying a governed change", async () => {
+  it("sends the expected head SHA when applying a change request", async () => {
     const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
       [];
     const fetcher: typeof fetch = async (input, init) => {

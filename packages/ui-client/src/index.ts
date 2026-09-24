@@ -1,7 +1,8 @@
 export * from "./batches.js";
 export * from "./batch-details.js";
 export * from "./execution-requests.js";
-export * from "./governed-changes.js";
+export * from "./change-requests.js";
+export * from "./github-actions-execution.js";
 export * from "./request-inventory.js";
 export * from "./execution-inspection.js";
 export * from "./workspace.js";
@@ -41,10 +42,10 @@ import type {
 import type {
   BatchChangeBlocker,
   BatchChangeDraft,
-  CreateGovernedChangeResult,
-  GovernedChangeDetail,
-  GovernedChangePreview,
-} from "./governed-changes.js";
+  CreateChangeRequestResult,
+  ChangeRequestDetail,
+  ChangeRequestPreview,
+} from "./change-requests.js";
 import type {
   ApprovalRequestInventory,
   MyWorkInventory,
@@ -77,7 +78,7 @@ export type BatchPlaneClient = {
   getBatchDetail(input: { batchId: string }): Promise<BatchDetailResult>;
   requestBatchRemediation(
     input: RequestBatchRemediationInput,
-  ): Promise<CreateGovernedChangeResult>;
+  ): Promise<CreateChangeRequestResult>;
   getBatchRemediationCapability(input: {
     batchId: string;
   }): Promise<BatchRemediationCapability>;
@@ -88,23 +89,23 @@ export type BatchPlaneClient = {
   getBatchChangeBlocker(input: {
     batchId: string;
   }): Promise<BatchChangeBlocker | null>;
-  previewBatchChange(input: BatchChangeDraft): Promise<GovernedChangePreview>;
+  previewBatchChange(input: BatchChangeDraft): Promise<ChangeRequestPreview>;
   createBatchChangeRequest(
     input: BatchChangeDraft,
-  ): Promise<CreateGovernedChangeResult>;
-  getGovernedChange(input: {
+  ): Promise<CreateChangeRequestResult>;
+  getChangeRequest(input: {
     requestLocator: string;
-  }): Promise<GovernedChangeDetail | null>;
-  approveGovernedChange(input: {
+  }): Promise<ChangeRequestDetail | null>;
+  approveChangeRequest(input: {
     requestLocator: string;
-  }): Promise<GovernedChangeDetail>;
-  rejectGovernedChange(input: {
+  }): Promise<ChangeRequestDetail>;
+  rejectChangeRequest(input: {
     reason: string;
     requestLocator: string;
-  }): Promise<GovernedChangeDetail>;
-  withdrawGovernedChange(input: {
+  }): Promise<ChangeRequestDetail>;
+  withdrawChangeRequest(input: {
     requestLocator: string;
-  }): Promise<GovernedChangeDetail>;
+  }): Promise<ChangeRequestDetail>;
   loadExecutionRequestDraft(input: {
     batchId: string;
   }): Promise<ExecutionRequestDraftResult>;
@@ -133,7 +134,7 @@ export class WorkspaceNotConnectedError extends Error {
   readonly code = "WORKSPACE_NOT_CONNECTED";
 
   constructor() {
-    super("Connect a Workspace before requesting a governed change.");
+    super("Connect a Workspace before requesting a change request.");
     this.name = "WorkspaceNotConnectedError";
   }
 }
