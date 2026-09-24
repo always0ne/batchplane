@@ -106,7 +106,7 @@ function BatchDeleteConfirmation({
       <p className="text-xs text-red-700">{t("detail.delete.blocked")}</p>
       <div className="flex flex-wrap gap-2">
         <Button
-          className="flex-1 justify-center bg-red-600 text-white disabled:bg-slate-300"
+          className="flex-1 justify-center enabled:bg-red-600 enabled:text-white disabled:bg-slate-300"
           disabled={!canConfirm}
           onClick={onConfirm}
           variant="secondary"
