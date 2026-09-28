@@ -401,7 +401,7 @@ describe("GitHub failure follow-up evidence and review", () => {
     );
   });
 
-  it("persists a review against the selected follow-up when a request has multiple records", async () => {
+  it("approves only the selected follow-up when a request has two records", async () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);
     const context = { client: client, repositoryRef: session };
@@ -416,7 +416,7 @@ describe("GitHub failure follow-up evidence and review", () => {
     }
 
     client.state.currentUser = { login: "developer" };
-    await followUpClient.createFailureFollowUp({
+    const firstFollowUp = await followUpClient.createFailureFollowUp({
       actionTaken: "Recorded the initial incident details.",
       explanation: "Initial follow-up for the failed run.",
       owner: "ops-team",
@@ -459,6 +459,14 @@ describe("GitHub failure follow-up evidence and review", () => {
         reviews: [expect.objectContaining({ decision: "APPROVED" })],
       }),
     );
+    expect(
+      projectedRun?.failureFollowUps?.find(
+        (followUp) => followUp.followUpId === firstFollowUp.followUpId,
+      ),
+    ).toMatchObject({
+      reviewStatus: "AWAITING_REVIEW",
+      reviews: [],
+    });
   });
 
   it("blocks self-review for failure follow-up by default", async () => {
@@ -625,6 +633,7 @@ describe("GitHub failure follow-up evidence and review", () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);
     const context = { client: client, repositoryRef: session };
+    const runClient = createGitHubLiteExecutionRunClient(context);
     const followUpClient = createGitHubLiteFailureFollowUpClient(context);
     const run = state.workflowRuns.find(
       (candidate) => candidate.conclusion === "failure",
@@ -644,7 +653,7 @@ describe("GitHub failure follow-up evidence and review", () => {
     });
     client.state.currentUser = { login: "maintainer" };
 
-    await followUpClient.reviewFailureFollowUp({
+    const firstReview = await followUpClient.reviewFailureFollowUp({
       decision: "APPROVED",
       followUpId: followUp.followUpId,
       reason: "Evidence is sufficient.",
@@ -661,6 +670,20 @@ describe("GitHub failure follow-up evidence and review", () => {
     ).rejects.toThrow(
       "Failure follow-up has already received a review decision.",
     );
+    const persistedFollowUp = (
+      await runClient.getExecutionRun({ runId: String(run.id) })
+    )?.failureFollowUps?.find(
+      (candidate) => candidate.followUpId === followUp.followUpId,
+    );
+    expect(persistedFollowUp).toMatchObject({
+      reviewStatus: "APPROVED",
+      reviews: [
+        expect.objectContaining({
+          decision: "APPROVED",
+          reviewId: firstReview.reviewId,
+        }),
+      ],
+    });
   });
 
   it("excludes forged or non-manager review markers from run projection and audit", async () => {

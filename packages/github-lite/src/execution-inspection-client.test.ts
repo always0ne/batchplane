@@ -189,7 +189,7 @@ describe("execution inspection adapter boundary", () => {
       actionTaken: "Fix",
       status: "RESOLVED",
     });
-    expect(result).toBe(confirmed);
+    expect(result).toEqual(confirmed);
     expect(read).not.toHaveBeenCalled();
   });
 });

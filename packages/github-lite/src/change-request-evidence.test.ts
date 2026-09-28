@@ -100,7 +100,7 @@ describe("change request evidence", () => {
     expect(empty).not.toBe(present);
   });
 
-  it("binds the request identity, actor, base revision, and target digest", async () => {
+  it("changes the request digest when the requester changes", async () => {
     const digest = await createChangeRequestDigest(requestEvidence);
     await expect(
       createChangeRequestDigest({
@@ -116,7 +116,7 @@ describe("change request evidence", () => {
     ).toEqual(requestEvidence);
   });
 
-  it("round trips decision evidence without treating markdown as truth", () => {
+  it("uses the versioned marker instead of a conflicting decision summary", () => {
     const decisionEvidence = {
       authorizationRevisionSha: "authorization-sha",
       headRevisionSha: "head-sha",
@@ -129,11 +129,12 @@ describe("change request evidence", () => {
       version: requestEvidence.version,
     };
 
-    expect(
-      parseChangeRequestDecisionEvidence(
-        buildChangeRequestDecisionBody(decisionEvidence),
-      ),
-    ).toEqual(decisionEvidence);
+    const body = buildChangeRequestDecisionBody(decisionEvidence).replace(
+      "- Decision: REJECTED",
+      "- Decision: APPROVED",
+    );
+
+    expect(parseChangeRequestDecisionEvidence(body)).toEqual(decisionEvidence);
   });
 
   it("does not accept an unmarked or a changed evidence version", () => {

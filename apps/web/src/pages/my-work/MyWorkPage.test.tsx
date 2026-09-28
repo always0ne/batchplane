@@ -92,7 +92,7 @@ describe("MyWorkPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("routes a current requester's runs without follow-up evidence to write follow-up", async () => {
+  it("shows missing follow-up work for the current requester", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
@@ -211,7 +211,7 @@ describe("MyWorkPage", () => {
 
     renderPage(runtimeClient(runtime));
 
-    await screen.findByRole("heading", { name: "My Work" });
+    await screen.findByText("Current user: @developer");
     expect(
       screen.queryByRole("link", { name: "Review follow-up" }),
     ).not.toBeInTheDocument();
@@ -243,7 +243,7 @@ describe("MyWorkPage", () => {
 
     renderPage(runtimeClient(runtimeForRun(client, run.id)));
 
-    await screen.findByRole("heading", { name: "My Work" });
+    await screen.findByText("Current user: @developer");
     expect(
       screen.queryByText("Failure follow-up has not been recorded."),
     ).not.toBeInTheDocument();
@@ -286,7 +286,7 @@ describe("MyWorkPage", () => {
 
     renderPage(runtimeClient(runtimeForRun(client, run.id)));
 
-    await screen.findByRole("heading", { name: "My Work" });
+    await screen.findByText("Current user: @developer");
     expect(screen.queryByRole("link", { name: "Write follow-up" })).toBeNull();
     expect(
       screen.queryByRole("link", { name: "Submit follow-up update" }),
@@ -359,10 +359,12 @@ describe("MyWorkPage", () => {
       name: "Submit follow-up update",
     });
     expect(updateActions).toHaveLength(2);
-    expect(updateActions[0]).toHaveAttribute(
-      "href",
-      `/executions/${run.id}#failure-follow-up`,
-    );
+    for (const updateAction of updateActions) {
+      expect(updateAction).toHaveAttribute(
+        "href",
+        `/executions/${run.id}#failure-follow-up`,
+      );
+    }
   });
 
   it("renders an empty state when no runtime session is available", async () => {

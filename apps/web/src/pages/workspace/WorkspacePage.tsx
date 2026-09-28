@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next";
 import type { WorkspaceConnectionEditor } from "../../client/workspace-connection-editor";
 import { PageHeader } from "../../components/PageHeader";
-import { WorkspaceConnectionStatus } from "./WorkspaceConnectionStatus";
-import { WorkspaceInstallation } from "./WorkspaceInstallation";
-import { WorkspacePolicy } from "./WorkspacePolicy";
-import { useWorkspaceInspection } from "./useWorkspaceInspection";
+import { WorkspaceConnectionStatus } from "./components/WorkspaceConnectionStatus";
+import { WorkspaceInstallation } from "./components/installation/WorkspaceInstallation";
+import { WorkspacePolicy } from "./components/policy/WorkspacePolicy";
+import { useWorkspaceInspection } from "./hooks/useWorkspaceInspection";
 
 export function WorkspacePage({
   connectionEditor: ConnectionEditor,

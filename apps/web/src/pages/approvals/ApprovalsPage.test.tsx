@@ -130,7 +130,7 @@ describe("ApprovalsPage", () => {
     expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
   });
 
-  it("disables approval when the product capability is unavailable without a display reason", async () => {
+  it("disables approval but leaves rejection enabled for NOT_AWAITING_APPROVAL", async () => {
     const inventory = approvalInventory();
     const request = inventory.requests[0];
     if (!request || request.kind !== "EXECUTION") {

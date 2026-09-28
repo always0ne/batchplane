@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../../../components/PageHeader";
-import { BatchListContent } from "./BatchListContent";
-import { BatchListToolbar } from "./BatchListToolbar";
-import { useBatchList } from "./useBatchList";
+import { BatchListContent } from "./components/BatchListContent";
+import { BatchListToolbar } from "./components/BatchListToolbar";
+import { useBatchList } from "./hooks/useBatchList";
 
 export function BatchListPage() {
   const { t } = useTranslation("batches");

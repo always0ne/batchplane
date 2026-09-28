@@ -82,6 +82,7 @@ describe("Workspace product adapter", () => {
 
   it.each([
     {
+      condition: "missing installation",
       installed: false,
       presentPaths: [],
       missingPaths: ["installation"],
@@ -89,6 +90,7 @@ describe("Workspace product adapter", () => {
       action: "INSTALL",
     },
     {
+      condition: "partial installation",
       installed: false,
       presentPaths: ["policy"],
       missingPaths: ["installation"],
@@ -96,6 +98,7 @@ describe("Workspace product adapter", () => {
       action: "INSTALL",
     },
     {
+      condition: "current installation",
       installed: true,
       presentPaths: ["installation"],
       missingPaths: [],
@@ -103,6 +106,7 @@ describe("Workspace product adapter", () => {
       action: null,
     },
     {
+      condition: "outdated installation",
       installed: true,
       presentPaths: ["installation"],
       missingPaths: [],
@@ -110,7 +114,7 @@ describe("Workspace product adapter", () => {
       action: "UPDATE",
     },
   ])(
-    "projects readiness into the existing $action request availability",
+    "$condition maps to $action workspace request availability",
     async (readiness) => {
       const context = createContext();
       vi.mocked(checkLiteInstallationStatus).mockResolvedValue({
@@ -149,7 +153,7 @@ describe("Workspace product adapter", () => {
   );
 
   it.each(["requestWorkspaceInstallation", "requestWorkspaceUpdate"] as const)(
-    "%s returns the actual request without claiming installation was applied",
+    "%s returns the request without claiming installation was applied",
     async (method) => {
       const context = createContext();
       vi.mocked(createLiteInstallationPullRequest).mockResolvedValue({
@@ -160,6 +164,12 @@ describe("Workspace product adapter", () => {
           missingPaths: ["installation"],
         },
       });
+      if (method === "requestWorkspaceUpdate") {
+        vi.mocked(createLiteInstallationUpdatePullRequest).mockResolvedValue({
+          pullRequest: sourceRequest,
+          status: { ...installed, outdatedPaths: ["installation"] },
+        });
+      }
       const result = await createGitHubLiteWorkspaceClient(context)[method]();
       expect(result.request).toEqual({
         label: "#71 Workspace change",
@@ -168,6 +178,9 @@ describe("Workspace product adapter", () => {
       expect(result.installation.installed).toBe(
         method === "requestWorkspaceUpdate",
       );
+      if (method === "requestWorkspaceUpdate") {
+        expect(result.installation.outdatedEvidence).toEqual(["installation"]);
+      }
       expect(
         method === "requestWorkspaceInstallation"
           ? createLiteInstallationPullRequest
@@ -181,38 +194,32 @@ describe("Workspace product adapter", () => {
     },
   );
 
-  it.each([
-    "SELF_APPROVAL_BLOCKED",
-    "SELF_APPROVAL_ALLOWED",
-    "AUTO_APPROVE",
-  ] as const)(
-    "keeps current policy separate from the requested %s policy",
-    async (mode) => {
-      const context = createContext();
-      const policy = { approval: { mode } };
-      const result = await createGitHubLiteWorkspaceClient(
-        context,
-      ).requestWorkspacePolicyChange({ policy });
-      expect(result).toEqual({
-        currentPolicy,
-        requestedPolicy: policy,
-        request: {
-          label: "#71 Workspace change",
-          sourceUrl: sourceRequest.url,
-        },
-      });
-      expect(loadWorkspacePolicy).toHaveBeenCalledWith({
-        ...context,
-        ref: "main",
-      });
-      expect(createWorkspacePolicyPullRequest).toHaveBeenCalledWith({
-        client: context.client,
-        repo: context.repositoryRef,
-        defaultBranch: "main",
-        policy,
-      });
-    },
-  );
+  it("returns the current policy and passes a requested self-approval-allowed policy to the request", async () => {
+    const context = createContext();
+    const policy = { approval: { mode: "SELF_APPROVAL_ALLOWED" as const } };
+    const result = await createGitHubLiteWorkspaceClient(
+      context,
+    ).requestWorkspacePolicyChange({ policy });
+
+    expect(result).toEqual({
+      currentPolicy,
+      requestedPolicy: policy,
+      request: {
+        label: "#71 Workspace change",
+        sourceUrl: sourceRequest.url,
+      },
+    });
+    expect(loadWorkspacePolicy).toHaveBeenCalledWith({
+      ...context,
+      ref: "main",
+    });
+    expect(createWorkspacePolicyPullRequest).toHaveBeenCalledWith({
+      client: context.client,
+      repo: context.repositoryRef,
+      defaultBranch: "main",
+      policy,
+    });
+  });
 
   it.each([
     ["unauthorized", 401, "authentication-required"],

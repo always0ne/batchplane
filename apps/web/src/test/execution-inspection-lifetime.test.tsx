@@ -158,7 +158,7 @@ describe("execution inspection lifetime", () => {
     expect(screen.queryByText("Business first")).not.toBeInTheDocument();
     expect(get).toHaveBeenLastCalledWith({ runId: "second", runAttempt: 2 });
   });
-  it("ignores an old client response and old job-log response", async () => {
+  it("ignores an old job-log response after switching clients", async () => {
     const log = deferred<ExecutionJobLog>();
     const first = inspectionTestClient({
       getExecutionRun: async () => run("first"),

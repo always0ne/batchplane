@@ -109,15 +109,33 @@ describe("AuditPage", () => {
     },
   );
 
-  it("renders audit timeline items with source links and filters", async () => {
+  it("filters audit entries to the selected Batch", async () => {
     const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+    const productClient = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
+    const timeline = await productClient.listAuditTimeline({ limit: 100 });
+    const firstEntry = timeline[0];
+    if (!firstEntry)
+      throw new Error("Expected the audit fixture to have entries");
+    const foreignBatchEntry = {
+      ...firstEntry,
+      itemId: `${firstEntry.itemId}-ledger-settlement`,
+      metadata: {
+        ...firstEntry.metadata,
+        batchId: "ledger.settlement",
+      },
+    };
+    const runtime = {
+      ...productClient,
+      listAuditTimeline: async () => [...timeline, foreignBatchEntry],
+    };
 
     render(
       <MemoryRouter>
         <RuntimeClientTestProvider
-          createClient={() =>
-            createGitHubLiteBatchPlaneClient({ client, repositoryRef: session })
-          }
+          createClient={() => runtime}
           readSession={() => session}
         >
           <AuditPage />
@@ -134,15 +152,22 @@ describe("AuditPage", () => {
     );
     expect(screen.getAllByText(/Gate blocked for/u).length).toBeGreaterThan(0);
     expect(screen.getAllByText("GitHub source").length).toBeGreaterThan(0);
+    const foreignBatchRow = screen
+      .getAllByRole("listitem")
+      .find((row) => within(row).queryByText("ledger.settlement"));
+    if (!foreignBatchRow)
+      throw new Error("Expected the audit fixture to show the foreign batch");
 
     fireEvent.change(screen.getByLabelText("Batch"), {
       target: { value: "payment.daily-close" },
     });
 
-    expect(screen.getByDisplayValue("payment.daily-close")).toBeInTheDocument();
-    expect(screen.getAllByText(/payment.daily-close/u).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen
+        .getAllByRole("listitem")
+        .some((row) => within(row).queryByText("payment.daily-close")),
+    ).toBe(true);
+    expect(foreignBatchRow).not.toBeInTheDocument();
   });
 
   it("renders an empty state when no runtime session is available", async () => {

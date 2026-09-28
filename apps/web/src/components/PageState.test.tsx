@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { EmptyState, ErrorState, LoadingState, PageState } from "./PageState";
+import { EmptyState } from "./EmptyState";
+import { ErrorState } from "./ErrorState";
+import { LoadingState } from "./LoadingState";
+import { PageState } from "./PageState";
 
 describe("PageState", () => {
   it("renders neutral content with an optional action", () => {

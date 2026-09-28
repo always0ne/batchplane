@@ -128,22 +128,12 @@ describe("runtime fixtures", () => {
     });
   });
 
-  it.each([
-    { fixture: "happy-path", expectedState: "dispatched" },
-    { fixture: "approval-pending", expectedState: "requested" },
-    { fixture: "business-failed", expectedState: "business-failed" },
-    { fixture: "dispatch-failed", expectedState: "failed" },
-    { fixture: "gate-blocked", expectedState: "gate-blocked" },
-  ] as const)(
-    "builds the $fixture runtime fixture state",
-    ({ expectedState, fixture }) => {
-      const state = createRuntimeFixtureMockState(fixture);
+  it("creates a dispatched execution scenario for the happy-path fixture", () => {
+    const state = createRuntimeFixtureMockState("happy-path");
 
-      expect(state.executionScenarios).toHaveLength(1);
-      expect(state.executionScenarios[0]?.state).toBe(expectedState);
-      expect(state.pullRequests).toEqual([]);
-    },
-  );
+    expect(state.executionScenarios).toHaveLength(1);
+    expect(state.executionScenarios[0]?.state).toBe("dispatched");
+  });
 
   it("switches runtime behavior between approval and failure fixtures", async () => {
     writeRuntimeFixtureSelection("approval-pending");

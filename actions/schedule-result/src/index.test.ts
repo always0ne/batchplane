@@ -124,6 +124,8 @@ function gateOccurrence(input: Awaited<ReturnType<typeof createInput>>) {
   };
 }
 
+type FetchMock = ReturnType<typeof vi.fn<typeof fetch>>;
+
 function createFetch(
   input: Awaited<ReturnType<typeof createInput>>,
   scenario:
@@ -134,7 +136,7 @@ function createFetch(
     | "success"
     | "unknown"
     | "with-other-schedule" = "success",
-): typeof fetch {
+): FetchMock {
   const control = {
     completed_at: "2026-01-02T03:04:03Z",
     conclusion: scenario === "blocked" ? "failure" : "success",
@@ -191,7 +193,7 @@ function createFetch(
       },
     ],
   };
-  return vi.fn(async (url: string | URL, init?: RequestInit) => {
+  return vi.fn<typeof fetch>(async (url, init) => {
     const path = new URL(String(url)).pathname;
     if (path.endsWith("/issues/10") && init?.method !== "POST") {
       return Response.json({
@@ -290,7 +292,17 @@ function createFetch(
       });
     }
     return new Response("not found", { status: 404 });
-  }) as unknown as typeof fetch;
+  });
+}
+
+function recordedResultBody(fetcher: FetchMock): string {
+  const comment = fetcher.mock.calls.find(
+    ([url, init]) =>
+      new URL(String(url)).pathname.endsWith("/issues/10/comments") &&
+      init?.method === "POST",
+  );
+  expect(comment).toBeDefined();
+  return JSON.parse(String(comment?.[1]?.body)).body as string;
 }
 
 describe("schedule result Action", () => {
@@ -300,21 +312,22 @@ describe("schedule result Action", () => {
     vi.stubEnv("GITHUB_ACTIONS", "true");
     const module = await import("./index.js");
     const input = await createInput();
-    const fetcher = createFetch(input) as unknown as {
-      mock: { calls: Array<[string | URL, RequestInit | undefined]> };
-    };
+    const fetcher = createFetch(input);
     await expect(
       module.recordNativeScheduleResult({
         ...input,
-        fetcher: fetcher as unknown as typeof fetch,
+        fetcher,
       }),
     ).resolves.toBe("SUCCEEDED");
     expect(
       fetcher.mock.calls.some(([url]) => String(url).includes("/git/ref/")),
     ).toBe(false);
+    const body = recordedResultBody(fetcher);
+    expect(body).toContain("observation=SUCCEEDED");
+    expect(body).toContain("workflowRunId=100");
   });
 
-  it("runs the checked-in Node24 bundle only when invoked directly", () => {
+  it("reports missing schedule-result context when the Node24 bundle is invoked directly", () => {
     const bundle = fileURLToPath(new URL("../dist/index.js", import.meta.url));
     const direct = spawnSync(process.execPath, [bundle], {
       env: { GITHUB_ACTIONS: "true" },
@@ -330,51 +343,70 @@ describe("schedule result Action", () => {
   it("records a verified control Gate denial without requiring a business job", async () => {
     const { recordNativeScheduleResult } = await import("./index.js");
     const input = await createInput();
+    const fetcher = createFetch(input, "blocked");
     await expect(
       recordNativeScheduleResult({
         ...input,
-        fetcher: createFetch(input, "blocked"),
+        fetcher,
       }),
     ).resolves.toBe("BLOCKED");
+    const body = recordedResultBody(fetcher);
+    expect(body).toContain("observation=BLOCKED");
+    expect(body).toContain("controlGateAllowed=false");
   });
 
   it("records cancellation from the actual Actions job observation", async () => {
     const { recordNativeScheduleResult } = await import("./index.js");
     const input = await createInput();
+    const fetcher = createFetch(input, "cancelled");
     await expect(
       recordNativeScheduleResult({
         ...input,
-        fetcher: createFetch(input, "cancelled"),
+        fetcher,
       }),
     ).resolves.toBe("CANCELED");
+    const body = recordedResultBody(fetcher);
+    expect(body).toContain("observation=CANCELED");
+    expect(body).toContain("workflowRunId=100");
   });
 
   it("records actual batch-step failure and leaves skipped terminal evidence unconfirmed", async () => {
     const { recordNativeScheduleResult } = await import("./index.js");
     const input = await createInput();
+    const failedFetcher = createFetch(input, "failed");
     await expect(
       recordNativeScheduleResult({
         ...input,
-        fetcher: createFetch(input, "failed"),
+        fetcher: failedFetcher,
       }),
     ).resolves.toBe("FAILED");
+    const failedBody = recordedResultBody(failedFetcher);
+    expect(failedBody).toContain("observation=FAILED");
+    expect(failedBody).toContain("workflowRunId=100");
+    const unconfirmedFetcher = createFetch(input, "unknown");
     await expect(
       recordNativeScheduleResult({
         ...input,
-        fetcher: createFetch(input, "unknown"),
+        fetcher: unconfirmedFetcher,
       }),
     ).resolves.toBe("UNCONFIRMED");
+    const unconfirmedBody = recordedResultBody(unconfirmedFetcher);
+    expect(unconfirmedBody).toContain("observation=UNCONFIRMED");
+    expect(unconfirmedBody).toContain("workflowRunId=100");
   });
 
   it("uses only exact schedule-specific jobs when another schedule shares the Run", async () => {
     const { recordNativeScheduleResult } = await import("./index.js");
     const input = await createInput();
+    const fetcher = createFetch(input, "with-other-schedule");
     await expect(
       recordNativeScheduleResult({
         ...input,
-        fetcher: createFetch(input, "with-other-schedule"),
+        fetcher,
       }),
     ).resolves.toBe("SUCCEEDED");
+    const body = recordedResultBody(fetcher);
+    expect(body).toContain("businessApiJobId=202");
   });
 
   it("rejects a pre-seeded Issue body and preserves an unacknowledged evidence write", async () => {
@@ -411,28 +443,16 @@ describe("schedule result Action", () => {
     const { recordNativeScheduleResult } = await import("./index.js");
     const original = await createInput();
     const rerun = { ...original, sourceRunAttempt: 2 };
-    const fetcher = createFetch(rerun, "entry-blocked") as unknown as {
-      mock: { calls: Array<[string | URL, RequestInit | undefined]> };
-    };
+    const fetcher = createFetch(rerun, "entry-blocked");
     await expect(
       recordNativeScheduleResult({
         ...rerun,
-        fetcher: fetcher as unknown as typeof fetch,
+        fetcher,
       }),
     ).resolves.toBe("BLOCKED");
-    const comment = fetcher.mock.calls.find(
-      ([url, init]) =>
-        new URL(String(url)).pathname.endsWith("/issues/10/comments") &&
-        init?.method === "POST",
-    );
-    expect(JSON.parse(String(comment?.[1]?.body))).toMatchObject({
-      body: expect.stringContaining("requestSourceRunAttempt=1"),
-    });
-    expect(JSON.parse(String(comment?.[1]?.body))).toMatchObject({
-      body: expect.stringContaining("workflowRunAttempt=2"),
-    });
-    expect(JSON.parse(String(comment?.[1]?.body))).toMatchObject({
-      body: expect.stringContaining("entryGateAllowed=false"),
-    });
+    const body = recordedResultBody(fetcher);
+    expect(body).toContain("requestSourceRunAttempt=1");
+    expect(body).toContain("workflowRunAttempt=2");
+    expect(body).toContain("entryGateAllowed=false");
   });
 });

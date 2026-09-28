@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { createGitHubLiteMockState } from "./mock-state.js";
 import { createMockGitHubLiteClient } from "./mock-client.js";
 import { createGitHubLiteClient } from "./github-client.js";
+import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
+import type {
+  RepositoryIssue,
+  RepositoryIssueComment,
+} from "./repository-evidence-types.js";
 const session = { owner: "always0ne", repo: "batch" };
 import { createGitHubLiteAuditClient } from "./execution-audit-client.js";
 import { createGitHubLiteExecutionRunClient } from "./execution-run-client.js";
@@ -368,7 +373,7 @@ describe("GitHub execution inspection and evidence", () => {
     ]);
   });
 
-  it("uses only dispatchable workflows when listing execution runs", async () => {
+  it("requests dispatchable-only workflow discovery while listing runs", async () => {
     const client = createMockGitHubLiteClient(createGitHubLiteMockState());
     const workflowCalls: Array<{ dispatchableOnly?: boolean }> = [];
     const wrappedClient = {
@@ -393,7 +398,66 @@ describe("GitHub execution inspection and evidence", () => {
     ]);
   });
 
-  it("does not attach Gate evidence from a different request with the same batch", async () => {
+  it("leaves a valid dispatched request unassociated when a different Run has its own Gate log evidence", async () => {
+    const otherRequestId = "btr-20260514010500-payment.daily-close-def67890";
+    const runRequestId = "btr-20260514010400-payment.daily-close-abc12345";
+    const requestIssue: RepositoryIssue = {
+      author: "developer",
+      body: [
+        `- Request ID: \`${otherRequestId}\``,
+        "- Batch ID: `payment.daily-close`",
+        "- Request digest: `sha256:def`",
+        "- Status: `REQUESTED`",
+        "",
+        "<!-- batchplane:execution-request",
+        `requestId=${otherRequestId}`,
+        "batchId=payment.daily-close",
+        "requestDigest=sha256:def",
+        "status=REQUESTED",
+        "-->",
+      ].join("\n"),
+      isPullRequest: false,
+      labels: ["batchplane:execution-request"],
+      number: 105,
+      state: "open",
+      title: "Run batch payment.daily-close",
+      url: "https://github.com/always0ne/batch/issues/105",
+    };
+    const requestComments: RepositoryIssueComment[] = [
+      {
+        author: "maintainer",
+        body: [
+          "<!-- batchplane:execution-approval",
+          "decision=APPROVED",
+          `requestId=${otherRequestId}`,
+          "batchId=payment.daily-close",
+          "requestDigest=sha256:def",
+          "-->",
+        ].join("\n"),
+        createdAt: "2026-05-14T01:06:00.000Z",
+        id: 1053,
+        issueNumber: 105,
+      },
+      {
+        author: "github-actions[bot]",
+        body: [
+          "<!-- batchplane:bgcp:dispatcher",
+          "status=DISPATCHED",
+          `requestId=${otherRequestId}`,
+          "batchId=payment.daily-close",
+          "requestDigest=sha256:def",
+          "-->",
+        ].join("\n"),
+        createdAt: "2026-05-14T01:07:00.000Z",
+        id: 1054,
+        issueNumber: 105,
+      },
+    ];
+
+    expect(
+      parseExecutionRequestDetail(requestIssue, requestComments),
+    ).toMatchObject({ requestId: otherRequestId, status: "DISPATCHED" });
+
     const fetcher: typeof fetch = async (input) => {
       const url = input.toString();
 
@@ -401,8 +465,7 @@ describe("GitHub execution inspection and evidence", () => {
         return Response.json({
           actor: { login: "github-actions[bot]" },
           conclusion: "success",
-          display_title:
-            "BatchPlane payment.daily-close btr-20260514010400-payment.daily-close-abc12345",
+          display_title: `BatchPlane payment.daily-close ${runRequestId}`,
           event: "workflow_dispatch",
           html_url: "https://github.com/always0ne/batch/actions/runs/201",
           id: 201,
@@ -419,9 +482,20 @@ describe("GitHub execution inspection and evidence", () => {
           jobs: [
             {
               conclusion: "success",
+              completed_at: "2026-05-14T01:08:00.000Z",
               id: 310,
               name: "BatchPlane Gate",
               status: "completed",
+              steps: [
+                {
+                  completed_at: "2026-05-14T01:08:00.000Z",
+                  conclusion: "success",
+                  name: "Verify approved execution evidence",
+                  number: 1,
+                  started_at: "2026-05-14T01:07:00.000Z",
+                  status: "completed",
+                },
+              ],
             },
             {
               conclusion: "success",
@@ -431,6 +505,23 @@ describe("GitHub execution inspection and evidence", () => {
             },
           ],
         });
+      }
+
+      if (url.endsWith("/actions/jobs/310/logs")) {
+        return new Response(
+          `2026-05-14T01:07:30.000Z BATCHPLANE_GATE_RESULT ${JSON.stringify({
+            gateJob: "batchplane-gate",
+            gateJobName: "BatchPlane Gate",
+            gateStep: "Verify approved execution evidence",
+            message: "Execution request evidence is present.",
+            repository: "always0ne/batch",
+            requestId: runRequestId,
+            result: "ALLOW",
+            runAttempt: 1,
+            runId: "201",
+            version: 1,
+          })}`,
+        );
       }
 
       if (url.endsWith("/actions/workflows/101")) {
@@ -452,48 +543,26 @@ describe("GitHub execution inspection and evidence", () => {
       ) {
         return Response.json([
           {
-            body: [
-              "- Request ID: `btr-20260514010500-payment.daily-close-def67890`",
-              "- Batch ID: `payment.daily-close`",
-              "- Request digest: `sha256:def`",
-              "- Status: `DISPATCHED`",
-              "",
-              "<!-- batchplane:execution-request",
-              "requestId=btr-20260514010500-payment.daily-close-def67890",
-              "batchId=payment.daily-close",
-              "requestDigest=sha256:def",
-              "status=DISPATCHED",
-              "-->",
-            ].join("\n"),
-            html_url: "https://github.com/always0ne/batch/issues/105",
-            labels: ["batchplane:dispatched"],
-            number: 105,
-            state: "open",
-            title: "Run batch payment.daily-close",
-            user: { login: "developer" },
+            body: requestIssue.body,
+            html_url: requestIssue.url,
+            labels: requestIssue.labels,
+            number: requestIssue.number,
+            state: requestIssue.state,
+            title: requestIssue.title,
+            user: { login: requestIssue.author },
           },
         ]);
       }
 
       if (parsedUrl.pathname.endsWith("/issues/105/comments")) {
-        return Response.json([
-          {
-            body: [
-              "## BatchPlane Gate Decision",
-              "",
-              "- Decision: BLOCKED",
-              "- Reason: RERUN_NOT_AUTHORIZED",
-              "",
-              "<!-- batchplane:gate-decision",
-              "allowed=false",
-              "reasonCode=RERUN_NOT_AUTHORIZED",
-              "-->",
-            ].join("\n"),
-            created_at: "2026-05-14T01:08:00.000Z",
-            id: 1054,
-            user: { login: "github-actions[bot]" },
-          },
-        ]);
+        return Response.json(
+          requestComments.map((comment) => ({
+            body: comment.body,
+            created_at: comment.createdAt,
+            id: comment.id,
+            user: { login: comment.author },
+          })),
+        );
       }
 
       return Response.json({ message: "Not Found" }, { status: 404 });
@@ -509,10 +578,12 @@ describe("GitHub execution inspection and evidence", () => {
     expect(run).toEqual(
       expect.objectContaining({
         batchId: "payment.daily-close",
-        requestId: "btr-20260514010400-payment.daily-close-abc12345",
+        gateDecision: expect.objectContaining({ allowed: true }),
+        requestId: runRequestId,
         status: "SUCCEEDED",
       }),
     );
-    expect(run?.gateDecision).toBeUndefined();
+    expect(run).not.toHaveProperty("requestIssueNumber");
+    expect(run).not.toHaveProperty("requestIssueUrl");
   });
 });

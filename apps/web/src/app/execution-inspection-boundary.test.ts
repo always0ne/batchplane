@@ -25,7 +25,7 @@ describe("execution inspection dependency boundaries", () => {
         /from ["'][^"']*(?:runtime|github-lite|github-session|@batchplane\/domain)/,
       );
       expect(source, file).not.toMatch(
-        /createRuntime|readSession|parseExecutionGateResult|BATCHPLANE_GATE_RESULT|BatchPlane Gate/,
+        /createRuntime|readSession|parseExecutionGateResult|BATCHPLANE_GATE_RESULT/,
       );
     }
   });

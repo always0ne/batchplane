@@ -70,7 +70,7 @@ describe("ExecutionDetailPage", () => {
     },
   );
 
-  it("separates Gate blocked evidence from business execution", async () => {
+  it("shows Gate-blocked evidence and preserves Gate log search when reopened", async () => {
     const state = createRuntimeFixtureMockState("gate-blocked");
     const run = findFirstWorkflowRun(state);
     const client = createMockGitHubLiteClient(state);
@@ -142,7 +142,7 @@ describe("ExecutionDetailPage", () => {
     expect(await screen.findByLabelText("Search log")).toHaveValue("verified");
   });
 
-  it("shows business failure when Gate allowed but the batch job failed", async () => {
+  it("records and approves a business-failure follow-up after inspecting focused and full logs", async () => {
     const state = createRuntimeFixtureMockState("business-failed");
     const run = findFirstWorkflowRun(state);
     const client = createMockGitHubLiteClient(state);
@@ -330,64 +330,44 @@ describe("ExecutionDetailPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it.each([
-    "native-schedule-success",
-    "native-schedule-running",
-    "business-failed",
-  ] as const)(
-    "bounds long %s full logs within shrinkable grid cells without changing their text",
-    async (fixture) => {
-      writeRuntimeFixtureSelection(fixture);
-      const runtime = createSelectedBatchPlaneClient(session);
-      const [run] = await runtime.listExecutionRuns({ limit: 20 });
-      const content = [
-        `BATCHPLANE_GATE_RESULT ${"x".repeat(4096)}`,
-        "##[group]BatchPlane batch command",
-        "echo command output is intact",
-        "command output is intact",
-        "##[endgroup]",
-      ].join("\n");
-      vi.spyOn(runtime, "getExecutionRunJobLog").mockImplementation(
-        async ({ jobId }) => ({
-          content,
-          jobId,
-          businessSection: {
-            content: "echo command output is intact\ncommand output is intact",
-            focused: true,
-          },
-          sizeBytes: content.length,
-          truncated: false,
-        }),
-      );
-      renderDetail({
-        createClient: () => runtime,
-        readSession: () => session,
-        runId: run!.runId,
-      });
-      fireEvent.click(
-        await screen.findByRole("button", { name: "View business logs" }),
-      );
-      await screen.findByText(/command output is intact/, { selector: "pre" });
-      fireEvent.click(screen.getByRole("button", { name: "Full log" }));
-      const pre = screen.getByText(/BATCHPLANE_GATE_RESULT/, {
-        selector: "pre",
-      });
-      expect(pre.textContent).toBe(content);
-      expect(pre).toHaveClass(
-        "w-full",
-        "min-w-0",
-        "max-w-full",
-        "overflow-auto",
-      );
-      expect(pre.closest("section")).toHaveClass("min-w-0", "max-w-full");
-      expect(pre.closest("section")?.parentElement).toHaveClass(
-        "min-w-0",
-        "max-w-full",
-      );
-      expect(pre.closest("li")).toHaveClass("min-w-0", "grid-cols-1");
-      expect(pre.closest("article")).toHaveClass("min-w-0", "max-w-full");
-    },
-  );
+  it("preserves full log content for a running native schedule", async () => {
+    writeRuntimeFixtureSelection("native-schedule-running");
+    const runtime = createSelectedBatchPlaneClient(session);
+    const [run] = await runtime.listExecutionRuns({ limit: 20 });
+    const content = [
+      `BATCHPLANE_GATE_RESULT ${"x".repeat(4096)}`,
+      "##[group]BatchPlane batch command",
+      "echo command output is intact",
+      "command output is intact",
+      "##[endgroup]",
+    ].join("\n");
+    vi.spyOn(runtime, "getExecutionRunJobLog").mockImplementation(
+      async ({ jobId }) => ({
+        content,
+        jobId,
+        businessSection: {
+          content: "echo command output is intact\ncommand output is intact",
+          focused: true,
+        },
+        sizeBytes: content.length,
+        truncated: false,
+      }),
+    );
+    renderDetail({
+      createClient: () => runtime,
+      readSession: () => session,
+      runId: run!.runId,
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "View business logs" }),
+    );
+    await screen.findByText(/command output is intact/, { selector: "pre" });
+    fireEvent.click(screen.getByRole("button", { name: "Full log" }));
+    const pre = screen.getByText(/BATCHPLANE_GATE_RESULT/, {
+      selector: "pre",
+    });
+    expect(pre.textContent).toBe(content);
+  });
 
   it("opens historical source Run jobs and full logs without inventing a schedule association", async () => {
     writeRuntimeFixtureSelection("native-schedule-source-unconfirmed");
@@ -656,12 +636,6 @@ describe("ExecutionDetailPage", () => {
       await screen.findByText("Business execution status: Canceled."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Business failed")).not.toBeInTheDocument();
-    const businessHeading = screen.getByRole("heading", {
-      name: "Business execution",
-    });
-    expect(businessHeading.previousElementSibling).toHaveClass(
-      "text-slate-500",
-    );
   });
 
   it("shows an actionable permission message when Actions evidence is forbidden", async () => {

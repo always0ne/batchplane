@@ -1,4 +1,3 @@
-import { AlertCircle, Inbox, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 type PageStateTone = "danger" | "neutral";
@@ -39,40 +38,5 @@ export function PageState({
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
-  );
-}
-
-export function LoadingState({ message }: { message: ReactNode }) {
-  return (
-    <PageState
-      icon={<Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />}
-      message={message}
-    />
-  );
-}
-
-export function EmptyState({
-  action,
-  message,
-}: {
-  action?: ReactNode;
-  message: ReactNode;
-}) {
-  return (
-    <PageState
-      action={action}
-      icon={<Inbox className="h-5 w-5" aria-hidden="true" />}
-      message={message}
-    />
-  );
-}
-
-export function ErrorState({ message }: { message: ReactNode }) {
-  return (
-    <PageState
-      icon={<AlertCircle className="h-5 w-5" aria-hidden="true" />}
-      message={message}
-      tone="danger"
-    />
   );
 }

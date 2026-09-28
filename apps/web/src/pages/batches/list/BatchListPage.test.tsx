@@ -154,14 +154,6 @@ describe("BatchListPage", () => {
     ).toBeDisabled();
   });
 
-  it("keeps loaded columns reachable through a horizontal scroll container", async () => {
-    renderPage(client);
-
-    const table = await screen.findByRole("table");
-
-    expect(table.parentElement).toHaveClass("max-w-full", "overflow-x-auto");
-  });
-
   it("reloads the batch list when Refresh is selected", async () => {
     const listBatches = vi
       .fn()

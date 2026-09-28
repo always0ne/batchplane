@@ -1,16 +1,12 @@
-import { ExternalLink, RefreshCw } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import { Button, ButtonLink } from "../../../../components/Button";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "../../../../components/PageState";
-import { PageHeader } from "../../../../components/PageHeader";
-import { ChangeRequestDetailContent } from "./ChangeRequestDetailContent";
-import { useChangeRequestDetail } from "./useChangeRequestDetail";
+import { EmptyState } from "../../../../components/EmptyState";
+import { ErrorState } from "../../../../components/ErrorState";
+import { LoadingState } from "../../../../components/LoadingState";
+import { ChangeRequestDetailContent } from "./components/ChangeRequestDetailContent";
+import { ChangeRequestDetailHeader } from "./components/ChangeRequestDetailHeader";
+import { useChangeRequestDetail } from "./hooks/useChangeRequestDetail";
 
 export function ChangeRequestDetailPage() {
   const { requestLocator = "" } = useParams();
@@ -64,51 +60,14 @@ export function ChangeRequestDetailPage() {
   }
 
   const detail = change.detailState.detail;
-  const pageTitle = t("registrationDetail.changeTitle", {
-    batchId: detail.batchId,
-    type: t(`values.registrationRequestTypes.${detail.mode}`),
-  });
 
   return (
     <section>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeader
-          subtitle={`${detail.sourceLabel} · ${detail.requester}`}
-          title={pageTitle}
-        />
-        <div className="flex flex-wrap justify-end gap-2">
-          <ButtonLink to="/approvals" variant="secondary">
-            {t("registrationDetail.actions.backToApprovals")}
-          </ButtonLink>
-          {detail.batchId ? (
-            <ButtonLink
-              to={`/batches/${encodeURIComponent(detail.batchId)}`}
-              variant="secondary"
-            >
-              {t("registrationDetail.actions.openBatchDetail")}
-            </ButtonLink>
-          ) : null}
-          {detail.sourceUrl ? (
-            <a
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-bp-graphite"
-              href={detail.sourceUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              {t("actions.openSourceRequest")}
-            </a>
-          ) : null}
-          <Button
-            disabled={Boolean(change.runningAction)}
-            onClick={() => void change.refresh()}
-            variant="secondary"
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            {t("actions.refresh")}
-          </Button>
-        </div>
-      </div>
+      <ChangeRequestDetailHeader
+        detail={detail}
+        onRefresh={change.refresh}
+        runningAction={change.runningAction}
+      />
       {change.actionError ? (
         <p
           className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800"

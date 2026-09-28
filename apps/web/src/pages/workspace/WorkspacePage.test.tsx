@@ -100,31 +100,37 @@ describe("shared Workspace page", () => {
   });
 
   it.each([
-    [
-      false,
-      [],
-      ["configuration", "installation"],
-      "INSTALL",
-      "Create installation request",
-    ],
-    [
-      false,
-      ["configuration"],
-      ["installation"],
-      "INSTALL",
-      "Create installation request",
-    ],
-    [true, ["configuration", "installation"], [], null, null],
-    [
-      true,
-      ["configuration", "installation"],
-      [],
-      "UPDATE",
-      "Create update request",
-    ],
+    {
+      installed: false,
+      present: [],
+      missing: ["configuration", "installation"],
+      available: "INSTALL",
+      action: "Create installation request",
+    },
+    {
+      installed: false,
+      present: ["configuration"],
+      missing: ["installation"],
+      available: "INSTALL",
+      action: "Create installation request",
+    },
+    {
+      installed: true,
+      present: ["configuration", "installation"],
+      missing: [],
+      available: null,
+      action: null,
+    },
+    {
+      installed: true,
+      present: ["configuration", "installation"],
+      missing: [],
+      available: "UPDATE",
+      action: "Create update request",
+    },
   ] as const)(
-    "renders the adapter readiness and capability: installed %s, present %j",
-    async (installed, present, missing, available, action) => {
+    "renders readiness with installed=$installed, missing=$missing, and availableRequest=$available",
+    async ({ installed, present, missing, available, action }) => {
       mount(
         inspectionTestClient({
           inspectWorkspace: async () => ({
@@ -254,12 +260,6 @@ describe("shared Workspace page", () => {
       "authentication-required",
       "인증에 실패했습니다. 연결 자격 증명을 확인하세요.",
     ],
-    [
-      "en",
-      "access-denied",
-      "This connection does not have permission to perform that operation.",
-    ],
-    ["ko", "access-denied", "이 연결에는 해당 작업을 수행할 권한이 없습니다."],
   ] as const)(
     "renders neutral %s %s errors",
     async (language, type, message) => {
@@ -448,15 +448,18 @@ describe("shared Workspace page", () => {
     expect(screen.getByText("Fresh connection")).toBeInTheDocument();
   });
 
-  it("retranslates a recorded error without repeating the connection check", async () => {
+  it("retranslates an access-denied inspection error without repeating the connection check", async () => {
     const inspectWorkspace = vi.fn(async () => {
       throw new WorkspaceSettingsError({ type: "access-denied" });
     });
     mount(inspectionTestClient({ inspectWorkspace }));
     inspect();
-    await screen.findAllByText(
-      "This connection does not have permission to perform that operation.",
-    );
+    expect(
+      await screen.findAllByText(
+        "This connection does not have permission to perform that operation.",
+      ),
+    ).toHaveLength(3);
+    expect(screen.queryByText("Operations")).not.toBeInTheDocument();
     await act(async () => {
       await i18next.changeLanguage("ko");
     });

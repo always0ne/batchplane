@@ -10,7 +10,7 @@ import type {
   ExecutionRequest,
   ExecutionRequestDraft,
 } from "@batchplane/ui-client";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../../../client/batch-plane-client-context";
@@ -56,7 +56,7 @@ describe("ExecutionRequestPage", () => {
     await i18next.changeLanguage("en");
   });
 
-  it("uses the loaded draft snapshot for preview and creation, then routes with the returned request", async () => {
+  it("previews and creates from the loaded draft, then navigates to the returned request locator", async () => {
     const previewExecutionRequest = vi.fn(async (input) => ({
       request: {
         ...createdRequest,
@@ -80,13 +80,14 @@ describe("ExecutionRequestPage", () => {
       target: { value: "Close payments after reconciliation." },
     });
     await waitFor(() => expect(previewExecutionRequest).toHaveBeenCalled());
+    expect(previewExecutionRequest).toHaveBeenLastCalledWith(
+      expect.objectContaining({ draft }),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Create execution request" }),
     );
 
-    expect(
-      await screen.findByText("Detail btr-payment-101"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Detail 101")).toBeInTheDocument();
     expect(createExecutionRequest).toHaveBeenCalledTimes(1);
   });
 
@@ -214,7 +215,8 @@ function createClient(
 }
 
 function DetailRoute() {
-  return <p>Detail btr-payment-101</p>;
+  const { requestLocator } = useParams();
+  return <p>Detail {requestLocator}</p>;
 }
 
 const createdRequest = {

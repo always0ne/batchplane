@@ -1,42 +1,45 @@
-import { describe, expect, it } from "vitest";
+import { describe, expectTypeOf, it } from "vitest";
 
-import type { ChangeRequest } from "./change-requests.js";
+import type { ChangeRequestEvidenceView } from "./change-requests.js";
 
-const requestBase = {
-  batchId: "payment.daily-close",
-  mode: "CHANGE" as const,
-  requestLocator: "42",
-  requester: "developer",
-  sourceLabel: "#42",
-  title: "Change batch payment.daily-close",
-};
+type VerifiedEvidenceIdentifier =
+  | "governedChangeId"
+  | "requestDigest"
+  | "targetRevisionDigest";
+
+type LegacyEvidence = Extract<
+  ChangeRequestEvidenceView,
+  { kind: "LEGACY_UNAPPROVABLE" }
+>;
+type ReapprovalRequiredEvidence = Extract<
+  ChangeRequestEvidenceView,
+  { kind: "REAPPROVAL_REQUIRED" }
+>;
+type UnverifiedDispositionEvidence = Extract<
+  ChangeRequestEvidenceView,
+  { kind: "UNVERIFIED_DISPOSITION" }
+>;
 
 describe("change request client contract", () => {
-  it("keeps verified evidence and its identifiers in one discriminated branch", () => {
-    const request: ChangeRequest = {
-      ...requestBase,
-      evidence: {
-        governedChangeId: "bgc-payment-close",
-        kind: "VERIFIED_V2",
-        requestDigest: "sha256:request",
-        targetRevisionDigest: "sha256:target",
-      },
-      reviewState: "OPEN",
-    };
-
-    expect(request.evidence).toMatchObject({ kind: "VERIFIED_V2" });
+  it("type-level: keeps verified evidence identifiers in the VERIFIED_V2 branch", () => {
+    expectTypeOf<
+      Extract<ChangeRequestEvidenceView, { kind: "VERIFIED_V2" }>
+    >().toMatchTypeOf<{
+      governedChangeId: string;
+      requestDigest: string;
+      targetRevisionDigest: string;
+    }>();
   });
 
-  it("does not allow an unverified request to claim verified identifiers", () => {
-    const request: ChangeRequest = {
-      ...requestBase,
-      evidence: { kind: "REAPPROVAL_REQUIRED", reason: "UNVERIFIED_REQUEST" },
-      reviewState: "REAPPROVAL_REQUIRED",
-    };
-
-    expect(request.evidence).toEqual({
-      kind: "REAPPROVAL_REQUIRED",
-      reason: "UNVERIFIED_REQUEST",
-    });
+  it("type-level: keeps verified identifiers absent from every unverified evidence branch", () => {
+    expectTypeOf<
+      Extract<keyof LegacyEvidence, VerifiedEvidenceIdentifier>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Extract<keyof ReapprovalRequiredEvidence, VerifiedEvidenceIdentifier>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Extract<keyof UnverifiedDispositionEvidence, VerifiedEvidenceIdentifier>
+    >().toEqualTypeOf<never>();
   });
 });

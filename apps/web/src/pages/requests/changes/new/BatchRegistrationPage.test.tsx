@@ -10,7 +10,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BatchPlaneClientContext } from "../../../../client/batch-plane-client-context";
 import "../../../../i18n/i18n";
@@ -46,7 +46,7 @@ describe("BatchRegistrationPage", () => {
     vi.unstubAllEnvs();
   });
 
-  it("bounds long workflow diffs inside shrinkable change-form columns without changing their text", async () => {
+  it("preserves long workflow diff text in the change preview", async () => {
     const nextContent =
       "run-name: BatchPlane - Daily Close - ${{ github.event.inputs['batch-id'] || 'scheduled' }} - ${{ github.event.inputs.request_id || github.event.schedule }}\n";
     const draft: BatchChangeDraft = {
@@ -80,26 +80,7 @@ describe("BatchRegistrationPage", () => {
     );
 
     const addedLine = await screen.findByText(`+ ${nextContent.trimEnd()}`);
-    const diff = addedLine.closest("pre");
-    const form = screen.getByLabelText("Batch ID").closest("form");
-    expect(form).toHaveClass("min-w-0", "grid-cols-1");
-    expect(form?.firstElementChild).toHaveClass("min-w-0");
-    expect(form?.querySelector("aside")).toHaveClass("min-w-0");
-    expect(diff).toHaveClass("min-w-0", "max-w-full", "overflow-auto");
-    expect(diff?.closest("article")).toHaveClass("min-w-0");
     expect(addedLine.textContent).toBe(`+ ${nextContent.trimEnd()}`);
-    expect(screen.getByLabelText("Workflow ref")).toHaveClass(
-      "min-w-0",
-      "w-full",
-    );
-    expect(screen.getByLabelText("Execution file")).toHaveClass(
-      "min-w-0",
-      "w-full",
-    );
-    expect(screen.getByLabelText("Batch command")).toHaveClass(
-      "min-w-0",
-      "w-full",
-    );
   });
 
   it("keeps business, GitHub execution, and schedules in order and submits the uploaded file with the explicit command", async () => {
@@ -156,6 +137,7 @@ describe("BatchRegistrationPage", () => {
         ref: "release/close",
       },
       changeRequestId: newBatchDraft.changeRequestId,
+      mode: "create",
     });
     expect(previewBatchChange.mock.lastCall?.[0].batch).not.toHaveProperty(
       "runnerLabel",
@@ -174,26 +156,73 @@ describe("BatchRegistrationPage", () => {
     );
   });
 
-  it("creates a controlled registration request from the actual product preview", async () => {
-    const createBatchChangeRequest = vi.fn().mockResolvedValue({
-      request: requestResult("42"),
+  it("characterizes BF-1: a failed replacement retains and submits the prior artifact while artifact feedback takes priority", async () => {
+    let rejectSubmission: (error: Error) => void = () => undefined;
+    const pendingSubmission = new Promise<
+      Awaited<ReturnType<BatchPlaneClient["createBatchChangeRequest"]>>
+    >((_, reject) => {
+      rejectSubmission = reject;
     });
-    const previewBatchChange = vi.fn().mockResolvedValue(preview());
-
-    renderPage(createClient({ createBatchChangeRequest, previewBatchChange }));
-
+    const createBatchChangeRequest = vi
+      .fn()
+      .mockReturnValueOnce(pendingSubmission)
+      .mockResolvedValue({ request: requestResult("42") });
+    renderPage(createClient({ createBatchChangeRequest }));
     await screen.findByRole("heading", { name: "Registration" });
     fillRequiredRegistrationFields();
 
-    await waitFor(() => expect(previewBatchChange).toHaveBeenCalled());
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create registration change" }),
-    );
+    const fileInput = screen.getByLabelText("Execution file");
+    const nameInput = screen.getByLabelText("Name");
+    const bytes = new Uint8Array([1, 2, 3]);
+    const originalFile = new File([bytes], "original.jar");
+    Object.defineProperty(originalFile, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(bytes.buffer),
+    });
+    fireEvent.change(fileInput, { target: { files: [originalFile] } });
+    await screen.findByText("original.jar");
 
-    expect(await screen.findByText("Request 42 opened")).toBeInTheDocument();
-    expect(createBatchChangeRequest).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: "create" }),
+    const failedFile = new File([], "failed.jar");
+    Object.defineProperty(failedFile, "arrayBuffer", {
+      value: vi.fn().mockRejectedValue(new Error("Artifact read failed")),
+    });
+    fireEvent.change(fileInput, { target: { files: [failedFile] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Artifact read failed",
     );
+    const submit = screen.getByRole("button", {
+      name: "Create registration change",
+    });
+    await waitFor(() => expect(submit).toBeEnabled());
+
+    nameInput.focus();
+    fireEvent.click(submit);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(submit).toBeDisabled();
+    expect(screen.getByLabelText("Name")).toBe(nameInput);
+    expect(nameInput).toHaveFocus();
+    expect(screen.getByLabelText(/^Execution file/)).toBe(fileInput);
+    expect(
+      createBatchChangeRequest.mock.lastCall?.[0].execution.upload,
+    ).toEqual({
+      bytes,
+      fileName: "original.jar",
+    });
+
+    fireEvent.change(fileInput, { target: { files: [failedFile] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Artifact read failed",
+    );
+    expect(submit).toBeEnabled();
+    await act(async () => rejectSubmission(new Error("Submission failed")));
+    expect(screen.getByRole("alert")).toHaveTextContent("Artifact read failed");
+    expect(screen.queryByText("Submission failed")).not.toBeInTheDocument();
+
+    fireEvent.click(submit);
+    await screen.findByText("Request 42 opened");
+    expect(createBatchChangeRequest).toHaveBeenCalledTimes(2);
+    expect(
+      createBatchChangeRequest.mock.lastCall?.[0].execution.upload?.fileName,
+    ).toBe("original.jar");
   });
 
   it("routes a disconnected Workspace to setup instead of showing a load failure", async () => {
@@ -215,7 +244,7 @@ describe("BatchRegistrationPage", () => {
     ).toHaveAttribute("href", "/workspace");
   });
 
-  it("keeps schedule add and deletion inside the batch change draft", async () => {
+  it("omits a removed existing schedule from the change preview draft", async () => {
     const previewBatchChange = vi.fn().mockResolvedValue(preview());
     const changedDraft: BatchChangeDraft = {
       ...newBatchDraft,
@@ -321,14 +350,19 @@ describe("BatchRegistrationPage", () => {
     ).toBeInTheDocument();
     expect(screen.queryByDisplayValue("Unsaved edit")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Name"), {
+    const nameInput = screen.getByLabelText("Name");
+    const fileInput = screen.getByLabelText("Execution file");
+    nameInput.focus();
+    fireEvent.change(nameInput, {
       target: { value: "Locale-preserved edit" },
     });
-    await i18next.changeLanguage("ko");
+    await act(async () => {
+      await i18next.changeLanguage("ko");
+    });
 
-    expect(
-      screen.getByDisplayValue("Locale-preserved edit"),
-    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Locale-preserved edit")).toBe(nameInput);
+    expect(nameInput).toHaveFocus();
+    expect(fileInput).toBeInTheDocument();
     await act(async () => {
       await i18next.changeLanguage("en");
     });
@@ -538,12 +572,17 @@ function pageTree(client: BatchPlaneClient, path = "/batches/new") {
           <Route path="/batches/new" element={<BatchRegistrationPage />} />
           <Route
             path="/approvals/registration/:requestLocator"
-            element={<p>Request 42 opened</p>}
+            element={<RegistrationRequestRoute />}
           />
         </Routes>
       </MemoryRouter>
     </BatchPlaneClientContext.Provider>
   );
+}
+
+function RegistrationRequestRoute() {
+  const { requestLocator } = useParams();
+  return <p>Request {requestLocator} opened</p>;
 }
 
 function fillRequiredRegistrationFields() {

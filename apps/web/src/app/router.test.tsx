@@ -5,7 +5,11 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import {
+  createMemoryRouter,
+  matchRoutes,
+  RouterProvider,
+} from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -182,17 +186,9 @@ describe("app router", () => {
     { id: "audit", path: "/audit" },
     { id: "workspace", path: "/workspace" },
     { id: "not-found", path: "/unknown" },
-  ])(
-    "renders the $id route from the shared memory route tree",
-    async ({ id, path }) => {
-      const router = renderRouter(path);
-
-      expect(await screen.findByTestId("app-logo")).toBeInTheDocument();
-      await waitFor(() => {
-        expect(router.state.matches.at(-1)?.route.id).toBe(id);
-      });
-    },
-  );
+  ])("maps $path to the $id route", ({ id, path }) => {
+    expect(matchRoutes(appRoutes, path)?.at(-1)?.route.id).toBe(id);
+  });
 
   it("redirects the index route to the dashboard", async () => {
     const router = renderRouter("/");

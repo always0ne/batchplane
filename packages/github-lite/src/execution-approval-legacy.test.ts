@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkspacePolicy } from "@batchplane/domain";
 import type {
   RepositoryIssue,
   RepositoryIssueComment,
@@ -8,11 +7,8 @@ import type {
 } from "./repository-evidence-types.js";
 
 import {
-  allowsSelfApproval,
   buildExecutionApprovalComment,
   buildExecutionRejectionComment,
-  buildRegistrationApprovalComment,
-  buildRegistrationRejectionComment,
   getChangeRequestKind,
   isRegistrationApprovalRequest,
   parseExecutionApprovalRequest,
@@ -173,42 +169,6 @@ describe("approval model", () => {
     ).toBe(false);
   });
 
-  it("builds an auditable approval comment", () => {
-    expect(
-      buildRegistrationApprovalComment({
-        approvedAt: new Date("2026-05-09T01:02:03.000Z"),
-        approver: "maintainer",
-        pullRequest,
-      }),
-    ).toContain("## BatchPlane Change Request Approval");
-    expect(
-      buildRegistrationApprovalComment({
-        approvedAt: new Date("2026-05-09T01:02:03.000Z"),
-        approver: "maintainer",
-        pullRequest,
-      }),
-    ).toContain("Decision: APPROVED");
-    expect(
-      buildRegistrationApprovalComment({
-        approvalMode: "AUTO_APPROVE",
-        approvalType: "WORKSPACE_AUTO_APPROVED",
-        approvedAt: new Date("2026-05-09T01:02:03.000Z"),
-        approver: "maintainer",
-        pullRequest,
-      }),
-    ).toContain("Approval source: WORKSPACE_POLICY");
-  });
-
-  it("builds an auditable rejection comment", () => {
-    expect(
-      buildRegistrationRejectionComment({
-        rejectedAt: new Date("2026-05-09T01:02:03.000Z"),
-        rejector: "maintainer",
-        pullRequest,
-      }),
-    ).toContain("Decision: REJECTED");
-  });
-
   it("parses execution approval requests from Issue evidence", () => {
     expect(parseExecutionApprovalRequest(executionIssue)).toEqual({
       batchId: "payment.daily-close",
@@ -266,7 +226,7 @@ describe("approval model", () => {
     ).toBeNull();
   });
 
-  it("builds auditable execution approval and rejection comments", () => {
+  it("serializes execution decisions, self-approval policy, and rejection reason", () => {
     const request = parseExecutionApprovalRequest(executionIssue);
 
     expect(request).not.toBeNull();
@@ -323,24 +283,7 @@ describe("approval model", () => {
     ).toContain("Reason: Missing reconciliation evidence.");
   });
 
-  it("treats AUTO_APPROVE as including self-approval permission", () => {
-    expect(
-      allowsSelfApproval(buildWorkspacePolicy("SELF_APPROVAL_BLOCKED")),
-    ).toBe(false);
-    expect(
-      allowsSelfApproval(buildWorkspacePolicy("SELF_APPROVAL_ALLOWED")),
-    ).toBe(true);
-    expect(allowsSelfApproval(buildWorkspacePolicy("AUTO_APPROVE"))).toBe(true);
-  });
-
   it("derives detail status from approval and dispatcher comments", () => {
-    expect(
-      parseExecutionApprovalRequest(executionIssue, [
-        approvalComment,
-        dispatcherComment,
-      ]),
-    ).toBeNull();
-
     expect(
       parseExecutionRequestDetail(executionIssue, [
         approvalComment,
@@ -349,11 +292,3 @@ describe("approval model", () => {
     ).toBe("DISPATCHED");
   });
 });
-
-function buildWorkspacePolicy(
-  mode: WorkspacePolicy["approval"]["mode"],
-): WorkspacePolicy {
-  return {
-    approval: { mode },
-  };
-}

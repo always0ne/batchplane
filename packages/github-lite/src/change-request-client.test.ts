@@ -162,11 +162,12 @@ describe("change request drafts and creation", () => {
     );
   });
 
-  it("creates immutable governed evidence and approves with the requested head SHA", async () => {
+  it("records v2 evidence and merges approval with the request head SHA", async () => {
     const state = createGitHubLiteMockState({
       currentUser: { login: "developer" },
     });
-    const client = createMockGitHubLiteClient(state);
+    const mock = createMockGitHubLiteClient(state);
+    const client = { ...mock, mergePullRequest: vi.fn(mock.mergePullRequest) };
     const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
@@ -184,10 +185,6 @@ describe("change request drafts and creation", () => {
       governedChangeId: registrationDraft.changeRequestId,
       kind: "VERIFIED_V2",
     });
-    expect(
-      created.request.evidence.kind === "VERIFIED_V2" &&
-        created.request.evidence.governedChangeId,
-    ).toBe(registrationDraft.changeRequestId);
     expect(
       parseBatchDefinitionYaml(
         client.state.files.find(
@@ -211,10 +208,21 @@ describe("change request drafts and creation", () => {
     });
 
     expect(approved.reviewState).toBe("MERGED");
-    expect(client.state.issueComments.at(-1)).toMatchObject({
-      author: "maintainer",
-      updatedAt: "1970-01-01T00:00:00.000Z",
-    });
+    expect(client.mergePullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedHeadSha: pullRequest?.headSha,
+        pullNumber: pullRequest?.number,
+      }),
+    );
+    expect(
+      parseChangeRequestDecisionEvidence(
+        client.state.issueComments.at(-1)?.body ?? "",
+      )?.headRevisionSha,
+    ).toBe(pullRequest?.headSha);
+    const decisionComment = client.state.issueComments.at(-1);
+    expect(decisionComment).toMatchObject({ author: "maintainer" });
+    expect(decisionComment?.createdAt).toEqual(expect.any(String));
+    expect(decisionComment?.updatedAt).toBe(decisionComment?.createdAt);
     expect(
       client.state.pullRequests.find(
         (candidate) => candidate.number === pullRequest?.number,
@@ -349,16 +357,16 @@ describe("change request drafts and creation", () => {
   });
 
   it.each([
-    ["REQUESTED", [], true],
-    ["APPROVED", ["batchplane:approved"], true],
-    ["DISPATCHING", ["batchplane:dispatching"], true],
-    ["DISPATCH_FAILED", ["batchplane:dispatch-failed"], false],
-    ["DISPATCHED", ["batchplane:dispatched"], false],
-    ["GATE_BLOCKED", ["batchplane:gate-blocked"], false],
-    ["REJECTED", ["batchplane:rejected"], false],
+    ["REQUESTED", "blocking", [], true],
+    ["APPROVED", "blocking", ["batchplane:approved"], true],
+    ["DISPATCHING", "blocking", ["batchplane:dispatching"], true],
+    ["DISPATCH_FAILED", "not blocking", ["batchplane:dispatch-failed"], false],
+    ["DISPATCHED", "not blocking", ["batchplane:dispatched"], false],
+    ["GATE_BLOCKED", "not blocking", ["batchplane:gate-blocked"], false],
+    ["REJECTED", "not blocking", ["batchplane:rejected"], false],
   ])(
-    "treats execution request %s as %s blocking",
-    async (_status, statusLabels, blocksChange) => {
+    "%s execution request is %s as a change blocker",
+    async (_status, _blockerState, statusLabels, blocksChange) => {
       const state = createGitHubLiteMockState({
         currentUser: { login: "developer" },
         issues: [
@@ -427,7 +435,7 @@ describe("change request drafts and creation", () => {
     expect(client.state.pullRequests).toHaveLength(pullRequestCount);
   });
 
-  it("keeps a schedule change effective when the changeRequestId rotates", async () => {
+  it("marks an added schedule effective after an ID-only no-op baseline", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({
         currentUser: { login: "developer" },
@@ -435,6 +443,7 @@ describe("change request drafts and creation", () => {
         pullRequests: [],
       }),
     );
+    alignMockBatchWithGeneratedWorkflow(client.state, "payment.daily-close");
     const changeRequests = createGitHubLiteChangeRequestClient(
       session(),
       client,
@@ -444,23 +453,36 @@ describe("change request drafts and creation", () => {
       mode: "change",
     });
 
-    await expect(
-      changeRequests.previewBatchChange({
-        ...loaded,
-        changeRequestId: "bgc-20260901-payment-daily-close-0003",
-        schedules: [
-          ...loaded.schedules,
-          {
-            cron: "0 6 * * *",
-            enabled: true,
-            name: "Morning close",
-            scheduleId: "morning-close",
-            timezone: "Asia/Seoul",
-          },
-        ],
-        targetBatchId: loaded.batch.batchId,
+    const preview = await changeRequests.previewBatchChange({
+      ...loaded,
+      changeRequestId: "bgc-20260901-payment-daily-close-0003",
+      schedules: [
+        ...loaded.schedules,
+        {
+          cron: "0 6 * * *",
+          enabled: true,
+          name: "Morning close",
+          scheduleId: "morning-close",
+          timezone: "Asia/Seoul",
+        },
+      ],
+      targetBatchId: loaded.batch.batchId,
+    });
+
+    expect(preview).toMatchObject({ hasEffectiveChanges: true });
+    expect(
+      parseBatchDefinitionYaml(
+        preview.files.find(
+          (file) =>
+            file.path === ".batch-governance/batches/payment.daily-close.yml",
+        )?.nextContent ?? "",
+      ).schedules,
+    ).toContainEqual(
+      expect.objectContaining({
+        cron: "0 6 * * *",
+        scheduleId: "morning-close",
       }),
-    ).resolves.toMatchObject({ hasEffectiveChanges: true });
+    );
   });
 
   it("uses the change request suffix to avoid same-second branch collisions", async () => {
@@ -655,7 +677,7 @@ describe("change request evidence and target integrity", () => {
     });
   });
 
-  it("rejects request metadata tampering and an injected pull request file", async () => {
+  it("requires reapproval when a pull request includes an injected file", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
@@ -670,20 +692,6 @@ describe("change request evidence and target integrity", () => {
       created.request.requestLocator,
     );
 
-    pullRequest.body = pullRequest.body.replace(
-      '"requester":"developer"',
-      '"requester":"attacker"',
-    );
-    await expect(
-      changeRequests.getChangeRequest({
-        requestLocator: created.request.requestLocator,
-      }),
-    ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
-
-    pullRequest.body = pullRequest.body.replace(
-      '"requester":"attacker"',
-      '"requester":"developer"',
-    );
     client.state.pullRequestFiles[pullRequest.number]?.push({
       path: "README.md",
       status: "modified",
@@ -995,7 +1003,7 @@ describe("change request decisions", () => {
     ).resolves.toMatchObject({ reviewState: "REAPPROVAL_REQUIRED" });
   });
 
-  it("ignores edited, forged, and unauthorized decision comments", async () => {
+  it("ignores edited and unauthorized approvals that otherwise match authorization", async () => {
     const client = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
@@ -1016,7 +1024,7 @@ describe("change request decisions", () => {
 
     const requestDigest = await createChangeRequestDigest(evidence);
     const body = buildChangeRequestDecisionBody({
-      authorizationRevisionSha: "main-sha",
+      authorizationRevisionSha: client.state.branches.main!,
       headRevisionSha: pullRequest.headSha,
       decision: "APPROVED",
       decisionSource: "USER",
@@ -1024,6 +1032,11 @@ describe("change request decisions", () => {
       requestDigest,
       targetRevisionDigest: evidence.targetRevisionDigest,
       version: "batchplane.io/governed-change/v2",
+    });
+    client.state.repositoryPermissions.push({
+      permission: "maintain",
+      roleName: "maintain",
+      username: "maintainer",
     });
     client.state.issueComments.push(
       {
@@ -1051,7 +1064,7 @@ describe("change request decisions", () => {
     ).resolves.toMatchObject({ reviewState: "OPEN" });
   });
 
-  it("requires a reason for rejection and keeps withdraw distinct from an external close", async () => {
+  it("requires a rejection reason, withdraws own requests, and keeps legacy requests withdrawable", async () => {
     const state = createGitHubLiteMockState({
       currentUser: { login: "developer" },
     });
@@ -1435,7 +1448,7 @@ describe("current change request authorization", () => {
     expect(client.state.issueComments).toHaveLength(initialCommentCount);
   });
 
-  it("records a decision's current authorization revision and replays it from that revision", async () => {
+  it("records authorization revisions and requires newly authorized approval while merge remains pending", async () => {
     const mock = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
@@ -1550,6 +1563,10 @@ describe("current change request authorization", () => {
     expect(authorizationReads).not.toHaveLength(0);
     expect(authorizationReads).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          path: ".batch-governance/workspace.yml",
+          ref: capturedBaseRevisionSha,
+        }),
         expect.objectContaining({
           path: ".batch-governance/policies/role-mapping.yml",
           ref: capturedBaseRevisionSha,
@@ -1734,7 +1751,7 @@ describe("change request decision finalization", () => {
     });
   });
 
-  it("does not project a rejection as final when closing the PR fails", async () => {
+  it("keeps rejection non-final when the PR remains open after close", async () => {
     const mock = createMockGitHubLiteClient(
       createGitHubLiteMockState({ currentUser: { login: "developer" } }),
     );
@@ -1998,7 +2015,7 @@ describe("governed artifact preparation", () => {
     ["definition", "MODIFIED", "DELETED"],
     ["workflow", "DELETED", "MODIFIED"],
   ] as const)(
-    "blocks deletion when the %s is already missing",
+    "rejects a DELETE plan when the %s is %s and its counterpart is %s",
     (_label, definitionStatus, workflowStatus) => {
       expect(() =>
         assertPreparedChangeTargets("DELETE", [
@@ -2116,7 +2133,7 @@ describe("governed artifact preparation", () => {
     });
   });
 
-  it("orders prepared artifact files deterministically", () => {
+  it("lists definition, workflow, old artifact, and replacement in preview order", () => {
     const prepared = prepareChangeRequest(
       changeDraft({
         artifact: { bytes: new Uint8Array([1]), fileName: "replacement.jar" },

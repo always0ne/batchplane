@@ -34,7 +34,7 @@ describe("execution inspection product integration", () => {
       },
     });
   });
-  it("orders audit by update time before limiting either event source window", async () => {
+  it("keeps the newest manual audit event and the current execution-list ID window", async () => {
     const state = createGitHubLiteMockState();
     const manual = {
       ...state.workflowRuns.find((run) => run.event === "workflow_dispatch")!,

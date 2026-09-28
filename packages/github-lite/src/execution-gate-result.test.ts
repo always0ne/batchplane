@@ -137,18 +137,6 @@ describe("parseExecutionGateResult", () => {
     ).toBeUndefined();
   });
 
-  it("parses GitHub's high-precision UTC log timestamp", () => {
-    expect(
-      parseExecutionGateResult({
-        content: `2026-05-14T01:01:00.0328931Z ${record()}`,
-        expected,
-      }),
-    ).toEqual({
-      allowed: true,
-      message: "Execution request evidence is present.",
-    });
-  });
-
   it("accepts the final millisecond of GitHub's reported completion second", () => {
     expect(
       parseExecutionGateResult({

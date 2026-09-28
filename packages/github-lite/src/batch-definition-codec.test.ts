@@ -8,10 +8,7 @@ import {
   parseBatchDefinitionYaml,
   serializeBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
-import {
-  buildBatchWorkflowYaml,
-  formatGeneratedScheduleCrons,
-} from "./github-workflow.js";
+import { buildBatchWorkflowYaml } from "./github-workflow.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
 const definition: GitHubBatchDefinition = {
@@ -136,22 +133,30 @@ spec:
 });
 
 describe("GitHub workflow generation", () => {
-  it("emits Gate-before-command workflow YAML and native schedule entries", () => {
+  it("generates a run job dependent on Gate verification and native schedule entries", () => {
     const workflow = buildBatchWorkflowYaml(definition);
+    const parsedWorkflow = parseDocument(workflow).toJS() as {
+      jobs: Record<string, unknown>;
+    };
 
     expect(workflow).toContain("uses: always0ne/batchplane/actions/gate@main");
     expect(workflow).toContain(
-      "if: github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''",
-    );
-    expect(workflow).toContain(
-      "ref: ${{ needs.batchplane-gate.outputs.verified_sha }}",
-    );
-    expect(workflow).toContain(
       "GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
     );
-    expect(workflow.indexOf("batchplane-gate:")).toBeLessThan(
-      workflow.indexOf("run-batch:"),
-    );
+    expect(parsedWorkflow.jobs["run-batch"]).toMatchObject({
+      if: "github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''",
+      needs: "batchplane-gate",
+      steps: expect.arrayContaining([
+        expect.objectContaining({
+          uses: "actions/checkout@v4",
+          with: { ref: "${{ needs.batchplane-gate.outputs.verified_sha }}" },
+        }),
+        expect.objectContaining({
+          name: "Run batch",
+          run: expect.stringContaining("java -jar close.jar"),
+        }),
+      ]),
+    });
     expect(workflow).toContain('- cron: "0 5 * * *"');
     expect(workflow).toContain('timezone: "Asia/Seoul"');
 
@@ -169,12 +174,6 @@ describe("GitHub workflow generation", () => {
     );
     expect(resultBlock).toContain(
       "GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
-    );
-  });
-
-  it("keeps timezone-aware schedule cron text native", () => {
-    expect(formatGeneratedScheduleCrons(definition.schedules![0]!)).toBe(
-      "0 5 * * *",
     );
   });
 
@@ -287,5 +286,20 @@ describe("GitHub workflow generation", () => {
     expect(workflow).toContain("schedule_61_2d_62:");
     expect(workflow).toContain("schedule_61_2e_62:");
     expect(workflow).toContain("schedule_61_5f_62:");
+    const jobs = parsed.toJS().jobs as Record<string, { needs?: string }>;
+    const scheduleJobKeys = ["61_2d", "61_2e", "61_5f"].map((encodedId) =>
+      Object.keys(jobs).find((jobKey) =>
+        jobKey.startsWith(`schedule_${encodedId}_`),
+      ),
+    );
+
+    expect(new Set(scheduleJobKeys).size).toBe(3);
+    expect(scheduleJobKeys).not.toContain(undefined);
+    for (const scheduleJobKey of scheduleJobKeys) {
+      expect(jobs[`run-${scheduleJobKey}`]?.needs).toBe(scheduleJobKey);
+      expect(jobs[`result-${scheduleJobKey}`]?.needs).toEqual(
+        expect.arrayContaining([scheduleJobKey, `run-${scheduleJobKey}`]),
+      );
+    }
   });
 });

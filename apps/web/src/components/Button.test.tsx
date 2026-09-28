@@ -2,7 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import { Button, ButtonLink } from "./Button";
+import { Button } from "./Button";
+import { ButtonLink } from "./ButtonLink";
 
 describe("Button", () => {
   it("defaults to a non-submitting native button", () => {

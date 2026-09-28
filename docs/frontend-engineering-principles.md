@@ -128,8 +128,8 @@ those groups under the same rule whenever another Page is actually introduced.
 
 Only actual shared business code stays at its common owner. Reuse does not
 transfer code to a global components folder: the approval inbox imports
-`pages/requests/execution/ExecutionApprovalActions.tsx`; the Batch change editor
-and change detail share `pages/requests/changes/ChangeRequestPreviewPanel.tsx`.
+`pages/requests/execution/components/ExecutionApprovalActions.tsx`; the Batch change editor
+and change detail share `pages/requests/changes/components/ChangeRequestPreviewPanel.tsx`.
 Registration, update, and deletion share the change-request area rather than
 three artificial copies of the same editor. Batch detail and its request-entry
 controls stay under `pages/batches/detail`; the approval inbox stays under
@@ -138,9 +138,12 @@ region, row and query at `pages/executions`; evidence, logs and follow-up input
 belong to `pages/executions/detail`, where those interactions are rendered.
 
 Keep page-only tests beside that Page. Existing tests covering more than one
-Page belong under `src/test`. Do not introduce empty common folders, per-page
-components/hooks/tests sublayers, barrel files or forwarding components merely
-to carry out a move. Names and source ownership should make the navigation clear.
+Page belong under `src/test`. Distinguish the route Page from its child components
+in the file structure. Use populated page-local `components` and `hooks` folders
+when they make that hierarchy easier to browse; group related regions under
+their actual owner. Each named component has its own file. Do not create empty
+folders, barrel files, forwarding components or a folder for every helper merely
+to carry out a move. Tests remain beside their implementations.
 
 This is the project's approved directory convention, not a React-prescribed
 folder layout. It retains the existing named module imports described in
@@ -614,10 +617,40 @@ using named values or pure functions, not artificial visual components. Simple
 conditional expressions and list rendering remain appropriate. Do not replace
 them with generic form, table, state, or rendering frameworks.
 
-Define extracted components at module scope. Preserve state ownership, stable
+Define each extracted component at module scope in its own file. Keeping several
+named region components in one Page or parent-component file is not sufficient
+separation for this project, even when the functions are individually short.
+This is a BatchPlane maintainability requirement, not a claim that React mandates
+one component per file. Supporting pure functions and types may remain with
+their owner; do not invent components for every heading or line of markup.
+
+Preserve state ownership, stable
 identity, keys and mount lifetime so extraction does not reset user input or
 change the interaction. Component boundaries must clarify the existing behavior,
 not introduce a new behavior or require more indirection to understand it.
+
+### Readable Conditional Markup
+
+Use a ternary when a short condition and its two values are immediately clear,
+such as `disabled ? disabledLabel : submitLabel`. Ternaries, `&&`, and `map` are
+not forbidden. The criterion is whether a maintainer can read the structure and
+meaning, not how many operators remain.
+
+Do not nest ternaries to compress several states or interleave substantial JSX
+branches. Make precedence explicit with named values and straightforward branches.
+Where states are genuinely exclusive, early returns can clarify the view; do
+not force independent notices or results into a single artificial state machine.
+
+Parent JSX must expose meaningful screen regions and their relationships.
+Move a substantial region or interaction into its own component file, keeping
+simple conditional inclusion visible in the parent. Replacing `?:` with `&&`
+or moving unreadable markup to a helper does not satisfy this requirement.
+Neither does hiding a long Page inside an equally opaque Hook or child component.
+
+Review the Page, child files, and state owner together. A reader should be able
+to identify the screen hierarchy, each component's responsibility, and why a
+region appears without reconstructing scattered or nested conditions. Include
+this minimum bar in delegated work and review instructions.
 
 ## Common Component Contract
 
@@ -691,7 +724,7 @@ through a second state change.
 Custom Hooks make concrete stateful flows readable. Placement follows ownership:
 
 ```text
-page-only         pages/batches/list/useBatchList.ts
+page-only         pages/batches/list/hooks/useBatchList.ts
 component-owned   beside the component that uses it
 generic browser   shared/hooks (only for actual reusable browser behavior)
 pure calculation  ordinary function without a use prefix
@@ -794,6 +827,32 @@ Tests assert observable states and public contracts:
 Do not create production exports only to test implementation details. Prefer
 realistic component tests for behavior and direct tests for complex pure
 reducers or policy-free presentation functions.
+
+Tests are executable specifications, not a count to maximize. A reader should
+understand the condition, action, and observable expected result from the suite
+title and test body. Make a valid baseline explicit, vary the relevant condition,
+identify the target being changed, and wait for the relevant async work before
+asserting absence. A mock that returns a fixed success value does not establish
+that the right request was sent or the right destination was reached.
+
+Prefer correcting an existing case over adding a parallel test for the same
+contract. Keep related assertions together; do not split every field or assertion
+into a new test. Remove confirmed overlap only when its unique protection has
+another clear owner. Add a case only for a meaningful contract that the existing
+cases do not cover. Neither growth nor reduction in test count is an acceptance
+criterion. Avoid new testing frameworks and synthetic failure scenarios without
+a reachable path or an explicit contract.
+
+Describe the evidence honestly: type assertions require the TypeScript check;
+runtime object comparisons do not prove a forbidden type combination. DOM class
+checks do not prove layout. Tests preserving a known defect during refactoring
+must say they characterize current behavior, not define the desired requirement.
+Use the installed libraries' APIs, including Testing Library's async queries and
+React's `act`, rather than arbitrary delays or custom lifecycle wrappers.
+
+References: [Testing Library async methods](https://testing-library.com/docs/dom-testing-library/api-async/),
+[React act](https://react.dev/reference/react/act),
+[Vitest 1 type testing](https://v1.vitest.dev/guide/testing-types).
 
 ## UI And UX Definition Of Done
 

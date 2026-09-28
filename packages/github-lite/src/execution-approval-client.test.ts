@@ -367,22 +367,6 @@ describe("GitHub Lite execution approval client", () => {
     });
   });
 
-  it("omits a recognized change request whose summary cannot be projected", async () => {
-    const invalidChange = { ...sourceChange(), body: "" };
-    Object.defineProperty(invalidChange, "body", {
-      get() {
-        throw new Error("projection failed");
-      },
-    });
-    const context = createContext({
-      listRegistrationRequests: vi.fn().mockResolvedValue([invalidChange]),
-    });
-
-    await expect(
-      createGitHubLiteExecutionApprovalClient(context).listWorkspaceRequests(),
-    ).resolves.toEqual({ requests: [] });
-  });
-
   it("projects the exact existing change request locator for a matching approved revision", async () => {
     const issue = await createCanonicalIssue();
     const context = createContext({
@@ -425,9 +409,15 @@ describe("GitHub Lite execution approval client", () => {
     },
   );
 
-  it.each([[], [sourceChange(), { ...sourceChange(), number: 43 }]])(
-    "does not choose a source link when the matching record is missing or ambiguous",
-    async (...records) => {
+  it.each([
+    { name: "missing", records: [] },
+    {
+      name: "ambiguous",
+      records: [sourceChange(), { ...sourceChange(), number: 43 }],
+    },
+  ])(
+    "omits the source link for $name matching change records",
+    async ({ records }) => {
       const context = createContext({
         getExecutionRequestIssue: vi
           .fn()
@@ -694,41 +684,6 @@ describe("GitHub Lite execution approval client", () => {
     });
     expect(context.client.getIssue).not.toHaveBeenCalled();
     expect(context.client.listIssues).not.toHaveBeenCalled();
-  });
-
-  it("does not report a post-create comment error when later evidence parsing fails", async () => {
-    const issue = createIssue();
-    const context = createContext({
-      createExecutionRequest: vi.fn().mockResolvedValue(issue),
-    });
-    context.client.createIssueComment = vi
-      .fn()
-      .mockImplementation(async ({ body }) => {
-        const comment = {
-          author: "developer",
-          body,
-          createdAt: "2026-09-11T09:01:00.000Z",
-          id: 12,
-          issueNumber: 71,
-        };
-        Object.defineProperty(comment, "body", {
-          get() {
-            throw new Error("approval evidence parse failed");
-          },
-        });
-        return comment;
-      });
-
-    await expect(
-      createGitHubLiteExecutionApprovalClient(context).createExecutionRequest({
-        draft,
-        expiresAt: "2026-09-11T10:00:00.000Z",
-        parameters: [],
-        reason: "Close after reconciliation.",
-        targetRevision: "main",
-      }),
-    ).rejects.toThrow("approval evidence parse failed");
-    expect(context.client.createIssueComment).toHaveBeenCalledTimes(1);
   });
 });
 

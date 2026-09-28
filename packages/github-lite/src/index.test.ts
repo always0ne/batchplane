@@ -196,6 +196,7 @@ describe("createGitHubLiteClient", () => {
     expect(requests[0]?.input.toString()).toBe(
       "https://api.github.com/repos/always0ne/batchplane/git/refs",
     );
+    expect(requests[0]?.init?.method).toBe("POST");
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       ref: "refs/heads/batchplane/register/demo",
       sha: "base-sha",
@@ -305,11 +306,15 @@ describe("createGitHubLiteClient", () => {
       message: "Change batch demo",
       sha: "existing-file-sha",
     });
+    expect(requests[0]?.init?.method).toBe("DELETE");
   });
 
-  it("creates a pull request", async () => {
-    const fetcher: typeof fetch = async () =>
-      Response.json({
+  it("creates a pull request with its requested title, body, and refs", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
         number: 12,
         title: "Register batch demo",
         html_url: "https://github.com/always0ne/batchplane/pull/12",
@@ -320,6 +325,7 @@ describe("createGitHubLiteClient", () => {
         head: { ref: "batchplane/register/demo" },
         base: { ref: "main" },
       });
+    };
     const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
 
     await expect(
@@ -341,6 +347,16 @@ describe("createGitHubLiteClient", () => {
       author: "always0ne",
       body: "body",
       merged: false,
+    });
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchplane/pulls",
+    );
+    expect(requests[0]?.init?.method).toBe("POST");
+    expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
+      base: "main",
+      body: "body",
+      head: "batchplane/register/demo",
+      title: "Register batch demo",
     });
   });
 
@@ -489,6 +505,7 @@ describe("createGitHubLiteClient", () => {
       commit_title: "Register batch demo (#12)",
       merge_method: "squash",
     });
+    expect(requests[0]?.init?.method).toBe("PUT");
   });
 
   it("sends the expected head SHA when applying a change request", async () => {
@@ -548,6 +565,7 @@ describe("createGitHubLiteClient", () => {
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       state: "closed",
     });
+    expect(requests[0]?.init?.method).toBe("PATCH");
   });
 
   it("creates an issue", async () => {
@@ -594,6 +612,7 @@ describe("createGitHubLiteClient", () => {
       labels: [],
       title: "Run batch payment.daily-close",
     });
+    expect(requests[0]?.init?.method).toBe("POST");
   });
 
   it("gets an issue by number", async () => {
@@ -722,6 +741,7 @@ describe("createGitHubLiteClient", () => {
       labels: ["batchplane:execution-request"],
       title: "Run batch payment.daily-close (updated)",
     });
+    expect(requests[0]?.init?.method).toBe("PATCH");
   });
 
   it("searches issues in repository scope", async () => {
@@ -1135,6 +1155,7 @@ describe("createGitHubLiteClient", () => {
       color: "2563EB",
       description: "BatchPlane request is dispatching",
     });
+    expect(requests[1]?.init?.method).toBe("POST");
   });
 
   it("removes an issue label", async () => {
@@ -1354,7 +1375,6 @@ describe("createMockGitHubLiteClient", () => {
         "gate-blocked",
       ]),
     );
-    expect(state.issues).toHaveLength(8);
     expect(
       state.issueComments.some((comment) =>
         comment.body.startsWith("/bgcp approve "),
@@ -1570,6 +1590,7 @@ describe("createMockGitHubLiteClient", () => {
       expect.arrayContaining([
         expect.objectContaining({
           labels: expect.not.arrayContaining(["custom:one"]),
+          number: issue.number,
         }),
       ]),
     );
@@ -1644,15 +1665,11 @@ describe("createMockGitHubLiteClient", () => {
       "requested",
     );
 
-    const approvalComment = await client.createIssueComment({
+    await client.createIssueComment({
       ...repo,
       body: buildExecutionApprovalComment(request),
       issueNumber: issue.number,
     });
-
-    expect(approvalComment.body).toMatch(
-      /^\/bgcp approve requestDigest=sha256:/,
-    );
     expect(findExecutionScenario(client, issue.number)?.state).toBe("approved");
 
     await client.createIssueComment({

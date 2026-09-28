@@ -9,3 +9,5 @@ coverage/
 *.log
 .idea/
 *.tsbuildinfo
+/graphify-out/
+/.codex/hooks.json

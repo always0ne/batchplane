@@ -96,7 +96,7 @@ describe("schedule request Action", () => {
     vi.unstubAllGlobals();
   });
 
-  it("ships a self-contained Node24 bundle without cron conversion", () => {
+  it("does not retain an external cron-parser import in the bundle", () => {
     const dist = readFileSync(
       new URL("../dist/index.js", import.meta.url),
       "utf8",

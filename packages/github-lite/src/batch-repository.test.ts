@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { GitHubLiteClient } from "./github-types.js";
 
-import {
-  batchDefinitionDirectory,
-  isBatchDefinitionFile,
-  loadBatchDefinitions,
-} from "./batch-repository.js";
+import { loadBatchDefinitions } from "./batch-repository.js";
 
 describe("batch repository", () => {
   it("loads governed batch definitions from GitHub contents", async () => {
@@ -30,6 +26,12 @@ describe("batch repository", () => {
             path: ".batch-governance/batches/README.md",
             sha: "c",
             type: "file",
+          },
+          {
+            name: "archived.yml",
+            path: ".batch-governance/batches/archived.yml",
+            sha: "d",
+            type: "dir",
           },
         ];
       },
@@ -93,30 +95,11 @@ describe("batch repository", () => {
       }),
     ).resolves.toEqual([]);
   });
-
-  it("detects YAML files under the governed directory", () => {
-    expect(
-      isBatchDefinitionFile({
-        name: "payment.yml",
-        path: `${batchDefinitionDirectory}/payment.yml`,
-        sha: "sha",
-        type: "file",
-      }),
-    ).toBe(true);
-    expect(
-      isBatchDefinitionFile({
-        name: "archive",
-        path: `${batchDefinitionDirectory}/archive`,
-        sha: "sha",
-        type: "dir",
-      }),
-    ).toBe(false);
-  });
 });
 import { createGitHubLiteClient } from "./github-client.js";
 const session = { owner: "always0ne", repo: "batch" };
 describe("GitHub batch directory transport", () => {
-  it("loads batch definitions through encoded GitHub contents endpoints", async () => {
+  it("loads base64 GitHub Contents responses through the repository adapter", async () => {
     const fetcher: typeof fetch = async (input) => {
       const url = input.toString();
 

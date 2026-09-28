@@ -66,14 +66,71 @@ describe("ChangeRequestDetailPage", () => {
     });
   });
 
-  it("uses internal actions for approval and withdrawal states", async () => {
+  it("preserves the rejection input through a failed command and clears it only after success", async () => {
+    const rejectChangeRequest = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Decision failed"))
+      .mockResolvedValue({ ...detail(), reviewState: "REJECTED" });
+    renderPage(createClient({ rejectChangeRequest }));
+
+    const reasonInput = await screen.findByLabelText("Rejection reason");
+    fireEvent.change(reasonInput, {
+      target: { value: "Missing operating evidence" },
+    });
+    reasonInput.focus();
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Decision failed",
+    );
+    expect(screen.getByLabelText("Rejection reason")).toBe(reasonInput);
+    expect(reasonInput).toHaveValue("Missing operating evidence");
+    expect(reasonInput).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    await waitFor(() => expect(reasonInput).toHaveValue(""));
+    expect(screen.getByLabelText("Rejection reason")).toBe(reasonInput);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(rejectChangeRequest).toHaveBeenLastCalledWith({
+      reason: "Missing operating evidence",
+      requestLocator: "42",
+    });
+  });
+
+  it("dispatches withdrawal without approving or rejecting the request", async () => {
+    const approveChangeRequest = vi.fn();
+    const rejectChangeRequest = vi.fn();
+    const withdrawChangeRequest = vi.fn().mockResolvedValue({
+      ...detail(),
+      canApprove: false,
+      canReject: false,
+      canWithdraw: false,
+      reviewState: "WITHDRAWN",
+    });
+    renderPage(
+      createClient({
+        approveChangeRequest,
+        rejectChangeRequest,
+        withdrawChangeRequest,
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Withdraw request" }),
+    );
+    await screen.findByText("Withdrawn");
+    expect(withdrawChangeRequest).toHaveBeenCalledTimes(1);
+    expect(withdrawChangeRequest).toHaveBeenCalledWith({
+      requestLocator: "42",
+    });
+    expect(approveChangeRequest).not.toHaveBeenCalled();
+    expect(rejectChangeRequest).not.toHaveBeenCalled();
+  });
+
+  it("sends approval for request 42 through the product client", async () => {
     const approveChangeRequest = vi
       .fn()
       .mockResolvedValue({ ...detail(), reviewState: "MERGED" });
-    const withdrawChangeRequest = vi
-      .fn()
-      .mockResolvedValue({ ...detail(), reviewState: "WITHDRAWN" });
-    renderPage(createClient({ approveChangeRequest, withdrawChangeRequest }));
+    renderPage(createClient({ approveChangeRequest }));
 
     await screen.findByRole("button", { name: "Approve and apply change" });
     fireEvent.click(
@@ -263,15 +320,14 @@ describe("ChangeRequestDetailPage", () => {
       }),
     ).toBeInTheDocument();
 
-    firstRequest.resolve(detail());
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("heading", {
-          name: "Change request: payment.daily-close-43",
-        }),
-      ).toBeInTheDocument();
+    await act(async () => {
+      firstRequest.resolve(detail());
     });
+    expect(
+      screen.getByRole("heading", {
+        name: "Change request: payment.daily-close-43",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("ignores a stale action result after navigating to another request", async () => {
@@ -297,18 +353,17 @@ describe("ChangeRequestDetailPage", () => {
       screen.getByRole("button", { name: "Approve and apply change" }),
     ).not.toBeDisabled();
 
-    approval.resolve({ ...detail(), reviewState: "MERGED" });
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("heading", {
-          name: "Change request: payment.daily-close-43",
-        }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Approve and apply change" }),
-      ).not.toBeDisabled();
+    await act(async () => {
+      approval.resolve({ ...detail(), reviewState: "MERGED" });
     });
+    expect(
+      screen.getByRole("heading", {
+        name: "Change request: payment.daily-close-43",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Approve and apply change" }),
+    ).not.toBeDisabled();
   });
 });
 

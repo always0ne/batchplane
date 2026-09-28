@@ -4,9 +4,9 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import { inspectionTestClient } from "../../test/inspection-client";
-import type { WorkspaceInspectionState } from "./useWorkspaceInspection";
-import { useWorkspaceInstallation } from "./useWorkspaceInstallation";
-import { useWorkspacePolicy } from "./useWorkspacePolicy";
+import type { WorkspaceInspectionState } from "./hooks/useWorkspaceInspection";
+import { useWorkspaceInstallation } from "./hooks/useWorkspaceInstallation";
+import { useWorkspacePolicy } from "./hooks/useWorkspacePolicy";
 
 const inspection: WorkspaceInspection = {
   connection: {
@@ -33,7 +33,7 @@ const unverifiedInspections: WorkspaceInspectionState[] = [
 
 describe("Workspace command guards", () => {
   it.each(unverifiedInspections)(
-    "does not call product commands for a %s inspection",
+    "does not call product commands for a $type inspection",
     async (inspectionState) => {
       const requestWorkspaceInstallation = vi.fn();
       const requestWorkspacePolicyChange = vi.fn();
@@ -55,8 +55,8 @@ describe("Workspace command guards", () => {
       );
 
       await act(async () => {
-        await result.current.installation.request("install");
-        await result.current.policy.request();
+        await result.current.installation.createRequest("install");
+        await result.current.policy.createRequest();
       });
 
       expect(requestWorkspaceInstallation).not.toHaveBeenCalled();
@@ -91,8 +91,8 @@ describe("Workspace command guards", () => {
 
     rerender({ inspectionState: { type: "idle", revision: 2 } });
     await act(async () => {
-      await result.current.installation.request("install");
-      await result.current.policy.request();
+      await result.current.installation.createRequest("install");
+      await result.current.policy.createRequest();
     });
 
     expect(requestWorkspaceInstallation).not.toHaveBeenCalled();

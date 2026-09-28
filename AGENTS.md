@@ -127,6 +127,11 @@ file is the enforcement checklist.
   parsing, policy, and rendering in one function.
 - Extract page-local components when they name a meaningful visual region,
   isolate interaction or state, improve readability, or deserve focused tests.
+- Make the Page-to-child-component hierarchy visible in both composition and
+  files. Each named component belongs in its own file under its actual owner;
+  moving several component functions into the same Page or region file does
+  not meet this project's separation requirement. Use populated page-local
+  `components` and `hooks` folders where they clarify the hierarchy.
 - Reuse is not a prerequisite for extraction. A Page should reveal the screen's
   composition, and each component should reveal its named responsibility.
   Do not retain tangled JSX just to avoid another component, or split trivial
@@ -161,11 +166,31 @@ file is the enforcement checklist.
 - Do not mechanically create one file per function or type. Closely related
   operations may stay together. Any retained oversized unit needs a concrete
   readability reason in the review, not a new generic framework to hide it.
+- Use ternaries for short, immediately readable choices, not to compress
+  multi-state precedence or nested markup. JSX must reveal the screen's regions
+  and hierarchy without mentally executing long conditional branches. Extract
+  meaningful child components into their own files; simple conditional display
+  and list rendering remain valid. Replacing `?:` with `&&`, or hiding the same
+  tangled markup in helpers, is not a readability fix.
+- Component-file separation is not one-file-per-helper fragmentation. Do not
+  invent title/button wrappers, empty layers, or generic rendering frameworks.
+  Worker instructions and source review must check both file ownership and JSX
+  readability; passing tests alone cannot establish acceptance.
 - Co-locate unit, Hook, and component tests with their implementation. Put
   cross-page integration and browser end-to-end tests in dedicated test areas.
 - Test observable behavior and public client contracts, not incidental internal
   calls. Preserve loading, error, empty, disconnected, success, disabled,
   localization, and navigation states as applicable.
+- Treat tests as executable specifications: the title and body must make the
+  condition, action, and observable expected result clear. The title must not
+  claim a guarantee that the setup and assertions do not actually establish.
+- Write only necessary tests. Repair or extend an existing coherent case before
+  adding another; keep related assertions together. Remove proven overlap only
+  after identifying where its unique contract remains protected. Test counts,
+  deletion quotas, and one assertion per test are not quality targets.
+- Await the relevant async result before negative assertions, identify the
+  actual target, and isolate the condition being tested. Distinguish type checks,
+  current-behavior characterization, DOM checks, and real browser validation.
 - Every UI change must be checked against `docs/lite-ui-ux-baseline.md` and the
   open UI/UX baseline issue #119 while that review remains active.
 
@@ -194,3 +219,21 @@ file is the enforcement checklist.
   an observed problem and explicit approval.
 - Refactor in complete, reviewable vertical slices. Preserve behavior unless a
   separately identified defect or approved product change is in scope.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+When the user types `$graphify` in Codex, use the installed graphify skill or instructions before doing anything else.
+
+Use the graph for quick navigation, then confirm findings in the relevant source.
+Missing graph relationships are not evidence of a defect. All approval, scope,
+and no-overengineering instructions above still apply.
+
+Rules:
+
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

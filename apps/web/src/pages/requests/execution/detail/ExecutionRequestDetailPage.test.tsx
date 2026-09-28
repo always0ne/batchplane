@@ -13,7 +13,7 @@ describe("ExecutionRequestDetailPage", () => {
     await i18next.changeLanguage("en");
   });
 
-  it("renders product-projected request detail and navigates to the correlated run", async () => {
+  it("renders request detail and a link to its correlated run", async () => {
     renderDetail(createClient());
 
     expect(
@@ -62,7 +62,7 @@ describe("ExecutionRequestDetailPage", () => {
     },
   );
 
-  it("keeps a post-create recovery notice identity-bound to the returned request", async () => {
+  it("shows the post-create recovery notice when its request identity matches", async () => {
     renderDetail(createClient(), {
       createdExecutionRequest: request(),
       executionRequestPostCreateError: {
@@ -108,7 +108,7 @@ describe("ExecutionRequestDetailPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the product-projected self-approval notice without deriving policy", async () => {
+  it("renders the projected SELF_APPROVAL_ALLOWED notice", async () => {
     renderDetail(
       createClient({
         getExecutionRequest: async () =>
@@ -265,7 +265,7 @@ describe("ExecutionRequestDetailPage", () => {
     },
   );
 
-  it("links a uniquely resolved approved source change at its registration request locator", async () => {
+  it("links the adapter-projected source change to registration request 42", async () => {
     renderDetail(
       createClient({
         getExecutionRequest: async () =>

@@ -1,24 +1,19 @@
-import { ChevronLeft, ExternalLink, RefreshCw } from "lucide-react";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useBatchPlaneClient } from "../../../client/batch-plane-client-context";
 import { formatInspectionError } from "../../../client/inspection-errors";
-import { PageHeader } from "../../../components/PageHeader";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "../../../components/PageState";
-import { FailureFollowUpPanel } from "./FailureFollowUpPanel";
-import {
-  BusinessOutcomePanel,
-  GateOutcomePanel,
-  ExecutionSummaryPanel,
-} from "./ExecutionEvidencePanels";
-import { JobSummaryPanel } from "./ExecutionJobLogs";
-import { useExecutionDetail } from "./useExecutionDetail";
-import { useFailureFollowUpActions } from "./useFailureFollowUpActions";
+import { ExecutionDetailHeader } from "./components/ExecutionDetailHeader";
+import { EmptyState } from "../../../components/EmptyState";
+import { ErrorState } from "../../../components/ErrorState";
+import { LoadingState } from "../../../components/LoadingState";
+import { FailureFollowUpPanel } from "./components/FailureFollowUpPanel";
+import { BusinessOutcomePanel } from "./components/BusinessOutcomePanel";
+import { GateOutcomePanel } from "./components/GateOutcomePanel";
+import { ExecutionSummaryPanel } from "./components/ExecutionSummaryPanel";
+import { JobSummaryPanel } from "./components/JobSummaryPanel";
+import { useExecutionDetail } from "./hooks/useExecutionDetail";
+import { useFailureFollowUpActions } from "./hooks/useFailureFollowUpActions";
 
 export function ExecutionDetailPage() {
   const { executionId = "" } = useParams();
@@ -91,68 +86,14 @@ export function ExecutionDetailPage() {
   }
 
   const { run } = state;
-  const source = searchParams.get("from");
-  const backLink =
-    source === "failures"
-      ? {
-          label: t("runDetail.actions.backToFailures"),
-          to: "/executions/failures",
-        }
-      : source === "runs"
-        ? {
-            label: t("runDetail.actions.backToExecutions"),
-            to: "/executions",
-          }
-        : null;
 
   return (
     <section>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeader
-          title={t(
-            run.evidenceScope === "SOURCE_RUN"
-              ? "runDetail.sourceRunTitle"
-              : "runDetail.title",
-          )}
-          subtitle={t("runDetail.subtitle", { executionId: run.runId })}
-        />
-        <div className="flex flex-wrap gap-2">
-          {backLink ? (
-            <Link
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-              to={backLink.to}
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-              {backLink.label}
-            </Link>
-          ) : null}
-          <button
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-            onClick={refresh}
-            type="button"
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            {t("runDetail.actions.refresh")}
-          </button>
-          <Link
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-            to={`/batches/${encodeURIComponent(run.batchId)}`}
-          >
-            {t("runDetail.actions.openBatch")}
-          </Link>
-          {run.sourceUrl ? (
-            <a
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-bp-graphite"
-              href={run.sourceUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              {t("runDetail.actions.openGitHubRun")}
-            </a>
-          ) : null}
-        </div>
-      </div>
+      <ExecutionDetailHeader
+        run={run}
+        source={searchParams.get("from")}
+        onRefresh={refresh}
+      />
 
       {state.refreshError ? (
         <ErrorState

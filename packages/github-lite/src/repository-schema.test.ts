@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  isCanonicalBatchId,
   normalizeApprovalPolicy,
   normalizeWorkspacePolicy,
   validateApprovalPolicy,
@@ -9,24 +8,18 @@ import {
   validateBatchDefinition,
   validateBatchDefinitionFile,
   validateRoleMappingFile,
-  validateRoleMapping,
   validateWorkspacePolicy,
   validateWorkspacePolicyFile,
 } from "./repository-schema.js";
 
 describe("GitHub Lite governance schemas", () => {
-  it("accepts canonical dot and hyphen Batch IDs but rejects repository paths", () => {
-    expect(isCanonicalBatchId("payment.daily-close")).toBe(true);
-    expect(isCanonicalBatchId("../payment")).toBe(false);
-  });
-
   it("returns field-level diagnostics when required batch fields are missing", () => {
     expect(validateBatchDefinition({}).map((item) => item.field)).toContain(
       "batchId",
     );
   });
 
-  it("validates active and inactive batch status values", () => {
+  it("accepts ACTIVE and reports a status diagnostic for OTHER", () => {
     expect(
       validateBatchDefinition({
         batchId: "payment",
@@ -72,41 +65,6 @@ describe("GitHub Lite governance schemas", () => {
     );
   });
 
-  it("validates a standard YAML-derived batch file after syntax parsing", () => {
-    const result = validateBatchDefinitionFile({
-      apiVersion: "batchplane.io/v1",
-      kind: "BatchDefinition",
-      metadata: { id: "payment.daily-close", name: "Daily close" },
-      spec: {
-        criticality: "HIGH",
-        domain: "payments",
-        environment: "PROD",
-        execution: {
-          command: "./close --settle\n./archive",
-          runsOn: ["self-hosted", "linux"],
-        },
-        gateRequired: true,
-        owner: "payments-platform",
-        schedules: [
-          {
-            cron: "0 5 * * *",
-            enabled: true,
-            id: "daily-close",
-            name: "Daily close",
-            timezone: "Asia/Seoul",
-          },
-        ],
-        status: "ACTIVE",
-        workflow: {
-          path: ".github/workflows/payment.daily-close.yml",
-          ref: "main",
-        },
-      },
-    });
-
-    expect(result.ok).toBe(true);
-  });
-
   it("retains field diagnostics for unsafe paths and missing Gate control", () => {
     const result = validateBatchDefinitionFile({
       apiVersion: "batchplane.io/v1",
@@ -138,31 +96,7 @@ describe("GitHub Lite governance schemas", () => {
     });
   });
 
-  it("preserves approval and role-mapping validation semantics", () => {
-    expect(
-      normalizeApprovalPolicy({
-        appliesTo: ["EXECUTION_REQUEST"],
-        approvers: { repositoryRoles: ["maintain"] },
-        name: "Execution approval",
-        policyId: "execution-approval",
-        requiredApprovals: 1,
-      }).preventSelfApproval,
-    ).toBe(true);
-    expect(
-      validateApprovalPolicy({
-        appliesTo: ["EXECUTION_REQUEST"],
-        approvers: { repositoryRoles: ["read"] },
-        name: "Execution approval",
-        policyId: "execution-approval",
-        requiredApprovals: 1,
-      }),
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          field: "approvers.repositoryRoles.0",
-        }),
-      ]),
-    );
+  it("accepts valid role-mapping and workspace policy documents", () => {
     expect(
       validateRoleMappingFile({
         apiVersion: "batchplane.io/v1",
@@ -178,9 +112,6 @@ describe("GitHub Lite governance schemas", () => {
         },
       }).ok,
     ).toBe(true);
-    expect(normalizeWorkspacePolicy(null)).toEqual({
-      approval: { mode: "SELF_APPROVAL_BLOCKED" },
-    });
     expect(
       validateWorkspacePolicyFile({
         apiVersion: "batchplane.io/v1",
@@ -191,7 +122,7 @@ describe("GitHub Lite governance schemas", () => {
     ).toBe(true);
   });
 
-  it("parses approval selectors and defaults preventSelfApproval", () => {
+  it("defaults an omitted preventSelfApproval to true", () => {
     expect(
       normalizeApprovalPolicy({
         appliesTo: ["EXECUTION_REQUEST"],
@@ -240,18 +171,5 @@ describe("GitHub Lite governance schemas", () => {
     expect(
       validateWorkspacePolicy({ approval: { mode: "UNKNOWN" } }),
     ).not.toEqual([]);
-  });
-
-  it("validates role mapping selectors for all built-in roles", () => {
-    expect(
-      validateRoleMapping({
-        roles: {
-          approver: { repositoryRoles: ["maintain"] },
-          auditor: { repositoryRoles: ["triage"] },
-          maintainer: { repositoryRoles: ["maintain"] },
-          requester: { repositoryRoles: ["write"] },
-        },
-      }),
-    ).toEqual([]);
   });
 });

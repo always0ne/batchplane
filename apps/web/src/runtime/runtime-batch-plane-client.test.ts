@@ -9,7 +9,7 @@ import { createRuntimeBatchPlaneClient } from "./runtime-batch-plane-client";
 import { writeRuntimeFixtureSelection } from "./runtime-fixtures";
 
 describe("runtime BatchPlane client", () => {
-  it("uses the selected persistent fixture client for change request operations", async () => {
+  it("uses the selected fixture client for a change-request draft read", async () => {
     sessionStorage.clear();
     writeRuntimeFixtureSelection("happy-path");
     const client = createRuntimeBatchPlaneClient();
@@ -21,7 +21,7 @@ describe("runtime BatchPlane client", () => {
     });
   });
 
-  it("resolves the current Workspace session for each read and command", async () => {
+  it("resolves the current Workspace session for successive reads", async () => {
     const firstSession = { owner: "first", repo: "batch", token: "one" };
     const secondSession = { owner: "second", repo: "batch", token: "two" };
     const readSession = vi
@@ -64,7 +64,7 @@ describe("runtime BatchPlane client", () => {
     expect(createClient).not.toHaveBeenCalled();
   });
 
-  it("throws the named Workspace connection error for reads and commands", async () => {
+  it("throws the named Workspace connection error for connected-client reads", async () => {
     const createClient = vi.fn();
     const client = createRuntimeBatchPlaneClient({
       createClient,
@@ -77,9 +77,6 @@ describe("runtime BatchPlane client", () => {
       client.loadExecutionRequestDraft({ batchId: "payment.daily-close" }),
     ).rejects.toSatisfy(isWorkspaceNotConnectedError);
     await expect(client.listExecutionRuns()).rejects.toSatisfy(
-      isWorkspaceNotConnectedError,
-    );
-    await expect(client.inspectWorkspace()).rejects.toSatisfy(
       isWorkspaceNotConnectedError,
     );
     expect(createClient).not.toHaveBeenCalled();

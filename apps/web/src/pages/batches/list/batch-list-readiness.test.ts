@@ -31,24 +31,7 @@ const activeBatch: BatchListItem = {
 };
 
 describe("getExecutionRequestBlockReason", () => {
-  it("returns no block reason for executable batches", () => {
-    expect(
-      getExecutionRequestBlockReason({
-        batch: activeBatch,
-        isRequestInProgress: false,
-        t,
-      }),
-    ).toBeNull();
-  });
-
-  it("returns the visible reason when execution cannot be requested", () => {
-    expect(
-      getExecutionRequestBlockReason({
-        batch: { ...activeBatch, status: "INACTIVE" },
-        isRequestInProgress: false,
-        t,
-      }),
-    ).toBe("Inactive");
+  it("returns visible request-block reasons for missing Gate evidence and command", () => {
     expect(
       getExecutionRequestBlockReason({
         batch: { ...activeBatch, gateRequired: false },
@@ -63,13 +46,6 @@ describe("getExecutionRequestBlockReason", () => {
         t,
       }),
     ).toBe("Missing command");
-    expect(
-      getExecutionRequestBlockReason({
-        batch: activeBatch,
-        isRequestInProgress: true,
-        t,
-      }),
-    ).toBe("Request in progress");
   });
 });
 

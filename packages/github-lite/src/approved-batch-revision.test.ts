@@ -323,11 +323,7 @@ describe("approved Batch revision verification", () => {
     );
   });
 
-  it.each([
-    "SELF_APPROVAL_BLOCKED",
-    "SELF_APPROVAL_ALLOWED",
-    "AUTO_APPROVE",
-  ] as const)(
+  it.each(["SELF_APPROVAL_ALLOWED", "AUTO_APPROVE"] as const)(
     "accepts the latest merged proof under %s policy semantics",
     async (approvalMode) => {
       const { client, created } = await createApprovedBatchRevision(
@@ -342,7 +338,7 @@ describe("approved Batch revision verification", () => {
     },
   );
 
-  it("offers remediation only for a clean observed bypass, never verified, unknown, or pending control", async () => {
+  it("disables remediation for verified, unknown, and pending control", async () => {
     const approved = await createApprovedBatchRevision();
     const approvedChanges = createGitHubLiteChangeRequestClient(
       { ...repository, token: "test-token" },

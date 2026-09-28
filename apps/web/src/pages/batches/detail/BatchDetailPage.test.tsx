@@ -5,7 +5,13 @@ import {
   type CreateChangeRequestResult,
 } from "@batchplane/ui-client";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../../client/batch-plane-client-context";
@@ -169,7 +175,7 @@ describe("BatchDetailPage", () => {
     );
   });
 
-  it("blocks bypassed manual execution and navigates only after an explicit remediation request", async () => {
+  it("blocks bypassed manual execution and opens the returned remediation request", async () => {
     const requestBatchRemediation = vi.fn(async () =>
       changeRequestResult("121"),
     );
@@ -334,7 +340,7 @@ describe("BatchDetailPage", () => {
     });
   });
 
-  it("routes a normal change request from the detail actions", async () => {
+  it("links the normal change action to the batch change form", async () => {
     renderDetail(createClient(activeDetail));
     expect(
       await screen.findByRole("link", { name: "Request change" }),
@@ -451,7 +457,7 @@ function renderDetail(client: BatchPlaneClient) {
           <Route path="/batches/:batchId" element={<BatchDetailPage />} />
           <Route
             path="/approvals/registration/:requestLocator"
-            element={<p>Change request 121</p>}
+            element={<ChangeRequestRoute />}
           />
           <Route path="/batches/new" element={<Location />} />
         </Routes>
@@ -484,4 +490,9 @@ function changeRequestResult(
 function Location() {
   const { pathname, search } = useLocation();
   return <p>{`${pathname}${search}`}</p>;
+}
+
+function ChangeRequestRoute() {
+  const { requestLocator } = useParams();
+  return <p>Change request {requestLocator}</p>;
 }

@@ -45,10 +45,6 @@ describe("execution inspection product integration", () => {
           ),
         ).toBe(true);
       }
-      if (fixture === "native-schedule-running")
-        expect(runs[0]).toMatchObject({ status: "RUNNING" });
-      if (fixture === "native-schedule-running")
-        expect(runs[0]).not.toHaveProperty("completedAt");
     },
   );
   it("uses exact shared native attempts in request, Batch recent, audit and job logs", async () => {

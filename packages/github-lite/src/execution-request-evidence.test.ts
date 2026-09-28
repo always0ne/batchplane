@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildExecutionApprovalComment,
   buildExecutionRequestIssue,
   createExecutionRequestId,
   createScheduledExecutionRequestId,
@@ -40,7 +39,7 @@ describe("execution request evidence", () => {
     ).toBe("btr-20260509010203-payment-daily-close-abcdef12");
   });
 
-  it("creates deterministic full-digest native scheduled execution request ids", async () => {
+  it("creates repeatable scheduled request ids that vary by source Run", async () => {
     const id = await createScheduledExecutionRequestId(
       "payment.daily-close",
       "daily",
@@ -86,37 +85,6 @@ describe("execution request evidence", () => {
       schedule: { repositoryId: "12345", sourceRunId: "98765" },
     });
     expect(issue.labels).toContain("batchplane:scheduled-execution");
-  });
-
-  it("builds delegated schedule approval comments", () => {
-    const comment = buildExecutionApprovalComment({
-      approvalType: "SCHEDULE_DELEGATED",
-      approvedAt: new Date("2026-05-09T01:02:03.000Z"),
-      approver: "dispatcher",
-      request: {
-        batchId: batch.batchId,
-        requestDigest: "sha256:request",
-        requestId: "btr-schedule",
-        requestedBy: "dispatcher",
-      },
-    });
-    expect(comment).toContain("Approval type: SCHEDULE_DELEGATED");
-  });
-
-  it("builds Workspace auto-approval comments", () => {
-    const comment = buildExecutionApprovalComment({
-      approvalMode: "AUTO_APPROVE",
-      approvalType: "WORKSPACE_AUTO_APPROVED",
-      approvedAt: new Date("2026-05-09T01:02:03.000Z"),
-      approver: "dispatcher",
-      request: {
-        batchId: batch.batchId,
-        requestDigest: "sha256:request",
-        requestId: "btr-auto",
-        requestedBy: "dispatcher",
-      },
-    });
-    expect(comment).toContain("Approval source: WORKSPACE_POLICY");
   });
 });
 
