@@ -184,6 +184,7 @@ describe("approval model", () => {
         "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
       requestedAt: "2026-05-09T01:02:03.000Z",
       requestedBy: "developer",
+      requesterIdentityVerified: true,
       requestId: "btr-20260509010203-payment.daily-close-abcdef12",
       triggerType: "MANUAL",
       status: "REQUESTED",
@@ -253,7 +254,7 @@ describe("approval model", () => {
       buildExecutionApprovalComment({
         approvedAt: new Date("2026-05-09T03:02:03.000Z"),
         approvalMode: "SELF_APPROVAL_ALLOWED",
-        approver: request.requestedBy,
+        approver: request.requestedBy.toUpperCase(),
         request,
       }),
     ).toContain("Self approval: ALLOWED_BY_WORKSPACE_POLICY");

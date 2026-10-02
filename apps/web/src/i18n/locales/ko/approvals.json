@@ -65,6 +65,7 @@
     "gateRequired": "배치 명령 전 필수",
     "selfApprovalAllowed": "Workspace 정책({{mode}})에 따라 자가승인이 허용됩니다. 이 승인도 자가승인 증적으로 기록됩니다.",
     "selfApprovalBlocked": "요청자와 승인자는 서로 다른 사용자여야 합니다.",
+    "requesterIdentityUnverified": "이 요청의 요청자 신원을 확인할 수 없습니다.",
     "unknown": "알 수 없음",
     "registrationRequestTypes": {
       "REGISTER": "등록",

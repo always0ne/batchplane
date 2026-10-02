@@ -372,6 +372,17 @@ Manual request payload:
 
 The request digest is computed over the canonical JSON payload.
 
+Manual preview and creation use the authenticated GitHub user's login, not the
+draft's `requestedBy`. Before approval writes, dispatcher workflow dispatch, and
+manual Gate authorization (including Workspace auto-approval), both the displayed
+`Requested by` and canonical `spec.requestedBy` must match the actual Issue
+author's `user.login`. Missing or mismatched identities fail closed; existing
+requests remain inspectable with an unavailable approval capability. Login
+comparisons, including self-approval checks, are case-insensitive without rewriting
+the payload or changing digest input. Only an actual native `schedule` event uses
+the existing occurrence authorization; a payload's `SCHEDULE` claim cannot bypass
+manual requester verification.
+
 The approval UI reads the canonical payload to show the approver what will run.
 The execution context in the payload is therefore part of the approval evidence,
 not merely display metadata.

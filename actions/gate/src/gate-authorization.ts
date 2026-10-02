@@ -1,5 +1,6 @@
 import {
   createGitHubLiteClient,
+  hasAuthoritativeExecutionRequester,
   verifyApprovedBatchRevision,
 } from "@batchplane/github-lite";
 import { validateBatchPolicyEvidence } from "./gate-batch-policy.js";
@@ -201,6 +202,20 @@ function verifyRequestEvidence(
     return deny(
       "REQUEST_NOT_REQUESTED",
       `Execution request status is ${request.status}.`,
+    );
+  }
+
+  if (
+    input.eventName !== "schedule" &&
+    !hasAuthoritativeExecutionRequester({
+      author: evidence.issueAuthor ?? "",
+      requestedBy: request.requestedBy,
+      canonicalRequestedBy: request.canonicalRequestedBy,
+    })
+  ) {
+    return deny(
+      "REQUESTER_IDENTITY_UNVERIFIED",
+      "The execution request requester identity could not be verified.",
     );
   }
 

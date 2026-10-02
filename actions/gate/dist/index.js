@@ -8458,6 +8458,14 @@ function isDigestEnvelope(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payload" in value);
 }
 
+// ../../packages/github-lite/dist/execution-request-evidence.js
+function isSameGitHubLogin(left, right) {
+  return Boolean(left.trim() && right.trim()) && left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+function hasAuthoritativeExecutionRequester({ author, requestedBy, canonicalRequestedBy }) {
+  return typeof canonicalRequestedBy === "string" && isSameGitHubLogin(author, requestedBy) && isSameGitHubLogin(author, canonicalRequestedBy);
+}
+
 // ../../packages/github-lite/dist/batch-definition-codec.js
 function getBatchDefinitionPath(batchId) {
   return `.batch-governance/batches/${assertCanonicalBatchId(batchId)}.yml`;
@@ -9696,6 +9704,7 @@ async function findGitHubApprovalEvidence({
   ) ?? null : null;
   return {
     approval,
+    issueAuthor: issue.author,
     issueBody: issue.body,
     issueNumber: issue.number,
     request
@@ -9710,7 +9719,10 @@ function parseExecutionRequestEvidence(issueBody) {
   const payload = parseCanonicalPayload(issueBody);
   const approvedBatchRevision = readApprovedBatchRevision(payload);
   const workflow = readWorkflowTarget(payload);
-  const requestedBy = readMarkdownField(issueBody, "Requested by").replace(/^@/, "") || readRequestedBy(payload);
+  const requestedBy = readMarkdownField(issueBody, "Requested by").replace(
+    /^@/,
+    ""
+  );
   const scheduleId = readScheduleId(payload);
   const schedule = readNativeScheduleOccurrence(payload);
   const triggerType = readTriggerType(payload);
@@ -9720,6 +9732,7 @@ function parseExecutionRequestEvidence(issueBody) {
   return {
     approvedBatchRevision,
     batchId,
+    canonicalRequestedBy: readRequestedBy(payload),
     ...scheduleId ? { scheduleId } : {},
     ...schedule ? { schedule } : {},
     requestedBy,
@@ -10069,7 +10082,11 @@ function createGateGitHubClient({
         { allowNotFound: true }
       );
       if (!issue || issue.pull_request) return null;
-      return { body: issue.body ?? "", number: issue.number };
+      return {
+        author: issue.user?.login ?? "",
+        body: issue.body ?? "",
+        number: issue.number
+      };
     },
     async findExecutionRequestIssue(requestId) {
       for (let page = 1; page <= 5; page += 1) {
@@ -10088,6 +10105,7 @@ function createGateGitHubClient({
         });
         if (issue) {
           return {
+            author: issue.user?.login ?? "",
             body: issue.body ?? "",
             number: issue.number
           };
@@ -10313,14 +10331,14 @@ async function verifyManualAuthorization({
       "Workspace auto-approval evidence requires AUTO_APPROVE policy mode."
     );
   }
-  if (approval.approver === request.requestedBy && !allowsSelfApproval(workspaceApprovalMode)) {
+  if (isSameGitHubLogin(approval.approver, request.requestedBy) && !allowsSelfApproval(workspaceApprovalMode)) {
     return deny3(
       "SELF_APPROVAL_NOT_ALLOWED",
       "Requester and approver must be different users."
     );
   }
   const approverAuthorized = await verifyApproverAuthorization({
-    allowMissingRoleMapping: approval.approver === request.requestedBy && allowsSelfApproval(workspaceApprovalMode),
+    allowMissingRoleMapping: isSameGitHubLogin(approval.approver, request.requestedBy) && allowsSelfApproval(workspaceApprovalMode),
     approver: approval.approver,
     client,
     configPath: input.configPath,
@@ -10659,6 +10677,16 @@ function verifyRequestEvidence(input, evidence) {
     return deny5(
       "REQUEST_NOT_REQUESTED",
       `Execution request status is ${request.status}.`
+    );
+  }
+  if (input.eventName !== "schedule" && !hasAuthoritativeExecutionRequester({
+    author: evidence.issueAuthor ?? "",
+    requestedBy: request.requestedBy,
+    canonicalRequestedBy: request.canonicalRequestedBy
+  })) {
+    return deny5(
+      "REQUESTER_IDENTITY_UNVERIFIED",
+      "The execution request requester identity could not be verified."
     );
   }
   if (input.eventName !== "schedule" && input.approvalSource !== "issue") {

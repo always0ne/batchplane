@@ -28,6 +28,7 @@ type DispatcherGitHubClientOptions = {
 
 type GitHubIssueResponse = {
   body: string | null;
+  user?: { login?: string } | null;
   labels?: Array<string | { name?: string }>;
 };
 
@@ -130,6 +131,7 @@ export function createDispatcherGitHubClient({
       );
 
       return {
+        author: issue?.user?.login ?? "",
         body: issue?.body ?? "",
         labels: (issue?.labels ?? [])
           .map((label) => (typeof label === "string" ? label : label.name))

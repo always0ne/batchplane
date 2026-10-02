@@ -1,4 +1,7 @@
-import { parseRepositoryYaml } from "@batchplane/github-lite";
+import {
+  isSameGitHubLogin,
+  parseRepositoryYaml,
+} from "@batchplane/github-lite";
 import { parseApproverSelectorFromRoleMappingFile } from "./gate-evidence.js";
 import type { GateGitHubClient } from "./gate-github-client.js";
 import {
@@ -96,7 +99,7 @@ export async function verifyManualAuthorization({
   }
 
   if (
-    approval.approver === request.requestedBy &&
+    isSameGitHubLogin(approval.approver, request.requestedBy) &&
     !allowsSelfApproval(workspaceApprovalMode)
   ) {
     return deny(
@@ -107,7 +110,7 @@ export async function verifyManualAuthorization({
 
   const approverAuthorized = await verifyApproverAuthorization({
     allowMissingRoleMapping:
-      approval.approver === request.requestedBy &&
+      isSameGitHubLogin(approval.approver, request.requestedBy) &&
       allowsSelfApproval(workspaceApprovalMode),
     approver: approval.approver,
     client,

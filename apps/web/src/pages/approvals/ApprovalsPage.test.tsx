@@ -6,18 +6,22 @@ import {
 } from "@batchplane/ui-client";
 import { createMockGitHubLiteClient } from "@batchplane/github-lite";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";
 import { createGitHubLiteBatchPlaneClient } from "@batchplane/github-lite";
 import { createRuntimeBatchPlaneClient } from "../../runtime/runtime-batch-plane-client";
 import { createRuntimeFixtureMockState } from "../../runtime/runtime-fixtures";
 import "../../i18n/i18n";
+import { i18next } from "../../i18n/i18n";
 import { ApprovalsPage } from "./ApprovalsPage";
 
 const session = { owner: "always0ne", repo: "batch", token: "fixture-token" };
 
 describe("ApprovalsPage", () => {
+  beforeEach(async () => {
+    await i18next.changeLanguage("en");
+  });
   it.each([false, undefined])(
     "does not infer Gate evidence from an execution target when gateRequired is %s",
     async (gateRequired) => {
@@ -130,26 +134,52 @@ describe("ApprovalsPage", () => {
     expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
   });
 
-  it("disables approval but leaves rejection enabled for NOT_AWAITING_APPROVAL", async () => {
-    const inventory = approvalInventory();
-    const request = inventory.requests[0];
-    if (!request || request.kind !== "EXECUTION") {
-      throw new Error("Expected an execution approval request fixture.");
-    }
-    request.request.capability = {
-      approveUnavailableReason: "NOT_AWAITING_APPROVAL",
-      canApprove: false,
-      canReject: true,
-    };
-    renderPage({
-      listApprovalRequests: async () => inventory,
-    } as unknown as BatchPlaneClient);
+  it.each([
+    { language: "en", reason: "NOT_AWAITING_APPROVAL", tooltip: undefined },
+    {
+      language: "en",
+      reason: "REQUESTER_IDENTITY_UNVERIFIED",
+      tooltip: "The request's requester identity could not be verified.",
+    },
+    {
+      language: "ko",
+      reason: "REQUESTER_IDENTITY_UNVERIFIED",
+      tooltip: "이 요청의 요청자 신원을 확인할 수 없습니다.",
+    },
+  ] as const)(
+    "disables approval but leaves rejection enabled for $reason in $language",
+    async ({ language, reason, tooltip }) => {
+      await i18next.changeLanguage(language);
+      const inventory = approvalInventory();
+      const request = inventory.requests[0];
+      if (!request || request.kind !== "EXECUTION") {
+        throw new Error("Expected an execution approval request fixture.");
+      }
+      request.request.capability = {
+        approveUnavailableReason: reason,
+        canApprove: false,
+        canReject: true,
+      };
+      renderPage({
+        listApprovalRequests: async () => inventory,
+      } as unknown as BatchPlaneClient);
 
-    expect(
-      await screen.findByRole("button", { name: "Approve execution" }),
-    ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
-  });
+      expect(
+        await screen.findByRole("button", {
+          name: language === "en" ? "Approve execution" : "실행 승인",
+        }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole("button", {
+          name: language === "en" ? "Reject" : "반려",
+        }),
+      ).toBeEnabled();
+      if (tooltip) {
+        expect(screen.getByTitle(tooltip)).toBeDisabled();
+        expect(screen.getByText(tooltip)).toBeInTheDocument();
+      }
+    },
+  );
 
   it("removes a resolved request immediately from the authoritative command result", async () => {
     const inventory = approvalInventory();

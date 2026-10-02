@@ -3,6 +3,7 @@ import type { GateIssueComment, GateRepositoryRef } from "./gate-types.js";
 
 type GitHubIssueResponse = {
   body: string | null;
+  user?: { login?: string } | null;
   number: number;
   pull_request?: unknown;
 };
@@ -88,7 +89,11 @@ export function createGateGitHubClient({
         { allowNotFound: true },
       );
       if (!issue || issue.pull_request) return null;
-      return { body: issue.body ?? "", number: issue.number };
+      return {
+        author: issue.user?.login ?? "",
+        body: issue.body ?? "",
+        number: issue.number,
+      };
     },
 
     async findExecutionRequestIssue(requestId: string) {
@@ -113,6 +118,7 @@ export function createGateGitHubClient({
 
         if (issue) {
           return {
+            author: issue.user?.login ?? "",
             body: issue.body ?? "",
             number: issue.number,
           };
