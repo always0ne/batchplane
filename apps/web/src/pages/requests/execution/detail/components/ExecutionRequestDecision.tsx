@@ -76,6 +76,9 @@ function approvalUnavailableReason(
   capability: ExecutionRequestCapability,
   t: (key: string) => string,
 ): string {
+  if (capability.approveUnavailableReason === "REQUESTER_IDENTITY_UNVERIFIED") {
+    return t("detail.values.requesterIdentityUnverified");
+  }
   return capability.approveUnavailableReason === "SELF_APPROVAL_BLOCKED"
     ? t("detail.values.selfApprovalBlocked")
     : "";

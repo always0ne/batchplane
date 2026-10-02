@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildExecutionRequestIssue } from "@batchplane/github-lite";
 
 import {
   dispatchApprovedExecutionRequest,
@@ -64,6 +65,7 @@ describe("dispatcher verification", () => {
   it("builds a dispatch plan from matching approved evidence", () => {
     expect(
       verifyDispatcherEvidence({
+        issueAuthor: "Developer",
         approvalCommentBody,
         issueBody,
         now: new Date("2026-05-09T01:30:03.000Z"),
@@ -94,6 +96,7 @@ describe("dispatcher verification", () => {
           targetRevisionDigest: sharedTargetRevisionDigest,
         },
         batchId: "payment.daily-close",
+        canonicalRequestedBy: "developer",
         expiresAt: "2026-05-09T02:02:03.000Z",
         requestDigest,
         requestedAt: "2026-05-09T01:02:03.000Z",
@@ -109,6 +112,7 @@ describe("dispatcher verification", () => {
   it("rejects mismatched digest evidence", () => {
     expect(
       verifyDispatcherEvidence({
+        issueAuthor: "Developer",
         approvalCommentBody: approvalCommentBody.replaceAll(
           requestDigest,
           "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
@@ -125,6 +129,7 @@ describe("dispatcher verification", () => {
   it("rejects non-approved decisions", () => {
     expect(
       verifyDispatcherEvidence({
+        issueAuthor: "Developer",
         approvalCommentBody: approvalCommentBody.replace(
           "decision=APPROVED",
           "decision=REJECTED",
@@ -141,6 +146,7 @@ describe("dispatcher verification", () => {
   it("rejects expired requests", () => {
     expect(
       verifyDispatcherEvidence({
+        issueAuthor: "Developer",
         approvalCommentBody,
         issueBody,
         now: new Date("2026-05-09T02:02:03.000Z"),
@@ -165,7 +171,7 @@ describe("dispatcher verification", () => {
       requests.push({ body, input: url, method });
 
       if (url.endsWith("/issues/34")) {
-        return Response.json({ body: issueBody });
+        return Response.json({ body: issueBody, user: { login: "Developer" } });
       }
 
       if (url.endsWith("/issues/comments/99")) {
@@ -251,6 +257,75 @@ describe("dispatcher verification", () => {
     );
   });
 
+  it("does not dispatch matching forged request and approval digests or requests without actual author evidence", async () => {
+    const forged = await buildExecutionRequestIssue({
+      approvedBatchRevision: {
+        governedChangeId: sharedChangeRequestId,
+        targetRevisionDigest: sharedTargetRevisionDigest,
+      },
+      batch: {
+        batchId: "payment.daily-close",
+        name: "Daily Close",
+        owner: "ops",
+        domain: "payments",
+        environment: "PROD",
+        criticality: "HIGH",
+        gateRequired: true,
+        status: "ACTIVE",
+        workflow: { path: ".github/workflows/daily-close.yml", ref: "main" },
+      },
+      requestId,
+      requestedBy: "developer",
+      requestedAt: new Date("2026-05-09T01:02:03.000Z"),
+      expiresAt: new Date("2026-05-09T02:02:03.000Z"),
+    });
+    const matchingApproval = buildExecutionApprovalCommentBody({
+      requestDigest: forged.request.requestDigest,
+    });
+    for (const user of [{ login: "actual-attacker" }, undefined]) {
+      const requests: Array<{ url: string; method: string }> = [];
+      const fetcher = (async (input, init) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        requests.push({ url, method });
+        if (url.endsWith("/issues/34"))
+          return Response.json({ body: forged.body, user });
+        if (url.endsWith("/issues/comments/99"))
+          return Response.json({ body: matchingApproval });
+        if (method === "GET" && url.includes("/issues/34/comments?"))
+          return Response.json([]);
+        if (method === "POST" && url.endsWith("/issues/34/comments"))
+          return Response.json({ id: 100 });
+        throw new Error(`Unexpected request: ${method} ${url}`);
+      }) as typeof fetch;
+      await expect(
+        dispatchApprovedExecutionRequest({
+          apiBaseUrl: "https://api.github.test",
+          commentId: 99,
+          issueNumber: 34,
+          githubToken: "test-token",
+          owner: "always0ne",
+          repo: "batch",
+          fetcher,
+          now: new Date("2026-05-09T01:30:03.000Z"),
+          verifyBatchRevision: verifyApprovedBatchRevision,
+        }),
+      ).resolves.toMatchObject({
+        status: "failed",
+        reasonCode: "REQUESTER_IDENTITY_UNVERIFIED",
+      });
+      expect(requests.some(({ url }) => url.endsWith("/dispatches"))).toBe(
+        false,
+      );
+      expect(requests.filter(({ method }) => method === "POST")).toEqual([
+        {
+          url: "https://api.github.test/repos/always0ne/batch/issues/34/comments",
+          method: "POST",
+        },
+      ]);
+    }
+  });
+
   it("ignores markerless approval-looking comments without recording dispatch failure", async () => {
     const requests: Array<{
       body?: unknown;
@@ -265,7 +340,7 @@ describe("dispatcher verification", () => {
       requests.push({ body, input: url, method });
 
       if (url.endsWith("/issues/34")) {
-        return Response.json({ body: issueBody });
+        return Response.json({ body: issueBody, user: { login: "Developer" } });
       }
 
       if (url.endsWith("/issues/comments/99")) {
@@ -324,7 +399,11 @@ describe("dispatcher verification", () => {
       requests.push({ body, input: url, method });
 
       if (url.endsWith("/issues/34")) {
-        return Response.json({ body: issueBody, labels: [] });
+        return Response.json({
+          body: issueBody,
+          labels: [],
+          user: { login: "Developer" },
+        });
       }
 
       if (url.endsWith("/issues/comments/99")) {
@@ -374,7 +453,11 @@ describe("dispatcher verification", () => {
       requests.push({ body, input: url, method });
 
       if (url.endsWith("/issues/34")) {
-        return Response.json({ body: issueBody, labels: [] });
+        return Response.json({
+          body: issueBody,
+          labels: [],
+          user: { login: "Developer" },
+        });
       }
 
       if (url.endsWith("/issues/comments/99")) {
@@ -536,6 +619,7 @@ describe("dispatcher verification", () => {
         return Response.json({
           body: issueBody,
           labels: ["batchplane:dispatch-failed"],
+          user: { login: "Developer" },
         });
       }
 
@@ -644,7 +728,11 @@ describe("dispatcher verification", () => {
       requests.push({ body, input: url, method });
 
       if (url.endsWith("/issues/34")) {
-        return Response.json({ body: issueBody, labels: [] });
+        return Response.json({
+          body: issueBody,
+          labels: [],
+          user: { login: "Developer" },
+        });
       }
 
       if (url.endsWith("/issues/comments/99")) {

@@ -1,3 +1,4 @@
+import { hasAuthoritativeExecutionRequester } from "@batchplane/github-lite";
 import type {
   DispatcherDispatchPlan,
   DispatcherStatusEvidence,
@@ -17,6 +18,7 @@ export function isActionableApprovalComment(commentBody: string): boolean {
 
 export function verifyDispatcherEvidence({
   approvalCommentBody,
+  issueAuthor,
   issueBody,
   now = new Date(),
 }: DispatcherVerificationInput): DispatcherVerificationResult {
@@ -43,6 +45,21 @@ export function verifyDispatcherEvidence({
       ok: false,
       message: "Native schedule occurrences are not dispatcher commands.",
       reasonCode: "SCHEDULE_DISPATCH_NOT_ALLOWED",
+    };
+  }
+
+  if (
+    !hasAuthoritativeExecutionRequester({
+      author: issueAuthor,
+      requestedBy: request.requestedBy,
+      canonicalRequestedBy: request.canonicalRequestedBy,
+    })
+  ) {
+    return {
+      ok: false,
+      message:
+        "The execution request requester identity could not be verified.",
+      reasonCode: "REQUESTER_IDENTITY_UNVERIFIED",
     };
   }
 
@@ -149,6 +166,7 @@ export function parseExecutionRequestEvidence(
   return {
     approvedBatchRevision,
     batchId,
+    canonicalRequestedBy: readRequestedBy(payload),
     expiresAt: readMarkdownField(issueBody, "Expires at"),
     requestDigest,
     requestedAt: readMarkdownField(issueBody, "Requested at"),
@@ -428,6 +446,14 @@ function readTriggerType(payload: unknown): string {
   if (!spec || typeof spec !== "object") return "";
   const triggerType = (spec as { triggerType?: unknown }).triggerType;
   return typeof triggerType === "string" ? triggerType : "";
+}
+
+function readRequestedBy(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const spec = (payload as { spec?: unknown }).spec;
+  if (!spec || typeof spec !== "object") return "";
+  const requestedBy = (spec as { requestedBy?: unknown }).requestedBy;
+  return typeof requestedBy === "string" ? requestedBy : "";
 }
 
 function readMarkdownField(body: string, label: string): string {

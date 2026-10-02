@@ -8,6 +8,12 @@ export function approvalDisabledReason(
   t: (key: string) => string,
 ) {
   if (request.capability.canApprove) return "";
+  if (
+    request.capability.approveUnavailableReason ===
+    "REQUESTER_IDENTITY_UNVERIFIED"
+  ) {
+    return t("values.requesterIdentityUnverified");
+  }
   if (request.capability.approveUnavailableReason === "SELF_APPROVAL_BLOCKED") {
     return t("values.selfApprovalBlocked");
   }

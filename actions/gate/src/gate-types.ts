@@ -57,6 +57,7 @@ export type ApprovalCommand = {
 };
 
 export type GateEvidence = {
+  issueAuthor?: string;
   issueBody?: string;
   issueNumber?: number;
   request: ExecutionRequestEvidence | null;
@@ -69,6 +70,7 @@ export type ExecutionRequestEvidence = {
     targetRevisionDigest: string;
   };
   batchId: string;
+  canonicalRequestedBy: string;
   requestedBy: string;
   requestDigest: string;
   requestId: string;

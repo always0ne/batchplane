@@ -100,6 +100,29 @@ export type BuildExecutionApprovalCommentParams = {
   >;
 };
 
+export function isSameGitHubLogin(left: string, right: string): boolean {
+  return (
+    Boolean(left.trim() && right.trim()) &&
+    left.trim().toLowerCase() === right.trim().toLowerCase()
+  );
+}
+
+export function hasAuthoritativeExecutionRequester({
+  author,
+  requestedBy,
+  canonicalRequestedBy,
+}: {
+  author: string;
+  requestedBy: string;
+  canonicalRequestedBy: unknown;
+}): boolean {
+  return (
+    typeof canonicalRequestedBy === "string" &&
+    isSameGitHubLogin(author, requestedBy) &&
+    isSameGitHubLogin(author, canonicalRequestedBy)
+  );
+}
+
 export async function buildExecutionRequestIssue({
   approvedBatchRevision,
   batch,
@@ -247,7 +270,7 @@ export function buildExecutionApprovalComment({
   approver,
   request,
 }: BuildExecutionApprovalCommentParams): string {
-  const selfApproval = approver === request.requestedBy;
+  const selfApproval = isSameGitHubLogin(approver, request.requestedBy);
   const scheduleDelegated = approvalType === "SCHEDULE_DELEGATED";
   const workspaceAutoApproved = approvalType === "WORKSPACE_AUTO_APPROVED";
   return [

@@ -54,6 +54,7 @@ export async function findGitHubApprovalEvidence({
 
   return {
     approval,
+    issueAuthor: issue.author,
     issueBody: issue.body,
     issueNumber: issue.number,
     request,
@@ -75,9 +76,10 @@ export function parseExecutionRequestEvidence(
   const payload = parseCanonicalPayload(issueBody);
   const approvedBatchRevision = readApprovedBatchRevision(payload);
   const workflow = readWorkflowTarget(payload);
-  const requestedBy =
-    readMarkdownField(issueBody, "Requested by").replace(/^@/, "") ||
-    readRequestedBy(payload);
+  const requestedBy = readMarkdownField(issueBody, "Requested by").replace(
+    /^@/,
+    "",
+  );
   const scheduleId = readScheduleId(payload);
   const schedule = readNativeScheduleOccurrence(payload);
   const triggerType = readTriggerType(payload);
@@ -95,6 +97,7 @@ export function parseExecutionRequestEvidence(
   return {
     approvedBatchRevision,
     batchId,
+    canonicalRequestedBy: readRequestedBy(payload),
     ...(scheduleId ? { scheduleId } : {}),
     ...(schedule ? { schedule } : {}),
     requestedBy,

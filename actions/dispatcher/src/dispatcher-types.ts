@@ -8,6 +8,7 @@ export type ExecutionRequestEvidence = {
     targetRevisionDigest: string;
   };
   batchId: string;
+  canonicalRequestedBy: string;
   expiresAt: string;
   requestDigest: string;
   requestedAt: string;
@@ -38,6 +39,7 @@ export type DispatcherStatusEvidence = {
 
 export type DispatcherVerificationInput = {
   approvalCommentBody: string;
+  issueAuthor: string;
   issueBody: string;
   now?: Date;
 };
@@ -96,6 +98,7 @@ export type DispatcherVerificationResult =
         | "REQUEST_FIELD_MISMATCH"
         | "REQUEST_NOT_FOUND"
         | "REQUEST_NOT_REQUESTED"
+        | "REQUESTER_IDENTITY_UNVERIFIED"
         | "SCHEDULE_DISPATCH_NOT_ALLOWED"
         | "WORKFLOW_NOT_FOUND";
     };

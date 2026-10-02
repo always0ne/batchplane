@@ -183,6 +183,79 @@ describe("Gate action runtime", () => {
     });
   });
 
+  it("denies forged, missing or divergent parsed requester identity before manual and auto-approval, including a manual event with a schedule payload", async () => {
+    const native = await createNativeScheduleEvidence();
+    const manual = await buildExecutionRequestIssue({
+      approvedBatchRevision: {
+        governedChangeId: sharedChangeRequestId,
+        targetRevisionDigest: sharedTargetRevisionDigest,
+      },
+      batch: native.batch,
+      requestId,
+      requestedAt: new Date("2026-05-13T01:02:03.000Z"),
+      expiresAt: new Date("2026-05-13T02:02:03.000Z"),
+      requestedBy: "developer",
+    });
+    for (const source of [
+      {
+        body: manual.body,
+        digest: manual.request.requestDigest,
+        id: requestId,
+        authors: ["actual-attacker", ""],
+      },
+      {
+        body: native.issueBody,
+        digest: native.input(fetch).requestDigest,
+        id: native.input(fetch).requestId,
+        authors: ["actual-attacker", ""],
+      },
+      {
+        body: `quoted - Requested by: @other\n${manual.body}`,
+        digest: manual.request.requestDigest,
+        id: requestId,
+        authors: ["developer"],
+      },
+    ]) {
+      for (const issueAuthor of source.authors) {
+        for (const approvalType of [
+          undefined,
+          "WORKSPACE_AUTO_APPROVED",
+        ] as const) {
+          const verifyRevision = vi.fn(verifyApprovedRevision);
+          const approval = buildApprovalComment({
+            approvalType,
+            commandDigest: source.digest,
+            markerDigest: source.digest,
+          });
+          approval.body = approval.body.replaceAll(requestId, source.id);
+          await expect(
+            verifyLiteAuthorization(
+              {
+                ...authorizedGateInput(),
+                eventName: "workflow_dispatch",
+                requestId: source.id,
+                approvalRef: source.id,
+                requestDigest: source.digest,
+                fetcher: createGateFetchMock({
+                  issueAuthor,
+                  requestIssueBody: source.body,
+                  comments: [approval],
+                  includeWorkspacePolicy: true,
+                  workspaceApprovalMode: "AUTO_APPROVE",
+                }),
+              },
+              verifyRevision,
+            ),
+          ).resolves.toMatchObject({
+            result: "DENY",
+            reasonCode: "REQUESTER_IDENTITY_UNVERIFIED",
+          });
+          expect(verifyRevision).not.toHaveBeenCalled();
+        }
+      }
+    }
+  });
+
   it("denies an otherwise authorized run when the workflow source SHA is missing", async () => {
     const verifyBatchRevision = vi.fn(verifyApprovedRevision);
     const input = authorizedGateInput({ workflowSha: undefined });
@@ -306,7 +379,7 @@ describe("Gate action runtime", () => {
             batchId,
             configPath: ".batch-governance",
             fetcher: createGateFetchMock({
-              comments: [buildApprovalComment({ approver: "developer" })],
+              comments: [buildApprovalComment({ approver: "DEVELOPER" })],
               includeWorkspacePolicy,
             }),
             githubToken: "ghs_test",
@@ -1228,6 +1301,7 @@ function createNativeGateFetch(native: {
 }
 
 function createGateFetchMock({
+  issueAuthor = "Developer",
   approverRepositoryRoles = ["maintain"],
   batchStatus = "ACTIVE",
   comments = [buildApprovalComment()],
@@ -1239,6 +1313,7 @@ function createGateFetchMock({
   requestWorkflowRef = "main",
   workspaceApprovalMode = "SELF_APPROVAL_BLOCKED",
 }: {
+  issueAuthor?: string;
   approverRepositoryRoles?: string[];
   batchStatus?: "ACTIVE" | "INACTIVE";
   comments?: Array<{
@@ -1274,6 +1349,7 @@ function createGateFetchMock({
       return Response.json([
         {
           body: issueBody,
+          user: { login: issueAuthor },
           labels: issueLabels,
           number: 34,
           state: "open",

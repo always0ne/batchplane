@@ -8,6 +8,7 @@ import type {
   BatchPlaneClient,
   ExecutionAttempt,
   ExecutionRequest,
+  ExecutionRequestCapability,
   ExecutionRequestDraft,
   ExecutionRequestInput,
   ExecutionRequestPreview,
@@ -49,6 +50,7 @@ import type { GitHubExecutionRun } from "./repository-evidence-types.js";
 import {
   buildExecutionRequestIssue,
   createExecutionRequestId,
+  isSameGitHubLogin,
 } from "./execution-request-evidence.js";
 
 type ExecutionApprovalClient = Pick<
@@ -134,17 +136,13 @@ export function createGitHubLiteExecutionApprovalClient(
         title: issue.title,
       });
       const createdRequest = requireParsedRequest(created, []);
+      const draft = { ...input.draft, requestedBy: issue.request.requestedBy };
 
       if (input.draft.workspaceApprovalMode !== "AUTO_APPROVE") {
-        return { request: projectCreatedRequest(createdRequest, input.draft) };
+        return { request: projectCreatedRequest(createdRequest, draft) };
       }
 
-      return recordAutomaticApproval(
-        context,
-        created,
-        createdRequest,
-        input.draft,
-      );
+      return recordAutomaticApproval(context, created, createdRequest, draft);
     },
 
     async getExecutionRequest({ requestLocator }) {
@@ -184,7 +182,12 @@ export function createGitHubLiteExecutionApprovalClient(
       const draft = await loadCapabilityDraft(context);
       const capability = capabilityFor(parsed, draft);
       if (!capability.canApprove)
-        throw new Error("The execution request is not currently approvable.");
+        throw new Error(
+          capability.approveUnavailableReason ===
+            "REQUESTER_IDENTITY_UNVERIFIED"
+            ? "The execution request requester identity could not be verified."
+            : "The execution request is not currently approvable.",
+        );
 
       const approvalComment = await context.client.createIssueComment({
         ...context.repositoryRef,
@@ -333,6 +336,7 @@ async function buildRequestIssue(
   if (!batch) {
     throw new Error("The authoritative batch definition is unavailable.");
   }
+  const user = await context.client.getCurrentUser();
 
   return buildExecutionRequestIssue({
     approvedBatchRevision: input.draft.approvedBatchRevision,
@@ -342,7 +346,7 @@ async function buildRequestIssue(
     reason: input.reason,
     requestId: input.draft.requestId,
     requestedAt,
-    requestedBy: input.draft.requestedBy,
+    requestedBy: user.login,
     workflowRef: input.targetRevision,
   });
 }
@@ -442,25 +446,35 @@ async function loadCapabilityDraft(
 function capabilityFor(
   request: ExecutionApprovalRequest,
   context: Pick<ExecutionRequestDraft, "requestedBy" | "workspaceApprovalMode">,
-) {
+): ExecutionRequestCapability {
   const pending =
     request.triggerType !== "SCHEDULE" && request.status === "REQUESTED";
   const selfBlocked =
-    request.requestedBy === context.requestedBy &&
+    isSameGitHubLogin(request.requestedBy, context.requestedBy) &&
     context.workspaceApprovalMode === "SELF_APPROVAL_BLOCKED";
-
-  return {
-    canApprove: pending && !selfBlocked,
-    canReject: pending,
-    ...(!pending
-      ? {
-          approveUnavailableReason: "NOT_AWAITING_APPROVAL" as const,
-          rejectUnavailableReason: "NOT_AWAITING_APPROVAL" as const,
-        }
-      : selfBlocked
-        ? { approveUnavailableReason: "SELF_APPROVAL_BLOCKED" as const }
-        : {}),
-  };
+  if (!pending) {
+    return {
+      canApprove: false,
+      canReject: false,
+      approveUnavailableReason: "NOT_AWAITING_APPROVAL",
+      rejectUnavailableReason: "NOT_AWAITING_APPROVAL",
+    };
+  }
+  if (!request.requesterIdentityVerified) {
+    return {
+      canApprove: false,
+      canReject: true,
+      approveUnavailableReason: "REQUESTER_IDENTITY_UNVERIFIED",
+    };
+  }
+  if (selfBlocked) {
+    return {
+      canApprove: false,
+      canReject: true,
+      approveUnavailableReason: "SELF_APPROVAL_BLOCKED",
+    };
+  }
+  return { canApprove: true, canReject: true };
 }
 
 async function loadExecutionRequestItems(
@@ -732,7 +746,8 @@ function approvalNoticeFor(
   context: Pick<ExecutionRequestDraft, "requestedBy" | "workspaceApprovalMode">,
 ): ExecutionRequest["approvalNotice"] {
   if (
-    request.requestedBy !== context.requestedBy ||
+    !request.requesterIdentityVerified ||
+    !isSameGitHubLogin(request.requestedBy, context.requestedBy) ||
     (context.workspaceApprovalMode !== "SELF_APPROVAL_ALLOWED" &&
       context.workspaceApprovalMode !== "AUTO_APPROVE")
   ) {
@@ -987,6 +1002,11 @@ async function recordAutomaticApproval(
   let approvalComment;
 
   try {
+    if (!createdRequest.requesterIdentityVerified) {
+      throw new Error(
+        "The execution request requester identity could not be verified.",
+      );
+    }
     approvalComment = await context.client.createIssueComment({
       ...context.repositoryRef,
       body: approvalBody,

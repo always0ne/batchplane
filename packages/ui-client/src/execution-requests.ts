@@ -177,7 +177,10 @@ export type ExecutionAttempts =
 export type ExecutionRequestCapability = {
   canApprove: boolean;
   canReject: boolean;
-  approveUnavailableReason?: "NOT_AWAITING_APPROVAL" | "SELF_APPROVAL_BLOCKED";
+  approveUnavailableReason?:
+    | "NOT_AWAITING_APPROVAL"
+    | "REQUESTER_IDENTITY_UNVERIFIED"
+    | "SELF_APPROVAL_BLOCKED";
   rejectUnavailableReason?: "NOT_AWAITING_APPROVAL";
 };
 

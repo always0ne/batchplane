@@ -139,6 +139,7 @@ async function prepareDispatch(
   });
   const verification = verifyDispatcherEvidence({
     approvalCommentBody,
+    issueAuthor: issue.author,
     issueBody: issue.body,
     now,
   });

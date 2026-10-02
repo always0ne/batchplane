@@ -128,6 +128,47 @@ describe("ExecutionRequestDetailPage", () => {
     ).toBeInTheDocument();
   });
 
+  it.each([
+    {
+      language: "en",
+      approve: "Approve execution",
+      reason: "The request's requester identity could not be verified.",
+    },
+    {
+      language: "ko",
+      approve: "실행 승인",
+      reason: "이 요청의 요청자 신원을 확인할 수 없습니다.",
+    },
+  ])(
+    "keeps an unverified requester inspectable with disabled approval and localized reason in $language",
+    async ({ language, approve, reason }) => {
+      await i18next.changeLanguage(language);
+      const approveExecutionRequest = vi.fn();
+      renderDetail(
+        createClient({
+          approveExecutionRequest,
+          getExecutionRequest: async () =>
+            request({
+              capability: {
+                canApprove: false,
+                canReject: true,
+                approveUnavailableReason: "REQUESTER_IDENTITY_UNVERIFIED",
+              },
+            }),
+        }),
+      );
+      const button = await screen.findByRole("button", { name: approve });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("title", reason);
+      expect(screen.getByText(reason)).toBeInTheDocument();
+      expect(
+        screen.getByText("#101 Run batch payment.daily-close"),
+      ).toBeInTheDocument();
+      fireEvent.click(button);
+      expect(approveExecutionRequest).not.toHaveBeenCalled();
+    },
+  );
+
   it("renders the localized failure fallback for a non-Error approval rejection", async () => {
     renderDetail(
       createClient({

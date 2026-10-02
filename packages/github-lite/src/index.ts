@@ -20,6 +20,8 @@ export {
 export {
   buildExecutionRequestIssue,
   createScheduledExecutionRequestId,
+  hasAuthoritativeExecutionRequester,
+  isSameGitHubLogin,
 } from "./execution-request-evidence.js";
 export { createGitHubLiteBatchPlaneClient } from "./product-client.js";
 export { createGitHubLiteChangeRequestClient } from "./change-request-client.js";

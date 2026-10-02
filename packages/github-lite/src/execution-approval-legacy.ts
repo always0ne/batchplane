@@ -4,6 +4,7 @@ import type {
 } from "@batchplane/domain";
 import {
   buildExecutionApprovalComment as buildExecutionApprovalEvidence,
+  hasAuthoritativeExecutionRequester,
   type ExecutionRequestPayload,
 } from "./execution-request-evidence.js";
 import type {
@@ -40,6 +41,7 @@ export type ExecutionApprovalRequest = {
   requestDigest: string;
   requestedAt: string;
   requestedBy: string;
+  requesterIdentityVerified: boolean;
   requestId: string;
   schedule?: NonNullable<ExecutionRequestPayload["spec"]["schedule"]>;
   status: ExecutionRequestDisplayStatus;
@@ -190,6 +192,10 @@ export function parseExecutionRequestDetail(
   }
 
   const payload = parseCanonicalPayload(issue.body);
+  const requestedBy = readMarkdownField(issue.body, "Requested by").replace(
+    /^@/,
+    "",
+  );
   const requestId =
     marker.get("requestId") ?? readMarkdownField(issue.body, "Request ID");
   const batchId =
@@ -234,10 +240,12 @@ export function parseExecutionRequestDetail(
     ...(approvalDecision ? { approvalDecision } : {}),
     requestDigest,
     requestedAt: readMarkdownField(issue.body, "Requested at"),
-    requestedBy: readMarkdownField(issue.body, "Requested by").replace(
-      /^@/,
-      "",
-    ),
+    requestedBy,
+    requesterIdentityVerified: hasAuthoritativeExecutionRequester({
+      author: issue.author,
+      requestedBy,
+      canonicalRequestedBy: payload?.spec?.requestedBy,
+    }),
     requestId,
     ...(payload?.spec?.schedule ? { schedule: payload.spec.schedule } : {}),
     status: displayStatus,

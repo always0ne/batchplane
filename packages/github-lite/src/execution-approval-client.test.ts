@@ -13,6 +13,7 @@ vi.mock("./execution-run-client.js", () => ({
   listExecutionRunFacts: vi.fn(),
 }));
 import type { ExecutionRun } from "@batchplane/domain";
+import { createRequestDigest, type CanonicalValue } from "@batchplane/digest";
 import { buildExecutionRequestIssue } from "./execution-request-evidence.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 import type {
@@ -183,7 +184,7 @@ describe("GitHub Lite execution approval client", () => {
     expect(context.client.createIssue).not.toHaveBeenCalled();
   });
 
-  it("uses the authoritative GitHub execution shape for preview and creation", async () => {
+  it("uses the authenticated requester and authoritative execution shape for preview, creation and auto-approval", async () => {
     const authoritative = {
       ...batchDefinition(),
       execution: {
@@ -202,11 +203,15 @@ describe("GitHub Lite execution approval client", () => {
       batchDefinitions: [authoritative],
       createExecutionRequest,
     });
+    context.client.getCurrentUser = vi
+      .fn()
+      .mockResolvedValue({ login: "Developer" });
     const client = createGitHubLiteExecutionApprovalClient(context);
 
     const input = {
       draft: {
         ...draft,
+        requestedBy: "forged-requester",
         batch: {
           ...draft.batch,
           executionTarget: {
@@ -227,11 +232,18 @@ describe("GitHub Lite execution approval client", () => {
         batchId: "payment.daily-close",
         evidence: { approvedBatchRevision: draft.approvedBatchRevision },
         requestId: draft.requestId,
+        requestedBy: "Developer",
       },
     });
     const previewPayload = JSON.parse(
       preview.request.evidence.canonicalPayload ?? "{}",
-    ) as { spec?: { execution?: unknown; workflow?: unknown } };
+    ) as {
+      spec?: { execution?: unknown; workflow?: unknown; requestedBy?: string };
+    };
+    expect(previewPayload.spec?.requestedBy).toBe("Developer");
+    expect(preview.request.evidence.requestDigest).toBe(
+      await createRequestDigest(previewPayload as CanonicalValue),
+    );
     expect(previewPayload.spec?.execution).toEqual({
       artifactPath: "vendor/releases/close.jar",
       command: "./close --settle",
@@ -243,6 +255,14 @@ describe("GitHub Lite execution approval client", () => {
       ref: "release/2026-09",
     });
     await client.createExecutionRequest(input);
+    expect(createExecutionRequest.mock.calls[0]?.[0]?.body).toContain(
+      "- Requested by: @Developer",
+    );
+    expect(context.client.createIssueComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("- Approver: @Developer"),
+      }),
+    );
     const createdPayload = JSON.parse(
       String(createExecutionRequest.mock.calls[0]?.[0]?.body)
         .split("```json\n")[1]!
@@ -291,11 +311,16 @@ describe("GitHub Lite execution approval client", () => {
 
   it("keeps a self-request visible in the approval inventory with a disabled approve capability", async () => {
     const issue = createIssue();
+    issue.author = "Developer";
     const context = createContext({
+      getExecutionRequestIssue: vi.fn().mockResolvedValue(issue),
       listExecutionRequestIssues: vi.fn().mockResolvedValue([issue]),
       workspaceApprovalMode: "SELF_APPROVAL_BLOCKED",
     });
     const client = createGitHubLiteExecutionApprovalClient(context);
+    context.client.getCurrentUser = vi
+      .fn()
+      .mockResolvedValue({ login: "DEVELOPER" });
 
     await expect(client.listApprovalRequests()).resolves.toMatchObject({
       requests: [
@@ -311,6 +336,72 @@ describe("GitHub Lite execution approval client", () => {
         },
       ],
     });
+    await expect(
+      client.approveExecutionRequest({ requestLocator: "71" }),
+    ).rejects.toThrow();
+    expect(context.client.createIssueComment).not.toHaveBeenCalled();
+  });
+
+  it("keeps invalid requester evidence inspectable but prevents approval writes in every policy mode", async () => {
+    const valid = await createCanonicalIssue();
+    const invalidIssues = [
+      { ...valid, body: `quoted - Requested by: @other\n${valid.body}` },
+      { ...valid, author: "actual-attacker" },
+      { ...valid, author: "" },
+      {
+        ...valid,
+        body: valid.body.replace(
+          "- Requested by: @developer",
+          "- Requested by: @other",
+        ),
+      },
+      {
+        ...valid,
+        body: valid.body.replace(
+          '"requestedBy": "developer"',
+          '"requestedBy": "other"',
+        ),
+      },
+      {
+        ...valid,
+        body: valid.body.replace(
+          "- Requested by: @developer",
+          "- Requested by:",
+        ),
+      },
+      { ...valid, body: valid.body.replace('"requestedBy": "developer",', "") },
+    ];
+    for (const issue of invalidIssues) {
+      for (const mode of [
+        "SELF_APPROVAL_BLOCKED",
+        "SELF_APPROVAL_ALLOWED",
+        "AUTO_APPROVE",
+      ] as const) {
+        const context = createContext({
+          getExecutionRequestIssue: vi.fn().mockResolvedValue(issue),
+          listExecutionRequestIssues: vi.fn().mockResolvedValue([issue]),
+          workspaceApprovalMode: mode,
+        });
+        const client = createGitHubLiteExecutionApprovalClient(context);
+        const detail = await client.getExecutionRequest({
+          requestLocator: "71",
+        });
+        expect(detail).toMatchObject({
+          requestId: draft.requestId,
+          capability: {
+            canApprove: false,
+            canReject: true,
+            approveUnavailableReason: "REQUESTER_IDENTITY_UNVERIFIED",
+          },
+        });
+        expect(detail?.approvalNotice).toBeUndefined();
+        expect((await client.listApprovalRequests()).requests).toHaveLength(1);
+        await expect(
+          client.approveExecutionRequest({ requestLocator: "71" }),
+        ).rejects.toThrow("requester identity could not be verified");
+        expect(context.client.createIssueComment).not.toHaveBeenCalled();
+      }
+    }
   });
 
   it("projects the self-approval-allowed notice from current policy and actor", async () => {
@@ -660,31 +751,42 @@ describe("GitHub Lite execution approval client", () => {
     ]);
   });
 
-  it("returns the created pending request when AUTO_APPROVE recording fails", async () => {
-    const issue = createIssue();
-    const context = createContext({
-      createExecutionRequest: vi.fn().mockResolvedValue(issue),
-    });
-    context.client.createIssueComment = vi
-      .fn()
-      .mockRejectedValue(new Error("comment write failed"));
-    const client = createGitHubLiteExecutionApprovalClient(context);
+  it.each(["write failure", "unverified requester"])(
+    "returns the created pending request when AUTO_APPROVE encounters %s",
+    async (failure) => {
+      const issue = {
+        ...createIssue(),
+        author: failure === "unverified requester" ? "other" : "developer",
+      };
+      const context = createContext({
+        createExecutionRequest: vi.fn().mockResolvedValue(issue),
+      });
+      context.client.createIssueComment = vi
+        .fn()
+        .mockRejectedValue(new Error("comment write failed"));
+      const client = createGitHubLiteExecutionApprovalClient(context);
 
-    await expect(
-      client.createExecutionRequest({
-        draft,
-        expiresAt: "2026-09-11T10:00:00.000Z",
-        parameters: [],
-        reason: "Close after reconciliation.",
-        targetRevision: "main",
-      }),
-    ).resolves.toMatchObject({
-      postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" },
-      request: { requestId: draft.requestId, status: "REQUESTED" },
-    });
-    expect(context.client.getIssue).not.toHaveBeenCalled();
-    expect(context.client.listIssues).not.toHaveBeenCalled();
-  });
+      await expect(
+        client.createExecutionRequest({
+          draft,
+          expiresAt: "2026-09-11T10:00:00.000Z",
+          parameters: [],
+          reason: "Close after reconciliation.",
+          targetRevision: "main",
+        }),
+      ).resolves.toMatchObject({
+        postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" },
+        request: { requestId: draft.requestId, status: "REQUESTED" },
+      });
+      expect(context.client.getIssue).not.toHaveBeenCalled();
+      expect(context.client.listIssues).not.toHaveBeenCalled();
+      if (failure === "unverified requester") {
+        expect(context.client.createIssueComment).not.toHaveBeenCalled();
+      } else {
+        expect(context.client.createIssueComment).toHaveBeenCalledOnce();
+      }
+    },
+  );
 });
 
 function createContext({
@@ -789,6 +891,13 @@ function createIssue(): RepositoryIssue {
       "- Expires at: 2026-09-11T10:00:00.000Z",
       "- Request digest: `sha256:request`",
       "- Status: REQUESTED",
+      "",
+      "### Canonical payload",
+      "```json",
+      JSON.stringify({
+        spec: { batch: batchDefinition(), requestedBy: "developer" },
+      }),
+      "```",
       "",
       "<!-- batchplane:execution-request",
       `requestId=${draft.requestId}`,
