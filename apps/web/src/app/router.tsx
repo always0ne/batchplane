@@ -1,8 +1,4 @@
-import {
-  createBrowserRouter,
-  Navigate,
-  type RouteObject,
-} from "react-router-dom";
+import { createBrowserRouter, Navigate, type RouteObject } from "react-router";
 
 import { ApprovalsPage } from "../pages/approvals/ApprovalsPage";
 import { AuditPage } from "../pages/audit/AuditPage";

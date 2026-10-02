@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import type { BatchListItem } from "@batchplane/ui-client";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import "../../../../i18n/i18n";

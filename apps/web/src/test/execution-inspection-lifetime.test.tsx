@@ -12,7 +12,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
-import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BatchPlaneClientContext } from "../client/batch-plane-client-context";
 import { i18next } from "../i18n/i18n";

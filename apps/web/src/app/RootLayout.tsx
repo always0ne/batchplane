@@ -1,6 +1,6 @@
 import { GitBranch } from "lucide-react";
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 
 import {

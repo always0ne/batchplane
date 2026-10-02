@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider } from "react-router-dom";
+import { RouterProvider } from "react-router/dom";
 
 import { createAppRouter } from "./app/router";
 import { BatchPlaneClientContext } from "./client/batch-plane-client-context";
