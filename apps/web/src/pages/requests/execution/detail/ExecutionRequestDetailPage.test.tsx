@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { BatchPlaneClient, ExecutionRequest } from "@batchplane/ui-client";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../../../client/batch-plane-client-context";

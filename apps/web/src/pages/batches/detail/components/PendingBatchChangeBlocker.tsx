@@ -1,6 +1,6 @@
 import type { BatchChangeBlocker } from "@batchplane/ui-client";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 export function PendingBatchChangeBlocker({
   blocker,

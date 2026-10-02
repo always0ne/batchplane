@@ -10,7 +10,7 @@ import {
   Settings,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { NavLink, useMatch } from "react-router-dom";
+import { NavLink, useMatch } from "react-router";
 
 const navigationSections = [
   {

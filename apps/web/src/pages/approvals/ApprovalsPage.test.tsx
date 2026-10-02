@@ -5,7 +5,7 @@ import {
   WorkspaceNotConnectedError,
 } from "@batchplane/ui-client";
 import { createMockGitHubLiteClient } from "@batchplane/github-lite";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../client/batch-plane-client-context";

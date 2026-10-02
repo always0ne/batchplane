@@ -1,6 +1,6 @@
 import type { BatchRemediationKind } from "@batchplane/ui-client";
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 import { useBatchPlaneClient } from "../../../../client/batch-plane-client-context";
 

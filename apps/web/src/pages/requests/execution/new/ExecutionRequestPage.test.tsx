@@ -10,7 +10,7 @@ import type {
   ExecutionRequest,
   ExecutionRequestDraft,
 } from "@batchplane/ui-client";
-import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useParams } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../../../client/batch-plane-client-context";

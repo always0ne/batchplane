@@ -1,4 +1,4 @@
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router";
 
 export function ScheduleChangeRedirect() {
   const { batchId = "" } = useParams();

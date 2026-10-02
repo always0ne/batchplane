@@ -11,7 +11,7 @@ import {
   Routes,
   useLocation,
   useParams,
-} from "react-router-dom";
+} from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../../client/batch-plane-client-context";

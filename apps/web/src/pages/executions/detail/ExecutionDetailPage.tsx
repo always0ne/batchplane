@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router";
 import { useBatchPlaneClient } from "../../../client/batch-plane-client-context";
 import { formatInspectionError } from "../../../client/inspection-errors";
 import { ExecutionDetailHeader } from "./components/ExecutionDetailHeader";

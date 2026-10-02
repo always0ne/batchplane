@@ -1,5 +1,5 @@
 import type { BatchChangeDraft } from "@batchplane/ui-client";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { BatchRegistrationLoadBoundary } from "./components/BatchRegistrationLoadBoundary";
 
 export function BatchRegistrationPage() {

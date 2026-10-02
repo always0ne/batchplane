@@ -1,6 +1,6 @@
 import { inspectionTestClient } from "../../test/inspection-client";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 import { RuntimeClientTestProvider } from "../../test/RuntimeClientTestProvider";
 

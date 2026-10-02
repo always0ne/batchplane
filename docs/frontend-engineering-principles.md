@@ -59,11 +59,24 @@ product-client injection, the current request URLs, Pages basename/redirect rest
 locale behavior, and fixture remount boundaries. This decision does not migrate
 page queries to loaders or commands to router actions.
 
-Official React Router references for the current v6 integration:
+The current integration pins `react-router` to `7.18.2`, retaining React 18
+and Vite. Routing APIs come from `react-router`; `RouterProvider` comes from
+`react-router/dom` in both the browser entry point and the jsdom tests rendered
+with ReactDOM. The DOM entry point supplies ReactDOM's `flushSync`; the root
+entry point is the supported alternative for non-DOM renderers.
 
-- [Layout routes](https://reactrouter.com/6.30.3/route/route#layout-routes)
-- [createBrowserRouter](https://reactrouter.com/6.30.3/routers/create-browser-router)
-- [NavLink matching](https://reactrouter.com/6.30.3/components/nav-link#end)
+Keep the existing plain `*` not-found route and page-owned queries/commands.
+This is client-rendered Data Mode, without router loaders/actions/fetchers,
+SSR/hydration, RSC, or Framework mode. Internal destinations are app paths with
+encoded identifiers. Pages redirect restoration uses same-origin
+`history.replaceState` before router creation, not a loader redirect.
+
+Official versioned references:
+
+- [v6-to-v7 upgrade guide](https://raw.githubusercontent.com/remix-run/react-router/react-router%407.18.0/docs/upgrading/v6.md)
+- [RouterProvider source and DOM import guidance](https://raw.githubusercontent.com/remix-run/react-router/react-router%407.18.2/packages/react-router/lib/components.tsx)
+- [v7.18.2 compatibility requirements](https://raw.githubusercontent.com/remix-run/react-router/react-router%407.18.2/packages/react-router/package.json)
+- [RSC advisory and patched version](https://github.com/remix-run/react-router/security/advisories/GHSA-qwww-vcr4-c8h2)
 
 ## Product Principle
 

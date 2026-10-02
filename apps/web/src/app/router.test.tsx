@@ -1,15 +1,13 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
 } from "@testing-library/react";
-import {
-  createMemoryRouter,
-  matchRoutes,
-  RouterProvider,
-} from "react-router-dom";
+import { createMemoryRouter, matchRoutes } from "react-router";
+import { RouterProvider } from "react-router/dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -199,20 +197,24 @@ describe("app router", () => {
     expect(router.state.matches.at(-1)?.route.id).toBe("dashboard");
   });
 
-  it("redirects legacy schedule links with their exact encoded query and hash", async () => {
-    const router = renderRouter(
-      "/batches/payment%2Fdaily%20close/schedules/new",
-    );
+  it.each([undefined, "/batchplane/"])(
+    "redirects legacy schedule links with their exact encoded query and hash under %s",
+    async (basename) => {
+      const router = renderRouter(
+        `${basename ?? "/"}batches/payment%2Fdaily%20close/schedules/new`,
+        basename,
+      );
 
-    await waitFor(() => {
-      expect(router.state.location).toMatchObject({
-        hash: "#schedules",
-        pathname: "/batches/new",
-        search: "?change=payment%2Fdaily%20close",
+      await waitFor(() => {
+        expect(router.state.location).toMatchObject({
+          hash: "#schedules",
+          pathname: `${basename ?? "/"}batches/new`,
+          search: "?change=payment%2Fdaily%20close",
+        });
       });
-    });
-    expect(router.state.matches.at(-1)?.route.id).toBe("batch-registration");
-  });
+      expect(router.state.matches.at(-1)?.route.id).toBe("batch-registration");
+    },
+  );
 
   it("honors the GitHub Pages basename in its memory router links", async () => {
     const router = renderRouter("/batchplane", "/batchplane");
@@ -227,6 +229,85 @@ describe("app router", () => {
         .getAllByRole("link", { name: "Dashboard" })
         .every((link) => link.getAttribute("href") === "/batchplane/dashboard"),
     ).toBe(true);
+  });
+
+  it("keeps query and hash through internal navigation and back under the Pages basename", async () => {
+    const entry = "/batchplane/executions/204?runAttempt=2&from=failures#logs";
+    const router = renderRouter(entry, "/batchplane/");
+
+    fireEvent.click(
+      await screen.findByRole("link", { name: "Open Workspace" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Workspace" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/batchplane/workspace");
+
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(
+      await screen.findByRole("link", { name: "Open Workspace" }),
+    ).toBeInTheDocument();
+    expect(router.state.location).toMatchObject({
+      pathname: "/batchplane/executions/204",
+      search: "?runAttempt=2&from=failures",
+      hash: "#logs",
+    });
+    expect(router.state.matches.at(-1)?.params.executionId).toBe("204");
+  });
+
+  it("renders unknown paths and permits navigation out of the wildcard route", async () => {
+    const router = renderRouter(
+      "/batchplane/unknown/nested?keep=1#missing",
+      "/batchplane/",
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Page not found" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("link", { name: "Dashboard" })[0]!);
+    expect(
+      await screen.findByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/batchplane/dashboard");
+  });
+
+  it("preserves page query errors and navigation back to the failed detail", async () => {
+    const getExecutionRun = vi
+      .fn()
+      .mockRejectedValue(new Error("Execution lookup failed"));
+    const router = renderRouter(
+      "/executions/204?runAttempt=2#logs",
+      undefined,
+      {
+        ...disconnectedClient,
+        getExecutionRun,
+      },
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Execution lookup failed",
+    );
+    fireEvent.click(screen.getAllByRole("link", { name: "Dashboard" })[0]!);
+    expect(
+      await screen.findByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Execution lookup failed",
+    );
+    expect(getExecutionRun).toHaveBeenLastCalledWith({
+      runId: "204",
+      runAttempt: 2,
+    });
+    expect(router.state.location).toMatchObject({
+      pathname: "/executions/204",
+      search: "?runAttempt=2",
+      hash: "#logs",
+    });
   });
 
   it("keeps execution details under Executions and activates only Failures there", async () => {
@@ -306,14 +387,18 @@ describe("app router", () => {
   });
 });
 
-function renderRouter(initialEntry: string, basename?: string) {
+function renderRouter(
+  initialEntry: string,
+  basename?: string,
+  client: BatchPlaneClient = disconnectedClient,
+) {
   const router = createMemoryRouter(appRoutes, {
     basename,
     initialEntries: [initialEntry],
   });
 
   render(
-    <BatchPlaneClientContext.Provider value={disconnectedClient}>
+    <BatchPlaneClientContext.Provider value={client}>
       <RouterProvider router={router} />
     </BatchPlaneClientContext.Provider>,
   );
