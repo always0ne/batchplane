@@ -1,6 +1,6 @@
 {
   "title": "Workspace requests",
-  "subtitle": "Browse governed changes and execution requests in the connected Workspace.",
+  "subtitle": "Browse change requests and execution requests in the connected Workspace.",
   "actions": {
     "openDetail": "Open request",
     "openSource": "Open source",
@@ -8,7 +8,7 @@
   },
   "counts": {
     "execution": "{{count}} execution",
-    "governedChange": "{{count}} governed changes",
+    "changeRequest": "{{count}} change requests",
     "total": "{{count}} total"
   },
   "fields": {
@@ -20,7 +20,7 @@
     "kinds": {
       "all": "All requests",
       "execution": "Execution requests",
-      "governed-change": "Governed changes"
+      "change-request": "Change requests"
     },
     "search": "Search",
     "searchPlaceholder": "Batch, schedule, actor, source",

@@ -1,10 +1,7 @@
-import {
-  buildExecutionRequestIssue,
-  createExecutionRequestId,
-  type BatchDefinition,
-  type BatchPlaneRuntimePorts,
-  type ExecutionRun,
-} from "@batchplane/domain";
+import type {
+  GitHubRepository,
+  GitHubRepositoryContext,
+} from "./github-types.js";
 import { ExecutionRequestCreationUnavailableError } from "@batchplane/ui-client";
 import type {
   ApprovalRequestInventory,
@@ -23,7 +20,7 @@ import type {
 import {
   buildExecutionApprovalComment,
   buildExecutionRejectionComment,
-  getGovernedChangeRequestKind,
+  getChangeRequestKind,
   parseExecutionRequestDetail,
   type ExecutionApprovalRequest,
 } from "./execution-approval-legacy.js";
@@ -32,7 +29,27 @@ import {
   parseRegistrationApprovalDecision,
   parseRegistrationRequestSummary,
 } from "./registration-approval-legacy.js";
-import { parseGovernedChangeRequestEvidence } from "./governed-change-evidence.js";
+import { parseChangeRequestEvidence } from "./change-request-evidence.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import { loadBatchDefinitions } from "./batch-repository.js";
+import {
+  createApprovedExecutionRequest,
+  getApprovedExecutionRevision,
+} from "./execution-request-repository.js";
+import { listExecutionRunFacts } from "./execution-run-client.js";
+import {
+  loadWorkspacePolicy,
+  toRepositoryIssue,
+} from "./inspection-context.js";
+import type {
+  RepositoryIssueComment,
+  RepositoryPullRequest,
+} from "./repository-evidence-types.js";
+import type { GitHubExecutionRun } from "./repository-evidence-types.js";
+import {
+  buildExecutionRequestIssue,
+  createExecutionRequestId,
+} from "./execution-request-evidence.js";
 
 type ExecutionApprovalClient = Pick<
   BatchPlaneClient,
@@ -51,29 +68,39 @@ type ExecutionRequestInventoryItem = Extract<
   RequestInventoryItem,
   { kind: "EXECUTION" }
 >;
+type ChangeRequestInventoryItem = Extract<
+  RequestInventoryItem,
+  { kind: "CHANGE_REQUEST" }
+>;
 
-export function createGitHubLiteExecutionApprovalClient({
-  runtime,
-}: {
-  runtime: BatchPlaneRuntimePorts;
-}): ExecutionApprovalClient {
+export function createGitHubLiteExecutionApprovalClient(
+  context: GitHubRepositoryContext,
+): ExecutionApprovalClient {
   return {
     async loadExecutionRequestDraft({ batchId }) {
-      const repository = await runtime.settings.getRepository();
+      const repository = await context.client.getRepository(
+        context.repositoryRef,
+      );
       const [batches, user, policy] = await Promise.all([
-        runtime.batches.listBatchDefinitions({ ref: repository.defaultBranch }),
-        runtime.settings.getCurrentUser(),
-        runtime.settings.getWorkspacePolicy({ ref: repository.defaultBranch }),
+        loadBatchDefinitions({
+          client: context.client,
+          repository: context.repositoryRef,
+          ref: repository.defaultBranch,
+        }),
+        context.client.getCurrentUser(),
+        loadWorkspacePolicy({ ...context, ref: repository.defaultBranch }),
       ]);
       const batch = batches.find((candidate) => candidate.batchId === batchId);
 
       if (!batch) return { batchId, type: "not-found" as const };
 
       const requestedAt = new Date();
-      const approvedBatchRevision =
-        await runtime.executions.getApprovedBatchRevision({
+      const approvedBatchRevision = await getApprovedExecutionRevision(
+        context,
+        {
           batchId,
-        });
+        },
+      );
 
       return {
         draft: {
@@ -93,15 +120,15 @@ export function createGitHubLiteExecutionApprovalClient({
     async previewExecutionRequest(input) {
       return {
         request: projectPreview(
-          await buildRequestIssue(input),
+          await buildRequestIssue(context, input),
           input.draft.workspaceLabel,
         ),
       };
     },
 
     async createExecutionRequest(input) {
-      const issue = await buildRequestIssue(input);
-      const created = await runtime.executions.createExecutionRequest({
+      const issue = await buildRequestIssue(context, input);
+      const created = await createApprovedExecutionRequest(context, {
         body: issue.body,
         labels: issue.labels,
         title: issue.title,
@@ -109,72 +136,34 @@ export function createGitHubLiteExecutionApprovalClient({
       const createdRequest = requireParsedRequest(created, []);
 
       if (input.draft.workspaceApprovalMode !== "AUTO_APPROVE") {
-        return {
-          request: projectRequest(
-            createdRequest,
-            capabilityFor(createdRequest, input.draft),
-            undefined,
-            input.draft.workspaceLabel,
-            approvalNoticeFor(createdRequest, input.draft),
-          ),
-        };
+        return { request: projectCreatedRequest(createdRequest, input.draft) };
       }
 
-      const approvalBody = buildExecutionApprovalComment({
-        approvalMode: input.draft.workspaceApprovalMode,
-        approvalType: "WORKSPACE_AUTO_APPROVED",
-        approvedAt: new Date(),
-        approver: input.draft.requestedBy,
-        request: createdRequest,
-      });
-      let approvalComment;
-
-      try {
-        approvalComment = await runtime.approvals.approveExecution({
-          body: approvalBody,
-          issueNumber: created.number,
-        });
-      } catch {
-        return {
-          postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" },
-          request: projectRequest(
-            createdRequest,
-            capabilityFor(createdRequest, input.draft),
-            undefined,
-            input.draft.workspaceLabel,
-            approvalNoticeFor(createdRequest, input.draft),
-          ),
-        };
-      }
-      const approvedRequest = requireParsedRequest(created, [approvalComment]);
-
-      return {
-        request: projectRequest(
-          approvedRequest,
-          capabilityFor(approvedRequest, input.draft),
-          undefined,
-          input.draft.workspaceLabel,
-          approvalNoticeFor(approvedRequest, input.draft),
-        ),
-      };
+      return recordAutomaticApproval(
+        context,
+        created,
+        createdRequest,
+        input.draft,
+      );
     },
 
     async getExecutionRequest({ requestLocator }) {
       const issueNumber = parseLocator(requestLocator);
-      const issue = await runtime.approvals.getExecutionRequestIssue({
+      const issue = await loadExecutionIssue(context, {
         issueNumber,
       });
       if (!issue) return null;
-      const comments = await runtime.approvals.listExecutionRequestComments({
+      const comments = await context.client.listIssueComments({
+        ...context.repositoryRef,
         issueNumber,
       });
       const parsed = parseExecutionRequestDetail(issue, comments);
       if (!parsed) return null;
 
       const [draft, attempts, sourceChange] = await Promise.all([
-        loadCapabilityDraft(runtime),
-        loadAttempts(runtime, parsed),
-        loadSourceChange(runtime, parsed),
+        loadCapabilityDraft(context),
+        loadAttempts(context, parsed),
+        loadSourceChange(context, parsed),
       ]);
 
       return projectRequest(
@@ -189,15 +178,16 @@ export function createGitHubLiteExecutionApprovalClient({
 
     async approveExecutionRequest({ requestLocator }) {
       const { comments, issue, parsed } = await loadCurrentRequest(
-        runtime,
+        context,
         requestLocator,
       );
-      const draft = await loadCapabilityDraft(runtime);
+      const draft = await loadCapabilityDraft(context);
       const capability = capabilityFor(parsed, draft);
       if (!capability.canApprove)
         throw new Error("The execution request is not currently approvable.");
 
-      const approvalComment = await runtime.approvals.approveExecution({
+      const approvalComment = await context.client.createIssueComment({
+        ...context.repositoryRef,
         body: buildExecutionApprovalComment({
           approvalMode: draft.workspaceApprovalMode,
           approvedAt: new Date(),
@@ -225,10 +215,10 @@ export function createGitHubLiteExecutionApprovalClient({
       if (!normalizedReason) throw new Error("A rejection reason is required.");
 
       const { comments, issue, parsed } = await loadCurrentRequest(
-        runtime,
+        context,
         requestLocator,
       );
-      const draft = await loadCapabilityDraft(runtime);
+      const draft = await loadCapabilityDraft(context);
       const capability = capabilityFor(parsed, draft);
       if (!capability.canReject)
         throw new Error("The execution request is not currently rejectable.");
@@ -240,8 +230,13 @@ export function createGitHubLiteExecutionApprovalClient({
         rejector: draft.requestedBy,
         request: parsed,
       });
-      await runtime.approvals.rejectExecution({
+      await context.client.createIssueComment({
+        ...context.repositoryRef,
         body,
+        issueNumber: issue.number,
+      });
+      await context.client.closeIssue({
+        ...context.repositoryRef,
         issueNumber: issue.number,
       });
 
@@ -265,8 +260,8 @@ export function createGitHubLiteExecutionApprovalClient({
 
     async listApprovalRequests(): Promise<ApprovalRequestInventory> {
       const [repository, requests] = await Promise.all([
-        runtime.settings.getRepository(),
-        loadRequestInventory(runtime),
+        context.client.getRepository(context.repositoryRef),
+        loadRequestInventory(context),
       ]);
 
       return {
@@ -282,14 +277,14 @@ export function createGitHubLiteExecutionApprovalClient({
     },
 
     async listWorkspaceRequests(): Promise<WorkspaceRequestInventory> {
-      return { requests: await loadRequestInventory(runtime) };
+      return { requests: await loadRequestInventory(context) };
     },
 
     async getMyWork(): Promise<MyWorkInventory> {
       const [actor, requests, runs] = await Promise.all([
-        runtime.settings.getCurrentUser(),
-        loadRequestInventory(runtime),
-        runtime.executions.listExecutionRuns({ limit: 100 }),
+        context.client.getCurrentUser(),
+        loadRequestInventory(context),
+        listExecutionRunFacts(context, { limit: 100 }),
       ]);
 
       return {
@@ -310,7 +305,10 @@ export function createGitHubLiteExecutionApprovalClient({
   };
 }
 
-function buildRequestIssue(input: ExecutionRequestInput) {
+async function buildRequestIssue(
+  context: GitHubRepositoryContext,
+  input: ExecutionRequestInput,
+) {
   if (!input.draft.creationCapability.canCreate) {
     throw new ExecutionRequestCreationUnavailableError(
       input.draft.creationCapability.unavailableReasons,
@@ -323,16 +321,29 @@ function buildRequestIssue(input: ExecutionRequestInput) {
       "The execution request expiry must be after its requested time.",
     );
 
+  const repository = await context.client.getRepository(context.repositoryRef);
+  const batches = await loadBatchDefinitions({
+    client: context.client,
+    repository: context.repositoryRef,
+    ref: repository.defaultBranch,
+  });
+  const batch = batches.find(
+    (candidate) => candidate.batchId === input.draft.batch.batchId,
+  );
+  if (!batch) {
+    throw new Error("The authoritative batch definition is unavailable.");
+  }
+
   return buildExecutionRequestIssue({
     approvedBatchRevision: input.draft.approvedBatchRevision,
-    batch: toBatchDefinition(input.draft),
+    batch,
     expiresAt,
     parameters: input.parameters,
     reason: input.reason,
     requestId: input.draft.requestId,
     requestedAt,
     requestedBy: input.draft.requestedBy,
-    workflowRef: input.workflowRef,
+    workflowRef: input.targetRevision,
   });
 }
 
@@ -389,15 +400,16 @@ function parsedAuthor(issue: Awaited<ReturnType<typeof buildRequestIssue>>) {
 }
 
 async function loadCurrentRequest(
-  runtime: BatchPlaneRuntimePorts,
+  context: GitHubRepositoryContext,
   requestLocator: string,
 ) {
   const issueNumber = parseLocator(requestLocator);
-  const issue = await runtime.approvals.getExecutionRequestIssue({
+  const issue = await loadExecutionIssue(context, {
     issueNumber,
   });
   if (!issue) throw new Error("The execution request could not be found.");
-  const comments = await runtime.approvals.listExecutionRequestComments({
+  const comments = await context.client.listIssueComments({
+    ...context.repositoryRef,
     issueNumber,
   });
   const parsed = requireParsedRequest(issue, comments);
@@ -405,7 +417,7 @@ async function loadCurrentRequest(
 }
 
 async function loadCapabilityDraft(
-  runtime: BatchPlaneRuntimePorts,
+  context: GitHubRepositoryContext,
 ): Promise<
   Pick<
     ExecutionRequestDraft,
@@ -413,10 +425,11 @@ async function loadCapabilityDraft(
   >
 > {
   const [user, repository] = await Promise.all([
-    runtime.settings.getCurrentUser(),
-    runtime.settings.getRepository(),
+    context.client.getCurrentUser(),
+    context.client.getRepository(context.repositoryRef),
   ]);
-  const policy = await runtime.settings.getWorkspacePolicy({
+  const policy = await loadWorkspacePolicy({
+    ...context,
     ref: repository.defaultBranch,
   });
   return {
@@ -451,16 +464,17 @@ function capabilityFor(
 }
 
 async function loadExecutionRequestItems(
-  runtime: BatchPlaneRuntimePorts,
+  context: GitHubRepositoryContext,
 ): Promise<ExecutionRequestInventoryItem[]> {
-  const issues = await runtime.approvals.listExecutionRequestIssues({
+  const issues = await listExecutionIssues(context, {
     state: "all",
   });
   const [user, repository] = await Promise.all([
-    runtime.settings.getCurrentUser(),
-    runtime.settings.getRepository(),
+    context.client.getCurrentUser(),
+    context.client.getRepository(context.repositoryRef),
   ]);
-  const policy = await runtime.settings.getWorkspacePolicy({
+  const policy = await loadWorkspacePolicy({
+    ...context,
     ref: repository.defaultBranch,
   });
   const capabilityContext = {
@@ -469,16 +483,16 @@ async function loadExecutionRequestItems(
     workspaceLabel: workspaceLabel(repository),
   };
 
-  const registrationRequests = await runtime.approvals.listRegistrationRequests(
-    {
-      baseBranch: repository.defaultBranch,
-      state: "all",
-    },
-  );
+  const registrationRequests = await context.client.listPullRequests({
+    ...context.repositoryRef,
+    base: repository.defaultBranch,
+    state: "all",
+  });
 
   return Promise.all(
     issues.map(async (issue): Promise<ExecutionRequestInventoryItem | null> => {
-      const comments = await runtime.approvals.listExecutionRequestComments({
+      const comments = await context.client.listIssueComments({
+        ...context.repositoryRef,
         issueNumber: issue.number,
       });
       const parsed = parseExecutionRequestDetail(issue, comments);
@@ -509,74 +523,88 @@ async function loadExecutionRequestItems(
 }
 
 async function loadRequestInventory(
-  runtime: BatchPlaneRuntimePorts,
+  context: GitHubRepositoryContext,
 ): Promise<RequestInventoryItem[]> {
-  const [execution, governed] = await Promise.all([
-    loadExecutionRequestItems(runtime),
-    loadGovernedChangeRequestItems(runtime),
+  const [execution, changeRequests] = await Promise.all([
+    loadExecutionRequestItems(context),
+    loadChangeRequestItems(context),
   ]);
 
-  return [...execution, ...governed];
+  return [...execution, ...changeRequests];
 }
 
-async function loadGovernedChangeRequestItems(
-  runtime: BatchPlaneRuntimePorts,
-): Promise<Extract<RequestInventoryItem, { kind: "GOVERNED_CHANGE" }>[]> {
-  const repository = await runtime.settings.getRepository();
-  const pullRequests = await runtime.approvals.listRegistrationRequests({
-    baseBranch: repository.defaultBranch,
+async function loadChangeRequestItems(
+  context: GitHubRepositoryContext,
+): Promise<ChangeRequestInventoryItem[]> {
+  const repository = await context.client.getRepository(context.repositoryRef);
+  const pullRequests = await context.client.listPullRequests({
+    ...context.repositoryRef,
+    base: repository.defaultBranch,
     state: "all",
   });
   const comments = await Promise.all(
     pullRequests.map((pullRequest) =>
-      runtime.approvals.listExecutionRequestComments({
+      context.client.listIssueComments({
+        ...context.repositoryRef,
         issueNumber: pullRequest.number,
       }),
     ),
   );
 
   return pullRequests.flatMap((pullRequest, index) => {
-    const kind = getGovernedChangeRequestKind(pullRequest);
+    const kind = getChangeRequestKind(pullRequest);
     if (!kind) return [];
-
-    try {
-      const summary = parseRegistrationRequestSummary(pullRequest);
-      const decision = parseRegistrationApprovalDecision(comments[index] ?? []);
-      const reviewState = deriveRegistrationReviewState(pullRequest, decision);
-
-      return [
-        {
-          actor: pullRequest.author,
-          changeKind: toGovernedChangeKind(kind, summary.requestType),
-          kind: "GOVERNED_CHANGE" as const,
-          request: {
-            batchId: summary.batchId,
-            requestLocator: String(pullRequest.number),
-            requester: pullRequest.author,
-            reviewState,
-            sourceLabel: `PR #${pullRequest.number}`,
-            sourceState: pullRequest.state === "open" ? "OPEN" : "CLOSED",
-            sourceUrl: pullRequest.url,
-            title: `#${pullRequest.number} ${pullRequest.title}`,
-            workspaceLabel: workspaceLabel(repository),
-          },
-          targetLabel: summary.batchId,
-          title: pullRequest.title,
-          updatedAt: pullRequest.updatedAt ?? pullRequest.createdAt ?? "",
-        },
-      ];
-    } catch {
-      return [];
-    }
+    const item = tryProjectChangeRequestItem(
+      pullRequest,
+      kind,
+      comments[index] ?? [],
+      repository,
+    );
+    return item ? [item] : [];
   });
 }
 
+function tryProjectChangeRequestItem(
+  pullRequest: RepositoryPullRequest,
+  kind: NonNullable<ReturnType<typeof getChangeRequestKind>>,
+  comments: RepositoryIssueComment[],
+  repository: GitHubRepository,
+): ChangeRequestInventoryItem | null {
+  try {
+    const summary = parseRegistrationRequestSummary(pullRequest);
+    const decision = parseRegistrationApprovalDecision(comments);
+    const reviewState = deriveRegistrationReviewState(pullRequest, decision);
+
+    return {
+      actor: pullRequest.author,
+      changeKind: toChangeRequestKind(kind, summary.requestType),
+      kind: "CHANGE_REQUEST",
+      request: {
+        batchId: summary.batchId,
+        requestLocator: String(pullRequest.number),
+        requester: pullRequest.author,
+        reviewState,
+        sourceLabel: `PR #${pullRequest.number}`,
+        sourceState: pullRequest.state === "open" ? "OPEN" : "CLOSED",
+        sourceUrl: pullRequest.url,
+        title: `#${pullRequest.number} ${pullRequest.title}`,
+        workspaceLabel: workspaceLabel(repository),
+      },
+      targetLabel: summary.batchId,
+      title: pullRequest.title,
+      updatedAt: pullRequest.updatedAt ?? pullRequest.createdAt ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function loadAttempts(
-  runtime: BatchPlaneRuntimePorts,
+  context: GitHubRepositoryContext,
   request: ExecutionApprovalRequest,
 ) {
   try {
-    const runs = await runtime.executions.listExecutionRuns({
+    const runs = await listExecutionRunFacts(context, {
       batchId: request.batchId,
       limit: 10,
       requestId: request.requestId,
@@ -615,6 +643,9 @@ function projectRequest(
       criticality: request.canonicalPayload?.spec.batch.criticality ?? "",
       domain: request.canonicalPayload?.spec.batch.domain ?? "",
       environment: request.canonicalPayload?.spec.batch.environment ?? "",
+      ...(request.canonicalPayload?.spec.batch.gateRequired !== undefined
+        ? { gateRequired: request.canonicalPayload.spec.batch.gateRequired }
+        : {}),
       name: request.canonicalPayload?.spec.batch.name ?? "",
       owner: request.canonicalPayload?.spec.batch.owner ?? "",
     },
@@ -632,7 +663,9 @@ function projectRequest(
       requestDigest: request.requestDigest,
       ...(sourceChange ? { sourceChange } : {}),
     },
-    ...(request.execution ? { execution: request.execution } : {}),
+    ...(toExecutionTargetForRequest(request)
+      ? { executionTarget: toExecutionTargetForRequest(request) }
+      : {}),
     expiresAt: request.expiresAt,
     ...(request.gateDecision ? { gateDecision: request.gateDecision } : {}),
     reason: request.reason,
@@ -648,20 +681,20 @@ function projectRequest(
     title: `#${request.issue.number} ${request.issue.title}`,
     triggerType: request.triggerType,
     updatedAt: request.issue.updatedAt ?? "",
-    ...(request.workflow ? { workflow: request.workflow } : {}),
     workspaceLabel: workspace,
   };
 }
 
 async function loadSourceChange(
-  runtime: BatchPlaneRuntimePorts,
+  context: GitHubRepositoryContext,
   request: ExecutionApprovalRequest,
 ): Promise<ExecutionRequest["evidence"]["sourceChange"]> {
   if (!request.canonicalPayload?.spec.approvedBatchRevision) return undefined;
 
-  const repository = await runtime.settings.getRepository();
-  const pullRequests = await runtime.approvals.listRegistrationRequests({
-    baseBranch: repository.defaultBranch,
+  const repository = await context.client.getRepository(context.repositoryRef);
+  const pullRequests = await context.client.listPullRequests({
+    ...context.repositoryRef,
+    base: repository.defaultBranch,
     state: "all",
   });
 
@@ -670,15 +703,13 @@ async function loadSourceChange(
 
 function sourceChangeFor(
   request: ExecutionApprovalRequest,
-  pullRequests: Awaited<
-    ReturnType<BatchPlaneRuntimePorts["approvals"]["listRegistrationRequests"]>
-  >,
+  pullRequests: RepositoryPullRequest[],
 ): ExecutionRequest["evidence"]["sourceChange"] {
   const revision = request.canonicalPayload?.spec.approvedBatchRevision;
   if (!revision) return undefined;
 
   const matches = pullRequests.flatMap((pullRequest) => {
-    const evidence = parseGovernedChangeRequestEvidence(pullRequest.body);
+    const evidence = parseChangeRequestEvidence(pullRequest.body);
 
     return evidence &&
       evidence.governedChangeId === revision.governedChangeId &&
@@ -715,7 +746,9 @@ function approvalNoticeFor(
 }
 
 function toAttempt(
-  run: ExecutionRun & { nativeSchedule?: ExecutionAttempt["nativeSchedule"] },
+  run: GitHubExecutionRun & {
+    nativeSchedule?: ExecutionAttempt["nativeSchedule"];
+  },
 ): ExecutionAttempt {
   return {
     ...(run.actor ? { actor: run.actor } : {}),
@@ -730,10 +763,14 @@ function toAttempt(
     ...(run.workflowRunUrl ? { sourceUrl: run.workflowRunUrl } : {}),
     ...(run.startedAt ? { startedAt: run.startedAt } : {}),
     status: run.status,
-    workflow: {
-      ...(run.workflowName ? { name: run.workflowName } : {}),
-      ...(run.workflowPath ? { path: run.workflowPath } : {}),
-    },
+    ...(run.workflowPath || run.workflowName
+      ? {
+          executionTarget: {
+            ...(run.workflowPath ? { location: run.workflowPath } : {}),
+            ...(run.workflowName ? { name: run.workflowName } : {}),
+          },
+        }
+      : {}),
   };
 }
 
@@ -788,8 +825,8 @@ function executionWorkOccurredAt(item: ExecutionRequestInventoryItem): string {
   return item.request.requestedAt || item.request.updatedAt || "";
 }
 
-function toGovernedChangeKind(
-  kind: ReturnType<typeof getGovernedChangeRequestKind>,
+function toChangeRequestKind(
+  kind: ReturnType<typeof getChangeRequestKind>,
   requestType: "REGISTER" | "CHANGE" | "DELETE",
 ) {
   if (kind === "schedule") {
@@ -803,7 +840,7 @@ function toGovernedChangeKind(
 }
 
 function failureFollowUpWorkItems(
-  runs: ExecutionRun[],
+  runs: GitHubExecutionRun[],
   requests: ExecutionRequestInventoryItem[],
   actor: string,
 ): MyWorkItem[] {
@@ -815,93 +852,155 @@ function failureFollowUpWorkItems(
       .filter((item) => item.request.requestedBy === actor)
       .map((item) => item.request.requestId),
   );
-  return runs.flatMap((run) => {
-    if (run.status !== "FAILED" && run.status !== "BLOCKED") return [];
-    const request = requestsById.get(run.requestId);
-    const assignedInitialFollowUp =
-      request?.triggerType === "SCHEDULE"
-        ? request.batch.owner === actor
-        : requestedByMe.has(run.requestId);
-    const followUps = run.failureFollowUps ?? [];
-    const source = toAttempt(run);
-    const title = `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`;
-    const base = {
-      attemptLocator: run.runId,
-      batchId: run.batchId,
-      isGateBlocked: run.status === "BLOCKED",
-      requestId: run.requestId,
-      sourceLabel: source.sourceLabel,
-      ...(source.sourceUrl ? { sourceUrl: source.sourceUrl } : {}),
-      title,
-    };
-    const reviewable = followUps.filter(
-      (followUp) =>
-        followUp.reviewStatus === "AWAITING_REVIEW" &&
-        followUp.reviewCapability?.canReview,
-    );
-    const revise = followUps.filter(
-      (followUp) =>
-        ["CHANGES_REQUESTED", "REJECTED"].includes(followUp.reviewStatus) &&
-        (followUp.owner === actor || followUp.author === actor),
-    );
-    const ongoing = followUps.filter(
-      (followUp) =>
-        followUp.reviewStatus === "AWAITING_REVIEW" &&
-        ["OPEN", "INVESTIGATING"].includes(followUp.status) &&
-        (followUp.owner === actor || followUp.author === actor) &&
-        !reviewable.some(
-          (candidate) => candidate.followUpId === followUp.followUpId,
-        ),
-    );
-    return [
-      ...reviewable.map((followUp) => ({
-        ...base,
-        action: "REVIEW_FOLLOW_UP" as const,
-        actor: followUp.author,
-        itemType: "FAILURE_FOLLOW_UP" as const,
-        itemLocator: `follow-up:${followUp.followUpId}`,
-        occurredAt: followUp.createdAt,
-        priority: "HIGH" as const,
-      })),
-      ...revise.map((followUp) => ({
-        ...base,
-        action: "UPDATE_FOLLOW_UP" as const,
-        actor: followUp.author,
-        itemType: "FAILURE_FOLLOW_UP" as const,
-        itemLocator: `follow-up:${followUp.followUpId}`,
-        occurredAt: followUp.createdAt,
-        priority: "HIGH" as const,
-        revisionReason: followUp.reviewStatus as
-          | "CHANGES_REQUESTED"
-          | "REJECTED",
-      })),
-      ...ongoing.map((followUp) => ({
-        ...base,
-        action: "CONTINUE_FOLLOW_UP" as const,
-        actor: followUp.author,
-        itemType: "FAILURE_FOLLOW_UP" as const,
-        itemLocator: `follow-up:${followUp.followUpId}`,
-        occurredAt: followUp.createdAt,
-        priority: "NORMAL" as const,
-      })),
-      ...(followUps.length === 0 && assignedInitialFollowUp
-        ? [
-            {
-              ...base,
-              action:
-                run.status === "BLOCKED"
-                  ? ("REVIEW_GATE_EVIDENCE" as const)
-                  : ("WRITE_FOLLOW_UP" as const),
-              actor: run.actor ?? "",
-              itemType: "FAILURE_FOLLOW_UP" as const,
-              itemLocator: `run:${run.runId}:follow-up-needed`,
-              occurredAt: run.completedAt ?? run.startedAt ?? "",
-              priority: "HIGH" as const,
-            },
-          ]
-        : []),
-    ];
+  return runs.flatMap((run) =>
+    followUpWorkItemsForRun(
+      run,
+      requestsById.get(run.requestId),
+      requestedByMe,
+      actor,
+    ),
+  );
+}
+
+function followUpWorkItemsForRun(
+  run: GitHubExecutionRun,
+  request: ExecutionRequest | undefined,
+  requestedByMe: Set<string>,
+  actor: string,
+): MyWorkItem[] {
+  if (run.status !== "FAILED" && run.status !== "BLOCKED") return [];
+
+  const assignedInitialFollowUp =
+    request?.triggerType === "SCHEDULE"
+      ? request.batch.owner === actor
+      : requestedByMe.has(run.requestId);
+  const followUps = run.failureFollowUps ?? [];
+  const source = toAttempt(run);
+  const title = `${run.batchId || run.workflowName || `Run ${run.runId}`} - Run ${run.runId}`;
+  const base = {
+    attemptLocator: run.runId,
+    batchId: run.batchId,
+    isGateBlocked: run.status === "BLOCKED",
+    requestId: run.requestId,
+    sourceLabel: source.sourceLabel,
+    ...(source.sourceUrl ? { sourceUrl: source.sourceUrl } : {}),
+    title,
+  };
+  const itemFor = (followUp: (typeof followUps)[number]) => ({
+    ...base,
+    actor: followUp.author,
+    itemType: "FAILURE_FOLLOW_UP" as const,
+    itemLocator: `follow-up:${followUp.followUpId}`,
+    occurredAt: followUp.createdAt,
   });
+  const { reviewTargets, revisionTargets, ongoingTargets } =
+    selectFollowUpTargets(followUps, actor);
+
+  return [
+    ...reviewTargets.map((followUp) => ({
+      ...itemFor(followUp),
+      action: "REVIEW_FOLLOW_UP" as const,
+      priority: "HIGH" as const,
+    })),
+    ...revisionTargets.map((followUp) => ({
+      ...itemFor(followUp),
+      action: "UPDATE_FOLLOW_UP" as const,
+      priority: "HIGH" as const,
+      revisionReason: followUp.reviewStatus as "CHANGES_REQUESTED" | "REJECTED",
+    })),
+    ...ongoingTargets.map((followUp) => ({
+      ...itemFor(followUp),
+      action: "CONTINUE_FOLLOW_UP" as const,
+      priority: "NORMAL" as const,
+    })),
+    ...(followUps.length === 0 && assignedInitialFollowUp
+      ? [
+          {
+            ...base,
+            action:
+              run.status === "BLOCKED"
+                ? ("REVIEW_GATE_EVIDENCE" as const)
+                : ("WRITE_FOLLOW_UP" as const),
+            actor: run.actor ?? "",
+            itemType: "FAILURE_FOLLOW_UP" as const,
+            itemLocator: `run:${run.runId}:follow-up-needed`,
+            occurredAt: run.completedAt ?? run.startedAt ?? "",
+            priority: "HIGH" as const,
+          },
+        ]
+      : []),
+  ];
+}
+
+function selectFollowUpTargets(
+  followUps: NonNullable<GitHubExecutionRun["failureFollowUps"]>,
+  actor: string,
+) {
+  const reviewTargets = followUps.filter(
+    (followUp) =>
+      followUp.reviewStatus === "AWAITING_REVIEW" &&
+      followUp.reviewCapability?.canReview,
+  );
+  const revisionTargets = followUps.filter(
+    (followUp) =>
+      ["CHANGES_REQUESTED", "REJECTED"].includes(followUp.reviewStatus) &&
+      (followUp.owner === actor || followUp.author === actor),
+  );
+  const ongoingTargets = followUps.filter(
+    (followUp) =>
+      followUp.reviewStatus === "AWAITING_REVIEW" &&
+      ["OPEN", "INVESTIGATING"].includes(followUp.status) &&
+      (followUp.owner === actor || followUp.author === actor) &&
+      !reviewTargets.some(
+        (candidate) => candidate.followUpId === followUp.followUpId,
+      ),
+  );
+  return { reviewTargets, revisionTargets, ongoingTargets };
+}
+
+function projectCreatedRequest(
+  request: ExecutionApprovalRequest,
+  draft: ExecutionRequestDraft,
+): ExecutionRequest {
+  return projectRequest(
+    request,
+    capabilityFor(request, draft),
+    undefined,
+    draft.workspaceLabel,
+    approvalNoticeFor(request, draft),
+  );
+}
+
+async function recordAutomaticApproval(
+  context: GitHubRepositoryContext,
+  createdIssue: Awaited<ReturnType<typeof createApprovedExecutionRequest>>,
+  createdRequest: ExecutionApprovalRequest,
+  draft: ExecutionRequestDraft,
+) {
+  const approvalBody = buildExecutionApprovalComment({
+    approvalMode: draft.workspaceApprovalMode,
+    approvalType: "WORKSPACE_AUTO_APPROVED",
+    approvedAt: new Date(),
+    approver: draft.requestedBy,
+    request: createdRequest,
+  });
+  let approvalComment;
+
+  try {
+    approvalComment = await context.client.createIssueComment({
+      ...context.repositoryRef,
+      body: approvalBody,
+      issueNumber: createdIssue.number,
+    });
+  } catch {
+    return {
+      postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" as const },
+      request: projectCreatedRequest(createdRequest, draft),
+    };
+  }
+
+  const approvedRequest = requireParsedRequest(createdIssue, [approvalComment]);
+  return { request: projectCreatedRequest(approvedRequest, draft) };
 }
 
 function requireParsedRequest(
@@ -914,23 +1013,23 @@ function requireParsedRequest(
   return request;
 }
 
-function toDraftBatch(batch: BatchDefinition): ExecutionRequestDraft["batch"] {
+function toDraftBatch(
+  batch: GitHubBatchDefinition,
+): ExecutionRequestDraft["batch"] {
   return {
     batchId: batch.batchId,
     criticality: batch.criticality,
     domain: batch.domain,
     environment: batch.environment,
-    ...(batch.execution ? { execution: batch.execution } : {}),
+    ...(batch.execution ? { executionTarget: toExecutionTarget(batch) } : {}),
     gateRequired: batch.gateRequired,
     name: batch.name,
     owner: batch.owner,
     status: batch.status,
-    workflowPath: batch.workflow.path,
-    workflowRef: batch.workflow.ref,
   };
 }
 
-function creationCapabilityFor(batch: BatchDefinition) {
+function creationCapabilityFor(batch: GitHubBatchDefinition) {
   const unavailableReasons = [
     ...(batch.status !== "ACTIVE" ? (["BATCH_INACTIVE"] as const) : []),
     ...(!batch.gateRequired ? (["GATE_NOT_REQUIRED"] as const) : []),
@@ -949,18 +1048,54 @@ function workspaceLabel(repository: { owner: string; repo: string }) {
   return `${repository.owner}/${repository.repo}`;
 }
 
-function toBatchDefinition(draft: ExecutionRequestDraft): BatchDefinition {
+function toExecutionTarget(batch: GitHubBatchDefinition) {
+  const execution = batch.execution;
+  if (!execution) return undefined;
+
   return {
-    batchId: draft.batch.batchId,
-    criticality: draft.batch.criticality as BatchDefinition["criticality"],
-    domain: draft.batch.domain,
-    environment: draft.batch.environment,
-    ...(draft.batch.execution ? { execution: draft.batch.execution } : {}),
-    gateRequired: draft.batch.gateRequired,
-    name: draft.batch.name,
-    owner: draft.batch.owner,
-    status: draft.batch.status,
-    workflow: { path: draft.batch.workflowPath, ref: draft.batch.workflowRef },
+    command: execution.command,
+    executionEnvironment: Array.isArray(execution.runsOn)
+      ? execution.runsOn.join(", ")
+      : execution.runsOn,
+    ...(execution.artifactPath
+      ? {
+          executionFile: {
+            location: execution.artifactPath,
+            name:
+              execution.artifactPath.split("/").at(-1) ??
+              execution.artifactPath,
+          },
+        }
+      : {}),
+    platformName: "GitHub Actions",
+    targetName: batch.workflow.path,
+    targetRevision: batch.workflow.ref,
+  };
+}
+
+function toExecutionTargetForRequest(request: ExecutionApprovalRequest) {
+  if (!request.execution || !request.workflow) return undefined;
+
+  const { execution, workflow } = request;
+
+  return {
+    command: execution.command,
+    executionEnvironment: Array.isArray(execution.runsOn)
+      ? execution.runsOn.join(", ")
+      : execution.runsOn,
+    ...(execution.artifactPath
+      ? {
+          executionFile: {
+            location: execution.artifactPath,
+            name:
+              execution.artifactPath.split("/").at(-1) ??
+              execution.artifactPath,
+          },
+        }
+      : {}),
+    platformName: "GitHub Actions",
+    targetName: workflow.path,
+    targetRevision: workflow.ref,
   };
 }
 
@@ -976,4 +1111,20 @@ function parseTimestamp(value: string, description: string) {
   if (Number.isNaN(timestamp.getTime()))
     throw new Error(`The execution request ${description} is invalid.`);
   return timestamp;
+}
+
+async function loadExecutionIssue(
+  { client, repositoryRef }: GitHubRepositoryContext,
+  { issueNumber }: { issueNumber: number },
+) {
+  const issue = await client.getIssue({ ...repositoryRef, issueNumber });
+  return issue && !issue.isPullRequest ? toRepositoryIssue(issue) : null;
+}
+
+async function listExecutionIssues(
+  { client, repositoryRef }: GitHubRepositoryContext,
+  { state }: { state: "open" | "closed" | "all" },
+) {
+  const issues = await client.listIssues({ ...repositoryRef, state });
+  return issues.filter((issue) => !issue.isPullRequest).map(toRepositoryIssue);
 }

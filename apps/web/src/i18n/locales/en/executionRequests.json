@@ -10,11 +10,11 @@
     "command": "Batch command",
     "domain": "Domain",
     "environment": "Environment",
-    "governed": "Governed",
+    "controlled": "Controlled",
     "missingCommand": "Batch command is missing",
     "owner": "Owner",
-    "runsOn": "Runs on",
-    "workflowPath": "Workflow path"
+    "runsOn": "Execution environment",
+    "workflowPath": "Execution target"
   },
   "detail": {
     "title": "Execution request detail",
@@ -27,7 +27,7 @@
       "closedTitle": "No approval action",
       "note": "Approval records request evidence. The browser never dispatches the workflow directly.",
       "openSourceRequest": "Open source request",
-      "openRunDetail": "View run detail",
+      "openRunDetail": "View execution detail",
       "refresh": "Refresh",
       "reject": "Reject",
       "title": "Approval decision"
@@ -61,16 +61,16 @@
       "requestDigest": "Request digest",
       "requestedAt": "Requested at",
       "requestedBy": "Requested by",
-      "runsOn": "Runs on",
+      "runsOn": "Execution environment",
       "sourceChange": "Source change",
-      "workflow": "Workflow"
+      "workflow": "Execution target"
     },
-    "governance": {
+    "control": {
       "digest": "Request digest is present.",
       "gateMissing": "BatchPlane Gate evidence is missing.",
       "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
       "requester": "Requester evidence is present.",
-      "title": "Governance checks"
+      "title": "Control checks"
     },
     "material": {
       "title": "Decision material"
@@ -117,14 +117,14 @@
     }
   },
   "runDetail": {
-    "sourceRunTitle": "Source run detail",
-    "title": "Execution run detail",
-    "subtitle": "Inspect workflow run {{runId}} evidence.",
+    "sourceRunTitle": "Source execution detail",
+    "title": "Execution detail",
+    "subtitle": "Inspect execution {{executionId}} evidence.",
     "actions": {
       "backToFailures": "Back to failures",
-      "backToRuns": "Back to runs",
+      "backToExecutions": "Back to executions",
       "openBatch": "Open batch",
-      "openGitHubRun": "Open GitHub run",
+      "openGitHubRun": "Open source execution",
       "refresh": "Refresh"
     },
     "business": {
@@ -189,9 +189,10 @@
       "reasonCode": "Reason code",
       "requestId": "Request ID",
       "runAttempt": "Attempt",
-      "runId": "Run ID",
+      "executionId": "Execution ID",
+      "sourceRunId": "Source execution ID",
       "startedAt": "Started at",
-      "workflow": "Workflow"
+      "workflow": "Execution target"
     },
     "gate": {
       "allowedMessage": "Gate allowed this run before the batch command.",
@@ -247,7 +248,7 @@
       "error": "Failed to load execution run detail.",
       "loading": "Loading execution run detail...",
       "noSession": "Connect a Workspace before viewing execution runs.",
-      "notFound": "Execution run {{runId}} was not found."
+      "notFound": "Execution {{executionId}} was not found."
     },
     "status": {
       "BLOCKED": "Gate blocked",
@@ -263,7 +264,7 @@
       "inProgress": "In progress",
       "none": "None",
       "unknown": "Unknown",
-      "unknownWorkflow": "GitHub Actions workflow"
+      "unknownWorkflow": "Execution target unavailable"
     }
   },
   "form": {
@@ -272,7 +273,8 @@
     "expiresInOption": "{{hours}} hour(s)",
     "reason": "Reason",
     "title": "Request details",
-    "workflowRef": "Workflow ref"
+    "workflowRef": "Workflow ref",
+    "targetRevision": "Target revision"
   },
   "parameters": {
     "add": "Add parameter",
@@ -291,7 +293,7 @@
   },
   "review": {
     "commandReady": "Batch command is included in the request payload.",
-    "autoApproval": "Workspace policy auto-approves this request after creation. BatchPlane records approval evidence only; the dispatcher performs the governed workflow dispatch.",
+    "autoApproval": "Workspace policy auto-approves this request after creation. BatchPlane records approval evidence only; the dispatcher performs the controlled workflow dispatch.",
     "digest": "Request digest",
     "digestReady": "Request digest will be written to request evidence.",
     "expiresAt": "Expires at",
@@ -300,9 +302,9 @@
     "noDispatch": "Creating the request does not dispatch the workflow.",
     "pending": "Pending",
     "requestId": "Request ID",
-    "runner": "Runner",
+    "runner": "Execution environment",
     "title": "Request review",
-    "workflow": "Workflow"
+    "workflow": "Execution target"
   },
   "states": {
     "completeForm": "Complete the request before creating it.",
@@ -327,6 +329,7 @@
     "missingCommand": "The batch command is not recorded in the batch definition.",
     "parameterName": "Parameter name is required when a value is entered.",
     "reason": "Reason is required.",
-    "workflowRef": "Workflow ref is required."
+    "workflowRef": "Workflow ref is required.",
+    "targetRevision": "Target revision is required."
   }
 }

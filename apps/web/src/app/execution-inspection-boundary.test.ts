@@ -15,7 +15,7 @@ function sourceFiles(directory: string): string[] {
 describe("execution inspection dependency boundaries", () => {
   it("keeps product pages and their local hooks free of transport/session/evidence parsing", () => {
     const files = [
-      "pages/execution-runs",
+      "pages/executions",
       "pages/audit",
       "pages/dashboard",
     ].flatMap((path) => sourceFiles(resolve("src", path)));
@@ -25,7 +25,7 @@ describe("execution inspection dependency boundaries", () => {
         /from ["'][^"']*(?:runtime|github-lite|github-session|@batchplane\/domain)/,
       );
       expect(source, file).not.toMatch(
-        /createRuntime|readSession|parseExecutionGateResult|BATCHPLANE_GATE_RESULT|BatchPlane Gate/,
+        /createRuntime|readSession|parseExecutionGateResult|BATCHPLANE_GATE_RESULT/,
       );
     }
   });

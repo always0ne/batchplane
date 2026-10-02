@@ -1,7 +1,36 @@
 # Lite UI/UX Baseline
 
+## Platform Input Boundaries
+
+Separating business metadata from platform execution settings must preserve the
+operator's single Batch registration/change journey: one Page, one draft flow,
+one preview and one change request. A platform-specific input component is
+not a second setup wizard. Existing command, runner/custom labels, execution
+file, revision and schedule controls remain available, and Batch detail and
+execution requests continue to show what will run and where. Shared surfaces
+must not assume GitHub Actions is the only platform or decode workflow/YAML
+data themselves. Use ordinary named React components and typed props rather
+than a generic JSON form engine. No visual redesign is implied by this boundary.
+
 This document defines the UI/UX baseline for BatchPlane Lite screens.
 Every screen PR should check its scope against this baseline before review.
+
+## Product Navigation
+
+- Execution history, exact execution detail and failures use `/executions`,
+  `/executions/:executionId` and `/executions/failures`. Settings use `/workspace`.
+- Product navigation says Executions and Requests and audit (실행내역, 요청 및
+  감사), not provider Run or Governance categories. Provider source links retain
+  their actual provider names; do not disguise an external destination.
+- Failure history belongs to execution inspection. Its navigation state must
+  distinguish it from the all-execution list. Preserve direct entry, filters,
+  exact scheduled occurrence/attempt links and existing follow-up/log access.
+- This cleanup preserves the current My Work purpose and change/execution
+  request creation/detail routes. It must not introduce a second request-writing
+  journey or imply that unified requests are already available.
+- [Unified requests](./unified-request-feature-spec.md) are a separate deferred
+  feature; their complete writing/approval/item-processing UX is reviewed after
+  refactoring, before that feature is implemented.
 
 ## Operator Journey
 
@@ -9,18 +38,18 @@ Lite must read as one connected operational flow:
 
 1. Connect a Workspace backed by a GitHub repository.
 2. Install Lite through a setup request.
-3. Register a batch through a governed change request that includes the batch
+3. Register a batch through a change request that includes the batch
    definition, generated workflow, and optional execution artifact.
 4. Review and decide registration changes in the approvals inbox.
 5. Request execution for an active, Gate-protected batch.
 6. Review execution context and approve or reject the request.
-7. Let the dispatcher invoke the governed workflow.
+7. Let the dispatcher invoke the controlled workflow.
 8. Review execution evidence, Gate decisions, failures, and audit history.
 
 For scheduled execution, the approved Batch change authorizes unattended
 occurrences. The native Run records its request, Gate and result in the same
 workflow without per-run human approval or dispatcher handoff. Request detail
-shows the schedule and original governed-revision authority, not a missing
+shows the schedule and original controlled-revision authority, not a missing
 approval. It links to the exact occurrence/attempt detail. See
 [`schedule-execution-contract.md`](./schedule-execution-contract.md).
 
@@ -31,12 +60,12 @@ approval. It links to the exact occurrence/attempt detail. See
   are older than the current BatchPlane template, the screen must show the
   affected workflow paths and provide a pull-request action to update them.
 - Registration shows what will be controlled, what will run, where it will run,
-  and which governed files the request will change.
+  and which controlled files the request will change.
 - Approvals shows only work that can still be approved or rejected. Scheduled
   occurrences never become manual approval tasks or counts, including while
   their Gate/result evidence is not yet available.
 - Registration/change detail shows request status, external source metadata,
-  governance checklist, and YAML change summary before an internal decision.
+  control checklist, and YAML change summary before an internal decision.
 - Execution request detail shows the full judgment record for one request:
   request status, requester, batch context, workflow/ref, runner, command,
   digest, canonical payload, approval evidence, dispatcher evidence, and Gate
@@ -45,13 +74,13 @@ approval. It links to the exact occurrence/attempt detail. See
   execution state, pending request count, and failure signals.
 - Batch detail is the operator console for one batch. It must show control
   state, execution target, request actions, and recent evidence. When the active
-  definition has been deleted through a governed delete request, the same route
+  definition has been deleted through a deletion request, the same route
   must render a deleted batch archive instead of a dead not-found screen, and it
   must keep recent execution evidence reachable for audit review.
 - Batch list and detail show the adapter-projected revision-control state. Manual
   execution is unavailable for `BYPASSED` and `UNKNOWN` control with the compact
   reason on the disabled action. Detail shows only adapter-authorized remediation
-  actions and sends the resulting governed change to its internal detail route;
+  actions and sends the resulting change request to its internal detail route;
   it never treats request creation as an automatic unlock.
 - Failure, run detail, my work, and audit screens are post-approval follow-up
   surfaces. They must not be collapsed into the approvals inbox.
@@ -196,7 +225,7 @@ backfill, new review policy, or stronger evidence retention.
   and it must not present repository-owned policy files as template drift.
 - `AUTO_APPROVE` must explain that execution requests receive explicit
   Workspace-policy approval evidence automatically after Issue creation. The UI
-  still must not dispatch governed workflows directly. It must also explain
+  still must not dispatch controlled workflows directly. It must also explain
   that this mode includes self-approval permission.
 
 ## Gate UX Rules
@@ -209,12 +238,12 @@ backfill, new review policy, or stronger evidence retention.
 
 ## GitHub Delegation UX Rules
 
-- Creating a governed request or execution Issue should route the user to the
+- Creating a change request or execution Issue should route the user to the
   returned internal BatchPlane detail immediately. The GitHub Lite adapter owns
-  the repository branch, file, and pull-request mechanics for governed changes.
+  the repository branch, file, and pull-request mechanics for change requests.
 - The UI should acknowledge that GitHub issue, pull request, and actions
   visibility can lag briefly after creation.
-- Browser UI must not imply it directly dispatches governed workflows.
+- Browser UI must not imply it directly dispatches controlled workflows.
   Dispatch is performed by the repository dispatcher workflow after approval.
 - GitHub Actions visibility can lag after dispatch. Run detail links should
   appear when correlation evidence is available, and missing runs should be

@@ -1,7 +1,7 @@
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
 import {
-  createGitHubLiteGovernedChangeClient,
-  createGitHubLiteBatchRevisionClient,
+  createGitHubLiteChangeRequestClient,
+  createGitHubLiteBatchPlaneClient,
+  createGitHubLiteClient,
   createGitHubLiteMockState,
   createMockGitHubLiteClient,
   getNativeScheduleWorkflowJobIdentity,
@@ -10,14 +10,13 @@ import {
   type GitHubWorkflowJob,
   type MockGitHubLiteClient,
 } from "@batchplane/github-lite";
-import type { BatchPlaneClient } from "@batchplane/ui-client";
+import type { BatchControl, BatchPlaneClient } from "@batchplane/ui-client";
 
 import { readGitHubSession, type GitHubSession } from "./github-session";
 import {
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
 } from "@batchplane/github-lite";
-import { createGitHubLiteRuntime } from "./github-lite-runtime";
 
 export const runtimeFixtureStorageKey = "batchplane.dev.runtimeFixture";
 export const legacyRuntimeFixtureStorageKey = "batchtrail.dev.runtimeFixture";
@@ -118,58 +117,51 @@ export function readRuntimeSession(): GitHubSession | null {
     : mockRuntimeSession;
 }
 
-export function createBatchPlaneRuntime(
+export function createSelectedBatchPlaneClient(
   session: GitHubSession,
-): BatchPlaneRuntimePorts {
+): BatchPlaneClient {
   const fixtureId = readRuntimeFixtureSelection();
-
   if (fixtureId === "live") {
-    return createGitHubLiteRuntime(session);
+    return createGitHubLiteBatchPlaneClient({
+      client: createGitHubLiteClient({ token: session.token }),
+      repositoryRef: { owner: session.owner, repo: session.repo },
+    });
   }
 
-  const runtime = createGitHubLiteRuntime(mockRuntimeSession, {
+  const client = createGitHubLiteBatchPlaneClient({
     client: getRuntimeFixtureClient(fixtureId),
+    repositoryRef: {
+      owner: mockRuntimeSession.owner,
+      repo: mockRuntimeSession.repo,
+    },
   });
 
   return {
-    ...runtime,
-    executions: {
-      ...runtime.executions,
-      async getApprovedBatchRevision(input) {
-        await ensureApprovedRevisionFixture(fixtureId);
-        return runtime.executions.getApprovedBatchRevision(input);
-      },
-    },
-  };
-}
-
-export function createRuntimeGovernedChangeClient(
-  session: GitHubSession,
-): Pick<
-  BatchPlaneClient,
-  | "approveGovernedChange"
-  | "createBatchChangeRequest"
-  | "getGovernedChange"
-  | "getBatchChangeBlocker"
-  | "getBatchRemediationCapability"
-  | "loadBatchChangeDraft"
-  | "previewBatchChange"
-  | "requestBatchRemediation"
-  | "rejectGovernedChange"
-  | "withdrawGovernedChange"
-> {
-  const fixtureId = readRuntimeFixtureSelection();
-
-  if (fixtureId === "live")
-    return createGitHubLiteGovernedChangeClient(session);
-
-  const client = createGitHubLiteGovernedChangeClient(
-    mockRuntimeSession,
-    getRuntimeFixtureClient(fixtureId),
-  );
-
-  return {
     ...client,
+    async listBatches() {
+      await ensureApprovedRevisionFixture(fixtureId);
+      const result = await client.listBatches();
+      if (fixtureId !== "batch-control-unknown" || result.type !== "loaded")
+        return result;
+      return {
+        ...result,
+        batches: result.batches.map((batch) => ({
+          ...batch,
+          control: unknownBatchControl(batch.control),
+        })),
+      };
+    },
+    async getBatchDetail(input) {
+      await ensureApprovedRevisionFixture(fixtureId);
+      const result = await client.getBatchDetail(input);
+      if (fixtureId !== "batch-control-unknown" || result.type !== "active")
+        return result;
+      return { ...result, control: unknownBatchControl(result.control) };
+    },
+    async loadExecutionRequestDraft(input) {
+      await ensureApprovedRevisionFixture(fixtureId);
+      return client.loadExecutionRequestDraft(input);
+    },
     async getBatchRemediationCapability(input) {
       await ensureApprovedRevisionFixture(fixtureId);
       return client.getBatchRemediationCapability(input);
@@ -181,38 +173,11 @@ export function createRuntimeGovernedChangeClient(
   };
 }
 
-/**
- * Batch control reads must follow the same selected fixture client as runtime
- * and governed-change operations. This keeps browser fixtures offline.
- */
-export function createRuntimeBatchRevisionClient(session: GitHubSession) {
-  const fixtureId = readRuntimeFixtureSelection();
-
-  if (fixtureId === "live") {
-    return createGitHubLiteBatchRevisionClient(session);
-  }
-
-  const client = createGitHubLiteBatchRevisionClient(
-    mockRuntimeSession,
-    getRuntimeFixtureClient(fixtureId),
-  );
-
+function unknownBatchControl(control: BatchControl): BatchControl {
   return {
-    ...client,
-    async verifyApprovedBatchRevision(
-      input: Parameters<typeof client.verifyApprovedBatchRevision>[0],
-    ) {
-      await ensureApprovedRevisionFixture(fixtureId);
-
-      if (fixtureId === "batch-control-unknown") {
-        return {
-          controlStatus: "UNKNOWN" as const,
-          reasonCode: "APPROVED_BATCH_REVISION_UNAVAILABLE" as const,
-        };
-      }
-
-      return client.verifyApprovedBatchRevision(input);
-    },
+    status: "UNKNOWN",
+    disabledReason: "APPROVED_BATCH_REVISION_UNAVAILABLE",
+    remediation: control.remediation,
   };
 }
 
@@ -251,7 +216,7 @@ export async function prepareRuntimeFixtureClient(
     return;
   }
 
-  const governedChanges = createGitHubLiteGovernedChangeClient(
+  const changeRequests = createGitHubLiteChangeRequestClient(
     mockRuntimeSession,
     client,
   );
@@ -262,15 +227,15 @@ export async function prepareRuntimeFixtureClient(
   client.state.issues = [];
   const fixtureActor = client.state.currentUser.login;
   client.state.currentUser.login = "developer";
-  const draft = await governedChanges.loadBatchChangeDraft({
+  const draft = await changeRequests.loadBatchChangeDraft({
     batchId: "payment.daily-close",
     mode: "change",
   });
-  const created = await governedChanges.createBatchChangeRequest(draft);
+  const created = await changeRequests.createBatchChangeRequest(draft);
 
   if (created.request.reviewState !== "MERGED") {
     client.state.currentUser.login = "maintainer";
-    await governedChanges.approveGovernedChange({
+    await changeRequests.approveChangeRequest({
       requestLocator: created.request.requestLocator,
     });
   }
@@ -470,6 +435,27 @@ const nativeScheduleRunningFixtureOccurrence: NativeFixtureOccurrence = {
   scheduleId: "weekday-reconcile",
 };
 
+function getNativeScheduleOccurrences(
+  fixtureId: Exclude<RuntimeFixtureId, "live">,
+  requestedOutcome: NativeFixtureOutcome | undefined,
+): NativeFixtureOccurrence[] {
+  if (
+    fixtureId === "native-schedule-mixed" ||
+    fixtureId === "native-schedule-source-unconfirmed"
+  ) {
+    return nativeScheduleFixtureOccurrences;
+  }
+  if (fixtureId === "native-schedule-running") {
+    return [nativeScheduleRunningFixtureOccurrence];
+  }
+  if (requestedOutcome) {
+    return nativeScheduleFixtureOccurrences.filter(
+      (occurrence) => occurrence.outcome === requestedOutcome,
+    );
+  }
+  return [];
+}
+
 function createNativeScheduleFixture(
   fixtureId: Exclude<RuntimeFixtureId, "live">,
 ): NativeScheduleFixture | null {
@@ -483,17 +469,7 @@ function createNativeScheduleFixture(
     "native-schedule-running": "RUNNING",
   };
   const requestedOutcome = outcomeByFixture[fixtureId];
-  const occurrences =
-    fixtureId === "native-schedule-mixed" ||
-    fixtureId === "native-schedule-source-unconfirmed"
-      ? nativeScheduleFixtureOccurrences
-      : fixtureId === "native-schedule-running"
-        ? [nativeScheduleRunningFixtureOccurrence]
-        : requestedOutcome
-          ? nativeScheduleFixtureOccurrences.filter(
-              (occurrence) => occurrence.outcome === requestedOutcome,
-            )
-          : [];
+  const occurrences = getNativeScheduleOccurrences(fixtureId, requestedOutcome);
   if (occurrences.length === 0) return null;
 
   const state = createGitHubLiteMockState();
@@ -569,8 +545,7 @@ function createNativeScheduleFixture(
     const controlJobId = baseJobId + 1;
     const businessJobId = baseJobId + 2;
     const blocked = occurrence.outcome === "BLOCKED";
-    const failed = occurrence.outcome === "FAILED";
-    const running = occurrence.outcome === "RUNNING";
+    const businessResult = getNativeBusinessResult(occurrence.outcome);
     const jobs: GitHubWorkflowJob[] = [
       nativeFixtureJob({
         conclusion: "success",
@@ -579,12 +554,11 @@ function createNativeScheduleFixture(
         stepName: "Verify approved native schedule evidence",
       }),
       nativeFixtureJob({
-        conclusion: running ? null : blocked || failed ? "failure" : "success",
+        conclusion: businessResult.conclusion,
         id: businessJobId,
         name: identity.businessJobName,
-        runConclusion:
-          blocked || running ? undefined : failed ? "failure" : "success",
-        status: running ? "in_progress" : "completed",
+        runConclusion: businessResult.runConclusion,
+        status: businessResult.status,
         stepName: "Reverify approved native schedule evidence",
       }),
     ];
@@ -623,20 +597,7 @@ function createNativeScheduleFixture(
           runId: Number(sourceRunId),
           step: "Reverify approved native schedule evidence",
         }),
-        ...(!blocked && !running
-          ? [
-              "2026-09-11T01:01:04.000Z ##[group]BatchPlane batch command",
-              "2026-09-11T01:01:04.100Z echo native fixture",
-              "2026-09-11T01:01:04.150Z native fixture",
-              `2026-09-11T01:01:04.200Z Native batch ${occurrence.scheduleId} ${failed ? "failed: ledger unavailable" : "completed successfully"}`,
-              ...(failed
-                ? [
-                    "2026-09-11T01:01:04.300Z ##[error]Process completed with exit code 1.",
-                  ]
-                : []),
-              "2026-09-11T01:01:05.000Z ##[endgroup]",
-            ]
-          : []),
+        ...nativeBusinessCommandLog(occurrence),
       ].join("\n"),
     );
   }
@@ -646,6 +607,46 @@ function createNativeScheduleFixture(
     state.issueComments = [];
   }
   return { jobsByAttempt, logsByJobId, state };
+}
+
+function getNativeBusinessResult(outcome: NativeFixtureOutcome): {
+  conclusion: "success" | "failure" | null;
+  runConclusion?: "success" | "failure";
+  status: "completed" | "in_progress";
+} {
+  if (outcome === "RUNNING") {
+    return { conclusion: null, status: "in_progress" };
+  }
+  if (outcome === "BLOCKED") {
+    return { conclusion: "failure", status: "completed" };
+  }
+  const conclusion = outcome === "FAILED" ? "failure" : "success";
+  return { conclusion, runConclusion: conclusion, status: "completed" };
+}
+
+function nativeBusinessCommandLog(
+  occurrence: NativeFixtureOccurrence,
+): string[] {
+  if (occurrence.outcome === "BLOCKED" || occurrence.outcome === "RUNNING") {
+    return [];
+  }
+  const failed = occurrence.outcome === "FAILED";
+  const result = failed
+    ? "failed: ledger unavailable"
+    : "completed successfully";
+  const lines = [
+    "2026-09-11T01:01:04.000Z ##[group]BatchPlane batch command",
+    "2026-09-11T01:01:04.100Z echo native fixture",
+    "2026-09-11T01:01:04.150Z native fixture",
+    `2026-09-11T01:01:04.200Z Native batch ${occurrence.scheduleId} ${result}`,
+  ];
+  if (failed) {
+    lines.push(
+      "2026-09-11T01:01:04.300Z ##[error]Process completed with exit code 1.",
+    );
+  }
+  lines.push("2026-09-11T01:01:05.000Z ##[endgroup]");
+  return lines;
 }
 
 function configureNativeScheduleFixtureClient(
@@ -685,14 +686,11 @@ function nativeFixtureJob({
   status?: "completed" | "in_progress";
   stepName: string;
 }): GitHubWorkflowJob {
+  const completedAt = runConclusion
+    ? "2026-09-11T01:01:05.000Z"
+    : "2026-09-11T01:01:03.000Z";
   return {
-    ...(status === "completed"
-      ? {
-          completedAt: runConclusion
-            ? "2026-09-11T01:01:05.000Z"
-            : "2026-09-11T01:01:03.000Z",
-        }
-      : {}),
+    ...(status === "completed" ? { completedAt } : {}),
     conclusion,
     id,
     name,

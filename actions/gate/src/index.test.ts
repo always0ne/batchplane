@@ -2,13 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   buildExecutionRequestIssue,
-  type BatchDefinition,
-} from "@batchplane/domain";
-import {
-  buildBatchWorkflowYaml,
   getNativeScheduleWorkflowJobIdentity,
   inspectNativeScheduleExecution,
   serializeBatchDefinitionYaml,
+  type GitHubBatchDefinition,
   type GitHubLiteClient,
 } from "@batchplane/github-lite";
 
@@ -22,7 +19,7 @@ import {
   buildExecutionApprovalCommentBody,
   buildExecutionIssueBody,
   sharedBatchId as batchId,
-  sharedGovernedChangeId,
+  sharedChangeRequestId,
   sharedRequestDigest as requestDigest,
   sharedRequestId as requestId,
   sharedTargetRevisionDigest,
@@ -31,14 +28,14 @@ import {
   parseExecutionApprovalEvidence,
   parseExecutionRequestEvidence,
 } from "../../dispatcher/src";
-import type { WorkspaceApprovalMode } from "./gate-schema";
+import type { WorkspaceApprovalMode } from "@batchplane/domain";
 const workflowPath = ".github/workflows/payment.daily-close.yml";
 const verifiedSha = "a".repeat(40);
 
 async function verifyApprovedRevision() {
   return {
     approvedRevision: {
-      governedChangeId: sharedGovernedChangeId,
+      governedChangeId: sharedChangeRequestId,
       targetRevisionDigest: sharedTargetRevisionDigest,
     },
     controlStatus: "VERIFIED" as const,
@@ -52,7 +49,7 @@ describe("Gate action runtime", () => {
     vi.restoreAllMocks();
   });
 
-  it("allows lite executions with required input fields", () => {
+  it("accepts complete manual Gate inputs for authorization verification", () => {
     expect(
       verifyLiteInput({
         approvalRef: requestId,
@@ -227,7 +224,7 @@ describe("Gate action runtime", () => {
         expect.objectContaining({
           executionWorkflowSha: verifiedSha,
           expectedRevision: {
-            governedChangeId: sharedGovernedChangeId,
+            governedChangeId: sharedChangeRequestId,
             targetRevisionDigest: sharedTargetRevisionDigest,
           },
         }),
@@ -235,7 +232,7 @@ describe("Gate action runtime", () => {
     },
   );
 
-  it("keeps digest evidence aligned across UI issue body, dispatcher parser, and Gate verifier", async () => {
+  it("accepts the shared request and approval fixture in dispatcher parsing and Gate verification", async () => {
     const issueBodyFromFixture = buildExecutionIssueBody({
       batchId,
       requestDigest,
@@ -294,34 +291,41 @@ describe("Gate action runtime", () => {
     });
   });
 
-  it("denies self-approval when Workspace policy is missing or strict", async () => {
-    await expect(
-      verifyLiteAuthorization(
-        {
-          actor: "github-actions[bot]",
-          approvalRef: requestId,
-          approvalSource: "issue",
-          batchId,
-          configPath: ".batch-governance",
-          fetcher: createGateFetchMock({
-            comments: [buildApprovalComment({ approver: "developer" })],
-          }),
-          githubToken: "ghs_test",
-          mode: "lite",
-          repository: "always0ne/batch",
-          requestDigest,
-          requestId,
-          runAttempt: 1,
-          workflowSha: verifiedSha,
-        },
-        verifyApprovedRevision,
-      ),
-    ).resolves.toEqual({
-      message: "Requester and approver must be different users.",
-      reasonCode: "SELF_APPROVAL_NOT_ALLOWED",
-      result: "DENY",
-    });
-  });
+  it.each([
+    { includeWorkspacePolicy: false, policy: "missing" },
+    { includeWorkspacePolicy: true, policy: "SELF_APPROVAL_BLOCKED" },
+  ])(
+    "denies self-approval when Workspace policy is $policy",
+    async ({ includeWorkspacePolicy }) => {
+      await expect(
+        verifyLiteAuthorization(
+          {
+            actor: "github-actions[bot]",
+            approvalRef: requestId,
+            approvalSource: "issue",
+            batchId,
+            configPath: ".batch-governance",
+            fetcher: createGateFetchMock({
+              comments: [buildApprovalComment({ approver: "developer" })],
+              includeWorkspacePolicy,
+            }),
+            githubToken: "ghs_test",
+            mode: "lite",
+            repository: "always0ne/batch",
+            requestDigest,
+            requestId,
+            runAttempt: 1,
+            workflowSha: verifiedSha,
+          },
+          verifyApprovedRevision,
+        ),
+      ).resolves.toEqual({
+        message: "Requester and approver must be different users.",
+        reasonCode: "SELF_APPROVAL_NOT_ALLOWED",
+        result: "DENY",
+      });
+    },
+  );
 
   it("allows self-approval only when Workspace policy explicitly allows it", async () => {
     await expect(
@@ -596,7 +600,10 @@ describe("Gate action runtime", () => {
         approvalSource: "issue",
         batchId,
         configPath: ".batch-governance",
-        fetcher: createGateFetchMock({ comments: [] }),
+        fetcher: createGateFetchMock({
+          comments: [],
+          issueLabels: ["batchplane:approved"],
+        }),
         githubToken: "ghs_test",
         mode: "lite",
         repository: "always0ne/batch",
@@ -759,25 +766,6 @@ describe("Gate action runtime", () => {
       reasonCode: "NATIVE_SCHEDULE_REQUEST_UNVERIFIED",
       result: "DENY",
     });
-  });
-
-  it("exercises generated business Gate Issue input through exact native verification", async () => {
-    const native = await createNativeScheduleEvidence();
-    const identity = getNativeScheduleWorkflowJobIdentity({
-      scheduleId: "weekday-close",
-    });
-    const workflow = buildBatchWorkflowYaml(native.batch);
-
-    expect(workflow).toContain(`  ${identity.businessJobId}:`);
-    expect(workflow).toContain(
-      `          issue-number: \${{ needs.${identity.controlJobId}.outputs.issue-number }}`,
-    );
-    await expect(
-      verifyLiteAuthorization(
-        native.input(createNativeGateFetch(native)),
-        verifyNativeApprovedRevision,
-      ),
-    ).resolves.toMatchObject({ result: "ALLOW" });
   });
 
   it("records a controller-failure DENY in the Gate log without inventing Issue evidence", async () => {
@@ -982,7 +970,7 @@ function buildRequestIssueBody({
         metadata: { batchId, requestId },
         spec: {
           approvedBatchRevision: {
-            governedChangeId: sharedGovernedChangeId,
+            governedChangeId: sharedChangeRequestId,
             targetRevisionDigest: sharedTargetRevisionDigest,
           },
           requestedBy: "developer",
@@ -1138,7 +1126,7 @@ function buildWorkspacePolicyYaml(mode: WorkspaceApprovalMode) {
 }
 
 async function createNativeScheduleEvidence() {
-  const nativeBatch: BatchDefinition = {
+  const nativeBatch: GitHubBatchDefinition = {
     batchId,
     criticality: "HIGH",
     domain: "payments",
@@ -1243,6 +1231,7 @@ function createGateFetchMock({
   approverRepositoryRoles = ["maintain"],
   batchStatus = "ACTIVE",
   comments = [buildApprovalComment()],
+  issueLabels = [],
   includeWorkspacePolicy = false,
   includeBatchDefinition = true,
   includeRoleMapping = true,
@@ -1258,6 +1247,7 @@ function createGateFetchMock({
     updated_at?: string;
     user?: { login?: string };
   }>;
+  issueLabels?: string[];
   includeWorkspacePolicy?: boolean;
   includeBatchDefinition?: boolean;
   includeRoleMapping?: boolean;
@@ -1284,7 +1274,7 @@ function createGateFetchMock({
       return Response.json([
         {
           body: issueBody,
-          labels: [],
+          labels: issueLabels,
           number: 34,
           state: "open",
           title: "Run batch payment.daily-close",

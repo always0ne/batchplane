@@ -10,7 +10,7 @@ import {
   Settings,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router-dom";
+import { NavLink, useMatch } from "react-router-dom";
 
 const navigationSections = [
   {
@@ -24,12 +24,20 @@ const navigationSections = [
     labelKey: "groups.operations",
     items: [
       { icon: ListChecks, labelKey: "items.batches", to: "/batches" },
-      { icon: Activity, labelKey: "items.runs", to: "/runs" },
-      { icon: AlertTriangle, labelKey: "items.failures", to: "/failures" },
+      {
+        icon: Activity,
+        labelKey: "items.executions",
+        to: "/executions",
+      },
+      {
+        icon: AlertTriangle,
+        labelKey: "items.failures",
+        to: "/executions/failures",
+      },
     ],
   },
   {
-    labelKey: "groups.governance",
+    labelKey: "groups.requestsAndAudit",
     items: [
       { icon: FileText, labelKey: "items.requests", to: "/requests" },
       { icon: ClipboardCheck, labelKey: "items.approvals", to: "/approvals" },
@@ -38,7 +46,7 @@ const navigationSections = [
   },
   {
     labelKey: "groups.workspace",
-    items: [{ icon: Settings, labelKey: "items.setup", to: "/lite/setup" }],
+    items: [{ icon: Settings, labelKey: "items.setup", to: "/workspace" }],
   },
 ] as const;
 
@@ -48,6 +56,7 @@ type AppNavigationProps = {
 
 export function AppNavigation({ variant }: AppNavigationProps) {
   const { t } = useTranslation("navigation");
+  const failureMatch = useMatch("/executions/failures");
 
   return (
     <>
@@ -76,6 +85,7 @@ export function AppNavigation({ variant }: AppNavigationProps) {
 
             return (
               <NavLink
+                end={item.to === "/executions" && Boolean(failureMatch)}
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>

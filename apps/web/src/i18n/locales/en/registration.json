@@ -1,25 +1,25 @@
 {
   "title": "Registration",
-  "subtitle": "Define a governed batch, its execution settings, and optional schedules in one change request.",
+  "subtitle": "Define a controlled batch, its execution settings, and optional schedules in one change request.",
   "titleChange": "Change request",
-  "subtitleChange": "Update an existing governed batch through a controlled change request.",
+  "subtitleChange": "Update an existing batch through a change request.",
   "titleDelete": "Delete batch",
-  "subtitleDelete": "Review the governed batch information that will be removed through a controlled deletion request.",
+  "subtitleDelete": "Review the controlled batch information that will be removed through a controlled deletion request.",
   "delete": {
     "summaryTitle": "Deletion target",
-    "summaryBody": "This request removes the governed batch and any registered execution artifact. The fields cannot be edited in a deletion request."
+    "summaryBody": "This request removes the controlled batch and any registered execution artifact. The fields cannot be edited in a deletion request."
   },
   "form": {
     "definition": "Batch definition",
     "workflow": "Workflow",
     "schedules": {
       "title": "Schedules",
-      "subtitle": "Add governed schedules while registering the batch so approvers review the operating plan in one request.",
-      "subtitleChange": "Review and update governed schedules for this batch in the same change request.",
+      "subtitle": "Add controlled schedules while registering the batch so approvers review the operating plan in one request.",
+      "subtitleChange": "Review and update controlled schedules for this batch in the same change request.",
       "add": "Add schedule",
       "empty": "No schedules are included yet.",
       "itemTitle": "Schedule {{index}}",
-      "existing": "Existing governed schedule",
+      "existing": "Existing controlled schedule",
       "new": "New schedule",
       "remove": "Remove",
       "restore": "Undo delete",
@@ -84,11 +84,11 @@
   },
   "diff": {
     "title": "Change preview",
-    "subtitle": "Review the exact governed configuration changes before creating the change request.",
+    "subtitle": "Review the exact controlled configuration changes before creating the change request.",
     "idle": "Complete the required fields to load the change preview.",
     "loading": "Loading diff preview...",
     "noSession": "Connect a Workspace to compare against the base branch.",
-    "noChanges": "No governed configuration changes were detected. Change request creation is blocked.",
+    "noChanges": "No controlled configuration changes were detected. Change request creation is blocked.",
     "preview": "Unified diff",
     "empty": "No content",
     "binaryDigest": "Content digest",
@@ -102,9 +102,9 @@
   },
   "review": {
     "title": "Review change",
-    "subtitle": "Confirm the governed configuration changes before creating the request.",
-    "subtitleChange": "Confirm the governed configuration updates before creating the change request.",
-    "subtitleDelete": "Confirm the governed configuration that will be removed before creating the deletion request.",
+    "subtitle": "Confirm the controlled configuration changes before creating the request.",
+    "subtitleChange": "Confirm the controlled configuration updates before creating the change request.",
+    "subtitleDelete": "Confirm the controlled configuration that will be removed before creating the deletion request.",
     "files": {
       "title": "Generated files",
       "batchDefinition": "Batch definition",
@@ -118,7 +118,7 @@
       "pending": "Enter a Batch ID to generate the path"
     },
     "checklist": {
-      "title": "Governance checklist",
+      "title": "Control checklist",
       "batchDefinitionPath": "Batch definition path is generated from the Batch ID.",
       "workflowPath": "Workflow path is generated from the Batch ID.",
       "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
@@ -126,14 +126,14 @@
       "runnerMissing": "Execution environment is required.",
       "commandRecorded": "Batch command will be recorded in the batch definition.",
       "commandMissing": "Batch command is required before creating the request.",
-      "scheduleDefinitionsRecorded_zero": "No governed schedules are included in this request.",
-      "scheduleDefinitionsRecorded_one": "1 governed schedule will be reviewed in this request.",
-      "scheduleDefinitionsRecorded_other": "{{count}} governed schedules will be reviewed in this request.",
+      "scheduleDefinitionsRecorded_zero": "No controlled schedules are included in this request.",
+      "scheduleDefinitionsRecorded_one": "1 controlled schedule will be reviewed in this request.",
+      "scheduleDefinitionsRecorded_other": "{{count}} controlled schedules will be reviewed in this request.",
       "scheduleDeletionsRecorded_zero": "No schedules will be deleted in this request.",
       "scheduleDeletionsRecorded_one": "1 pending schedule deletion will be reviewed in this request.",
       "scheduleDeletionsRecorded_other": "{{count}} pending schedule deletions will be reviewed in this request."
     },
-    "nextStep": "After creation, BatchPlane opens the governed change detail."
+    "nextStep": "After creation, BatchPlane opens the change request detail."
   },
   "actions": {
     "createChange": "Create registration change",
@@ -150,10 +150,10 @@
   "states": {
     "changeBlocked": "A pending control request must be resolved before this batch can change.",
     "openBlockingRequest": "Open pending request",
-    "changeLoading": "Loading the current governed batch definition.",
+    "changeLoading": "Loading the current controlled batch definition.",
     "changeBlockedTitle": "Change request is blocked",
-    "changeBlockedDescription": "Batch {{batchId}} already has pending governed work. Resolve it before creating another change request.",
-    "changeBlockedGovernedChange": "Pending governed change #{{number}}",
+    "changeBlockedDescription": "Batch {{batchId}} already has pending controlled work. Resolve it before creating another change request.",
+    "changeBlockedChangeRequest": "Pending change request #{{number}}",
     "changeBlockedExecutionRequest": "Pending execution request #{{number}}",
     "changeLoadError": "Failed to load the current batch definition for change mode.",
     "changeNotFound": "Batch {{batchId}} was not found.",
@@ -163,15 +163,15 @@
   },
   "errors": {
     "required": "Required fields are missing: {{fields}}",
-    "noSession": "Connect a Workspace before creating a governed change request.",
+    "noSession": "Connect a Workspace before creating a change request.",
     "alreadyExists": "A batch definition already exists at {{path}}.",
-    "changeMissingDefinition": "The governed batch definition was not found at {{path}}.",
+    "changeMissingDefinition": "The controlled batch definition was not found at {{path}}.",
     "scheduleAlreadyExists": "A schedule with the same ID already exists in {{path}}.",
     "workflowAlreadyExists": "A workflow already exists at {{path}}.",
     "scheduleTimezoneAmbiguous": "Schedules with the same cron expression must use one timezone in this GitHub workflow.",
-    "previewFailed": "Failed to load the governed diff preview.",
-    "previewNotReady": "Governed diff preview is not ready yet.",
-    "noChanges": "No governed file changes were detected.",
+    "previewFailed": "Failed to load the controlled diff preview.",
+    "previewNotReady": "controlled diff preview is not ready yet.",
+    "noChanges": "No controlled file changes were detected.",
     "fileRead": "Failed to read the uploaded execution file.",
     "unknown": "Failed to create the change request."
   }

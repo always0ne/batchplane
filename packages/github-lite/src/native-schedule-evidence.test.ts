@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { GitHubLiteClient, GitHubWorkflowJob } from "./index.js";
+import type { GitHubLiteClient, GitHubWorkflowJob } from "./github-types.js";
 import { getNativeScheduleWorkflowJobIdentity } from "./github-workflow.js";
 import { inspectNativeScheduleExecution } from "./native-schedule-evidence.js";
 

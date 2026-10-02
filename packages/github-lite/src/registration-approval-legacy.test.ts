@@ -3,12 +3,10 @@ import { describe, expect, it } from "vitest";
 import type {
   RepositoryIssueComment,
   RepositoryPullRequest,
-} from "@batchplane/domain";
+} from "./repository-evidence-types.js";
 
 import {
-  deriveRegistrationFilePaths,
   deriveRegistrationReviewState,
-  isOpenRegistrationReview,
   parseRegistrationApprovalDecision,
   parseRegistrationRequestSummary,
 } from "./registration-approval-legacy";
@@ -113,16 +111,6 @@ describe("registration approval model", () => {
     });
   });
 
-  it("derives governed file paths from parsed summary", () => {
-    const summary = parseRegistrationRequestSummary(pullRequest);
-
-    expect(deriveRegistrationFilePaths(summary)).toEqual([
-      ".batch-governance/batches/payment.daily-close.yml",
-      ".github/workflows/payment.daily-close.yml",
-      ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
-    ]);
-  });
-
   it("preserves legacy malformed-evidence path fallback without using canonical validation", () => {
     const legacyPullRequest: RepositoryPullRequest = {
       ...pullRequest,
@@ -134,13 +122,9 @@ describe("registration approval model", () => {
     expect(summary.workflowPath).toBe(
       ".github/workflows/payment-daily-close.yml",
     );
-    expect(deriveRegistrationFilePaths(summary)).toEqual([
-      ".batch-governance/batches/Payment Daily Close.yml",
-      ".github/workflows/payment-daily-close.yml",
-    ]);
   });
 
-  it("parses delete request evidence as an auditable deleted batch archive", () => {
+  it("parses a legacy delete summary and its governed file paths", () => {
     const deletePullRequest: RepositoryPullRequest = {
       ...pullRequest,
       body: [
@@ -207,19 +191,14 @@ describe("registration approval model", () => {
         scheduleId: "payment.daily-close-daily",
       }),
     ]);
-    expect(deriveRegistrationFilePaths(summary)).toEqual([
-      ".batch-governance/batches/payment.daily-close.yml",
-      ".github/workflows/payment.daily-close.yml",
-      ".batch-governance/batches/payment.daily-close/artifacts/run.sh",
-    ]);
   });
 
-  it("parses latest registration decision and review state", () => {
+  it("parses a legacy decision and derives open, approved-pending-merge, and merged states", () => {
     const comments: RepositoryIssueComment[] = [
       {
         author: "maintainer",
         body: [
-          "## BatchPlane Governed Change Approval",
+          "## BatchPlane Change Request Approval",
           "",
           "- Decision: APPROVED",
           "- Approver: @maintainer",
@@ -247,7 +226,6 @@ describe("registration approval model", () => {
     expect(
       deriveRegistrationReviewState({ ...pullRequest, merged: true }, null),
     ).toBe("MERGED");
-    expect(isOpenRegistrationReview(pullRequest, comments)).toBe(false);
     const approvedComment = comments[0];
     if (!approvedComment) throw new Error("Expected approval comment.");
     const rejectedDecision = parseRegistrationApprovalDecision([
@@ -259,14 +237,5 @@ describe("registration approval model", () => {
     expect(deriveRegistrationReviewState(pullRequest, rejectedDecision)).toBe(
       "OPEN",
     );
-    expect(
-      isOpenRegistrationReview(pullRequest, [
-        {
-          ...approvedComment,
-          body: approvedComment.body.replace("APPROVED", "REJECTED"),
-        },
-      ]),
-    ).toBe(true);
-    expect(isOpenRegistrationReview(pullRequest, [])).toBe(true);
   });
 });

@@ -5,19 +5,20 @@ import {
 } from "react-router-dom";
 
 import { ApprovalsPage } from "../pages/approvals/ApprovalsPage";
-import { GovernedChangeDetailPage } from "../pages/approvals/GovernedChangeDetailPage";
 import { AuditPage } from "../pages/audit/AuditPage";
-import { BatchDetailPage } from "../pages/batches/BatchDetailPage";
-import { BatchRegistrationPage } from "../pages/batches/BatchRegistrationPage";
-import { BatchesPage } from "../pages/batches/BatchesPage";
+import { BatchDetailPage } from "../pages/batches/detail/BatchDetailPage";
+import { BatchListPage } from "../pages/batches/list/BatchListPage";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
-import { ExecutionRequestDetailPage } from "../pages/execution-requests/ExecutionRequestDetailPage";
-import { ExecutionRequestPage } from "../pages/execution-requests/ExecutionRequestPage";
-import { ExecutionRunDetailPage } from "../pages/execution-runs/ExecutionRunDetailPage";
-import { ExecutionRunListPage } from "../pages/execution-runs/ExecutionRunListPage";
+import { ExecutionDetailPage } from "../pages/executions/detail/ExecutionDetailPage";
+import { ExecutionListPage } from "../pages/executions/list/ExecutionListPage";
+import { FailureListPage } from "../pages/executions/failures/FailureListPage";
 import { MyWorkPage } from "../pages/my-work/MyWorkPage";
 import { NotFoundPage } from "../pages/not-found/NotFoundPage";
-import { WorkspaceRequestsPage } from "../pages/requests/WorkspaceRequestsPage";
+import { BatchRegistrationPage } from "../pages/requests/changes/new/BatchRegistrationPage";
+import { ChangeRequestDetailPage } from "../pages/requests/changes/detail/ChangeRequestDetailPage";
+import { ExecutionRequestDetailPage } from "../pages/requests/execution/detail/ExecutionRequestDetailPage";
+import { ExecutionRequestPage } from "../pages/requests/execution/new/ExecutionRequestPage";
+import { RequestListPage } from "../pages/requests/list/RequestListPage";
 import { WorkspacePage } from "../pages/workspace/WorkspacePage";
 import { LiteGitHubConnectionEditor } from "../runtime/GitHubConnectionForm";
 import { RootLayout } from "./RootLayout";
@@ -36,7 +37,7 @@ export const appRoutes: RouteObject[] = [
       },
       { id: "dashboard", path: "dashboard", element: <DashboardPage /> },
       { id: "my-work", path: "my-work", element: <MyWorkPage /> },
-      { id: "batches", path: "batches", element: <BatchesPage /> },
+      { id: "batches", path: "batches", element: <BatchListPage /> },
       {
         id: "batch-registration",
         path: "batches/new",
@@ -63,24 +64,24 @@ export const appRoutes: RouteObject[] = [
         element: <ExecutionRequestDetailPage />,
       },
       {
-        id: "execution-run-detail",
-        path: "execution-runs/:runId",
-        element: <ExecutionRunDetailPage />,
+        id: "execution-detail",
+        path: "executions/:executionId",
+        element: <ExecutionDetailPage />,
       },
       {
-        id: "runs",
-        path: "runs",
-        element: <ExecutionRunListPage />,
+        id: "executions",
+        path: "executions",
+        element: <ExecutionListPage />,
       },
       {
         id: "failures",
-        path: "failures",
-        element: <ExecutionRunListPage view="failures" />,
+        path: "executions/failures",
+        element: <FailureListPage />,
       },
       {
         id: "requests",
         path: "requests",
-        element: <WorkspaceRequestsPage />,
+        element: <RequestListPage />,
       },
       {
         id: "approvals",
@@ -88,14 +89,14 @@ export const appRoutes: RouteObject[] = [
         element: <ApprovalsPage />,
       },
       {
-        id: "governed-change-detail",
+        id: "change-request-detail",
         path: "approvals/registration/:requestLocator",
-        element: <GovernedChangeDetailPage />,
+        element: <ChangeRequestDetailPage />,
       },
       { id: "audit", path: "audit", element: <AuditPage /> },
       {
-        id: "lite-setup",
-        path: "lite/setup",
+        id: "workspace",
+        path: "workspace",
         element: (
           <WorkspacePage connectionEditor={LiteGitHubConnectionEditor} />
         ),

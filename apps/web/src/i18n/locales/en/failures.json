@@ -1,9 +1,9 @@
 {
   "title": "Failures",
-  "subtitle": "Separate business failures from governance blocks.",
+  "subtitle": "Separate business failures from control blocks.",
   "actions": {
-    "githubRun": "GitHub run",
-    "openRun": "Open run",
+    "githubRun": "Source execution",
+    "openRun": "Open execution",
     "openSetup": "Open Workspace",
     "recordFollowUp": "Record follow-up",
     "refresh": "Refresh",
@@ -12,8 +12,9 @@
   "fields": {
     "completedAt": "Completed",
     "requestId": "Request ID",
-    "runId": "Run ID",
-    "workflow": "Workflow"
+    "executionId": "Execution ID",
+    "sourceRunId": "Source execution ID",
+    "workflow": "Execution target"
   },
   "filters": {
     "all": "All follow-up",
@@ -44,7 +45,7 @@
     "blocked": "Gate blocks",
     "explained": "Submitted",
     "failed": "Business failures",
-    "total": "Follow-up runs"
+    "total": "Follow-up executions"
   },
   "values": {
     "active": "The workflow run is still in progress.",

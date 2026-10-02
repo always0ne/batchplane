@@ -7,7 +7,7 @@ meaning. It does not introduce a separate scheduler, database or evidence branch
 ## Execution Path
 
 ```text
-Approved governed Batch revision (including schedules)
+Approved Batch revision (including schedules)
   -> native GitHub schedule Run
   -> request record and Gate decision
   -> business-entry verification of current authority and source attempt
@@ -15,7 +15,7 @@ Approved governed Batch revision (including schedules)
   -> result evidence for that schedule's jobs and attempt
 ```
 
-The execution Issue records an occurrence; the original governed-change PR
+The execution Issue records an occurrence; the original change-request PR
 remains its approval authority. No `SCHEDULE_DELEGATED` approval is fabricated
 per occurrence, and no scheduled request is dispatched into another Run.
 Manual request, approval and dispatcher behavior remains separate.
@@ -99,7 +99,7 @@ The earlier Gate allowance must not hide a later business-entry denial.
 Generated job identities and Gate records must bind the request, digest, Batch
 and schedule. Editable result comments cannot redirect readers to another job.
 Once admitted, a completed command's observed result is still historical fact
-if a later governed change disables or replaces the Batch. Result recording
+if a later change request disables or replaces the Batch. Result recording
 does not grant a new execution permission.
 Missing, unreadable or contradictory evidence remains unconfirmed rather than
 becoming a fabricated business failure, success or pending human approval.
@@ -115,23 +115,23 @@ the overall workflow conclusion, or given a fabricated request or owner.
 
 Old delegated records may remain available as history, but cannot authorize
 new execution. R4 does not add an old-execution compatibility or migration
-framework. Test repositories are not reset or edited outside governed approval.
+framework. Test repositories are not reset or edited outside approval.
 
 ## Connected UI
 
 The shared UI consumes product-client projections, not Issue bodies or raw
 GitHub identifiers as policy. Required semantics are:
 
-| Surface                       | Required behavior                                                                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Approvals and approval counts | No scheduled occurrence becomes human approval work; unresolved authority is not a manual approval fallback.                          |
-| Workspace requests            | Retain scheduled occurrences in the inventory and distinguish their trigger from manual requests.                                     |
-| Request detail                | Show schedule, originating governed revision, Gate and actual execution separately; link to the exact execution detail, not its list. |
-| Runs and recent executions    | Include native schedules and retain distinct schedule/attempt correlations.                                                           |
-| Run detail and logs           | Match the occurrence's jobs; preserve business-command-first logs and deleted-Batch history.                                          |
-| Failures and My Work          | Distinguish business failure, Gate block and unavailable evidence; keep existing explanation and manager-review journeys.             |
-| Audit                         | Link original change authority, observed occurrence, Gate and actual result without inventing per-run human approvals.                |
-| Change blocker                | A scheduled record must not be left as an actionable manual approval that blocks future changes indefinitely.                         |
+| Surface                       | Required behavior                                                                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Approvals and approval counts | No scheduled occurrence becomes human approval work; unresolved authority is not a manual approval fallback.                            |
+| Workspace requests            | Retain scheduled occurrences in the inventory and distinguish their trigger from manual requests.                                       |
+| Request detail                | Show schedule, originating controlled revision, Gate and actual execution separately; link to the exact execution detail, not its list. |
+| Runs and recent executions    | Include native schedules and retain distinct schedule/attempt correlations.                                                             |
+| Run detail and logs           | Match the occurrence's jobs; preserve business-command-first logs and deleted-Batch history.                                            |
+| Failures and My Work          | Distinguish business failure, Gate block and unavailable evidence; keep existing explanation and manager-review journeys.               |
+| Audit                         | Link original change authority, observed occurrence, Gate and actual result without inventing per-run human approvals.                  |
+| Change blocker                | A scheduled record must not be left as an actionable manual approval that blocks future changes indefinitely.                           |
 
 The initial scheduled failure owner is the owner in the executing approved
 Batch revision, not the bot requester or the current Batch owner. A blank owner
@@ -153,7 +153,7 @@ against issue #119. Full R5 UI structural migration is not implied.
 
 Live proof is separate and requires an authorized test Workspace:
 
-1. After the product change is merged, create a governed Batch change containing
+1. After the product change is merged, create a Batch change request containing
    an enabled schedule and a harmless observable command. Review and approve
    its regenerated workflow; do not overwrite an already approved file directly.
 2. Wait for the actual native schedule event. Verify the Run event, occurrence

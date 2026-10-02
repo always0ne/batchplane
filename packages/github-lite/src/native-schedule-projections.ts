@@ -2,7 +2,11 @@ import type { GateDecision } from "@batchplane/domain";
 
 import { inspectNativeScheduleExecution } from "./native-schedule-evidence.js";
 import type { ExecutionApprovalRequest } from "./execution-approval-legacy.js";
-import type { GitHubLiteClient, GitHubWorkflowRun, RepoRef } from "./index.js";
+import type {
+  GitHubLiteClient,
+  GitHubWorkflowRun,
+  RepoRef,
+} from "./github-types.js";
 
 export type NativeSchedulePresentation = {
   executionLocator: string;

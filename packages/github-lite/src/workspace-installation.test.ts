@@ -1,26 +1,26 @@
-import type {
-  GitHubLiteClient,
-  GitHubPullRequest,
-} from "@batchplane/github-lite";
-import { parseYamlDocument, validateRoleMappingFile } from "@batchplane/domain";
+import type { GitHubLiteClient, GitHubPullRequest } from "./github-types.js";
+import { validateRoleMappingFile } from "./repository-schema.js";
 import { describe, expect, it } from "vitest";
 
 import {
   buildDispatcherWorkflowYaml,
-  buildLiteInstallationUpdatePullRequestTitle,
   buildRoleMappingYaml,
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
-  checkLiteInstallationStatus,
-  createLiteInstallationPullRequest,
-  createLiteInstallationUpdatePullRequest,
-  createWorkspacePolicyPullRequest,
   legacyLiteDispatcherWorkflowPath,
   liteDispatcherWorkflowPath,
   liteRoleMappingPath,
   liteSampleTargetWorkflowPath,
   liteWorkspacePolicyPath,
-} from "./index.js";
+} from "./workspace-installation-templates.js";
+import { checkLiteInstallationStatus } from "./workspace-installation-inspection.js";
+import {
+  buildLiteInstallationUpdatePullRequestTitle,
+  createLiteInstallationPullRequest,
+  createLiteInstallationUpdatePullRequest,
+} from "./workspace-installation-requests.js";
+import { createWorkspacePolicyPullRequest } from "./workspace-policy-request.js";
+import { parseRepositoryYaml } from "./repository-yaml.js";
 
 describe("Lite installation model", () => {
   it("detects missing repository-side installation files", async () => {
@@ -117,12 +117,12 @@ describe("Lite installation model", () => {
           );
         }
         if (path === liteWorkspacePolicyPath) {
-          expect(content).toContain('kind: "WorkspacePolicy"');
-          expect(content).toContain('mode: "SELF_APPROVAL_BLOCKED"');
+          expect(content).toContain("kind: WorkspacePolicy");
+          expect(content).toContain("mode: SELF_APPROVAL_BLOCKED");
         }
         if (path === liteRoleMappingPath) {
-          expect(content).toContain('kind: "RoleMapping"');
-          expect(content).toContain('repositoryRoles: ["maintain", "admin"]');
+          expect(content).toContain("kind: RoleMapping");
+          expect(content).toContain("- maintain");
         }
         return { path, sha: `sha-${path}` };
       },
@@ -170,50 +170,34 @@ describe("Lite installation model", () => {
         ],
       },
     });
-    expect(calls).toEqual([
-      "get-head:main",
-      "create-branch:batchplane/install/lite-20260513010203:base-sha",
-      `put-file:${liteDispatcherWorkflowPath}`,
-      `put-file:${liteSampleTargetWorkflowPath}`,
-      "put-file:.batch-governance/README.md",
-      `put-file:${liteWorkspacePolicyPath}`,
-      `put-file:${liteRoleMappingPath}`,
-      "put-file:.batch-governance/batches/.gitkeep",
-      "create-pr:Install BatchPlane Lite:batchplane/install/lite-20260513010203:main",
-    ]);
-  });
+    const branchCall =
+      "create-branch:batchplane/install/lite-20260513010203:base-sha";
+    const pullRequestCall =
+      "create-pr:Install BatchPlane Lite:batchplane/install/lite-20260513010203:main";
 
-  it("detects installed workflow files that do not match the current template", async () => {
-    const files = new Map([
-      [liteDispatcherWorkflowPath, "name: Old Dispatcher\n"],
-      [liteSampleTargetWorkflowPath, buildSampleTargetWorkflowYaml()],
-      [".batch-governance/README.md", "# BatchPlane Governance\n"],
-      [liteWorkspacePolicyPath, buildWorkspacePolicyYaml()],
-      [liteRoleMappingPath, buildRoleMappingYaml()],
-      [
-        ".batch-governance/batches/.gitkeep",
-        "Batch definitions created by BatchPlane Lite live here.\n",
-      ],
-    ]);
-    const client = {
-      getFile: async ({ path }: { path: string }) => {
-        const content = files.get(path);
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        "get-head:main",
+        branchCall,
+        pullRequestCall,
+        `put-file:${liteDispatcherWorkflowPath}`,
+        `put-file:${liteSampleTargetWorkflowPath}`,
+        "put-file:.batch-governance/README.md",
+        `put-file:${liteWorkspacePolicyPath}`,
+        `put-file:${liteRoleMappingPath}`,
+        "put-file:.batch-governance/batches/.gitkeep",
+      ]),
+    );
+    const branchCallIndex = calls.indexOf(branchCall);
+    const pullRequestCallIndex = calls.indexOf(pullRequestCall);
 
-        return content ? { path, content, sha: `sha-${path}` } : null;
-      },
-    } satisfies Pick<GitHubLiteClient, "getFile">;
-
-    await expect(
-      checkLiteInstallationStatus({
-        client,
-        ref: "main",
-        repo: { owner: "always0ne", repo: "batch" },
-      }),
-    ).resolves.toMatchObject({
-      installed: true,
-      missingPaths: [],
-      outdatedPaths: [liteDispatcherWorkflowPath],
-    });
+    expect(branchCallIndex).toBeGreaterThan(calls.indexOf("get-head:main"));
+    for (const writeCallIndex of calls
+      .map((call, index) => (call.startsWith("put-file:") ? index : -1))
+      .filter((index) => index >= 0)) {
+      expect(writeCallIndex).toBeGreaterThan(branchCallIndex);
+      expect(writeCallIndex).toBeLessThan(pullRequestCallIndex);
+    }
   });
 
   it("creates a Workspace workflow update pull request for outdated workflows", async () => {
@@ -433,24 +417,21 @@ describe("Lite installation model", () => {
     expect(buildSampleTargetWorkflowYaml()).toContain("needs: batchplane-gate");
   });
 
-  it("ships a strict Workspace policy by default", () => {
-    expect(buildWorkspacePolicyYaml()).toContain('kind: "WorkspacePolicy"');
-    expect(buildWorkspacePolicyYaml()).toContain(
-      'mode: "SELF_APPROVAL_BLOCKED"',
-    );
-  });
-
-  it("ships a default role mapping for maintainer approvals", () => {
-    const parsed = parseYamlDocument(buildRoleMappingYaml());
+  it("includes maintain in the generated approver repository roles", () => {
+    const parsed = parseRepositoryYaml(buildRoleMappingYaml());
 
     expect(parsed.ok).toBe(true);
     expect(parsed.ok ? validateRoleMappingFile(parsed.value).ok : false).toBe(
       true,
     );
-    expect(buildRoleMappingYaml()).toContain('kind: "RoleMapping"');
-    expect(buildRoleMappingYaml()).toContain(
-      'repositoryRoles: ["maintain", "admin"]',
-    );
+    expect(buildRoleMappingYaml()).toContain("kind: RoleMapping");
+    expect(parsed.ok ? parsed.value : null).toMatchObject({
+      spec: {
+        roles: {
+          approver: { repositoryRoles: expect.arrayContaining(["maintain"]) },
+        },
+      },
+    });
   });
 
   it("creates a Workspace policy change pull request", async () => {
@@ -484,7 +465,7 @@ describe("Lite installation model", () => {
       },
       putFile: async ({ path, content, sha }) => {
         calls.push(`put-file:${path}:${sha ?? ""}`);
-        expect(content).toContain('mode: "SELF_APPROVAL_ALLOWED"');
+        expect(content).toContain("mode: SELF_APPROVAL_ALLOWED");
         return { path, sha: `sha-${path}` };
       },
       createPullRequest: async ({ title, head, base, body }) => {

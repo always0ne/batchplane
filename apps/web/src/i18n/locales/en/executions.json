@@ -3,16 +3,17 @@
   "subtitle": "Inspect workflow runs and follow-up evidence.",
   "approveCommand": "/bgcp approve requestDigest=...",
   "actions": {
-    "githubRun": "GitHub run",
-    "openRun": "Open run",
+    "githubRun": "Source execution",
+    "openRun": "Open execution",
     "openSetup": "Open Workspace",
     "refresh": "Refresh"
   },
   "fields": {
     "completedAt": "Completed",
     "requestId": "Request ID",
-    "runId": "Run ID",
-    "workflow": "Workflow"
+    "executionId": "Execution ID",
+    "sourceRunId": "Source execution ID",
+    "workflow": "Execution target"
   },
   "filters": {
     "active": "Active",
@@ -23,18 +24,18 @@
     "succeeded": "Succeeded"
   },
   "list": {
-    "empty": "No workflow runs match this filter.",
-    "subtitle": "{{count}} run is visible.",
-    "subtitle_plural": "{{count}} runs are visible.",
-    "title": "Execution runs"
+    "empty": "No executions match this filter.",
+    "subtitle": "{{count}} execution is visible.",
+    "subtitle_plural": "{{count}} executions are visible.",
+    "title": "Execution history"
   },
   "states": {
-    "error": "Failed to load execution runs.",
-    "loading": "Loading execution runs...",
+    "error": "Failed to load executions.",
+    "loading": "Loading executions...",
     "noSession": "Connect a Workspace before reviewing executions."
   },
   "status": {
-    "SOURCE_RUN": "Source run",
+    "SOURCE_RUN": "Source execution",
     "BLOCKED": "Gate blocked",
     "CANCELED": "Canceled",
     "FAILED": "Business failed",
@@ -53,13 +54,13 @@
     "UNCONFIRMED": "Evidence unconfirmed"
   },
   "summary": {
-    "active": "Active runs",
+    "active": "Active executions",
     "followUp": "Follow-up",
     "succeeded": "Succeeded",
-    "total": "Total runs"
+    "total": "Total executions"
   },
   "values": {
-    "sourceRunUnconfirmed": "Source run observed; schedule occurrence and business result are unconfirmed.",
+    "sourceRunUnconfirmed": "Source execution observed; schedule occurrence and business result are unconfirmed.",
     "active": "The workflow run is still in progress.",
     "businessFailure": "Batch command failed after Gate allowed the run.",
     "canceled": "The workflow run was canceled or skipped.",

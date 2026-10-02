@@ -9,9 +9,9 @@ import {
 } from "@batchplane/github-lite";
 
 import { i18next } from "../../i18n/i18n";
-import { createGitHubLiteRuntime } from "../../runtime/github-lite-runtime";
+import { createGitHubLiteBatchPlaneClient } from "@batchplane/github-lite";
 import {
-  createBatchPlaneRuntime,
+  createSelectedBatchPlaneClient,
   writeRuntimeFixtureSelection,
 } from "../../runtime/runtime-fixtures";
 import { AuditPage } from "./AuditPage";
@@ -33,11 +33,11 @@ describe("AuditPage", () => {
     async (locale) => {
       await i18next.changeLanguage(locale);
       writeRuntimeFixtureSelection("native-schedule-mixed");
-      const runtime = createBatchPlaneRuntime(session);
+      const runtime = createSelectedBatchPlaneClient(session);
       render(
         <MemoryRouter>
           <RuntimeClientTestProvider
-            createRuntime={() => runtime}
+            createClient={() => runtime}
             readSession={() => session}
           >
             <AuditPage />
@@ -84,7 +84,7 @@ describe("AuditPage", () => {
         const link = links.find(
           (item) =>
             item.getAttribute("href") ===
-            `/execution-runs/${encodeURIComponent(locator)}`,
+            `/executions/${encodeURIComponent(locator)}`,
         );
         expect(link).toBeDefined();
         const row = within(link!.closest("li")!);
@@ -109,13 +109,33 @@ describe("AuditPage", () => {
     },
   );
 
-  it("renders audit timeline items with source links and filters", async () => {
+  it("filters audit entries to the selected Batch", async () => {
     const client = createMockGitHubLiteClient(createGitHubLiteMockState());
+    const productClient = createGitHubLiteBatchPlaneClient({
+      client,
+      repositoryRef: session,
+    });
+    const timeline = await productClient.listAuditTimeline({ limit: 100 });
+    const firstEntry = timeline[0];
+    if (!firstEntry)
+      throw new Error("Expected the audit fixture to have entries");
+    const foreignBatchEntry = {
+      ...firstEntry,
+      itemId: `${firstEntry.itemId}-ledger-settlement`,
+      metadata: {
+        ...firstEntry.metadata,
+        batchId: "ledger.settlement",
+      },
+    };
+    const runtime = {
+      ...productClient,
+      listAuditTimeline: async () => [...timeline, foreignBatchEntry],
+    };
 
     render(
       <MemoryRouter>
         <RuntimeClientTestProvider
-          createRuntime={() => createGitHubLiteRuntime(session, { client })}
+          createClient={() => runtime}
           readSession={() => session}
         >
           <AuditPage />
@@ -126,21 +146,28 @@ describe("AuditPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Audit Trail" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Timeline filters")).toBeInTheDocument();
+    expect(await screen.findByText("Timeline filters")).toBeInTheDocument();
     expect(screen.getAllByText("Execution requested").length).toBeGreaterThan(
       0,
     );
     expect(screen.getAllByText(/Gate blocked for/u).length).toBeGreaterThan(0);
     expect(screen.getAllByText("GitHub source").length).toBeGreaterThan(0);
+    const foreignBatchRow = screen
+      .getAllByRole("listitem")
+      .find((row) => within(row).queryByText("ledger.settlement"));
+    if (!foreignBatchRow)
+      throw new Error("Expected the audit fixture to show the foreign batch");
 
     fireEvent.change(screen.getByLabelText("Batch"), {
       target: { value: "payment.daily-close" },
     });
 
-    expect(screen.getByDisplayValue("payment.daily-close")).toBeInTheDocument();
-    expect(screen.getAllByText(/payment.daily-close/u).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen
+        .getAllByRole("listitem")
+        .some((row) => within(row).queryByText("payment.daily-close")),
+    ).toBe(true);
+    expect(foreignBatchRow).not.toBeInTheDocument();
   });
 
   it("renders an empty state when no runtime session is available", async () => {

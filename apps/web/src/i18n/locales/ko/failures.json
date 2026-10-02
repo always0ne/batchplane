@@ -2,8 +2,8 @@
   "title": "실패내역",
   "subtitle": "업무 실패와 통제 차단을 분리해서 확인합니다.",
   "actions": {
-    "githubRun": "GitHub run",
-    "openRun": "Run 열기",
+    "githubRun": "원본 실행",
+    "openRun": "실행 열기",
     "openSetup": "Workspace 열기",
     "recordFollowUp": "소명 작성",
     "refresh": "새로고침",
@@ -12,8 +12,9 @@
   "fields": {
     "completedAt": "완료",
     "requestId": "Request ID",
-    "runId": "Run ID",
-    "workflow": "Workflow"
+    "executionId": "실행 ID",
+    "sourceRunId": "원본 실행 ID",
+    "workflow": "실행 대상"
   },
   "filters": {
     "all": "전체 후속",
@@ -44,7 +45,7 @@
     "blocked": "Gate 차단",
     "explained": "소명 제출",
     "failed": "업무 실패",
-    "total": "후속 확인 Run"
+    "total": "후속 확인 실행"
   },
   "values": {
     "active": "Workflow run이 아직 진행 중입니다.",

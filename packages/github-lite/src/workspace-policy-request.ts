@@ -1,5 +1,9 @@
 import type { WorkspacePolicy } from "@batchplane/domain";
-import type { GitHubLiteClient, GitHubPullRequest, RepoRef } from "./index.js";
+import type {
+  GitHubLiteClient,
+  GitHubPullRequest,
+  RepoRef,
+} from "./github-types.js";
 import {
   buildWorkspacePolicyYaml,
   liteWorkspacePolicyPath,

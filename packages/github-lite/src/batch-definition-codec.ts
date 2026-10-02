@@ -1,18 +1,20 @@
-import {
-  formatYamlDiagnostics,
-  isCanonicalBatchId,
-  parseYamlDocument,
-  serializeYamlDocument,
-  validateBatchDefinitionFile,
-} from "@batchplane/domain";
 import type {
   BatchSchedule,
-  BatchDefinition,
   BatchStatus,
   Criticality,
-  RunnerLabel,
-  YamlValue,
 } from "@batchplane/domain";
+
+import {
+  formatRepositoryYamlDiagnostics,
+  parseRepositoryYaml,
+  stringifyRepositoryYaml,
+  type RepositoryYamlValue,
+} from "./repository-yaml.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import {
+  isCanonicalBatchId,
+  validateBatchDefinitionFile,
+} from "./repository-schema.js";
 
 export type BatchRegistrationFormValues = {
   batchId: string;
@@ -36,7 +38,7 @@ export type BatchDefinitionOptions = {
 export function toBatchDefinition(
   values: BatchRegistrationFormValues,
   options: BatchDefinitionOptions = {},
-): BatchDefinition {
+): GitHubBatchDefinition {
   const batchId = assertCanonicalBatchId(values.batchId);
   const command = values.runCommand.trim();
 
@@ -100,9 +102,9 @@ export function assertCanonicalBatchId(batchId: string): string {
 }
 
 export function serializeBatchDefinitionYaml(
-  definition: BatchDefinition,
+  definition: GitHubBatchDefinition,
 ): string {
-  return serializeYamlDocument({
+  return stringifyRepositoryYaml({
     apiVersion: "batchplane.io/v1",
     kind: "BatchDefinition",
     metadata: {
@@ -139,12 +141,12 @@ export function serializeBatchDefinitionYaml(
   });
 }
 
-export function parseBatchDefinitionYaml(yaml: string): BatchDefinition {
-  const result = parseYamlDocument(yaml);
+export function parseBatchDefinitionYaml(yaml: string): GitHubBatchDefinition {
+  const result = parseRepositoryYaml(yaml);
 
   if (!result.ok) {
     throw new Error(
-      `Invalid BatchPlane YAML: ${formatYamlDiagnostics(result.diagnostics)}`,
+      `Invalid BatchPlane YAML: ${formatRepositoryYamlDiagnostics(result.diagnostics)}`,
     );
   }
 
@@ -196,15 +198,15 @@ export function parseBatchDefinitionYaml(yaml: string): BatchDefinition {
 }
 
 function asYamlRecord(
-  value: YamlValue | undefined,
-): Record<string, YamlValue | undefined> {
+  value: RepositoryYamlValue | undefined,
+): Record<string, RepositoryYamlValue | undefined> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value
     : {};
 }
 
 function readYamlString(
-  record: Record<string, YamlValue | undefined>,
+  record: Record<string, RepositoryYamlValue | undefined>,
   key: string,
 ): string {
   const value = record[key];
@@ -217,9 +219,9 @@ function readYamlString(
 }
 
 function readYamlRunnerLabel(
-  record: Record<string, YamlValue | undefined>,
+  record: Record<string, RepositoryYamlValue | undefined>,
   key: string,
-): RunnerLabel | "" {
+): string | string[] | "" {
   const value = record[key];
 
   if (typeof value === "string") {
@@ -237,14 +239,14 @@ function readYamlRunnerLabel(
 }
 
 function readYamlBoolean(
-  record: Record<string, YamlValue | undefined>,
+  record: Record<string, RepositoryYamlValue | undefined>,
   key: string,
 ): boolean {
   return record[key] === true;
 }
 
 function readYamlSchedules(
-  record: Record<string, YamlValue | undefined>,
+  record: Record<string, RepositoryYamlValue | undefined>,
   key: string,
 ): BatchSchedule[] {
   const value = record[key];
@@ -302,7 +304,7 @@ function toFileNameSlug(value: string): string {
     .slice(0, 120);
 }
 
-function parseRunnerLabel(value: string): RunnerLabel {
+function parseRunnerLabel(value: string): string | string[] {
   const runner = value.trim();
 
   if (runner.includes(",")) {

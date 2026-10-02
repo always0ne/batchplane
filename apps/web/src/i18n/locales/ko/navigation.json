@@ -6,7 +6,7 @@
   "groups": {
     "overview": "개요",
     "operations": "운영",
-    "governance": "거버넌스",
+    "requestsAndAudit": "요청 및 감사",
     "workspace": "Workspace"
   },
   "items": {
@@ -15,7 +15,7 @@
     "batches": "배치",
     "requests": "요청",
     "approvals": "승인함",
-    "runs": "실행",
+    "executions": "실행",
     "failures": "실패내역",
     "myWork": "내처리함",
     "audit": "감사",

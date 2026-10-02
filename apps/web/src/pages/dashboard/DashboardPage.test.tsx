@@ -1,4 +1,4 @@
-import type { BatchPlaneRuntimePorts } from "@batchplane/domain";
+import { inspectionTestClient } from "../../test/inspection-client";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -29,14 +29,13 @@ describe("DashboardPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("always0ne/batch")).toBeInTheDocument();
     expect(screen.getByText("Workspace readiness")).toBeInTheDocument();
-    expect(screen.getByText("Gate blocked runs")).toBeInTheDocument();
-    expect(screen.getByText("Gate blocked runs").closest("a")).toHaveAttribute(
+    expect(screen.getByText("Gate blocked executions")).toBeInTheDocument();
+    expect(
+      screen.getByText("Gate blocked executions").closest("a"),
+    ).toHaveAttribute("href", "/executions/failures?type=blocked");
+    expect(screen.getByText("Failed executions").closest("a")).toHaveAttribute(
       "href",
-      "/failures?type=blocked",
-    );
-    expect(screen.getByText("Failed runs").closest("a")).toHaveAttribute(
-      "href",
-      "/failures?type=failed",
+      "/executions/failures?type=failed",
     );
     expect(
       screen.getByText("Gate evidence, not approval work"),
@@ -64,29 +63,20 @@ describe("DashboardPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Open Workspace" }),
-    ).toHaveAttribute("href", "/lite/setup");
+    ).toHaveAttribute("href", "/workspace");
   });
 
   it("renders an error state when dashboard loading fails", async () => {
-    const runtime = {
-      settings: {
-        getCurrentUser: async () => {
-          throw new Error("Dashboard failed");
-        },
-        getRepository: async () => ({
-          defaultBranch: "main",
-          owner: "always0ne",
-          private: true,
-          repo: "batch",
-          url: "https://github.com/always0ne/batch",
-        }),
+    const runtime = inspectionTestClient({
+      getDashboardSummary: async () => {
+        throw new Error("Dashboard failed");
       },
-    } as unknown as BatchPlaneRuntimePorts;
+    });
 
     render(
       <MemoryRouter>
         <RuntimeClientTestProvider
-          createRuntime={() => runtime}
+          createClient={() => runtime}
           readSession={() => ({
             owner: "always0ne",
             repo: "batch",

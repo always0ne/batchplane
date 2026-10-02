@@ -1,3 +1,4 @@
+import type { RepoRef } from "./github-types.js";
 import type { ExecutionRunJob, GateDecision } from "@batchplane/domain";
 import { parseExecutionGateResult } from "./execution-gate-result.js";
 import {
@@ -8,11 +9,10 @@ import type {
   GitHubLiteClient,
   GitHubWorkflowJob,
   GitHubWorkflowRun,
-} from "./index.js";
+} from "./github-types.js";
 import {
   loadExecutionApprovalRequests,
   type ExecutionRequestForRun,
-  type RuntimeRepositoryRef,
 } from "./inspection-context.js";
 import {
   parseNativeScheduleExecutionLocator,
@@ -20,7 +20,7 @@ import {
 } from "./native-schedule-projections.js";
 export async function findWorkflowForRun(
   client: GitHubLiteClient,
-  repositoryRef: RuntimeRepositoryRef,
+  repositoryRef: RepoRef,
   run: GitHubWorkflowRun,
 ) {
   return (
@@ -37,7 +37,7 @@ export async function loadWorkflowRunJobsForList({
   runs,
 }: {
   client: GitHubLiteClient;
-  repositoryRef: RuntimeRepositoryRef;
+  repositoryRef: RepoRef;
   runs: GitHubWorkflowRun[];
 }): Promise<Map<number, GitHubWorkflowJob[]>> {
   const jobsByRunId = await Promise.all(
@@ -67,7 +67,7 @@ export async function loadGateDecisionsForList({
 }: {
   client: GitHubLiteClient;
   jobsByRunId: Map<number, GitHubWorkflowJob[]>;
-  repositoryRef: RuntimeRepositoryRef;
+  repositoryRef: RepoRef;
   runs: GitHubWorkflowRun[];
 }): Promise<Map<number, GateDecision>> {
   const decisions = await Promise.all(
@@ -105,7 +105,7 @@ export async function loadGateDecisionForRun({
 }: {
   client: GitHubLiteClient;
   jobs: GitHubWorkflowJob[];
-  repositoryRef: RuntimeRepositoryRef;
+  repositoryRef: RepoRef;
   run: GitHubWorkflowRun;
 }): Promise<GateDecision | undefined> {
   const gateJob = jobs.find((job) => job.name === "BatchPlane Gate");
@@ -217,7 +217,7 @@ export async function loadFailureFollowUpRunContext({
   runId,
 }: {
   client: GitHubLiteClient;
-  repositoryRef: RuntimeRepositoryRef;
+  repositoryRef: RepoRef;
   runId: string;
 }): Promise<{
   evidenceRunId: string;
@@ -279,7 +279,7 @@ export async function loadNativeProjectionJobs({
 }: {
   client: GitHubLiteClient;
   projection: NonNullable<Awaited<ReturnType<typeof projectNativeScheduleRun>>>;
-  repositoryRef: RuntimeRepositoryRef;
+  repositoryRef: RepoRef;
 }): Promise<GitHubWorkflowJob[]> {
   const expectedJobIds = new Set(projection.jobs.map((job) => job.id));
   if (expectedJobIds.size === 0) return [];

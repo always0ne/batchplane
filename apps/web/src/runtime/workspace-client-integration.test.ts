@@ -11,10 +11,10 @@ describe("Workspace runtime client connection boundary", () => {
   ] as const)(
     "%s rejects a disconnected session before creating a runtime",
     async (method) => {
-      const createRuntime = vi.fn();
+      const createClient = vi.fn();
       const client = createRuntimeBatchPlaneClient({
         readSession: () => null,
-        createRuntime,
+        createClient,
       });
       const operation =
         method === "requestWorkspacePolicyChange"
@@ -25,7 +25,7 @@ describe("Workspace runtime client connection boundary", () => {
       await expect(operation).rejects.toBeInstanceOf(
         WorkspaceNotConnectedError,
       );
-      expect(createRuntime).not.toHaveBeenCalled();
+      expect(createClient).not.toHaveBeenCalled();
     },
   );
 });

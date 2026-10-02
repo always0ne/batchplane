@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { PageHeader } from "../../ui/PageHeader";
-import { DashboardContent } from "./DashboardContent";
-import { useDashboard } from "./useDashboard";
+import { PageHeader } from "../../components/PageHeader";
+import { DashboardContent } from "./components/DashboardContent";
+import { useDashboard } from "./hooks/useDashboard";
 
 export function DashboardPage() {
   const { t } = useTranslation("dashboard");

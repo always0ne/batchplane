@@ -1,21 +1,35 @@
 import { createRequestDigest, type CanonicalValue } from "@batchplane/digest";
-import {
-  isBatchPlaneApiVersion,
-  type BatchDefinition,
-  type ExecutionRequestPayload,
-} from "@batchplane/domain";
+import { isBatchPlaneApiVersion } from "@batchplane/domain";
 import {
   parseExecutionGateResult,
   type ExecutionGateResult,
   type NativeScheduleGateOccurrence,
 } from "./execution-gate-result.js";
-import { getNativeScheduleWorkflowJobIdentity } from "./github-workflow.js";
+import type { ExecutionRequestPayload } from "./execution-request-evidence.js";
 import type {
   GitHubLiteClient,
   GitHubWorkflowJob,
   GitHubWorkflowRun,
   RepoRef,
-} from "./index.js";
+} from "./github-types.js";
+import { getNativeScheduleWorkflowJobIdentity } from "./github-workflow.js";
+
+/** Technical fields compared against a native-schedule request snapshot. */
+export type NativeScheduleBatchSnapshot = {
+  batchId: string;
+  domain: string;
+  environment: string;
+  criticality: string;
+  gateRequired: boolean;
+  name: string;
+  owner: string;
+  workflow: { path: string; ref: string };
+  execution?: {
+    artifactPath?: string;
+    command: string;
+    runsOn: string | string[];
+  };
+};
 
 export type NativeScheduleOccurrence = {
   definitionCommitSha: string;
@@ -28,7 +42,7 @@ export type NativeScheduleOccurrence = {
 
 export type NativeScheduleRequestExpectation = {
   approvedBatchRevision: ExecutionRequestPayload["spec"]["approvedBatchRevision"];
-  batch: BatchDefinition;
+  batch: NativeScheduleBatchSnapshot;
   occurrence: NativeScheduleOccurrence;
   requestDigest: string;
   requestId: string;
@@ -414,14 +428,14 @@ function sameRevision(
 
 function sameWorkflow(
   left: ExecutionRequestPayload["spec"]["workflow"],
-  right: BatchDefinition["workflow"],
+  right: NativeScheduleBatchSnapshot["workflow"],
 ): boolean {
   return left.path === right.path && left.ref === right.ref;
 }
 
 function sameBatchSnapshot(
   left: ExecutionRequestPayload["spec"]["batch"],
-  right: BatchDefinition,
+  right: NativeScheduleBatchSnapshot,
 ): boolean {
   return (
     left.name === right.name &&
@@ -434,7 +448,7 @@ function sameBatchSnapshot(
 
 function sameExecutionSnapshot(
   execution: ExecutionRequestPayload["spec"]["execution"],
-  batch: BatchDefinition,
+  batch: NativeScheduleBatchSnapshot,
 ): boolean {
   if (!batch.execution) return execution === undefined;
   if (!execution) return false;

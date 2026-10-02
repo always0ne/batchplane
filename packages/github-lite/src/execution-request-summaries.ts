@@ -4,7 +4,7 @@ import type {
   GitHubIssueComment,
   GitHubLiteClient,
   RepoRef,
-} from "./index.js";
+} from "./github-types.js";
 import {
   toRepositoryIssue,
   toRepositoryIssueComment,

@@ -43,7 +43,7 @@ repository rename without another Pages-specific code change.
 ## Route Fallback
 
 GitHub Pages serves `404.html` for deep links such as
-`/batchplane/batches/new`. The Vite build emits a static `404.html` using the
+`/batchplane/executions/failures` or `/batchplane/workspace`. The Vite build emits a static `404.html` using the
 configured base path, then redirects the browser to the app root with the
 original path in `?redirect=...`. On boot, `src/main.tsx` restores the original
 path before React Router renders.

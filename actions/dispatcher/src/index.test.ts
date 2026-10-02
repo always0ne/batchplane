@@ -5,15 +5,13 @@ import {
   isActionableApprovalComment,
   parseDispatcherCommand,
   parseDispatcherStatusEvidence,
-  parseExecutionApprovalEvidence,
-  parseExecutionRequestEvidence,
   verifyDispatcherEvidence,
 } from "./index";
 import {
   buildDispatchedCommentBody,
   buildExecutionApprovalCommentBody,
   buildExecutionIssueBody,
-  sharedGovernedChangeId,
+  sharedChangeRequestId,
   sharedRequestDigest as requestDigest,
   sharedRequestId as requestId,
   sharedTargetRevisionDigest,
@@ -23,7 +21,7 @@ const approvalCommentBody = buildExecutionApprovalCommentBody();
 const dispatchedCommentBody = buildDispatchedCommentBody();
 const verifyApprovedBatchRevision = async () => ({
   approvedRevision: {
-    governedChangeId: sharedGovernedChangeId,
+    governedChangeId: sharedChangeRequestId,
     targetRevisionDigest: sharedTargetRevisionDigest,
   },
   controlStatus: "VERIFIED" as const,
@@ -52,33 +50,6 @@ describe("dispatcher verification", () => {
       ),
     ).toBe(false);
     expect(isActionableApprovalComment("looks good")).toBe(false);
-  });
-
-  it("parses execution request evidence", () => {
-    expect(parseExecutionRequestEvidence(issueBody)).toEqual({
-      approvedBatchRevision: {
-        governedChangeId: sharedGovernedChangeId,
-        targetRevisionDigest: sharedTargetRevisionDigest,
-      },
-      batchId: "payment.daily-close",
-      expiresAt: "2026-05-09T02:02:03.000Z",
-      requestDigest,
-      requestedAt: "2026-05-09T01:02:03.000Z",
-      requestedBy: "developer",
-      requestId,
-      status: "REQUESTED",
-      workflowPath: ".github/workflows/daily-close.yml",
-      workflowRef: "main",
-    });
-  });
-
-  it("parses execution approval evidence", () => {
-    expect(parseExecutionApprovalEvidence(approvalCommentBody)).toEqual({
-      batchId: "payment.daily-close",
-      decision: "APPROVED",
-      requestDigest,
-      requestId,
-    });
   });
 
   it("parses dispatcher status evidence", () => {
@@ -119,7 +90,7 @@ describe("dispatcher verification", () => {
       },
       request: {
         approvedBatchRevision: {
-          governedChangeId: sharedGovernedChangeId,
+          governedChangeId: sharedChangeRequestId,
           targetRevisionDigest: sharedTargetRevisionDigest,
         },
         batchId: "payment.daily-close",

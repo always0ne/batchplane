@@ -1,6 +1,6 @@
 {
   "title": "Workspace 요청",
-  "subtitle": "연결된 Workspace의 통제 변경 요청과 실행 요청을 조회합니다.",
+  "subtitle": "연결된 Workspace의 변경 요청과 실행 요청을 조회합니다.",
   "actions": {
     "openDetail": "요청 열기",
     "openSource": "소스 열기",
@@ -8,7 +8,7 @@
   },
   "counts": {
     "execution": "실행 {{count}}건",
-    "governedChange": "통제 변경 {{count}}건",
+    "changeRequest": "변경 요청 {{count}}건",
     "total": "전체 {{count}}건"
   },
   "fields": {
@@ -20,7 +20,7 @@
     "kinds": {
       "all": "전체 요청",
       "execution": "실행 요청",
-      "governed-change": "통제 변경"
+      "change-request": "변경 요청"
     },
     "search": "검색",
     "searchPlaceholder": "배치, 스케줄, 처리자, 소스",

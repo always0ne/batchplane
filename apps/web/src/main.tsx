@@ -6,7 +6,7 @@ import { createAppRouter } from "./app/router";
 import { BatchPlaneClientContext } from "./client/batch-plane-client-context";
 import "./i18n/i18n";
 import { createRuntimeBatchPlaneClient } from "./runtime/runtime-batch-plane-client";
-import "./ui/tokens.css";
+import "./components/tokens.css";
 import "./shared/styles/global.css";
 
 restoreGitHubPagesRedirect();

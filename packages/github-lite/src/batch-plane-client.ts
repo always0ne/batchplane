@@ -1,7 +1,11 @@
-import type {
-  BatchDefinition,
-  BatchPlaneRuntimePorts,
-} from "@batchplane/domain";
+import type { GitHubRepositoryContext } from "./github-types.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import { loadBatchDefinitions } from "./batch-repository.js";
+import {
+  loadDeletedBatchArchive,
+  type DeletedBatchArchiveResult,
+} from "./deleted-batch-archive.js";
+
 import type {
   BatchControl,
   BatchDetailArchiveResult,
@@ -13,32 +17,32 @@ import { toProductReadError } from "./product-read-errors.js";
 
 import type { createGitHubLiteBatchRevisionClient } from "./batch-revision-client.js";
 import { formatGeneratedScheduleCrons } from "./github-workflow.js";
-import type { createGitHubLiteGovernedChangeClient } from "./governed-change-client.js";
+import type { createGitHubLiteChangeRequestClient } from "./change-request-client.js";
 
 type BatchRevisionReadClient = Pick<
   ReturnType<typeof createGitHubLiteBatchRevisionClient>,
   "listRecentExecutionRequestSummaries" | "verifyApprovedBatchRevision"
 >;
 
-type GovernedChangeReadClient = Pick<
-  ReturnType<typeof createGitHubLiteGovernedChangeClient>,
+type ChangeRequestReadClient = Pick<
+  ReturnType<typeof createGitHubLiteChangeRequestClient>,
   "getBatchRemediationCapability"
 >;
 
-export type GitHubLiteBatchReadClientDependencies = {
-  runtime: Pick<BatchPlaneRuntimePorts, "batches" | "settings">;
+export type GitHubLiteBatchReadClientDependencies = GitHubRepositoryContext & {
   revisionClient: BatchRevisionReadClient;
-  governedChangeClient: GovernedChangeReadClient;
+  changeRequestClient: ChangeRequestReadClient;
 };
 
 /**
  * Adapts GitHub-backed Batch reads to the provider-neutral UI client contract.
- * Runtime composition supplies the concrete session and transport dependencies.
+ * The caller supplies the concrete GitHub client and repository.
  */
 export function createGitHubLiteBatchReadClient({
-  runtime,
+  client,
+  repositoryRef,
   revisionClient,
-  governedChangeClient,
+  changeRequestClient,
 }: GitHubLiteBatchReadClientDependencies): Pick<
   BatchPlaneClient,
   "getBatchDetail" | "listBatches"
@@ -46,8 +50,10 @@ export function createGitHubLiteBatchReadClient({
   return {
     async listBatches() {
       try {
-        const repository = await runtime.settings.getRepository();
-        const batches = await runtime.batches.listBatchDefinitions({
+        const repository = await client.getRepository(repositoryRef);
+        const batches = await loadBatchDefinitions({
+          client,
+          repository: repositoryRef,
           ref: repository.defaultBranch,
         });
         const listItems = await Promise.all(
@@ -58,7 +64,7 @@ export function createGitHubLiteBatchReadClient({
                 await revisionClient.verifyApprovedBatchRevision({
                   batchId: batch.batchId,
                 }),
-                await governedChangeClient.getBatchRemediationCapability({
+                await changeRequestClient.getBatchRemediationCapability({
                   batchId: batch.batchId,
                 }),
               ),
@@ -77,9 +83,13 @@ export function createGitHubLiteBatchReadClient({
     },
 
     async getBatchDetail({ batchId }) {
-      const repository = await runtime.settings.getRepository();
+      const repository = await client.getRepository(repositoryRef);
       const [batches, recentExecutionRequests] = await Promise.all([
-        runtime.batches.listBatchDefinitions({ ref: repository.defaultBranch }),
+        loadBatchDefinitions({
+          client,
+          repository: repositoryRef,
+          ref: repository.defaultBranch,
+        }),
         revisionClient.listRecentExecutionRequestSummaries({ batchId }),
       ]);
       const batch = batches.find((candidate) => candidate.batchId === batchId);
@@ -87,7 +97,7 @@ export function createGitHubLiteBatchReadClient({
       if (batch) {
         const control = toBatchControl(
           await revisionClient.verifyApprovedBatchRevision({ batchId }),
-          await governedChangeClient.getBatchRemediationCapability({ batchId }),
+          await changeRequestClient.getBatchRemediationCapability({ batchId }),
         );
         return {
           batch: toBatchDetailDefinition(batch),
@@ -98,9 +108,11 @@ export function createGitHubLiteBatchReadClient({
         };
       }
 
-      const archive = await runtime.batches.getDeletedBatchArchive({
+      const archive = await loadDeletedBatchArchive({
+        client,
+        repository: repositoryRef,
         batchId,
-        ref: repository.defaultBranch,
+        baseBranch: repository.defaultBranch,
       });
       if (archive) {
         return {
@@ -117,10 +129,40 @@ export function createGitHubLiteBatchReadClient({
 }
 
 function toBatchDetailDefinition(
-  batch: BatchDefinition,
+  batch: GitHubBatchDefinition,
 ): BatchDetailDefinition {
   return {
-    ...batch,
+    batchId: batch.batchId,
+    criticality: batch.criticality,
+    description: batch.description,
+    domain: batch.domain,
+    environment: batch.environment,
+    gateRequired: batch.gateRequired,
+    labels: batch.labels,
+    name: batch.name,
+    owner: batch.owner,
+    status: batch.status,
+    executionTarget: {
+      ...(batch.execution
+        ? {
+            command: batch.execution.command,
+            executionEnvironment: formatRunnerLabel(batch.execution.runsOn),
+            ...(batch.execution.artifactPath
+              ? {
+                  executionFile: {
+                    location: batch.execution.artifactPath,
+                    name:
+                      batch.execution.artifactPath.split("/").at(-1) ??
+                      batch.execution.artifactPath,
+                  },
+                }
+              : {}),
+          }
+        : {}),
+      platformName: "GitHub Actions",
+      targetName: batch.workflow.path,
+      targetRevision: batch.workflow.ref,
+    },
     schedules: batch.schedules?.map((schedule) => ({
       ...schedule,
       generatedCron: formatGeneratedScheduleCrons(schedule),
@@ -128,13 +170,12 @@ function toBatchDetailDefinition(
   };
 }
 
+function formatRunnerLabel(value: string | string[]): string {
+  return Array.isArray(value) ? value.join(", ") : value;
+}
+
 function toBatchDetailArchive(
-  archive: Exclude<
-    Awaited<
-      ReturnType<BatchPlaneRuntimePorts["batches"]["getDeletedBatchArchive"]>
-    >,
-    null
-  >,
+  archive: DeletedBatchArchiveResult,
 ): BatchDetailArchiveResult {
   if (archive.status !== "VERIFIED") return archive;
 
@@ -142,7 +183,7 @@ function toBatchDetailArchive(
 }
 
 function toBatchListItem(
-  batch: BatchDefinition,
+  batch: GitHubBatchDefinition,
   control: BatchControl,
 ): BatchListItem {
   return {
@@ -163,7 +204,7 @@ function toBatchControl(
     ReturnType<BatchRevisionReadClient["verifyApprovedBatchRevision"]>
   >,
   remediation: Awaited<
-    ReturnType<GovernedChangeReadClient["getBatchRemediationCapability"]>
+    ReturnType<ChangeRequestReadClient["getBatchRemediationCapability"]>
   >,
 ): BatchControl {
   if (result.controlStatus === "VERIFIED") {

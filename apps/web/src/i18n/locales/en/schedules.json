@@ -1,8 +1,8 @@
 {
   "title": "Register schedule",
   "titleChange": "Change schedule",
-  "subtitle": "Create a governed schedule definition for {{batchName}} ({{batchId}}).",
-  "subtitleChange": "Update the governed schedule definition for {{batchName}} ({{batchId}}).",
+  "subtitle": "Create a controlled schedule definition for {{batchName}} ({{batchId}}).",
+  "subtitleChange": "Update the controlled schedule definition for {{batchName}} ({{batchId}}).",
   "subtitleFallback": "Batch: {{batchId}}",
   "actions": {
     "openSetup": "Open Workspace",
@@ -40,19 +40,19 @@
     "batch": "Batch",
     "requestType": "Request type",
     "definitionPath": "Definition path",
-    "missingFields": "Complete required fields before opening a governed pull request: {{fields}}",
-    "ready": "The governed schedule definition is ready for pull-request creation."
+    "missingFields": "Complete required fields before opening a controlled pull request: {{fields}}",
+    "ready": "The controlled schedule definition is ready for pull-request creation."
   },
   "preview": {
     "title": "YAML preview"
   },
   "diff": {
     "title": "PR diff preview",
-    "subtitle": "Review the exact governed schedule file change before creating the pull request.",
+    "subtitle": "Review the exact controlled schedule file change before creating the pull request.",
     "idle": "Enter the schedule ID to load the diff preview.",
     "loading": "Loading diff preview...",
     "noSession": "Connect a Workspace to compare against the base branch.",
-    "noChanges": "No governed schedule file changes were detected. Pull request creation is blocked.",
+    "noChanges": "No controlled schedule file changes were detected. Pull request creation is blocked.",
     "preview": "Unified diff",
     "empty": "No content",
     "status": {
@@ -65,11 +65,11 @@
   "errors": {
     "required": "Required fields are missing: {{fields}}",
     "noSession": "Connect a Workspace before creating schedule changes.",
-    "alreadyExists": "A governed schedule definition already exists at {{path}}.",
-    "changeMissingDefinition": "The governed schedule definition does not exist at {{path}}.",
-    "previewFailed": "Failed to load the governed diff preview.",
-    "previewNotReady": "Governed diff preview is not ready yet.",
-    "noChanges": "No governed schedule file changes were detected.",
+    "alreadyExists": "A controlled schedule definition already exists at {{path}}.",
+    "changeMissingDefinition": "The controlled schedule definition does not exist at {{path}}.",
+    "previewFailed": "Failed to load the controlled diff preview.",
+    "previewNotReady": "controlled diff preview is not ready yet.",
+    "noChanges": "No controlled schedule file changes were detected.",
     "unknown": "Failed to create schedule pull request."
   },
   "result": {

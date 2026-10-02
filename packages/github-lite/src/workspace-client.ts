@@ -1,8 +1,13 @@
-import type {
-  RepositoryPullRequest,
-  RuntimeInstallationStatus,
-  SettingsPort,
-} from "@batchplane/domain";
+import type { LiteInstallationStatus } from "./workspace-installation-inspection.js";
+import type { GitHubRepositoryContext } from "./github-types.js";
+import { loadWorkspacePolicy } from "./inspection-context.js";
+import { checkLiteInstallationStatus } from "./workspace-installation-inspection.js";
+import {
+  createLiteInstallationPullRequest,
+  createLiteInstallationUpdatePullRequest,
+} from "./workspace-installation-requests.js";
+import { createWorkspacePolicyPullRequest } from "./workspace-policy-request.js";
+import type { RepositoryPullRequest } from "./repository-evidence-types.js";
 import {
   WorkspaceSettingsError,
   type BatchPlaneClient,
@@ -11,11 +16,9 @@ import {
 } from "@batchplane/ui-client";
 import { toProductReadError } from "./product-read-errors.js";
 
-export function createGitHubLiteWorkspaceClient({
-  settings,
-}: {
-  settings: SettingsPort;
-}): Pick<
+export function createGitHubLiteWorkspaceClient(
+  context: GitHubRepositoryContext,
+): Pick<
   BatchPlaneClient,
   | "inspectWorkspace"
   | "requestWorkspaceInstallation"
@@ -26,13 +29,16 @@ export function createGitHubLiteWorkspaceClient({
     inspectWorkspace: () =>
       withWorkspaceErrorMapping(async () => {
         const [user, repository] = await Promise.all([
-          settings.getCurrentUser(),
-          settings.getRepository(),
+          context.client.getCurrentUser(),
+          context.client.getRepository(context.repositoryRef),
         ]);
-        const policy = await settings.getWorkspacePolicy({
+        const policy = await loadWorkspacePolicy({
+          ...context,
           ref: repository.defaultBranch,
         });
-        const installation = await settings.checkInstallationStatus({
+        const installation = await checkLiteInstallationStatus({
+          client: context.client,
+          repo: context.repositoryRef,
           ref: repository.defaultBranch,
         });
         return {
@@ -45,16 +51,20 @@ export function createGitHubLiteWorkspaceClient({
           policy,
         };
       }),
-    requestWorkspaceInstallation: () =>
-      requestInstallation(settings, "install"),
-    requestWorkspaceUpdate: () => requestInstallation(settings, "update"),
+    requestWorkspaceInstallation: () => requestInstallation(context, "install"),
+    requestWorkspaceUpdate: () => requestInstallation(context, "update"),
     requestWorkspacePolicyChange: ({ policy }) =>
       withWorkspaceErrorMapping(async () => {
-        const repository = await settings.getRepository();
-        const currentPolicy = await settings.getWorkspacePolicy({
+        const repository = await context.client.getRepository(
+          context.repositoryRef,
+        );
+        const currentPolicy = await loadWorkspacePolicy({
+          ...context,
           ref: repository.defaultBranch,
         });
-        const request = await settings.createWorkspacePolicyPullRequest({
+        const request = await createWorkspacePolicyPullRequest({
+          client: context.client,
+          repo: context.repositoryRef,
           defaultBranch: repository.defaultBranch,
           policy,
         });
@@ -68,16 +78,22 @@ export function createGitHubLiteWorkspaceClient({
 }
 
 async function requestInstallation(
-  settings: SettingsPort,
+  context: GitHubRepositoryContext,
   kind: "install" | "update",
 ) {
   return withWorkspaceErrorMapping(async () => {
-    const repository = await settings.getRepository();
-    const input = { defaultBranch: repository.defaultBranch };
+    const repository = await context.client.getRepository(
+      context.repositoryRef,
+    );
+    const input = {
+      client: context.client,
+      repo: context.repositoryRef,
+      defaultBranch: repository.defaultBranch,
+    };
     const result =
       kind === "install"
-        ? await settings.createInstallationPullRequest(input)
-        : await settings.createInstallationUpdatePullRequest(input);
+        ? await createLiteInstallationPullRequest(input)
+        : await createLiteInstallationUpdatePullRequest(input);
     return {
       request: toWorkspaceChangeRequest(result.pullRequest),
       installation: toWorkspaceInstallation(result.status),
@@ -86,7 +102,7 @@ async function requestInstallation(
 }
 
 function toWorkspaceInstallation(
-  status: RuntimeInstallationStatus,
+  status: LiteInstallationStatus,
 ): WorkspaceInstallation {
   return {
     availableRequest: !status.installed

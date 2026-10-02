@@ -16,9 +16,7 @@
     "@batchplane/digest": "workspace:*",
     "@batchplane/domain": "workspace:*",
     "@batchplane/ui-client": "workspace:*",
-    "cron-parser": "^5.5.0"
-  },
-  "devDependencies": {
+    "cron-parser": "^5.5.0",
     "yaml": "^2.9.0"
   }
 }

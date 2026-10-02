@@ -1,3 +1,4 @@
+import type { GitHubRepositoryContext } from "./github-types.js";
 import type {
   FailureFollowUp,
   FailureFollowUpReviewCapability,
@@ -14,16 +15,15 @@ import {
   buildFailureFollowUpComment,
   buildFailureFollowUpReviewComment,
 } from "./failure-follow-up-records.js";
-import type { GitHubIssueComment } from "./index.js";
+import type { GitHubIssueComment } from "./github-types.js";
 import {
   loadWorkspacePolicy,
-  type ExecutionInspectionContext,
   type ExecutionRequestForRun,
 } from "./inspection-context.js";
 
 type FollowUpInput = Parameters<BatchPlaneClient["createFailureFollowUp"]>[0];
 type ReviewInput = Parameters<BatchPlaneClient["reviewFailureFollowUp"]>[0];
-type WriteContext = ExecutionInspectionContext & {
+type WriteContext = GitHubRepositoryContext & {
   request: ExecutionRequestForRun;
   evidenceRunId: string;
   sourceRunId: number;
@@ -32,7 +32,7 @@ type WriteContext = ExecutionInspectionContext & {
 };
 
 export function createGitHubLiteFailureFollowUpClient(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
 ): Pick<BatchPlaneClient, "createFailureFollowUp" | "reviewFailureFollowUp"> {
   const reviewsInFlight = new Set<string>();
   return {
@@ -53,7 +53,7 @@ export function createGitHubLiteFailureFollowUpClient(
 }
 
 async function loadWriteContext(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
   runId: string,
 ): Promise<WriteContext> {
   const { request, run, evidenceRunId } = await loadFailureFollowUpRunContext({
@@ -77,7 +77,7 @@ async function loadWriteContext(
 }
 
 async function recordFailureFollowUp(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
   input: FollowUpInput,
 ) {
   const fields = normalizeFollowUp(input);
@@ -131,7 +131,7 @@ function normalizeFollowUp({
 }
 
 async function recordReview(
-  context: ExecutionInspectionContext,
+  context: GitHubRepositoryContext,
   input: ReviewInput,
 ) {
   const write = await loadWriteContext(context, input.runId);

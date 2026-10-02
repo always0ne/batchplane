@@ -4,6 +4,7 @@ import {
   batchPlaneDispatcherActionRef,
   batchPlaneGateActionRef,
 } from "./github-action-references.js";
+import { stringifyRepositoryYaml } from "./repository-yaml.js";
 
 export const liteDispatcherWorkflowPath =
   ".github/workflows/batchplane-dispatcher.yml";
@@ -62,36 +63,28 @@ export function buildLiteInstallationFiles(): LiteInstallationFile[] {
 export function buildWorkspacePolicyYaml(
   mode: WorkspaceApprovalMode = "SELF_APPROVAL_BLOCKED",
 ): string {
-  return [
-    'apiVersion: "batchplane.io/v1"',
-    'kind: "WorkspacePolicy"',
-    "metadata:",
-    '  id: "default"',
-    "spec:",
-    "  approval:",
-    `    mode: "${mode}"`,
-    "",
-  ].join("\n");
+  return stringifyRepositoryYaml({
+    apiVersion: "batchplane.io/v1",
+    kind: "WorkspacePolicy",
+    metadata: { id: "default" },
+    spec: { approval: { mode } },
+  });
 }
 
 export function buildRoleMappingYaml(): string {
-  return [
-    'apiVersion: "batchplane.io/v1"',
-    'kind: "RoleMapping"',
-    "metadata:",
-    '  id: "default"',
-    "spec:",
-    "  roles:",
-    "    requester:",
-    '      repositoryRoles: ["write", "maintain", "admin"]',
-    "    approver:",
-    '      repositoryRoles: ["maintain", "admin"]',
-    "    maintainer:",
-    '      repositoryRoles: ["maintain", "admin"]',
-    "    auditor:",
-    '      repositoryRoles: ["triage"]',
-    "",
-  ].join("\n");
+  return stringifyRepositoryYaml({
+    apiVersion: "batchplane.io/v1",
+    kind: "RoleMapping",
+    metadata: { id: "default" },
+    spec: {
+      roles: {
+        approver: { repositoryRoles: ["maintain", "admin"] },
+        auditor: { repositoryRoles: ["triage"] },
+        maintainer: { repositoryRoles: ["maintain", "admin"] },
+        requester: { repositoryRoles: ["write", "maintain", "admin"] },
+      },
+    },
+  });
 }
 
 export function buildDispatcherWorkflowYaml(): string {

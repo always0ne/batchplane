@@ -1,4 +1,8 @@
-import type { GitHubLiteClient, GitHubPullRequest, RepoRef } from "./index.js";
+import type {
+  GitHubLiteClient,
+  GitHubPullRequest,
+  RepoRef,
+} from "./github-types.js";
 import {
   checkLiteInstallationStatus,
   type LiteInstallationStatus,

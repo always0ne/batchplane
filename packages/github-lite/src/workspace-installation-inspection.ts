@@ -1,4 +1,4 @@
-import type { GitHubLiteClient, RepoRef } from "./index.js";
+import type { GitHubLiteClient, RepoRef } from "./github-types.js";
 import {
   buildLiteInstallationFiles,
   liteDispatcherWorkflowPath,

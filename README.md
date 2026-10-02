@@ -21,6 +21,116 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+Run `pnpm dev` from the repository root. It builds the internal package
+prerequisites, then starts one TypeScript package watcher alongside Vite.
+Changes to package sources are rebuilt automatically. Stop both with Ctrl-C.
+The Web app and TypeScript resolve internal packages through pnpm workspace
+links and their declared `exports`, without source-path aliases or an extra
+development plugin. Package `dist` directories are generated, not committed.
+
+## Code Navigation
+
+[Graphify](https://github.com/Graphify-Labs/graphify#installation) is an optional
+local code-navigation tool, not a product dependency or CI requirement. Install
+[uv](https://docs.astral.sh/uv/getting-started/installation/) first, then follow
+Graphify's official Codex setup:
+
+```bash
+uv tool install graphifyy
+uv tool update-shell
+```
+
+Open a new terminal so the tool directory is on `PATH`, then run:
+
+```bash
+graphify install --platform codex
+```
+
+From this repository's root, build a code-only graph without model extraction:
+
+```bash
+graphify extract . --code-only \
+  --exclude '**/dist/**' --exclude '**/node_modules/**' \
+  --exclude '**/coverage/**' --exclude 'docs/**' --exclude '*.local.*' \
+  --exclude 'apps/web/src/shared/i18n/locales/**'
+graphify cluster-only . --no-label
+graphify codex install
+```
+
+The last command adds query-first guidance to `AGENTS.md` and generates local
+Codex hook settings. Existing project instructions still apply. Graph artifacts
+and machine-specific hook settings are ignored by Git.
+
+```bash
+graphify query "LiteSetupPage" --budget 1600
+graphify explain useExecutionRunDetail
+graphify path ExecutionRunDetailPage useExecutionRunDetail
+graphify update .
+```
+
+In Codex, invoke the installed skill with `$graphify`, for example
+`$graphify query LiteSetupPage`. A bare `$graphify .` requests a full graph build,
+not a lookup; documents and media can involve model-based extraction. For
+parallel extraction, Graphify requires Codex's `multi_agent` feature to be enabled.
+Use graph results to locate relevant source, then read that source. An absent
+graph relationship does not establish a missing implementation or a defect.
+
+### Git Hooks
+
+Install Graphify's official hooks once per clone, after building the graph:
+
+```bash
+graphify hook install
+graphify hook status
+```
+
+The `post-commit` and `post-checkout` hooks update the code graph in the background
+after commits and branch switches. They use AST extraction without model calls
+and do not block Git while rebuilding. After `git pull` or `git merge`, run
+`graphify update .` explicitly; these operations have no Graphify hook.
+
+The installer also registers a repository-local merge driver and a
+`.gitattributes` entry for `graphify-out/graph.json`. BatchPlane keeps graph
+artifacts ignored, so they are not committed automatically. Git hooks are local
+to the clone and are not installed merely by pulling this README.
+
+Re-run `graphify hook install` after upgrading or reinstalling Graphify to refresh
+the pinned Python path. Use `graphify hook uninstall` to remove the integration.
+Reinstalling replaces the generated hooks, so any local Obsidian-export extension
+must be reapplied afterward.
+
+### Obsidian
+
+Export the existing graph with Graphify's official exporter; no extra Obsidian
+plugin or model extraction is required:
+
+```bash
+graphify export obsidian --dir "/path/to/your/Obsidian Vault"
+```
+
+This creates linked Markdown notes for graph nodes and communities, plus
+`graph.canvas`. Open the destination vault in Obsidian to browse the graph,
+search symbols, or follow links between notes. The exporter preserves existing
+user notes and graph settings; it tracks its generated notes in
+`.graphify_obsidian_manifest.json`. Keep personal annotations in separate notes
+because generated notes are replaced on the next export.
+
+This is a one-way export, not bidirectional synchronization. Graphify's official
+Git hooks update only `graphify-out/graph.json`. A local extension can run the
+export inside the existing background job, after `_rebuild_code` reports success.
+The configured local checkout uses this extension for commits and branch
+switches. Failed or skipped rebuilds do not export; export failures are logged
+without failing Git. Output goes to `~/.cache/graphify-rebuild.log`.
+
+This extension is a local edit to `.git/hooks`, not a Graphify setting or a hook
+distributed by this repository. Other clones require their own setup. After
+pulling or merging changes, refresh both explicitly from the repository root:
+
+```bash
+graphify update .
+graphify export obsidian --dir "/path/to/your/Obsidian Vault"
+```
+
 ## Local Verification
 
 BatchPlane requires Node 24 or later. CI and the checked-in JavaScript Actions

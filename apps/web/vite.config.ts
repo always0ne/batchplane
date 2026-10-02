@@ -5,18 +5,6 @@ import { defineConfig } from "vite";
 const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url));
 const indexHtml = fileURLToPath(new URL("./index.html", import.meta.url));
 const notFoundHtml = fileURLToPath(new URL("./404.html", import.meta.url));
-const digestSource = fileURLToPath(
-  new URL("../../packages/digest/src/index.ts", import.meta.url),
-);
-const domainSource = fileURLToPath(
-  new URL("../../packages/domain/src/index.ts", import.meta.url),
-);
-const githubLiteSource = fileURLToPath(
-  new URL("../../packages/github-lite/src/index.ts", import.meta.url),
-);
-const uiClientSource = fileURLToPath(
-  new URL("../../packages/ui-client/src/index.ts", import.meta.url),
-);
 const defaultGitHubPagesBase = "/batchplane/";
 const basePath = normalizeBasePath(
   process.env.VITE_BASE_PATH ??
@@ -42,12 +30,6 @@ export default defineConfig({
     ],
   },
   resolve: {
-    alias: [
-      { find: "@batchplane/digest", replacement: digestSource },
-      { find: "@batchplane/domain", replacement: domainSource },
-      { find: "@batchplane/github-lite", replacement: githubLiteSource },
-      { find: "@batchplane/ui-client", replacement: uiClientSource },
-    ],
     dedupe: ["react", "react-dom"],
   },
   server: {
