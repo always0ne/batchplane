@@ -3,7 +3,7 @@ import type {
   BatchChangeDraft,
   GitHubActionsExecutionSettings,
 } from "@batchplane/ui-client";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   defaultScheduleValues,
@@ -34,6 +34,14 @@ export function useBatchChangeForm({
     toScheduleDrafts(initialDraft.schedules),
   );
   const [artifactError, setArtifactError] = useState<string>();
+  const [isReadingArtifact, setIsReadingArtifact] = useState(false);
+  const artifactReadSequence = useRef(0);
+  useEffect(
+    () => () => {
+      artifactReadSequence.current += 1;
+    },
+    [],
+  );
 
   const resolvedValues = useMemo(
     () => ({
@@ -87,17 +95,25 @@ export function useBatchChangeForm({
   }, [initialDraft.defaultOwner]);
   const selectArtifact = useCallback(async (file?: File) => {
     if (!file) return;
+    const sequence = ++artifactReadSequence.current;
+    setIsReadingArtifact(true);
+    setExecution((current) => ({ ...current, upload: undefined }));
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
+      if (sequence !== artifactReadSequence.current) return;
       setExecution((current) => ({
         ...current,
         upload: { bytes, fileName: file.name },
       }));
+      setArtifactError(undefined);
     } catch (error) {
+      if (sequence !== artifactReadSequence.current) return;
       setArtifactError(messageFrom(error));
+    } finally {
+      if (sequence === artifactReadSequence.current)
+        setIsReadingArtifact(false);
     }
   }, []);
-  const clearArtifactError = useCallback(() => setArtifactError(undefined), []);
   const addSchedule = useCallback(() => {
     scheduleSequence.current += 1;
     const key = `new-${scheduleSequence.current}`;
@@ -139,7 +155,7 @@ export function useBatchChangeForm({
   return {
     addSchedule,
     artifactError,
-    clearArtifactError,
+    isReadingArtifact,
     draft,
     execution,
     missingFields,

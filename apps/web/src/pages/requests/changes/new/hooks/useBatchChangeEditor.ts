@@ -1,5 +1,4 @@
 import type { BatchChangeDraft } from "@batchplane/ui-client";
-import { useCallback } from "react";
 
 import { useBatchChangeForm } from "./useBatchChangeForm";
 import { useBatchChangePreview } from "./useBatchChangePreview";
@@ -15,26 +14,24 @@ export function useBatchChangeEditor({
   targetBatchId: string;
 }) {
   const form = useBatchChangeForm({ initialDraft, mode, targetBatchId });
-  const previewState = useBatchChangePreview({
+  const artifactBlocked =
+    form.isReadingArtifact || form.artifactError !== undefined;
+  const preview = useBatchChangePreview({
     draft: form.draft,
-    isReady: form.missingFields.length === 0,
+    isReady: form.missingFields.length === 0 && !artifactBlocked,
   });
+  const previewState = artifactBlocked ? { type: "idle" as const } : preview;
   const submission = useBatchChangeSubmission({
+    artifactBlocked,
     draft: form.draft,
     missingFields: form.missingFields,
     previewState,
   });
-  const { clearArtifactError } = form;
-  const { submit: submitChange } = submission;
-  const submit = useCallback(async () => {
-    clearArtifactError();
-    return submitChange();
-  }, [clearArtifactError, submitChange]);
 
   return {
     form,
     previewState,
     submission,
-    submit,
+    submit: submission.submit,
   };
 }

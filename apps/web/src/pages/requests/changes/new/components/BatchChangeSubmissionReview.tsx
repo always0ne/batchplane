@@ -6,11 +6,13 @@ import { batchChangeCopy } from "../batch-change-copy";
 import type { BatchChangePreviewState } from "../hooks/useBatchChangePreview";
 
 export function BatchChangeSubmissionReview({
+  artifactBlockedReason,
   missingFields,
   mode,
   previewState,
   showSubmissionProgress,
 }: {
+  artifactBlockedReason?: string;
   missingFields: string[];
   mode: BatchChangeDraft["mode"];
   previewState: BatchChangePreviewState;
@@ -20,6 +22,7 @@ export function BatchChangeSubmissionReview({
   const noChanges =
     previewState.type === "ready" && !previewState.preview.hasEffectiveChanges;
   const canSubmit =
+    !artifactBlockedReason &&
     missingFields.length === 0 &&
     previewState.type === "ready" &&
     !noChanges &&
@@ -28,7 +31,9 @@ export function BatchChangeSubmissionReview({
     fields: formatMissingFields(missingFields, t),
   });
   let disabledReason: string | undefined;
-  if (missingFields.length > 0) {
+  if (artifactBlockedReason) {
+    disabledReason = artifactBlockedReason;
+  } else if (missingFields.length > 0) {
     disabledReason = requiredFieldsMessage;
   } else if (noChanges) {
     disabledReason = t("errors.noChanges");
@@ -51,7 +56,8 @@ export function BatchChangeSubmissionReview({
       ) : null}
       {previewState.type === "loading" || previewState.type === "idle" ? (
         <p className="mt-3 text-sm text-bp-muted">
-          {t(previewState.type === "loading" ? "diff.loading" : "diff.idle")}
+          {artifactBlockedReason ??
+            t(previewState.type === "loading" ? "diff.loading" : "diff.idle")}
         </p>
       ) : null}
       {previewState.type === "error" ? (

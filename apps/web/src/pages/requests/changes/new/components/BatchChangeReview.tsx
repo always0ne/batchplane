@@ -5,11 +5,13 @@ import type { BatchChangePreviewState } from "../hooks/useBatchChangePreview";
 import { BatchChangeSubmissionReview } from "./BatchChangeSubmissionReview";
 
 export function BatchChangeReview({
+  artifactBlockedReason,
   missingFields,
   mode,
   previewState,
   showSubmissionProgress,
 }: {
+  artifactBlockedReason?: string;
   missingFields: string[];
   mode: BatchChangeDraft["mode"];
   previewState: BatchChangePreviewState;
@@ -20,6 +22,7 @@ export function BatchChangeReview({
   return (
     <aside className="min-w-0 space-y-4">
       <BatchChangeSubmissionReview
+        artifactBlockedReason={artifactBlockedReason}
         missingFields={missingFields}
         mode={mode}
         previewState={previewState}
