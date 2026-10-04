@@ -10,7 +10,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useParams } from "react-router";
+import { Link, MemoryRouter, Route, Routes, useParams } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BatchPlaneClientContext } from "../../../../client/batch-plane-client-context";
 import "../../../../i18n/i18n";
@@ -156,23 +156,16 @@ describe("BatchRegistrationPage", () => {
     );
   });
 
-  it("characterizes BF-1: a failed replacement retains and submits the prior artifact while artifact feedback takes priority", async () => {
-    let rejectSubmission: (error: Error) => void = () => undefined;
-    const pendingSubmission = new Promise<
-      Awaited<ReturnType<BatchPlaneClient["createBatchChangeRequest"]>>
-    >((_, reject) => {
-      rejectSubmission = reject;
-    });
+  it("blocks preview and submission during a failed replacement until valid reselection recovers", async () => {
     const createBatchChangeRequest = vi
       .fn()
-      .mockReturnValueOnce(pendingSubmission)
       .mockResolvedValue({ request: requestResult("42") });
-    renderPage(createClient({ createBatchChangeRequest }));
+    const previewBatchChange = vi.fn().mockResolvedValue(preview());
+    renderPage(createClient({ createBatchChangeRequest, previewBatchChange }));
     await screen.findByRole("heading", { name: "Registration" });
     fillRequiredRegistrationFields();
 
     const fileInput = screen.getByLabelText("Execution file");
-    const nameInput = screen.getByLabelText("Name");
     const bytes = new Uint8Array([1, 2, 3]);
     const originalFile = new File([bytes], "original.jar");
     Object.defineProperty(originalFile, "arrayBuffer", {
@@ -180,50 +173,125 @@ describe("BatchRegistrationPage", () => {
     });
     fireEvent.change(fileInput, { target: { files: [originalFile] } });
     await screen.findByText("original.jar");
-
-    const failedFile = new File([], "failed.jar");
-    Object.defineProperty(failedFile, "arrayBuffer", {
-      value: vi.fn().mockRejectedValue(new Error("Artifact read failed")),
-    });
-    fireEvent.change(fileInput, { target: { files: [failedFile] } });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Artifact read failed",
-    );
     const submit = screen.getByRole("button", {
       name: "Create registration change",
     });
     await waitFor(() => expect(submit).toBeEnabled());
+    const previewCount = previewBatchChange.mock.calls.length;
 
-    nameInput.focus();
-    fireEvent.click(submit);
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    let rejectRead: (error: Error) => void = () => undefined;
+    const pendingRead = new Promise<ArrayBuffer>((_, reject) => {
+      rejectRead = reject;
+    });
+    const failedFile = new File([], "failed.jar");
+    Object.defineProperty(failedFile, "arrayBuffer", {
+      value: () => pendingRead,
+    });
+    fireEvent.change(fileInput, { target: { files: [failedFile] } });
     expect(submit).toBeDisabled();
-    expect(screen.getByLabelText("Name")).toBe(nameInput);
-    expect(nameInput).toHaveFocus();
-    expect(screen.getByLabelText(/^Execution file/)).toBe(fileInput);
+    expect(submit).toHaveAttribute(
+      "title",
+      "Wait for the execution file to finish reading.",
+    );
     expect(
-      createBatchChangeRequest.mock.lastCall?.[0].execution.upload,
-    ).toEqual({
-      bytes,
-      fileName: "original.jar",
+      screen.queryByText(
+        "Complete the required fields to load the change preview.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("original.jar")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("+ kind: BatchDefinition"),
+    ).not.toBeInTheDocument();
+    fireEvent.submit(submit.closest("form")!);
+    await act(async () => {
+      rejectRead(new Error("Artifact read failed"));
+      await pendingRead.catch(() => undefined);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Artifact read failed");
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAttribute(
+      "title",
+      "Select a readable execution file before submitting.",
+    );
+    expect(
+      screen.queryByText(
+        "Complete the required fields to load the change preview.",
+      ),
+    ).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.submit(submit.closest("form")!);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Artifact read failed");
+    expect(createBatchChangeRequest).not.toHaveBeenCalled();
+    expect(previewBatchChange).toHaveBeenCalledTimes(previewCount);
+    await act(async () => {
+      await i18next.changeLanguage("ko");
+    });
+    expect(submit).toHaveAttribute(
+      "title",
+      "읽을 수 있는 실행 파일을 다시 선택한 후 제출하세요.",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Artifact read failed");
+    await act(async () => {
+      await i18next.changeLanguage("en");
     });
 
-    fireEvent.change(fileInput, { target: { files: [failedFile] } });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Artifact read failed",
-    );
-    expect(submit).toBeEnabled();
-    await act(async () => rejectSubmission(new Error("Submission failed")));
-    expect(screen.getByRole("alert")).toHaveTextContent("Artifact read failed");
-    expect(screen.queryByText("Submission failed")).not.toBeInTheDocument();
-
+    const replacement = new File([bytes], "replacement.jar");
+    Object.defineProperty(replacement, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(bytes.buffer),
+    });
+    fireEvent.change(fileInput, { target: { files: [replacement] } });
+    await waitFor(() => expect(submit).toBeEnabled());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     fireEvent.click(submit);
     await screen.findByText("Request 42 opened");
-    expect(createBatchChangeRequest).toHaveBeenCalledTimes(2);
+    expect(createBatchChangeRequest).toHaveBeenCalledTimes(1);
     expect(
-      createBatchChangeRequest.mock.lastCall?.[0].execution.upload?.fileName,
-    ).toBe("original.jar");
+      createBatchChangeRequest.mock.lastCall?.[0].execution.upload,
+    ).toEqual({ bytes, fileName: "replacement.jar" });
+    expect(createBatchChangeRequest.mock.lastCall?.[0]).toEqual(
+      previewBatchChange.mock.lastCall?.[0],
+    );
   });
+
+  it.each(["success", "error"])(
+    "ignores a late creation %s after leaving the editor",
+    async (outcome) => {
+      let resolve: (value: {
+        request: ReturnType<typeof requestResult>;
+      }) => void = () => undefined;
+      let reject: (error: Error) => void = () => undefined;
+      const completion = new Promise<{
+        request: ReturnType<typeof requestResult>;
+      }>((yes, no) => {
+        resolve = yes;
+        reject = no;
+      });
+      const createBatchChangeRequest = vi.fn().mockReturnValue(completion);
+      renderPage(createClient({ createBatchChangeRequest }));
+      await screen.findByRole("heading", { name: "Registration" });
+      fillRequiredRegistrationFields();
+      const submit = screen.getByRole("button", {
+        name: "Create registration change",
+      });
+      await waitFor(() => expect(submit).toBeEnabled());
+      fireEvent.click(submit);
+      expect(createBatchChangeRequest).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByRole("link", { name: "Batch list" }));
+      await screen.findByText("Batch list destination");
+      await act(async () => {
+        if (outcome === "success")
+          resolve({ request: requestResult("late/request") });
+        else reject(new Error("Late creation failed"));
+        await completion.catch(() => undefined);
+      });
+      expect(screen.getByText("Batch list destination")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Request late/request opened"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+  );
 
   it("routes a disconnected Workspace to setup instead of showing a load failure", async () => {
     renderPage(
@@ -568,7 +636,9 @@ function pageTree(client: BatchPlaneClient, path = "/batches/new") {
   return (
     <BatchPlaneClientContext.Provider value={client}>
       <MemoryRouter initialEntries={[path]}>
+        <Link to="/batches">Batch list</Link>
         <Routes>
+          <Route path="/batches" element={<p>Batch list destination</p>} />
           <Route path="/batches/new" element={<BatchRegistrationPage />} />
           <Route
             path="/approvals/registration/:requestLocator"

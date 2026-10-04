@@ -4,9 +4,16 @@ import {
   type BatchPlaneClient,
   type CreateChangeRequestResult,
 } from "@batchplane/ui-client";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   MemoryRouter,
+  Link,
   Route,
   Routes,
   useLocation,
@@ -246,6 +253,116 @@ describe("BatchDetailPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it.each(["success", "error"])(
+    "ignores a late remediation %s after leaving Batch detail",
+    async (outcome) => {
+      let resolve: (value: CreateChangeRequestResult) => void = () => undefined;
+      let reject: (error: Error) => void = () => undefined;
+      const completion = new Promise<CreateChangeRequestResult>((yes, no) => {
+        resolve = yes;
+        reject = no;
+      });
+      const requestBatchRemediation = vi.fn().mockReturnValue(completion);
+      renderDetail(
+        createClient(
+          {
+            ...activeDetail,
+            control: {
+              status: "BYPASSED",
+              disabledReason: "UNAPPROVED_BATCH_REVISION",
+              remediation: {
+                availableKinds: ["REVIEW_CURRENT"],
+                canRequest: true,
+              },
+            },
+          },
+          { requestBatchRemediation },
+        ),
+      );
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Review current revision" }),
+      );
+      expect(requestBatchRemediation).toHaveBeenCalledWith({
+        batchId: "payment.daily-close",
+        kind: "REVIEW_CURRENT",
+      });
+      fireEvent.click(screen.getByRole("link", { name: "Batch list" }));
+      await screen.findByText("Batch list destination");
+      await act(async () => {
+        if (outcome === "success") resolve(changeRequestResult("late/request"));
+        else reject(new Error("Late remediation failed"));
+        await completion.catch(() => undefined);
+      });
+      expect(screen.getByText("Batch list destination")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Change request late/request"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps current remediation pending when a previous client completes late through the Page", async () => {
+    let resolvePrevious: (value: CreateChangeRequestResult) => void = () =>
+      undefined;
+    let resolveCurrent: (value: CreateChangeRequestResult) => void = () =>
+      undefined;
+    const previous = new Promise<CreateChangeRequestResult>((yes) => {
+      resolvePrevious = yes;
+    });
+    const current = new Promise<CreateChangeRequestResult>((yes) => {
+      resolveCurrent = yes;
+    });
+    const requestBatchRemediation = vi
+      .fn()
+      .mockReturnValueOnce(previous)
+      .mockReturnValue(current);
+    const detail: BatchDetailResult = {
+      ...activeDetail,
+      control: {
+        status: "BYPASSED",
+        disabledReason: "UNAPPROVED_BATCH_REVISION",
+        remediation: { availableKinds: ["REVIEW_CURRENT"], canRequest: true },
+      },
+    };
+    const firstClient = createClient(detail, { requestBatchRemediation });
+    const currentClient = createClient(detail, { requestBatchRemediation });
+    const view = renderDetail(firstClient);
+    const previousButton = await screen.findByRole("button", {
+      name: "Review current revision",
+    });
+    fireEvent.click(previousButton);
+    await act(async () => {
+      view.rerender(detailTree(currentClient));
+    });
+    await screen.findByRole("button", { name: "Review current revision" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review current revision" }),
+    );
+    expect(requestBatchRemediation).toHaveBeenCalledTimes(2);
+    expect(requestBatchRemediation).toHaveBeenLastCalledWith({
+      batchId: "payment.daily-close",
+      kind: "REVIEW_CURRENT",
+    });
+    await act(async () => {
+      resolvePrevious(changeRequestResult("previous"));
+      await previous;
+    });
+    expect(
+      screen.getByRole("button", { name: "Creating request..." }),
+    ).toBeDisabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Change request previous"),
+    ).not.toBeInTheDocument();
+    await act(async () => {
+      resolveCurrent(changeRequestResult("current/request"));
+      await current;
+    });
+    expect(
+      screen.getByText("Change request current/request"),
+    ).toBeInTheDocument();
+  });
+
   it("keeps a deleted archive and its recent request evidence on the detail route", async () => {
     renderDetail(
       createClient({
@@ -450,10 +567,16 @@ function createClient(
 }
 
 function renderDetail(client: BatchPlaneClient) {
-  render(
+  return render(detailTree(client));
+}
+
+function detailTree(client: BatchPlaneClient) {
+  return (
     <BatchPlaneClientContext.Provider value={client}>
       <MemoryRouter initialEntries={["/batches/payment.daily-close"]}>
+        <Link to="/batches">Batch list</Link>
         <Routes>
+          <Route path="/batches" element={<p>Batch list destination</p>} />
           <Route path="/batches/:batchId" element={<BatchDetailPage />} />
           <Route
             path="/approvals/registration/:requestLocator"
@@ -462,7 +585,7 @@ function renderDetail(client: BatchPlaneClient) {
           <Route path="/batches/new" element={<Location />} />
         </Routes>
       </MemoryRouter>
-    </BatchPlaneClientContext.Provider>,
+    </BatchPlaneClientContext.Provider>
   );
 }
 

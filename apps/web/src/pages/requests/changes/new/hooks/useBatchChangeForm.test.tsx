@@ -78,6 +78,49 @@ describe("useBatchChangeForm", () => {
     expect(result.current.missingFields).toContain("execution.command");
   });
 
+  it.each(["success", "error"])(
+    "keeps the latest selected artifact when an older read completes with %s",
+    async (outcome) => {
+      const { result } = renderHook(() =>
+        useBatchChangeForm({
+          initialDraft: draft(),
+          mode: "create",
+          targetBatchId: "",
+        }),
+      );
+      let resolve: (bytes: ArrayBuffer) => void = () => undefined;
+      let reject: (error: Error) => void = () => undefined;
+      const olderRead = new Promise<ArrayBuffer>((yes, no) => {
+        resolve = yes;
+        reject = no;
+      });
+      const older = new File([], "older.jar");
+      Object.defineProperty(older, "arrayBuffer", { value: () => olderRead });
+      const latest = new File([], "latest.jar");
+      const bytes = new Uint8Array([9, 8]);
+      Object.defineProperty(latest, "arrayBuffer", {
+        value: async () => bytes.buffer,
+      });
+      let olderSelection: Promise<void>;
+      act(() => {
+        olderSelection = result.current.selectArtifact(older);
+      });
+      await act(async () => {
+        await result.current.selectArtifact(latest);
+      });
+      await act(async () => {
+        if (outcome === "success") resolve(new ArrayBuffer(1));
+        else reject(new Error("Older read failed"));
+        await olderSelection;
+      });
+      expect(result.current.draft.execution.upload).toEqual({
+        bytes,
+        fileName: "latest.jar",
+      });
+      expect(result.current.artifactError).toBeUndefined();
+    },
+  );
+
   it("gives two schedules added in one update distinct keys", () => {
     const { result } = renderHook(() =>
       useBatchChangeForm({

@@ -28,6 +28,12 @@ export function BatchChangeEditorSession({
   // Artifact feedback retains its existing priority over submission progress.
   const showSubmissionProgress =
     form.artifactError === undefined && submission.state === "submitting";
+  let artifactBlockedReason: string | undefined;
+  if (form.isReadingArtifact) {
+    artifactBlockedReason = t("errors.artifactReading");
+  } else if (form.artifactError !== undefined) {
+    artifactBlockedReason = t("errors.artifactUnreadable");
+  }
 
   async function submitChange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,6 +66,7 @@ export function BatchChangeEditorSession({
           ) : null}
         </div>
         <BatchChangeReview
+          artifactBlockedReason={artifactBlockedReason}
           missingFields={form.missingFields}
           mode={mode}
           previewState={editor.previewState}

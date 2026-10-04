@@ -12,6 +12,16 @@ must not assume GitHub Actions is the only platform or decode workflow/YAML
 data themselves. Use ordinary named React components and typed props rather
 than a generic JSON form engine. No visual redesign is implied by this boundary.
 
+The latest selected execution file owns the preview and submitted upload. While
+it is reading or has failed to read, hide stale controlled-file preview and block
+submission, including the submit handler, with a localized disabled reason.
+Keep read errors in the existing compact error area until a valid reselection
+succeeds; do not clear them on submission. Preserve the no-upload path and
+existing-file metadata. After leaving creation or remediation, or changing its
+target/client, ignore late UI results and errors rather than navigating away from
+the current screen. Active completion still opens the internal request detail.
+Ignoring a late result does not cancel the server request.
+
 This document defines the UI/UX baseline for BatchPlane Lite screens.
 Every screen PR should check its scope against this baseline before review.
 
