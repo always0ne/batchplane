@@ -1,5 +1,7 @@
 # BatchPlane Mandatory Engineering Instructions
 
+[한국어](./AGENTS.ko.md)
+
 These instructions are mandatory for every change in this repository. Read
 `docs/frontend-engineering-principles.md` before changing the Web application.
 The detailed document is the source of truth for rationale and examples; this
@@ -31,6 +33,28 @@ file is the enforcement checklist.
   formatting, content, link, and diff checks; do not run application builds or
   tests when they cannot validate the change. UI work also requires browser
   review at desktop and mobile widths in English and Korean.
+
+## Paired English And Korean Documents
+
+- Maintain authored project documentation as complete English/Korean pairs in
+  the same directory: `name.md` and `name.ko.md`. Local planning documents use
+  `name.local.md` and `name.ko.local.md`. This includes plans, specifications,
+  architecture decisions, review reports, QA sheets and result templates.
+- Create or update both counterparts in the same change and PR. A Korean
+  summary is not a counterpart. Preserve requirement IDs, normative strength,
+  priorities, tables, diagram meaning, completion status and open questions.
+- Put reciprocal language links near the top. Use natural Korean for review;
+  keep code, API identifiers and persisted values exact. Prefer Korean
+  document links in reports to the user.
+- Agreed user decisions are authoritative. Do not resolve language differences
+  by automatically treating English as correct; reconcile both against the
+  approved decision and ask when that decision is unclear.
+- Check both versions for content equivalence, links and formatting. Existing
+  unpaired documentation is paired when included in an approved documentation
+  change; do not expand into an unrelated repository-wide translation project.
+- Do not add translation tooling or application tests solely for prose changes.
+  Generated outputs, raw evidence and third-party source material are not
+  separately authored translations.
 
 ## Official Patterns Are Mandatory
 

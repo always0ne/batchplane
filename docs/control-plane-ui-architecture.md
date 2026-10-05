@@ -1,5 +1,7 @@
 # Shared UI Architecture
 
+[한국어](./control-plane-ui-architecture.ko.md)
+
 Status: Current UI boundary and approved target, reconciled 2026-10-05.
 This document does not declare Main or multiple Workspaces implemented.
 
@@ -105,5 +107,5 @@ evidence, not the user's primary task flow.
 - English and Korean, keyboard interaction, desktop/mobile layout and connected
   navigation are checked for every affected screen under open #119.
 
-The [QA sheet](./user-qa.ko.md) identifies which of these are current checks and
+The [QA sheet](./user-qa.md) identifies which of these are current checks and
 which await implementation. A mock Main fixture proves composition only.

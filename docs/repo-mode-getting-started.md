@@ -1,5 +1,7 @@
 # BatchPlane Lite Workspace Getting Started
 
+[한국어](./repo-mode-getting-started.ko.md)
+
 BatchPlane Lite uses a GitHub-backed Workspace as the configuration store,
 approval surface, dispatcher runtime, and audit trail. The React/Vite UI is
 static; it does not run a BatchPlane server. In Lite, the Workspace is backed by

@@ -1,5 +1,7 @@
 # BatchPlane Delivery Roadmap
 
+[한국어](./control-plane-migration-plan.ko.md)
+
 Status: Approved delivery order, reconciled 2026-10-05 in PR #192.
 Scope: product direction and acceptance boundaries, not approval to implement
 every API, table, permission or integration example in the architecture documents.
@@ -95,8 +97,8 @@ and retention remain explicit limits, not product query omissions.
 ## QA And Delivery Discipline
 
 [Requirements traceability](./requirements-traceability.md),
-[the Korean user QA sheet](./user-qa.ko.md), and
-[the QA result template](./qa-result-template.ko.md) are maintained with each
+[the user QA sheet](./user-qa.md), and
+[the QA result template](./qa-result-template.md) are maintained with each
 behavior-changing delivery. QA begins during each flow, not for the first time
 at stage 5. Do not equate documents, code, automated checks, user QA, live
 provider evidence, remote CI or merge.

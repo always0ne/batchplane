@@ -1,5 +1,7 @@
 # Requirements, Roadmap And QA Traceability
 
+[한국어](./requirements-traceability.ko.md)
+
 Baseline: 2026-10-05, main `35eb868396d85e80a1a7c81297e59a3a19e9ffb8`.
 Ownership reflects the live open-issue inventory reconciled under #232.
 This is delivery traceability, not evidence that every requirement is implemented
@@ -19,8 +21,8 @@ or tested. [Roadmap](./control-plane-migration-plan.md) controls sequence;
 - ID ranges below include both endpoints. Groups intentionally share workflow
   QA; they are not a demand for one test per ID.
 
-All QA references point to [the Korean QA sheet](./user-qa.ko.md). A preparation
-state is not a test result; the [result template](./qa-result-template.ko.md)
+All QA references point to [the QA sheet](./user-qa.md). A preparation
+state is not a test result; the [result template](./qa-result-template.md)
 starts every case NOT_TESTED. Main and provider-design rows are not clickable
 current features.
 

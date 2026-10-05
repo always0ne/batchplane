@@ -1,5 +1,7 @@
 # Main And Lite Conformance
 
+[한국어](./main-lite-conformance.ko.md)
+
 Status: Acceptance plan, reconciled 2026-10-05. Main is not implemented.
 
 ## Shared Meaning, Different Implementations
@@ -51,7 +53,7 @@ platform connections in one Workspace.
 ## Evidence Strategy
 
 Use [requirements traceability](./requirements-traceability.md) and
-[QA cases](./user-qa.ko.md). They distinguish present code, known gaps, planned
+[QA cases](./user-qa.md). They distinguish present code, known gaps, planned
 work and design-required scope. No user QA is marked passed by this document.
 
 At each flow delivery:

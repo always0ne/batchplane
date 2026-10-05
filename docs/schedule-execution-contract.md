@@ -1,5 +1,7 @@
 # Schedule Execution Contract
 
+[한국어](./schedule-execution-contract.ko.md)
+
 R4 uses approved Batch revisions to authorize unattended schedule execution.
 This contract covers the GitHub Lite implementation and provider-neutral UI
 meaning. It does not introduce a separate scheduler, database or evidence branch.
@@ -178,5 +180,5 @@ The 2026-10-05 roadmap places approved withdrawal and real cancellation in
 #225 before Lite acceptance. Result synchronization belongs to Main's first
 operating flow (#228); Lite's additional result-repair timing stays separate.
 Main delay monitoring is #229. Backfill requires a later discussion and is not
-implicit in any of these commands. See [user QA](./user-qa.ko.md) for separate
+implicit in any of these commands. See [user QA](./user-qa.md) for separate
 readiness and actual test results.

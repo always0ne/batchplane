@@ -1,5 +1,7 @@
 # Architecture Baseline Reconciliation Review
 
+[한국어](./control-plane-architecture-review.ko.md)
+
 Status: Documentation review for PR #192 and #232, 2026-10-05.
 This is not a new multi-agent review, whole-code audit or live acceptance result.
 
@@ -42,8 +44,8 @@ illustrative shapes instead of claiming these decisions are complete.
 ## Delivery Evidence
 
 The [traceability table](./requirements-traceability.md) links all product SRS
-groups to work and QA. The [Korean QA sheet](./user-qa.ko.md) and
-[result template](./qa-result-template.ko.md) support repeatable user validation
+groups to work and QA. The [QA sheet](./user-qa.md) and
+[result template](./qa-result-template.md) support repeatable user validation
 and change-impact selection.
 
 This PR changes documentation and retains its pre-existing package-description

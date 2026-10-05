@@ -1,5 +1,7 @@
 # BatchPlane Gate Contract
 
+[한국어](./gate-protocol.ko.md)
+
 Status: Shared semantics and current Lite evidence, reconciled 2026-10-05.
 Main wire protocol, authentication and reason-code mapping require #227/#228.
 No `START | COMPLETE` input is implemented by the current Lite Gate Action.
@@ -111,5 +113,5 @@ Do not record tokens or secret values. Allowed and denied attempts are visible
 at the same operating-history level; storage failure must be shown honestly.
 
 #202 remains open for actual GitHub schedule/Gate/result and rerun proof.
-The [QA sheet](./user-qa.ko.md) distinguishes local cases, live evidence and
+The [QA sheet](./user-qa.md) distinguishes local cases, live evidence and
 planned commands. No document statement substitutes for that proof.

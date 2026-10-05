@@ -1,5 +1,7 @@
 # BatchPlane Control Plane Architecture
 
+[한국어](./control-plane-architecture.ko.md)
+
 Status: Accepted direction; current Lite boundary and planned Main design.
 Reconciled 2026-10-05. Concrete Main contracts require #227 approval.
 
@@ -182,7 +184,7 @@ limitations stay in adapters and support documentation.
 - [Gate semantics and proposal boundary](./gate-protocol.md)
 - [Shared UI and current sitemap](./control-plane-ui-architecture.md)
 - [Edition conformance](./main-lite-conformance.md)
-- [User QA](./user-qa.ko.md)
+- [User QA](./user-qa.md)
 
 Architecture documents do not establish live acceptance. Runtime packaging,
 connector authentication, Main schema/API, Main permission mappings and deployment

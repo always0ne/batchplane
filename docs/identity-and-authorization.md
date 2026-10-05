@@ -1,5 +1,7 @@
 # Identity And Authorization
 
+[한국어](./identity-and-authorization.ko.md)
+
 Status: Product rules accepted; Main model details require #227.
 Reconciled 2026-10-05.
 
@@ -104,5 +106,5 @@ comment alone.
 Enforce authority on queries, mutation, approvals, provider commands, logs,
 review and Gate, not only in React. Record safe actor/subject/context/reason
 without tokens or raw identity assertions. Verify both allowed and denied
-paths through the [QA sheet](./user-qa.ko.md); no new identity framework or
+paths through the [QA sheet](./user-qa.md); no new identity framework or
 speculative permission hierarchy is approved here.

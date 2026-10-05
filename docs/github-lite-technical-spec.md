@@ -1,5 +1,7 @@
 # GitHub Lite Technical Spec
 
+[한국어](./github-lite-technical-spec.ko.md)
+
 This document captures implementation contracts for GitHub Lite. It specializes
 the shared domain, Gate, and conformance contracts for a GitHub-backed authority;
 it does not redefine BatchPlane product semantics.
@@ -459,8 +461,8 @@ selfApproval=true
 `approvalMode` is emitted when the UI knows the effective Workspace policy.
 `selfApproval=true` is emitted only when requester and approver are the same
 user. Gate does not rely only on this marker; it reads
-`.batch-governance/workspace.yml` and allows self-approval only when the
-effective policy mode is `SELF_APPROVAL_ALLOWED`.
+`.batch-governance/workspace.yml` and allows eligible self-approval only when the
+effective policy mode is `SELF_APPROVAL_ALLOWED` or `AUTO_APPROVE`.
 
 The dispatcher must verify:
 

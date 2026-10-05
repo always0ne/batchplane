@@ -1,5 +1,7 @@
 # Platform Provider Design
 
+[한국어](./platform-provider-contract.ko.md)
+
 Status: Accepted boundary, illustrative Main design; concrete contracts require
 #227/#228 and real Jenkins feedback in #231. Reconciled 2026-10-05.
 

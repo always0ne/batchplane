@@ -1,5 +1,7 @@
 # BatchPlane Audit And Evidence
 
+[한국어](./audit-and-evidence.ko.md)
+
 Status: Product evidence semantics and Main design candidates, 2026-10-05.
 Exact envelope/schema/retention design is not implemented. Earlier export and
 recurrence-reporting requirements retain their priority while detailed scope
@@ -227,7 +229,7 @@ Cancellation records the request and actual engine confirmation separately.
 Result synchronization records a correction backed by provider evidence; it
 never executes/cancels work. Confirmed dispatch failure is terminal and a new
 request has a new authorization history. Unknown acceptance is not fabricated
-failure. See [user QA](./user-qa.ko.md).
+failure. See [user QA](./user-qa.md).
 
 ## Integrity And Operations
 

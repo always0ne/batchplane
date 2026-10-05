@@ -1,5 +1,7 @@
 # BatchPlane
 
+[한국어](./README.ko.md)
+
 Unified batch control and audit across execution platforms.
 
 BatchPlane gives operators one controlled inventory for batch registration,
@@ -24,8 +26,8 @@ Implementation availability is not operating acceptance. Main is planned;
 Lite still has known request/input/query gaps and pending live schedule QA.
 Use the [approved roadmap](docs/control-plane-migration-plan.md),
 [requirements and issue mapping](docs/requirements-traceability.md), and
-[Korean user QA sheet](docs/user-qa.ko.md) to track the remaining work.
-Record actual results with the [QA result template](docs/qa-result-template.ko.md).
+[user QA sheet](docs/user-qa.md) to track the remaining work.
+Record actual results with the [QA result template](docs/qa-result-template.md).
 
 ## Development
 

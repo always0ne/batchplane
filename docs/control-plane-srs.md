@@ -1,5 +1,7 @@
 # BatchPlane Unified Control Plane SRS
 
+[한국어](./control-plane-srs.ko.md)
+
 Status: Product requirements reconciled 2026-10-05.
 Delivery order and implementation readiness are separate from this normative
 target; see [the roadmap](./control-plane-migration-plan.md) and
@@ -386,6 +388,6 @@ and unified-request specification to issue ownership and QA. Proposed scope and
 Main detail are not claimed implemented. Deviation records identify requirement,
 reason, user impact, mitigation and accepted follow-up.
 
-The [QA sheet](./user-qa.ko.md) groups observable user flows rather than requiring
+The [QA sheet](./user-qa.md) groups observable user flows rather than requiring
 one test per requirement. Implementation, local automated checks, user QA and
 live-provider acceptance are separate states.

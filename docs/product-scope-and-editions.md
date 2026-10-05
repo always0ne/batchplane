@@ -1,5 +1,7 @@
 # BatchPlane Product Scope And Editions
 
+[한국어](./product-scope-and-editions.ko.md)
+
 Status: Product direction and delivery scope reconciled 2026-10-05.
 See the [approved roadmap](./control-plane-migration-plan.md) for implementation
 order and [traceability](./requirements-traceability.md) for readiness.
@@ -35,7 +37,7 @@ example, not the committed third provider.
 | Supported engines      | GitHub Actions                                                                                              | GitHub Actions, early real Jenkins, then broader/third-platform validation |
 
 “Present” means code exists, not that manual or live acceptance passed.
-Read the [user QA sheet](./user-qa.ko.md) before claiming operating readiness.
+Read the [user QA sheet](./user-qa.md) before claiming operating readiness.
 
 ## Shared Product Semantics
 

@@ -1,5 +1,7 @@
 # Unified Request Feature Specification
 
+[한국어](./unified-request-feature-spec.ko.md)
+
 ## Status And Delivery Boundary
 
 Product direction updated on 2026-10-05 for #142. R7 is complete; this feature

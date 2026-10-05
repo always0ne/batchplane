@@ -1,5 +1,7 @@
 # Lite UI/UX Baseline
 
+[한국어](./lite-ui-ux-baseline.ko.md)
+
 ## Platform Input Boundaries
 
 Separating business metadata from platform execution settings must preserve the
@@ -207,7 +209,8 @@ backfill, new review policy, or stronger evidence retention.
   are not approval work. They must not be shown with approve/reject controls.
 - Rejecting an execution request must require a reason.
 - Self-approval must be disabled with an explicit reason unless the effective
-  Workspace policy is `SELF_APPROVAL_ALLOWED`.
+  Workspace policy permits eligible self-approval through `SELF_APPROVAL_ALLOWED`
+  or `AUTO_APPROVE`.
 
 ## Workspace Settings UX Rules
 
@@ -270,7 +273,7 @@ backfill, new review policy, or stronger evidence retention.
 ## PR Checklist
 
 Issue #119 stays open across screen development. The
-[user QA sheet](./user-qa.ko.md) supplies repeatable journeys and change-impact
+[user QA sheet](./user-qa.md) supplies repeatable journeys and change-impact
 selection; documentation delivery is not a UI pass. Planned lifecycle and
 multi-Workspace flows are acceptance targets, not already available controls.
 

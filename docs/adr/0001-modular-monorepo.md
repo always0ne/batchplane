@@ -1,5 +1,7 @@
 # ADR-0001: Keep Main And Lite In A Modular Monorepo
 
+[한국어](./0001-modular-monorepo.ko.md)
+
 Status: Accepted
 
 Date: 2026-08-31

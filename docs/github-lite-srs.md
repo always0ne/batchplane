@@ -1,5 +1,7 @@
 # GitHub Lite SRS
 
+[한국어](./github-lite-srs.ko.md)
+
 This document defines the implementation requirements for BatchPlane GitHub
 Lite mode. It is a child specification of
 [`control-plane-srs.md`](./control-plane-srs.md) and must preserve the shared
@@ -671,5 +673,5 @@ Main includes it in its first flow, and Lite timing remains separate.
   one common approver for all targets before creation. Lite-first deferral needs
   demonstrated constraints and user approval.
 
-Use the [user QA sheet](./user-qa.ko.md); these requirements are not claims of
+Use the [user QA sheet](./user-qa.md); these requirements are not claims of
 current UI controls or passing tests.

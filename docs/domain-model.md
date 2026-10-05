@@ -1,5 +1,7 @@
 # BatchPlane Domain Model
 
+[한국어](./domain-model.ko.md)
+
 Status: Conceptual model, reconciled 2026-10-05. Main aggregate names, fields,
 state enums, IDs and table boundaries below are design candidates, not released
 API/schema. #227 approves the concrete model before Main implementation.

@@ -1,5 +1,7 @@
 # BatchPlane 사용자 QA 시트
 
+[English](./user-qa.md)
+
 기준일: 2026-10-05. 기준 main: `35eb868396d85e80a1a7c81297e59a3a19e9ffb8`.
 이 문서는 #232 전달물이며 **제품이 검증됐다는 보고서가 아니다**.
 아래 27개 사례의 사용자 검증 결과는 모두 `NOT_TESTED`로 시작한다.
@@ -133,7 +135,7 @@ GitHub 원본 보존 기한이나 권한 때문에 자료가 없으면 ‘기록
 native 실행에서 처리된다. `repositoryId/batchId/scheduleId/sourceRunId`와 실제
 attempt/job이 일치한다. 업무는 검증된 SHA로 실행된다. 지연·미발생은 사실대로
 기록하고 수동 실행을 cron 검증으로 대체하지 않는다. worker 시각을 예정 시각으로
-추정하지 않는다. 자세한 실환경 조건은 [스케줄 계약](./schedule-execution-contract.md).
+추정하지 않는다. 자세한 실환경 조건은 [스케줄 계약](./schedule-execution-contract.ko.md).
 
 ### QA-L08: 직접 실행과 full/partial rerun으로 Gate를 우회하지 못한다
 
