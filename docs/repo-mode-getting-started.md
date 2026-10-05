@@ -1,5 +1,7 @@
 # BatchPlane Lite Workspace Getting Started
 
+[한국어](./repo-mode-getting-started.ko.md)
+
 BatchPlane Lite uses a GitHub-backed Workspace as the configuration store,
 approval surface, dispatcher runtime, and audit trail. The React/Vite UI is
 static; it does not run a BatchPlane server. In Lite, the Workspace is backed by
@@ -156,20 +158,23 @@ spec:
 
 Supported approval modes:
 
-- `SELF_APPROVAL_BLOCKED`: default four-eyes control. Requester and approver
+- `SELF_APPROVAL_BLOCKED`: default separation of duties. Requester and approver
   must be different users. Use this for audit-heavy or production-like
   Workspaces.
-- `SELF_APPROVAL_ALLOWED`: requester may approve their own execution request.
-  Use this for personal testing, demos, or low-risk automation where one user
-  operates the Workspace. The approval comment is still explicit evidence and
-  Gate still verifies the request, digest, approver authorization, dispatcher
-  actor, and batch definition.
+- `SELF_APPROVAL_ALLOWED`: requester may approve their own eligible Batch change
+  or manual execution request. Use this for personal testing, demos, or low-risk
+  automation where one user operates the Workspace. The decision remains
+  explicit evidence and Gate still verifies execution request, digest,
+  approver authorization, dispatcher actor, and batch definition.
 - `AUTO_APPROVE`: Workspace policy choice for lightweight operation. Manual
-  execution request creation also records explicit approval evidence
-  automatically. Gate allows that evidence only when the merged Workspace policy
-  is `AUTO_APPROVE`. The dispatcher still performs `workflow_dispatch`; the
-  browser UI must not dispatch controlled workflows directly. This mode also
-  includes `SELF_APPROVAL_ALLOWED` behavior for manual approvals.
+  execution and eligible Batch change request creation also records explicit
+  approval evidence automatically. Gate allows execution evidence only when the
+  merged Workspace policy is `AUTO_APPROVE`. The dispatcher still performs
+  `workflow_dispatch`; the browser UI must not dispatch controlled workflows
+  directly. This mode also includes `SELF_APPROVAL_ALLOWED` behavior.
+
+Workspace policy, role-mapping, and installation requests use the policy that
+is already effective. Proposed policy values never authorize their own merge.
 
 Changing the approval mode from Workspace creates a pull request. The mode is
 active only after that pull request is merged.

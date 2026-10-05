@@ -1,6 +1,16 @@
 # GitHub Lite Technical Spec
 
-This document captures implementation contracts for GitHub Lite.
+[한국어](./github-lite-technical-spec.ko.md)
+
+This document captures implementation contracts for GitHub Lite. It specializes
+the shared domain, Gate, and conformance contracts for a GitHub-backed authority;
+it does not redefine BatchPlane product semantics.
+
+NATIVE_SCHEDULE_V2, native timezone generation and the separate schedule result
+Action are implemented; live acceptance is pending in #202. Immutable release
+references remain #196 work for the first external release. These are different
+readiness states; do not introduce a delegated-schedule compatibility layer.
+[Traceability](./requirements-traceability.md) records the remaining gaps.
 
 ## Product Routing Boundary
 
@@ -48,7 +58,7 @@ belong to that editor; they remain in session storage and never appear in
 product contracts. Runtime supplies the active Lite connection. Installation
 templates, required-file inspection, managed-workflow comparison, and setup,
 update and policy request creation belong to `packages/github-lite`, not React
-Pages or features. The adapter returns product status and opaque source
+Pages. The adapter returns product status and opaque source
 references for display; the Page does not interpret repository artifacts.
 
 The editor owns draft and stored-session presentation. Connection-change events
@@ -160,25 +170,30 @@ spec:
 
 Supported `spec.approval.mode` values are:
 
-- `SELF_APPROVAL_BLOCKED`: default four-eyes control. Requester and approver
+- `SELF_APPROVAL_BLOCKED`: default separation of duties. Requester and approver
   must be different users.
-- `SELF_APPROVAL_ALLOWED`: requester may approve their own execution request.
-  The approval remains explicit audit evidence and Gate still verifies
-  authorization, request digest, dispatcher actor, and batch definition. For
-  failure follow-up evidence, an eligible manager may also manually review
-  their own follow-up with an explicit terminal review comment and nonblank
-  reason.
+- `SELF_APPROVAL_ALLOWED`: requester may approve their own eligible Batch change
+  or manual execution request. The approval remains explicit audit evidence and
+  Gate still verifies authorization, subject digest, dispatcher actor when
+  applicable, and Batch definition.
 - `AUTO_APPROVE`: automatic Workspace-policy approval. Request creation records
   explicit approval evidence with `approvalType=WORKSPACE_AUTO_APPROVED` and
   `approvalMode=AUTO_APPROVE`; the evidence must also identify
-  `approvalSource=WORKSPACE_POLICY`. Gate allows that evidence only when the
-  merged Workspace policy is `AUTO_APPROVE`. Dispatcher remains responsible for
-  `workflow_dispatch`; the browser UI must not dispatch controlled workflows
-  directly. This is the highest approval-relaxation level and includes
-  `SELF_APPROVAL_ALLOWED` behavior for manual approvals, including a manager's
-  manual self-review of failure follow-up evidence. It does not synthesize a
-  post-failure review decision: the manager must still submit an explicit
-  terminal review comment with a nonblank reason.
+  `approvalSource=WORKSPACE_POLICY`. The preset applies to eligible Batch
+  register/update/delete requests and manual execution intents.
+  Gate allows execution evidence only when the merged Workspace policy is
+  `AUTO_APPROVE`. Dispatcher remains responsible for `workflow_dispatch`; the
+  browser UI must not dispatch controlled workflows directly. This is the highest
+  approval-relaxation level and includes `SELF_APPROVAL_ALLOWED` behavior.
+
+Workspace policy, role-mapping, and installation requests are evaluated under
+the policy that is effective before the proposal. Proposed policy content must
+not authorize or auto-merge itself.
+
+For failure follow-up evidence, SELF_APPROVAL_ALLOWED and AUTO_APPROVE permit
+an eligible manager's explicit self-review under the current policy. Neither
+mode fabricates a post-failure review: a terminal review decision and nonblank
+reason are still required.
 
 If `.batch-governance/workspace.yml` is missing, UI and Gate must treat the
 mode as `SELF_APPROVAL_BLOCKED`. UI-only local settings must not weaken approval policy,
@@ -266,13 +281,18 @@ Action. Bundle execution and rebuild parity are both part of local verification.
 
 ## Generated Batch Workflow
 
-The generated workflow has:
+The generated workflow has a manual `batchplane-gate` -> `run-batch` path,
+and a control/business/result path per matching enabled schedule.
+`run-batch` declares `needs: batchplane-gate`.
 
-- a control/business/result path per matching enabled schedule
-- `batchplane-gate`
-- `run-batch`
-
-`run-batch` must declare `needs: batchplane-gate`.
+The current [Gate Action](../actions/gate/action.yml) verifies admission and
+returns decision/reason/verified SHA. It has no `operation: START | COMPLETE`
+input or generic `batchplane-complete` job. The separate
+[schedule-result Action](../actions/schedule-result/action.yml) records native
+schedule outcomes using the exact occurrence, attempt and schedule-specific jobs.
+Required control/result evidence writes use their own permissions; business
+jobs remain read-only. Manual outcomes are projected from native execution
+and Gate evidence. Missing results are not fabricated business failures.
 
 The workflow must set a run name that includes the Batch ID and request ID:
 
@@ -319,11 +339,11 @@ available after checkout.
 The Gate action must deny direct GitHub Actions reruns by default. When
 `GITHUB_RUN_ATTEMPT` is greater than `1`, Gate returns
 `RERUN_NOT_AUTHORIZED`. Retrying a controlled batch requires a new BatchPlane
-execution request or a future explicit retry-approval flow.
+execution request. No automatic retry or reused failed request is approved.
 
-The Gate action must not trust `workflow_dispatch` inputs alone. The generated
-workflow passes `github-token: ${{ secrets.GITHUB_TOKEN }}` to Gate. Gate uses
-that token with `issues: read` permission to verify:
+The Gate action must not trust `workflow_dispatch` inputs alone. For a manual
+run, the generated workflow passes `github-token: ${{ secrets.GITHUB_TOKEN }}`
+to Gate. Gate uses that token with `issues: read` permission to verify:
 
 - the current workflow actor is the dispatcher automation actor
   (`github-actions[bot]` by default)
@@ -332,6 +352,15 @@ that token with `issues: read` permission to verify:
 - the Issue marker matches `batch_id`, `request_digest`, and `REQUESTED` status
 - at least one Issue comment starts with `/bgcp approve ` and contains a
   matching `batchplane:execution-approval` marker with `decision=APPROVED`
+
+For a schedule run, Gate does not look for an execution approval comment. It
+verifies the current merged Batch Definition, embedded Schedule Revision,
+definition commit SHA, generated workflow target, `github.event.schedule`,
+workflow run identity, and `github.run_attempt == 1`. The scheduled run is
+denied if the schedule is disabled, deleted, superseded, drifted, or does not
+match the delivered native event. Trustworthy expected time, when available, is retained for
+timing analysis, but provider delay alone is not a reason to reinterpret the
+event as a different approval.
 
 ## Execution Request Payload
 
@@ -432,12 +461,13 @@ selfApproval=true
 `approvalMode` is emitted when the UI knows the effective Workspace policy.
 `selfApproval=true` is emitted only when requester and approver are the same
 user. Gate does not rely only on this marker; it reads
-`.batch-governance/workspace.yml` and allows self-approval only when the
-effective policy mode is `SELF_APPROVAL_ALLOWED`.
+`.batch-governance/workspace.yml` and allows eligible self-approval only when the
+effective policy mode is `SELF_APPROVAL_ALLOWED` or `AUTO_APPROVE`.
 
 The dispatcher must verify:
 
-- command is `approve` or approved retry command
+- command is `approve` (current retry-dispatch support is a known mismatch
+  scheduled for removal in #224, as documented below)
 - approval commands are actionable only when the triggering comment contains
   the `batchplane:execution-approval` marker and an approved decision
 - request evidence exists
@@ -497,6 +527,12 @@ jobs:
 target repositories that still reference `always0ne/batchtrail` depend on
 GitHub repository redirects until their setup artifacts are regenerated.
 
+`@main` is allowed only by the development template. Published production
+templates pin the Gate, dispatcher, occurrence, and completion actions to an
+approved immutable release tag or commit SHA under pending #196. Current
+inspection/update support does not mean immutable production publication,
+rollback or branch protection has already been delivered.
+
 GitHub Actions still creates a workflow run for every `issue_comment.created`
 event. The dispatcher job must be skipped for ordinary discussion comments,
 Pull Request review comments, clarification comments, change-request comments,
@@ -532,10 +568,12 @@ The dispatcher writes state evidence as Issue labels and comments:
   marker after `workflow_dispatch` succeeds
 - `batchplane:dispatch-failed` with a `DISPATCH_FAILED`
   `batchplane:bgcp:dispatcher` marker when dispatch fails
-- `retry-dispatch` comments may reuse the existing matching approval evidence
-  only when the latest dispatcher state for that request is `DISPATCH_FAILED`
+- Current implementation still accepts `retry-dispatch` after DISPATCH_FAILED.
+  This is a known target-policy mismatch to remove in #224, not the desired
+  contract. Confirmed failure ends the request and requires a new request;
+  uncertain delivery is not confirmed failure.
 
-## Registration Approval Detail Contract
+## Change Request Approval Detail Contract
 
 The registration/change detail screen reads change requests from the
 approvals queue and shows controlled file change summaries.

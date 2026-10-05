@@ -1,5 +1,7 @@
 # Lite UI/UX Baseline
 
+[한국어](./lite-ui-ux-baseline.ko.md)
+
 ## Platform Input Boundaries
 
 Separating business metadata from platform execution settings must preserve the
@@ -24,6 +26,11 @@ Ignoring a late result does not cancel the server request.
 
 This document defines the UI/UX baseline for BatchPlane Lite screens.
 Every screen PR should check its scope against this baseline before review.
+It extends the shared product model in `control-plane-srs.md` and
+`main-lite-conformance.md`. Page components, navigation concepts, and primary
+actions must remain suitable for the shared Main/Lite React application;
+GitHub-specific controls belong in connection, provider-detail, and source-link
+surfaces.
 
 ## Product Navigation
 
@@ -65,8 +72,10 @@ approval. It links to the exact occurrence/attempt detail. See
 
 ## Screen Responsibilities
 
-- Workspace shows GitHub connection, installation readiness, and
-  Workspace policy changes. If generated Workspace workflows
+- Workspace currently shows product policy and the injected GitHub connection
+  and installation readiness. Main membership management remains planned under
+  #227/#228, not a current Lite control. Keep product policy distinct from
+  provider connection details. If generated Workspace workflows
   are older than the current BatchPlane template, the screen must show the
   affected workflow paths and provide a pull-request action to update them.
 - Registration shows what will be controlled, what will run, where it will run,
@@ -200,7 +209,8 @@ backfill, new review policy, or stronger evidence retention.
   are not approval work. They must not be shown with approve/reject controls.
 - Rejecting an execution request must require a reason.
 - Self-approval must be disabled with an explicit reason unless the effective
-  Workspace policy is `SELF_APPROVAL_ALLOWED`.
+  Workspace policy permits eligible self-approval through `SELF_APPROVAL_ALLOWED`
+  or `AUTO_APPROVE`.
 
 ## Workspace Settings UX Rules
 
@@ -233,10 +243,11 @@ backfill, new review policy, or stronger evidence retention.
 - Generated workflow updates must create a pull request from the Workspace
   screen. The UI must not write workflow files directly to the default branch,
   and it must not present repository-owned policy files as template drift.
-- `AUTO_APPROVE` must explain that execution requests receive explicit
-  Workspace-policy approval evidence automatically after Issue creation. The UI
-  still must not dispatch controlled workflows directly. It must also explain
-  that this mode includes self-approval permission.
+- `AUTO_APPROVE` must explain that manual execution and change requests receive
+  explicit Workspace-policy approval evidence. The UI still must not dispatch
+  controlled manual workflows directly. It must also explain that this mode
+  includes self-approval permission. Schedule occurrences are authorized by
+  their approved Schedule Revision and are unaffected by this mode.
 
 ## Gate UX Rules
 
@@ -260,6 +271,18 @@ backfill, new review policy, or stronger evidence retention.
   presented as pending visibility rather than as proof that approval failed.
 
 ## PR Checklist
+
+Issue #119 stays open across screen development. The
+[user QA sheet](./user-qa.md) supplies repeatable journeys and change-impact
+selection; documentation delivery is not a UI pass. Planned lifecycle and
+multi-Workspace flows are acceptance targets, not already available controls.
+
+Upcoming #225 must distinguish approved withdrawal from queued cancel and
+running stop, require explicit confirmation/reason and show actual provider
+outcome. #142 must support authorized aggregate queries and a multi-Workspace
+request with one common approver; a switcher alone does not meet that scope.
+History and My Work in #226 must not hide older matching or unresolved items
+because only the first page was loaded.
 
 App-shell refactors preserve the grouped desktop and horizontally scrollable
 mobile navigation, active links, route destinations and legacy redirects.

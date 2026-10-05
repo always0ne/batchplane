@@ -1,11 +1,33 @@
 # BatchPlane
 
-Git-backed batch control and audit.
+[한국어](./README.ko.md)
 
-BatchPlane starts with **Lite**, a GitHub-backed Workspace model for batch
-definitions, execution requests, approval evidence, dispatcher workflows, and Gate
-decisions. It is designed to grow into an installable BatchPlane server for
-enterprise use.
+Unified batch control and audit across execution platforms.
+
+BatchPlane gives operators one controlled inventory for batch registration,
+change, deletion, execution, schedules, Gate decisions, execution history, failure
+follow-up, and audit evidence. GitHub Actions is the first supported platform;
+Jenkins is the next provider used to prove the platform boundary. Other batch
+platforms are planned through adapters validated against shared product contracts.
+
+The product architecture defines two editions:
+
+- **BatchPlane Main** is the planned Kotlin/Spring Boot control plane backed by
+  MySQL. Its target supports multiple Workspaces and platform connections, including
+  GitHub Actions.
+- **BatchPlane Lite** is the currently implemented GitHub-native edition. It uses a repository, pull
+  requests, Issues, comments, and Actions as its authority and requires no
+  BatchPlane server.
+
+Both editions share product semantics and the React/Vite product UI. Their
+runtime bootstraps and authoritative stores differ.
+
+Implementation availability is not operating acceptance. Main is planned;
+Lite still has known request/input/query gaps and pending live schedule QA.
+Use the [approved roadmap](docs/control-plane-migration-plan.md),
+[requirements and issue mapping](docs/requirements-traceability.md), and
+[user QA sheet](docs/user-qa.md) to track the remaining work.
+Record actual results with the [QA result template](docs/qa-result-template.md).
 
 ## Development
 
@@ -281,6 +303,19 @@ Workspace-policy approval evidence.
 See also:
 
 - `BRAND_GUIDELINES.md`
+- `docs/product-scope-and-editions.md`
+- `docs/control-plane-srs.md`
+- `docs/domain-model.md`
+- `docs/control-plane-architecture.md`
+- `docs/control-plane-ui-architecture.md`
+- `docs/control-plane-architecture-review.md`
+- `docs/platform-provider-contract.md`
+- `docs/gate-protocol.md`
+- `docs/identity-and-authorization.md`
+- `docs/audit-and-evidence.md`
+- `docs/main-lite-conformance.md`
+- `docs/control-plane-migration-plan.md`
+- `docs/adr/0001-modular-monorepo.md`
 - `docs/repo-mode-getting-started.md`
 - `docs/github-pages.md`
 - `docs/i18n.md`
@@ -289,16 +324,24 @@ See also:
 - `docs/repository-rename-runbook.md`
 - `examples/github-lite-demo/README.md`
 
-## Workspace
+## Current Lite Workspace
 
 ```text
-apps/web              React/Vite Lite UI
-packages/domain       Shared domain types
-packages/digest       Canonical payload utilities
-packages/github-lite  GitHub Lite client contracts
-actions/gate          BatchPlane Gate Action scaffold
-actions/dispatcher    BatchPlane Dispatcher Action scaffold
+apps/web                 Shared React/Vite product UI, current Lite runtime
+packages/ui-client       Product client contract
+packages/domain          Domain types and behavior
+packages/digest          Canonical payload utilities
+packages/github-lite     GitHub transport, evidence and Lite operations
+actions/gate             Pre-business authorization
+actions/dispatcher       Approved manual-request delivery
+actions/schedule-request Native occurrence evidence
+actions/schedule-result  Native occurrence outcome
 ```
+
+The current boundaries and planned Main direction are defined in
+`docs/control-plane-architecture.md`. The UI/client extraction is already the
+baseline; Main contracts and platform integrations follow the approved roadmap
+without repeating the refactoring or adding speculative modules.
 
 ## Internationalization
 
