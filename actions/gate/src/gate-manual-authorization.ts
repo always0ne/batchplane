@@ -1,281 +1,192 @@
 import {
-  isSameGitHubLogin,
-  parseRepositoryYaml,
-} from "@batchplane/github-lite";
-import { parseApproverSelectorFromRoleMappingFile } from "./gate-evidence.js";
-import type { GateGitHubClient } from "./gate-github-client.js";
+  authorizeManualApproval,
+  resolveAutoApproval,
+} from "@batchplane/domain";
 import {
-  type WorkspaceApprovalMode,
-  validateWorkspacePolicyFile,
-} from "./gate-schema.js";
+  createGitHubLiteClient,
+  hasWorkspaceRole,
+  isSameGitHubLogin,
+  loadCurrentExecutionApprovalPolicy,
+  type GitHubLiteClient,
+} from "@batchplane/github-lite";
 import type {
+  ExecutionApprovalEvidence,
+  ExecutionRequestEvidence,
   GateEvidence,
   GateInput,
   GateRepositoryRef,
   GateResult,
 } from "./gate-types.js";
 
+type DecisionAuthorizationContext = {
+  client: GitHubLiteClient;
+  repository: GateRepositoryRef;
+  request: ExecutionRequestEvidence;
+  approval: ExecutionApprovalEvidence;
+  authorization: Awaited<ReturnType<typeof loadCurrentExecutionApprovalPolicy>>;
+};
+
 export async function verifyManualAuthorization({
-  client,
   evidence,
   input,
   repository,
 }: {
-  client: GateGitHubClient;
   evidence: GateEvidence;
   input: GateInput;
   repository: GateRepositoryRef;
 }): Promise<GateResult> {
   const request = evidence.request;
   const approval = evidence.approval;
-
-  if (!request || !approval) {
+  if (!request || !approval)
     return deny(
       "EXECUTION_REQUEST_NOT_APPROVED",
       "Execution request does not have approved comment evidence.",
     );
-  }
+  const evidenceFailure = verifyApprovalEvidence(request, approval, input);
+  if (evidenceFailure) return evidenceFailure;
 
-  if (approval.edited) {
+  const client = createGitHubLiteClient({
+    apiBaseUrl: input.apiBaseUrl,
+    fetcher: input.fetcher,
+    token: input.githubToken ?? "",
+  });
+  try {
+    const authorization = await loadCurrentExecutionApprovalPolicy(
+      client,
+      repository,
+      input.configPath,
+    );
+    const context = { client, repository, request, approval, authorization };
+    if (approval.approvalType === "WORKSPACE_AUTO_APPROVED")
+      return await verifyAutomaticApproval(context);
+    return await verifyManualApproval(context);
+  } catch (error) {
+    return deny(
+      "WORKSPACE_AUTHORIZATION_LOOKUP_FAILED",
+      `Workspace authorization lookup failed: ${toErrorMessage(error)}`,
+    );
+  }
+}
+
+function verifyApprovalEvidence(
+  request: ExecutionRequestEvidence,
+  approval: ExecutionApprovalEvidence,
+  input: GateInput,
+): GateResult | undefined {
+  if (approval.decision !== "APPROVED")
+    return deny(
+      "EXECUTION_REQUEST_NOT_APPROVED",
+      "Execution request does not have approved comment evidence.",
+    );
+  if (approval.edited)
     return deny(
       "APPROVAL_COMMENT_EDITED",
       "Execution approval comment was edited after creation.",
     );
-  }
-
-  if (
-    approval.commandDigest &&
-    approval.commandDigest !== request.requestDigest
-  ) {
+  if (approval.commandDigest !== request.requestDigest)
     return deny(
       "REQUEST_DIGEST_MISMATCH",
       "Approval command digest does not match execution request digest.",
     );
-  }
-
   if (
     approval.requestDigest !== input.requestDigest ||
     approval.requestDigest !== request.requestDigest
-  ) {
+  )
     return deny(
       "REQUEST_DIGEST_MISMATCH",
       "Execution approval digest does not match execution request digest.",
     );
-  }
-
-  if (approval.approvalType === "SCHEDULE_DELEGATED") {
+  if (!approval.approver)
+    return deny(
+      "APPROVER_NOT_AUTHORIZED",
+      "The approval comment author could not be verified.",
+    );
+  if (approval.approvalType === "SCHEDULE_DELEGATED")
     return deny(
       "SCHEDULE_DELEGATED_APPROVAL_NOT_SUPPORTED",
       "Delegated schedule approval evidence is historical and cannot authorize a new execution.",
     );
-  }
+  return undefined;
+}
 
-  let workspaceApprovalMode: WorkspaceApprovalMode;
-
-  try {
-    workspaceApprovalMode = await readWorkspaceApprovalMode({
-      client,
-      configPath: input.configPath,
-      ref: request.workflowRef || input.ref,
-    });
-  } catch (error) {
-    return deny(
-      "WORKSPACE_POLICY_LOOKUP_FAILED",
-      `Workspace policy lookup failed: ${toErrorMessage(error)}`,
-    );
-  }
-
-  if (approval.approvalType === "WORKSPACE_AUTO_APPROVED") {
-    return workspaceApprovalMode === "AUTO_APPROVE"
-      ? {
-          message:
-            "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
-          result: "ALLOW",
-        }
-      : deny(
-          "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
-          "Workspace auto-approval evidence requires AUTO_APPROVE policy mode.",
-        );
-  }
-
+async function verifyAutomaticApproval({
+  client,
+  repository,
+  request,
+  approval,
+  authorization,
+}: DecisionAuthorizationContext): Promise<GateResult> {
   if (
-    isSameGitHubLogin(approval.approver, request.requestedBy) &&
-    !allowsSelfApproval(workspaceApprovalMode)
+    authorization.policy.approval.mode !== "AUTO_APPROVE" ||
+    approval.source !== "WORKSPACE_POLICY" ||
+    approval.approvalMode !== "AUTO_APPROVE"
   ) {
     return deny(
-      "SELF_APPROVAL_NOT_ALLOWED",
-      "Requester and approver must be different users.",
+      "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
+      "Workspace auto-approval evidence requires AUTO_APPROVE policy mode and explicit Workspace policy evidence.",
     );
   }
-
-  const approverAuthorized = await verifyApproverAuthorization({
-    allowMissingRoleMapping:
+  const automatic = resolveAutoApproval({
+    actorHasRequesterRole:
       isSameGitHubLogin(approval.approver, request.requestedBy) &&
-      allowsSelfApproval(workspaceApprovalMode),
-    approver: approval.approver,
-    client,
-    configPath: input.configPath,
-    ref: request.workflowRef || input.ref,
-    repository,
+      (await hasWorkspaceRole(
+        client,
+        repository,
+        request.requestedBy,
+        authorization.roleMapping.roles.requester,
+      )),
+    approvalMode: authorization.policy.approval.mode,
   });
-
-  if (!approverAuthorized.allowed) {
+  if (!automatic.allowed || automatic.decisionSource !== "WORKSPACE_POLICY")
     return deny(
-      "APPROVER_NOT_AUTHORIZED",
-      approverAuthorized.message ||
-        `Approver @${approval.approver} is not authorized.`,
+      "REQUESTER_NOT_AUTHORIZED",
+      "Workspace auto-approval requires an eligible, verified requester.",
     );
-  }
-
   return {
-    message:
-      "Execution request, approval evidence, and batch policy are verified.",
     result: "ALLOW",
+    message:
+      "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
   };
 }
 
-async function readWorkspaceApprovalMode({
+async function verifyManualApproval({
   client,
-  configPath,
-  ref,
-}: {
-  client: GateGitHubClient;
-  configPath: string;
-  ref?: string;
-}): Promise<WorkspaceApprovalMode> {
-  const effectiveRef = ref?.trim();
-
-  if (!effectiveRef) {
-    return "SELF_APPROVAL_BLOCKED";
-  }
-
-  const workspacePolicyPath = `${configPath.replace(/\/+$/u, "")}/workspace.yml`;
-  const workspacePolicyFile = await client.getFile(
-    workspacePolicyPath,
-    effectiveRef,
-  );
-
-  if (!workspacePolicyFile) {
-    return "SELF_APPROVAL_BLOCKED";
-  }
-
-  const parsed = parseRepositoryYaml(workspacePolicyFile.content);
-
-  if (!parsed.ok) {
-    throw new Error(
-      `Workspace policy YAML is invalid: ${workspacePolicyPath}.`,
-    );
-  }
-
-  const validated = validateWorkspacePolicyFile(parsed.value);
-
-  if (!validated.ok) {
-    throw new Error(`Workspace policy is invalid: ${workspacePolicyPath}.`);
-  }
-
-  return validated.value.spec.approval.mode;
-}
-
-async function verifyApproverAuthorization({
-  allowMissingRoleMapping,
-  approver,
-  client,
-  configPath,
-  ref,
   repository,
-}: {
-  allowMissingRoleMapping?: boolean;
-  approver: string;
-  client: GateGitHubClient;
-  configPath: string;
-  ref?: string;
-  repository: GateRepositoryRef;
-}): Promise<{ allowed: boolean; message?: string }> {
-  const effectiveRef = ref?.trim();
-
-  if (!effectiveRef) {
-    return {
-      allowed: false,
-      message: "Workflow ref is required for approver authorization.",
-    };
-  }
-
-  const roleMappingPath = `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`;
-  const roleMappingFile = await client.getFile(roleMappingPath, effectiveRef);
-
-  if (!roleMappingFile) {
-    if (allowMissingRoleMapping) {
-      return { allowed: true };
-    }
-
-    return {
-      allowed: false,
-      message: `Role mapping file was not found: ${roleMappingPath}.`,
-    };
-  }
-
-  const selector = parseApproverSelectorFromRoleMappingFile(
-    roleMappingFile.content,
-  );
-
-  if (!selector) {
-    return {
-      allowed: false,
-      message: `Role mapping file is invalid: ${roleMappingPath}.`,
-    };
-  }
-
-  const normalizedApprover = approver.trim().toLowerCase();
-
-  if (selector.githubUsers.length > 0) {
-    const hasUserMatch = selector.githubUsers
-      .map((value) => value.toLowerCase())
-      .includes(normalizedApprover);
-
-    if (hasUserMatch) {
-      return { allowed: true };
-    }
-  }
-
-  if (selector.repositoryRoles.length > 0) {
-    const permission = await client.getRepositoryPermissionForUser(approver);
-    const normalizedRoles = selector.repositoryRoles.map((value) =>
-      value.toLowerCase(),
+  request,
+  approval,
+  authorization,
+}: DecisionAuthorizationContext): Promise<GateResult> {
+  const manual = authorizeManualApproval({
+    actorHasApproverRole: await hasWorkspaceRole(
+      client,
+      repository,
+      approval.approver,
+      authorization.roleMapping.roles.approver,
+    ),
+    actorHasRequesterRole: false,
+    actorIsRequester: isSameGitHubLogin(approval.approver, request.requestedBy),
+    approvalMode: authorization.policy.approval.mode,
+  });
+  if (!manual.allowed) {
+    if (manual.reason === "SELF_APPROVAL_BLOCKED")
+      return deny(
+        "SELF_APPROVAL_NOT_ALLOWED",
+        "Requester and approver must be different users.",
+      );
+    return deny(
+      "APPROVER_NOT_AUTHORIZED",
+      `Approver @${approval.approver} is not authorized.`,
     );
-    const actualRole = permission.roleName?.toLowerCase() ?? "";
-    const fallbackRole = permission.permission.toLowerCase();
-
-    if (
-      normalizedRoles.includes(actualRole) ||
-      normalizedRoles.includes(fallbackRole)
-    ) {
-      return { allowed: true };
-    }
   }
-
-  if (selector.githubTeams.length > 0) {
-    for (const teamSlug of selector.githubTeams) {
-      const membership = await client.getTeamMembershipForUser({
-        org: repository.owner,
-        teamSlug,
-        username: approver,
-      });
-
-      if (membership?.state === "active") {
-        return { allowed: true };
-      }
-    }
-  }
-
-  return { allowed: false };
-}
-
-function allowsSelfApproval(mode: WorkspaceApprovalMode): boolean {
-  return mode === "SELF_APPROVAL_ALLOWED" || mode === "AUTO_APPROVE";
+  return {
+    result: "ALLOW",
+    message:
+      "Execution request, approval evidence, and batch policy are verified.",
+  };
 }
 
 function deny(reasonCode: string, message: string): GateResult {
-  return { message, reasonCode, result: "DENY" };
+  return { result: "DENY", reasonCode, message };
 }
 
 function toErrorMessage(error: unknown): string {

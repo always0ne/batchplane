@@ -12,6 +12,7 @@ export function ExecutionApprovalActions({
   onApprove,
   onReject,
   rejectDisabled = false,
+  rejectDisabledReason = "",
   rejectLabel,
 }: {
   approveDisabled?: boolean;
@@ -23,6 +24,7 @@ export function ExecutionApprovalActions({
   onApprove: () => void;
   onReject: (reason: string) => void;
   rejectDisabled?: boolean;
+  rejectDisabledReason?: string;
   rejectLabel: string;
 }) {
   const { t } = useTranslation("approvals");
@@ -31,7 +33,10 @@ export function ExecutionApprovalActions({
   const approveActionDisabled =
     disabled || approveDisabled || Boolean(approveDisabledReason);
   const rejectActionDisabled =
-    disabled || rejectDisabled || rejectReason.trim().length === 0;
+    disabled ||
+    rejectDisabled ||
+    Boolean(rejectDisabledReason) ||
+    rejectReason.trim().length === 0;
 
   return (
     <div className="mt-5 space-y-3">
@@ -52,8 +57,9 @@ export function ExecutionApprovalActions({
         </button>
         <button
           className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
-          disabled={disabled || rejectDisabled}
+          disabled={disabled || rejectDisabled || Boolean(rejectDisabledReason)}
           onClick={() => setRejectOpen((current) => !current)}
+          title={rejectDisabledReason || undefined}
           type="button"
         >
           {isRejecting ? (
@@ -68,6 +74,12 @@ export function ExecutionApprovalActions({
       {approveDisabledReason ? (
         <p className="text-sm font-semibold text-amber-800">
           {approveDisabledReason}
+        </p>
+      ) : null}
+      {rejectDisabledReason &&
+      rejectDisabledReason !== approveDisabledReason ? (
+        <p className="text-sm font-semibold text-amber-800">
+          {rejectDisabledReason}
         </p>
       ) : null}
 

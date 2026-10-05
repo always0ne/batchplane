@@ -14,10 +14,10 @@ import {
   parseChangeRequestWithdrawalEvidence,
 } from "./change-request-evidence.js";
 import {
-  hasChangeRequestRole,
-  loadChangeRequestPolicy,
-  loadChangeRequestRoles,
-} from "./change-request-policy.js";
+  hasWorkspaceRole,
+  loadHistoricalWorkspacePolicy,
+  loadWorkspaceRoles,
+} from "./workspace-authorization.js";
 import { hasAuthoritativeChangeRequest } from "./change-request-verifier.js";
 import type {
   GitHubFile,
@@ -356,7 +356,11 @@ async function loadMergedBatchCandidates(
     state: "closed",
   });
   const candidateNumbers = changes
-    .filter((pullRequest) => pullRequest.merged)
+    .filter(
+      (pullRequest) =>
+        pullRequest.merged &&
+        parseChangeRequestEvidence(pullRequest.body)?.batchId === batchId,
+    )
     .map((pullRequest) => pullRequest.number);
   // The list endpoint can omit merge data. Load immutable PR detail before
   // selecting lineage, rather than sorting mutable `updatedAt` metadata.
@@ -476,18 +480,18 @@ async function isAuthorizedDecision({
   request: NonNullable<ReturnType<typeof parseChangeRequestEvidence>>;
 }): Promise<boolean> {
   const [policy, roles, mergedPolicy, mergedRoles] = await Promise.all([
-    loadChangeRequestPolicy(
+    loadHistoricalWorkspacePolicy(
       client,
       repository,
       decision.authorizationRevisionSha,
     ),
-    loadChangeRequestRoles(
+    loadWorkspaceRoles(client, repository, decision.authorizationRevisionSha),
+    loadHistoricalWorkspacePolicy(
       client,
       repository,
-      decision.authorizationRevisionSha,
+      pullRequest.mergeSha ?? "",
     ),
-    loadChangeRequestPolicy(client, repository, pullRequest.mergeSha ?? ""),
-    loadChangeRequestRoles(client, repository, pullRequest.mergeSha ?? ""),
+    loadWorkspaceRoles(client, repository, pullRequest.mergeSha ?? ""),
   ]);
   if (
     !hasEquivalentAuthorization(
@@ -504,7 +508,7 @@ async function isAuthorizedDecision({
     );
   }
   const requesterIsApprover = commentAuthor === request.requester;
-  const approverHasRole = await hasChangeRequestRole(
+  const approverHasRole = await hasWorkspaceRole(
     client,
     repository,
     commentAuthor,

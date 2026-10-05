@@ -31,6 +31,10 @@ export function DispatcherEvidence({
   if (request.approvalDecision) {
     const { actor, decision, reason } = request.approvalDecision;
     approvalEvidence = `${decision} by @${actor}${reason ? `: ${reason}` : ""}`;
+    if (request.approvalDecision.currentAuthorization === "DENIED")
+      approvalEvidence += ` (${t("detail.values.decisionAuthorityDenied")})`;
+    if (request.approvalDecision.currentAuthorization === "UNAVAILABLE")
+      approvalEvidence += ` (${t("detail.values.authorizationUnavailable")})`;
   }
 
   let workflowRunEvidence = t("detail.dispatcher.noWorkflowRun");

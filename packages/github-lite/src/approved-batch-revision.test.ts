@@ -7,6 +7,7 @@ import {
   buildChangeRequestDecisionBody,
   createChangeRequestDigest,
   parseChangeRequestEvidence,
+  parseChangeRequestDecisionEvidence,
 } from "./change-request-evidence.js";
 import {
   getBatchArtifactPath,
@@ -15,10 +16,142 @@ import {
 } from "./batch-definition-codec.js";
 import { createMockGitHubLiteClient } from "./mock-client.js";
 import { createGitHubLiteMockState } from "./mock-state.js";
+import { createGitHubLiteClient } from "./github-client.js";
 
 const repository = { owner: "always0ne", repo: "batch" };
 
 describe("approved Batch revision verification", () => {
+  it("finds approved lineage and decisions after 100 items, honors later rejection and reports next-page failures as UNKNOWN", async () => {
+    const { client, created } = await createApprovedBatchRevision();
+    const evidence = verifiedEvidence(created.request.evidence);
+    const pullRequest = client.state.pullRequests.at(-1)!;
+    const decisions = client.state.issueComments.filter(
+      (comment) => comment.issueNumber === pullRequest.number,
+    );
+    const approval = decisions.find(
+      (comment) =>
+        parseChangeRequestDecisionEvidence(comment.body)?.decision ===
+        "APPROVED",
+    )!;
+    const approvedDecision = parseChangeRequestDecisionEvidence(approval.body)!;
+    let failedPage = "";
+    let laterRejection = false;
+    const pullNext = "https://api.github.com/repositories/123/pulls?page=2";
+    const commentNext =
+      "https://api.github.com/repositories/123/issues/12/comments?page=2";
+    const rejectionPage =
+      "https://api.github.com/repositories/123/issues/12/comments?page=3";
+    const fetcher: typeof fetch = async (input) => {
+      const url = input.toString();
+      if (url === failedPage)
+        return Response.json({ message: "Page unavailable" }, { status: 503 });
+      if (url.includes("/pulls?") && url !== pullNext)
+        return Response.json(
+          Array.from({ length: 100 }, (_, index) => ({
+            number: index + 1000,
+            body: "Unrelated change",
+            merged: true,
+            merged_at: pullRequest.mergedAt,
+            state: "closed",
+            user: { login: "maintainer" },
+            head: { ref: "unrelated" },
+            base: { ref: "main" },
+          })),
+          {
+            headers: {
+              Link: `<${pullNext}>; rel="next", <${pullNext}>; rel="last"`,
+            },
+          },
+        );
+      if (url === pullNext)
+        return Response.json([
+          {
+            number: pullRequest.number,
+            body: pullRequest.body,
+            merged: true,
+            merged_at: pullRequest.mergedAt,
+            merge_commit_sha: pullRequest.mergeSha,
+            state: "closed",
+            user: { login: pullRequest.author },
+            head: { ref: pullRequest.head, sha: pullRequest.headSha },
+            base: { ref: pullRequest.base, sha: pullRequest.baseSha },
+          },
+        ]);
+      if (
+        url.includes("/comments?") &&
+        url !== commentNext &&
+        url !== rejectionPage
+      )
+        return Response.json(
+          Array.from({ length: 100 }, (_, index) => ({
+            id: index + 1000,
+            body: "Unrelated discussion",
+            user: { login: "developer" },
+            created_at: approval.createdAt,
+            updated_at: approval.createdAt,
+          })),
+          { headers: { Link: `<${commentNext}>; rel="next"` } },
+        );
+      if (url === commentNext)
+        return Response.json(
+          [
+            {
+              id: approval.id,
+              body: approval.body,
+              user: { login: approval.author },
+              created_at: approval.createdAt,
+              updated_at: approval.updatedAt,
+            },
+          ],
+          {
+            headers: laterRejection
+              ? { Link: `<${rejectionPage}>; rel="next"` }
+              : {},
+          },
+        );
+      if (url === rejectionPage)
+        return Response.json([
+          {
+            id: approval.id + 1,
+            body: buildChangeRequestDecisionBody({
+              ...approvedDecision,
+              decision: "REJECTED",
+              rejectionReason: "Later correction",
+            }),
+            user: { login: approval.author },
+            created_at: approval.createdAt,
+            updated_at: approval.updatedAt,
+          },
+        ]);
+      throw new Error(`Unexpected URL ${url}`);
+    };
+    const rest = createGitHubLiteClient({ token: "fixture-token", fetcher });
+    const getPullRequest = vi.spyOn(client, "getPullRequest");
+    const paginated = {
+      ...client,
+      listPullRequests: rest.listPullRequests,
+      listIssueComments: rest.listIssueComments,
+    };
+    expect(await verifyRevision(paginated, evidence)).toMatchObject({
+      controlStatus: "VERIFIED",
+    });
+    expect(getPullRequest).toHaveBeenCalledTimes(1);
+    expect(getPullRequest).toHaveBeenCalledWith({
+      ...repository,
+      pullNumber: pullRequest.number,
+    });
+    laterRejection = true;
+    expect(await verifyRevision(paginated, evidence)).toEqual(
+      bypassedRevision(),
+    );
+    for (const page of [commentNext, pullNext]) {
+      failedPage = page;
+      expect(await verifyRevision(paginated, evidence)).toEqual({
+        controlStatus: "UNKNOWN",
+        reasonCode: "APPROVED_BATCH_REVISION_UNAVAILABLE",
+      });
+    }
+  });
   it("verifies the merged revision created through the normal approval flow", async () => {
     const { client, created } = await createApprovedBatchRevision();
     const revision = created.request.evidence;

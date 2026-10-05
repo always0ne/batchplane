@@ -71,7 +71,9 @@
       "REGISTER": "Register",
       "CHANGE": "Change",
       "DELETE": "Delete"
-    }
+    },
+    "approverRoleRequired": "An approver role is required to approve or reject.",
+    "authorizationUnavailable": "Approval authority could not be verified."
   },
   "states": {
     "empty": "No approvals are pending on {{branch}}.",

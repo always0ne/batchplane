@@ -7562,6 +7562,22 @@ function createGitHubRequester({ apiBaseUrl = "https://api.github.com", fetcher 
     throw new GitHubLiteApiError("GitHub token is required.", "bad-request", 400);
   }
   return {
+    async requestList(path) {
+      const items = [];
+      let url = `${apiBaseUrl}${path}`;
+      while (url) {
+        const response = await fetcher(url, {
+          headers: buildHeaders(trimmedToken)
+        });
+        if (!response.ok)
+          throw await buildGitHubApiError(response);
+        if (response.status === 204)
+          return items;
+        items.push(...await response.json());
+        url = response.headers.get("link")?.match(/<([^>]+)>;\s*rel="next"/u)?.[1];
+      }
+      return items;
+    },
     async request(path, init = {}, options = {}) {
       const response = await fetcher(`${apiBaseUrl}${path}`, {
         ...init,
@@ -7847,7 +7863,7 @@ function createPullRequestOperations(requester) {
     },
     async listPullRequests({ owner, repo, state = "open", base, head }) {
       const query = buildQuery({ base, head, per_page: "100", state });
-      const pullRequests = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${query}`);
+      const pullRequests = await requester.requestList(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${query}`);
       return (pullRequests ?? []).map(mapPullRequestResponse);
     },
     async listPullRequestFiles({ owner, repo, pullNumber }) {
@@ -7927,7 +7943,7 @@ function createIssueOperations(requester) {
     },
     async listIssueComments({ owner, repo, issueNumber }) {
       const query = buildQuery({ per_page: "100" });
-      const comments = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments${query}`);
+      const comments = await requester.requestList(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments${query}`);
       return (comments ?? []).map((comment) => mapIssueCommentResponse(comment, issueNumber));
     },
     async listLabels({ owner, repo }) {
@@ -8078,30 +8094,6 @@ function createRepositoryAccessOperations(requester) {
         username
       };
     }
-  };
-}
-
-// ../../packages/github-lite/dist/repository-yaml.js
-var import_yaml = __toESM(require_dist(), 1);
-function parseRepositoryYaml(input) {
-  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
-  if (document.errors.length > 0) {
-    return {
-      diagnostics: document.errors.map(toYamlDiagnostic),
-      ok: false
-    };
-  }
-  return { ok: true, value: document.toJS() };
-}
-function formatRepositoryYamlDiagnostics(diagnostics) {
-  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
-}
-function toYamlDiagnostic(error) {
-  const position = error.linePos?.[0];
-  return {
-    column: position?.col ?? 1,
-    line: position?.line ?? 1,
-    message: error.message
   };
 }
 
@@ -8430,6 +8422,30 @@ var roleMappingRoles = [
   "auditor"
 ];
 
+// ../../packages/github-lite/dist/repository-yaml.js
+var import_yaml = __toESM(require_dist(), 1);
+function parseRepositoryYaml(input) {
+  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
+  if (document.errors.length > 0) {
+    return {
+      diagnostics: document.errors.map(toYamlDiagnostic),
+      ok: false
+    };
+  }
+  return { ok: true, value: document.toJS() };
+}
+function formatRepositoryYamlDiagnostics(diagnostics) {
+  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
+}
+function toYamlDiagnostic(error) {
+  const position = error.linePos?.[0];
+  return {
+    column: position?.col ?? 1,
+    line: position?.line ?? 1,
+    message: error.message
+  };
+}
+
 // ../../packages/digest/dist/index.js
 function canonicalize(value) {
   return JSON.stringify(normalize(value));
@@ -8485,6 +8501,9 @@ function isDigestEnvelope(value) {
 }
 
 // ../../packages/github-lite/dist/execution-request-evidence.js
+function isSameGitHubLogin(left, right) {
+  return Boolean(left.trim() && right.trim()) && left.trim().toLowerCase() === right.trim().toLowerCase();
+}
 async function buildExecutionRequestIssue({ approvedBatchRevision, batch, expiresAt, parameters = [], reason = "Manual request from BatchPlane Lite.", requestId, requestedAt, requestedBy, schedule, triggerType = "MANUAL", workflowRef }) {
   if (!approvedBatchRevision.governedChangeId.trim() || !approvedBatchRevision.targetRevisionDigest.startsWith("sha256:")) {
     throw new Error("Execution requests require an approved governed Batch revision binding.");
@@ -8622,6 +8641,67 @@ function createEntropy() {
 }
 function toRequestSlug(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "batch";
+}
+
+// ../../packages/github-lite/dist/inspection-context.js
+function parseWorkspacePolicyFile(content) {
+  const parsed = parseRepositoryYaml(content);
+  if (!parsed.ok) {
+    throw new Error(formatRepositoryYamlDiagnostics(parsed.diagnostics));
+  }
+  const validated = validateWorkspacePolicyFile(parsed.value);
+  if (!validated.ok) {
+    throw new Error(validated.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; "));
+  }
+  return validated.value.spec;
+}
+
+// ../../packages/github-lite/dist/workspace-authorization.js
+var workspacePolicyPath = ".batch-governance/workspace.yml";
+async function loadHistoricalWorkspacePolicy(client, repository, ref) {
+  const file = await client.getFile({
+    ...repository,
+    path: workspacePolicyPath,
+    ref
+  });
+  if (!file)
+    return defaultWorkspacePolicy;
+  return parseWorkspacePolicyFile(file.content);
+}
+async function loadWorkspaceRoles(client, repository, ref, configPath = ".batch-governance") {
+  const file = await client.getFile({
+    ...repository,
+    path: `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`,
+    ref
+  });
+  if (!file)
+    throw new Error("Workspace role mapping is required.");
+  const parsed = parseRepositoryYaml(file.content);
+  const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
+  if (!validated?.ok)
+    throw new Error("Workspace role mapping is invalid.");
+  return validated.value.spec;
+}
+async function hasWorkspaceRole(client, repository, login, selector) {
+  if (selector.githubUsers?.some((user) => isSameGitHubLogin(user, login)))
+    return true;
+  if (selector.repositoryRoles?.length) {
+    const permission = await client.getRepositoryPermissionForUser({
+      ...repository,
+      username: login.trim().toLowerCase()
+    });
+    if (isSameGitHubLogin(permission.username, login) && selector.repositoryRoles.some((role) => role === permission.roleName?.toLowerCase() || role === permission.permission.toLowerCase())) {
+      return true;
+    }
+  }
+  if (!selector.githubTeams?.length)
+    return false;
+  const memberships = await Promise.all(selector.githubTeams.map((teamSlug) => client.getTeamMembershipForUser({
+    org: repository.owner,
+    teamSlug,
+    username: login.trim().toLowerCase()
+  })));
+  return memberships.some((membership) => membership?.state === "active");
 }
 
 // ../../packages/github-lite/dist/batch-definition-codec.js
@@ -9122,57 +9202,6 @@ function sortArtifacts(artifacts) {
   return [...artifacts].sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
 }
 
-// ../../packages/github-lite/dist/change-request-policy.js
-var roleMappingPath = ".batch-governance/policies/role-mapping.yml";
-var workspacePolicyPath = ".batch-governance/workspace.yml";
-async function loadChangeRequestPolicy(client, repository, ref) {
-  const file = await client.getFile({
-    ...repository,
-    path: workspacePolicyPath,
-    ref
-  });
-  if (!file)
-    return defaultWorkspacePolicy;
-  const parsed = parseRepositoryYaml(file.content);
-  const validated = parsed.ok ? validateWorkspacePolicyFile(parsed.value) : null;
-  return validated?.ok ? validated.value.spec : defaultWorkspacePolicy;
-}
-async function loadChangeRequestRoles(client, repository, ref) {
-  const file = await client.getFile({
-    ...repository,
-    path: roleMappingPath,
-    ref
-  });
-  if (!file)
-    throw new Error("Workspace role mapping is required.");
-  const parsed = parseRepositoryYaml(file.content);
-  const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
-  if (!validated?.ok)
-    throw new Error("Workspace role mapping is invalid.");
-  return validated.value.spec;
-}
-async function hasChangeRequestRole(client, repository, login, selector) {
-  if (selector.githubUsers?.includes(login))
-    return true;
-  if (selector.repositoryRoles?.length) {
-    const permission = await client.getRepositoryPermissionForUser({
-      ...repository,
-      username: login
-    });
-    if (selector.repositoryRoles.includes(permission.permission)) {
-      return true;
-    }
-  }
-  if (!selector.githubTeams?.length)
-    return false;
-  const memberships = await Promise.all(selector.githubTeams.map((teamSlug) => client.getTeamMembershipForUser({
-    org: repository.owner,
-    teamSlug,
-    username: login
-  })));
-  return memberships.some((membership) => membership?.state === "active");
-}
-
 // ../../packages/github-lite/dist/change-request-verifier.js
 async function hasAuthoritativeChangeRequest(client, repository, pullRequest, evidence, options = {}) {
   const workspace = await client.getRepository(repository);
@@ -9184,8 +9213,8 @@ async function hasAuthoritativeChangeRequest(client, repository, pullRequest, ev
     return false;
   }
   try {
-    const roleMapping = await loadChangeRequestRoles(client, repository, request.baseRevisionSha);
-    const authorHasRequesterRole = await hasChangeRequestRole(client, repository, pullRequest.author, roleMapping.roles.requester);
+    const roleMapping = await loadWorkspaceRoles(client, repository, request.baseRevisionSha);
+    const authorHasRequesterRole = await hasWorkspaceRole(client, repository, pullRequest.author, roleMapping.roles.requester);
     if (!authorHasRequesterRole)
       return false;
   } catch (error) {
@@ -9475,7 +9504,7 @@ async function loadMergedBatchCandidates(client, repository, batchId) {
     ...repository,
     state: "closed"
   });
-  const candidateNumbers = changes.filter((pullRequest) => pullRequest.merged).map((pullRequest) => pullRequest.number);
+  const candidateNumbers = changes.filter((pullRequest) => pullRequest.merged && parseChangeRequestEvidence(pullRequest.body)?.batchId === batchId).map((pullRequest) => pullRequest.number);
   const candidates = await Promise.all(candidateNumbers.map(async (pullNumber) => {
     const pullRequest = await client.getPullRequest({
       ...repository,
@@ -9518,10 +9547,10 @@ function hasMatchingDecisionRequest(decision, request, requestDigest) {
 }
 async function isAuthorizedDecision({ client, commentAuthor, decision, pullRequest, repository, request }) {
   const [policy, roles, mergedPolicy, mergedRoles] = await Promise.all([
-    loadChangeRequestPolicy(client, repository, decision.authorizationRevisionSha),
-    loadChangeRequestRoles(client, repository, decision.authorizationRevisionSha),
-    loadChangeRequestPolicy(client, repository, pullRequest.mergeSha ?? ""),
-    loadChangeRequestRoles(client, repository, pullRequest.mergeSha ?? "")
+    loadHistoricalWorkspacePolicy(client, repository, decision.authorizationRevisionSha),
+    loadWorkspaceRoles(client, repository, decision.authorizationRevisionSha),
+    loadHistoricalWorkspacePolicy(client, repository, pullRequest.mergeSha ?? ""),
+    loadWorkspaceRoles(client, repository, pullRequest.mergeSha ?? "")
   ]);
   if (!hasEquivalentAuthorization({ policy, roles }, { policy: mergedPolicy, roles: mergedRoles })) {
     return false;
@@ -9530,7 +9559,7 @@ async function isAuthorizedDecision({ client, commentAuthor, decision, pullReque
     return commentAuthor === request.requester && policy.approval.mode === "AUTO_APPROVE";
   }
   const requesterIsApprover = commentAuthor === request.requester;
-  const approverHasRole = await hasChangeRequestRole(client, repository, commentAuthor, roles.roles.approver);
+  const approverHasRole = await hasWorkspaceRole(client, repository, commentAuthor, roles.roles.approver);
   if (!approverHasRole)
     return false;
   if (requesterIsApprover && policy.approval.mode === "SELF_APPROVAL_BLOCKED") {

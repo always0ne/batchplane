@@ -75,9 +75,15 @@ describe("ApprovalsPage", () => {
     },
   );
 
-  it("keeps a self-request visible with approval disabled and rejection available", async () => {
+  it("keeps an eligible approver's self-request visible with approval disabled and rejection available", async () => {
     const state = createRuntimeFixtureMockState("approval-pending");
     state.currentUser = { login: "developer" };
+    state.repositoryPermissions = state.repositoryPermissions.map(
+      (permission) =>
+        permission.username === "developer"
+          ? { ...permission, permission: "maintain", roleName: "maintain" }
+          : permission,
+    );
     const client = createMockGitHubLiteClient(state);
     const runtime = createGitHubLiteBatchPlaneClient({
       client,
@@ -135,20 +141,51 @@ describe("ApprovalsPage", () => {
   });
 
   it.each([
-    { language: "en", reason: "NOT_AWAITING_APPROVAL", tooltip: undefined },
+    {
+      language: "en",
+      reason: "NOT_AWAITING_APPROVAL",
+      tooltip: undefined,
+      canReject: true,
+    },
     {
       language: "en",
       reason: "REQUESTER_IDENTITY_UNVERIFIED",
       tooltip: "The request's requester identity could not be verified.",
+      canReject: true,
     },
     {
       language: "ko",
       reason: "REQUESTER_IDENTITY_UNVERIFIED",
       tooltip: "이 요청의 요청자 신원을 확인할 수 없습니다.",
+      canReject: true,
+    },
+    {
+      language: "en",
+      reason: "APPROVER_ROLE_REQUIRED",
+      tooltip: "An approver role is required to approve or reject.",
+      canReject: false,
+    },
+    {
+      language: "ko",
+      reason: "APPROVER_ROLE_REQUIRED",
+      tooltip: "승인하거나 반려하려면 승인자 역할이 필요합니다.",
+      canReject: false,
+    },
+    {
+      language: "en",
+      reason: "AUTHORIZATION_UNAVAILABLE",
+      tooltip: "Approval authority could not be verified.",
+      canReject: false,
+    },
+    {
+      language: "ko",
+      reason: "AUTHORIZATION_UNAVAILABLE",
+      tooltip: "승인 권한을 확인할 수 없습니다.",
+      canReject: false,
     },
   ] as const)(
-    "disables approval but leaves rejection enabled for $reason in $language",
-    async ({ language, reason, tooltip }) => {
+    "keeps the request inspectable and displays the decision capability reason $reason in $language",
+    async ({ language, reason, tooltip, canReject }) => {
       await i18next.changeLanguage(language);
       const inventory = approvalInventory();
       const request = inventory.requests[0];
@@ -158,7 +195,8 @@ describe("ApprovalsPage", () => {
       request.request.capability = {
         approveUnavailableReason: reason,
         canApprove: false,
-        canReject: true,
+        canReject,
+        ...(canReject ? {} : { rejectUnavailableReason: reason }),
       };
       renderPage({
         listApprovalRequests: async () => inventory,
@@ -169,13 +207,14 @@ describe("ApprovalsPage", () => {
           name: language === "en" ? "Approve execution" : "실행 승인",
         }),
       ).toBeDisabled();
-      expect(
-        screen.getByRole("button", {
-          name: language === "en" ? "Reject" : "반려",
-        }),
-      ).toBeEnabled();
+      const reject = screen.getByRole("button", {
+        name: language === "en" ? "Reject" : "반려",
+      });
+      if (canReject) expect(reject).toBeEnabled();
+      else expect(reject).toBeDisabled();
       if (tooltip) {
-        expect(screen.getByTitle(tooltip)).toBeDisabled();
+        for (const control of screen.getAllByTitle(tooltip))
+          expect(control).toBeDisabled();
         expect(screen.getByText(tooltip)).toBeInTheDocument();
       }
     },

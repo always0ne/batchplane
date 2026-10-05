@@ -50,6 +50,10 @@ export function ExecutionRequestDecision({
           onApprove={() => onAction("approve")}
           onReject={(reason) => onAction("reject", reason)}
           rejectDisabled={!request.capability.canReject}
+          rejectDisabledReason={rejectionUnavailableReason(
+            request.capability,
+            t,
+          )}
           rejectLabel={t("detail.actions.reject")}
         />
       </article>
@@ -76,10 +80,25 @@ function approvalUnavailableReason(
   capability: ExecutionRequestCapability,
   t: (key: string) => string,
 ): string {
+  if (capability.approveUnavailableReason === "APPROVER_ROLE_REQUIRED")
+    return t("detail.values.approverRoleRequired");
+  if (capability.approveUnavailableReason === "AUTHORIZATION_UNAVAILABLE")
+    return t("detail.values.authorizationUnavailable");
   if (capability.approveUnavailableReason === "REQUESTER_IDENTITY_UNVERIFIED") {
     return t("detail.values.requesterIdentityUnverified");
   }
   return capability.approveUnavailableReason === "SELF_APPROVAL_BLOCKED"
     ? t("detail.values.selfApprovalBlocked")
     : "";
+}
+
+function rejectionUnavailableReason(
+  capability: ExecutionRequestCapability,
+  t: (key: string) => string,
+): string {
+  if (capability.rejectUnavailableReason === "APPROVER_ROLE_REQUIRED")
+    return t("detail.values.approverRoleRequired");
+  if (capability.rejectUnavailableReason === "AUTHORIZATION_UNAVAILABLE")
+    return t("detail.values.authorizationUnavailable");
+  return "";
 }

@@ -1,4 +1,5 @@
 import { parseExecutionRequestEvidence } from "./gate-evidence.js";
+import { createGitHubLiteClient } from "@batchplane/github-lite";
 import type { GateIssueComment, GateRepositoryRef } from "./gate-types.js";
 
 type GitHubIssueResponse = {
@@ -6,15 +7,6 @@ type GitHubIssueResponse = {
   user?: { login?: string } | null;
   number: number;
   pull_request?: unknown;
-};
-
-type GitHubIssueCommentResponse = {
-  body: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  user?: {
-    login?: string;
-  } | null;
 };
 
 type GitHubContentFileResponse = {
@@ -81,6 +73,7 @@ export function createGateGitHubClient({
   }
 
   const repoPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const liteClient = createGitHubLiteClient({ apiBaseUrl, fetcher, token });
 
   return {
     async getIssue(issueNumber: number) {
@@ -129,28 +122,17 @@ export function createGateGitHubClient({
     },
 
     async listIssueComments(issueNumber: number) {
-      const comments: GateIssueComment[] = [];
-
-      for (let page = 1; page <= 5; page += 1) {
-        const response = await request<GitHubIssueCommentResponse[]>(
-          `${repoPath}/issues/${issueNumber}/comments?per_page=100&page=${page}`,
-        );
-
-        if (!response?.length) {
-          break;
-        }
-
-        comments.push(
-          ...response.map((comment) => ({
-            author: comment.user?.login?.trim() ?? "",
-            body: comment.body ?? "",
-            createdAt: comment.created_at ?? "",
-            updatedAt: comment.updated_at ?? "",
-          })),
-        );
-      }
-
-      return comments;
+      const comments = await liteClient.listIssueComments({
+        owner,
+        repo,
+        issueNumber,
+      });
+      return comments.map(
+        (comment): GateIssueComment => ({
+          ...comment,
+          updatedAt: comment.updatedAt ?? comment.createdAt,
+        }),
+      );
     },
 
     async getFile(path: string, ref?: string) {

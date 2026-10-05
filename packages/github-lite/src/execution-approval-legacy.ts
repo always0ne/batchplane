@@ -57,6 +57,7 @@ export type ExecutionApprovalDecision = {
   actor: string;
   decidedAt: string;
   reason: string;
+  source: "WORKSPACE_POLICY" | "USER";
 };
 
 export type ExecutionDispatcherStatus = {
@@ -216,7 +217,11 @@ export function parseExecutionRequestDetail(
     return null;
   }
 
-  const approvalDecision = findExecutionApprovalDecision(comments);
+  const approvalDecision = findExecutionApprovalDecision(comments, {
+    requestId,
+    batchId,
+    requestDigest,
+  });
   const dispatcherStatus = findLatestDispatcherStatus(comments);
   const gateDecision = findLatestGateDecision(comments);
   const displayStatus = getExecutionRequestDisplayStatus({
@@ -322,6 +327,7 @@ export function buildExecutionRejectionComment({
 
 function findExecutionApprovalDecision(
   comments: RepositoryIssueComment[],
+  request: { requestId: string; batchId: string; requestDigest: string },
 ): ExecutionApprovalDecision | undefined {
   for (let index = comments.length - 1; index >= 0; index -= 1) {
     const comment = comments[index];
@@ -330,32 +336,106 @@ function findExecutionApprovalDecision(
       continue;
     }
 
-    const marker = parseBatchPlaneMarker(comment.body, "execution-approval");
-    const decision = marker.get("decision");
-
-    if (decision !== "APPROVED" && decision !== "REJECTED") {
+    const evidence = parseExecutionDecisionEvidence(comment);
+    if (
+      !evidence ||
+      evidence.requestId !== request.requestId ||
+      evidence.batchId !== request.batchId ||
+      evidence.requestDigest !== request.requestDigest
+    )
       continue;
-    }
-
-    const actor =
-      readMarkdownField(
-        comment.body,
-        decision === "APPROVED" ? "Approver" : "Rejector",
-      ).replace(/^@/, "") || comment.author;
-    const decidedAt = readMarkdownField(
-      comment.body,
-      decision === "APPROVED" ? "Approved at" : "Rejected at",
-    );
+    if (
+      evidence.edited ||
+      !evidence.actor ||
+      (evidence.decision === "APPROVED" &&
+        evidence.commandDigest !== request.requestDigest)
+    )
+      return undefined;
+    if (evidence.approvalType === "SCHEDULE_DELEGATED") return undefined;
+    if (
+      evidence.approvalType === "WORKSPACE_AUTO_APPROVED" &&
+      (evidence.source !== "WORKSPACE_POLICY" ||
+        evidence.approvalMode !== "AUTO_APPROVE")
+    )
+      return undefined;
 
     return {
-      actor,
-      decidedAt,
-      decision,
-      reason: readMarkdownField(comment.body, "Reason"),
+      actor: evidence.actor,
+      decidedAt: evidence.decidedAt,
+      decision: evidence.decision,
+      reason: evidence.reason,
+      source: evidence.source,
     };
   }
 
   return undefined;
+}
+
+export function parseExecutionDecisionEvidence(
+  comment: Pick<
+    RepositoryIssueComment,
+    "author" | "body" | "createdAt" | "updatedAt"
+  >,
+): {
+  requestId: string;
+  batchId: string;
+  requestDigest: string;
+  decision: "APPROVED" | "REJECTED";
+  actor: string;
+  decidedAt: string;
+  reason: string;
+  approvalType: string;
+  approvalMode: string;
+  source: "WORKSPACE_POLICY" | "USER";
+  commandDigest: string | null;
+  edited: boolean;
+} | null {
+  const marker = parseBatchPlaneMarker(comment.body, "execution-approval");
+  const decision = marker.get("decision");
+  const requestId = marker.get("requestId");
+  const batchId = marker.get("batchId");
+  const requestDigest = marker.get("requestDigest");
+  const approvalType =
+    marker.get("approvalType") ??
+    readMarkdownField(comment.body, "Approval type");
+  if (
+    (decision !== "APPROVED" && decision !== "REJECTED") ||
+    !requestId ||
+    !batchId ||
+    !requestDigest
+  )
+    return null;
+  return {
+    requestId,
+    batchId,
+    requestDigest,
+    decision,
+    actor: comment.author.trim(),
+    decidedAt: readMarkdownField(
+      comment.body,
+      decision === "APPROVED" ? "Approved at" : "Rejected at",
+    ),
+    reason: readMarkdownField(comment.body, "Reason"),
+    approvalType,
+    approvalMode:
+      marker.get("approvalMode") ??
+      readMarkdownField(comment.body, "Approval mode"),
+    source:
+      approvalType === "WORKSPACE_AUTO_APPROVED" &&
+      readMarkdownField(comment.body, "Approval source") === "WORKSPACE_POLICY"
+        ? "WORKSPACE_POLICY"
+        : "USER",
+    commandDigest:
+      comment.body
+        .split("\n", 1)[0]
+        ?.trim()
+        .match(/^\/bgcp approve\s+requestDigest=(\S+)$/u)?.[1] ?? null,
+    edited: Boolean(
+      comment.createdAt &&
+      comment.updatedAt &&
+      comment.createdAt !== comment.updatedAt,
+    ),
+  };
 }
 
 function findLatestDispatcherStatus(

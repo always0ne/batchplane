@@ -209,6 +209,34 @@ switches. They reduce separation of duties, but request evidence, approval
 source, dispatcher state, Gate decision, and workflow run correlation must stay
 auditable.
 
+### Approval Authorization And Evidence
+
+Approval capabilities, decision commands and Gate use the same role and mode
+rules. Manual approval/rejection requires the configured approver role;
+self-approval additionally requires an eligible actor and a permitting mode.
+Policy-based automatic approval requires an eligible requester and the effective
+AUTO_APPROVE policy, not a newly granted human approver role. A missing role
+mapping never authorizes self-approval. Each authorization operation resolves
+one effective default-branch revision for Workspace policy and role mapping;
+commands and Gate recheck instead of trusting a draft or an earlier UI capability.
+Only an absent workspace.yml uses the existing SELF_APPROVAL_BLOCKED default;
+a present malformed policy remains an authorization error.
+
+An unavailable role/policy lookup is distinct from a confirmed lack of authority.
+Requests remain inspectable, but neither case permits a decision write or execution.
+Approval evidence must match request ID, Batch ID and digest, use the platform's
+actual comment author, and retain its edit validity. Historical evidence does not
+by itself prove current permission. Evidence that cannot authorize execution must
+not be presented as a verified approval merely because its text says APPROVED.
+
+PR and approval-comment reads follow all continuation pages. A failed later page
+must not become a successful partial result or a false absence of approval.
+Approved-revision verification preserves latest merged lineage and exact digest/SHA
+checks; it does not fall back to an older approval when the latest candidate is
+invalid. This corrects approval reads, not general execution/audit/My Work history
+pagination. GitHub's [REST pagination contract](https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api)
+defines continuation through the response Link header.
+
 ## Batch Definition
 
 The repository document is a GitHub Lite persistence and execution contract,

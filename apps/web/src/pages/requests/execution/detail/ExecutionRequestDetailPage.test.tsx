@@ -133,15 +133,47 @@ describe("ExecutionRequestDetailPage", () => {
       language: "en",
       approve: "Approve execution",
       reason: "The request's requester identity could not be verified.",
+      unavailableReason: "REQUESTER_IDENTITY_UNVERIFIED" as const,
+      canReject: true,
     },
     {
       language: "ko",
       approve: "실행 승인",
       reason: "이 요청의 요청자 신원을 확인할 수 없습니다.",
+      unavailableReason: "REQUESTER_IDENTITY_UNVERIFIED" as const,
+      canReject: true,
+    },
+    {
+      language: "en",
+      approve: "Approve execution",
+      reason: "An approver role is required to approve or reject.",
+      unavailableReason: "APPROVER_ROLE_REQUIRED" as const,
+      canReject: false,
+    },
+    {
+      language: "ko",
+      approve: "실행 승인",
+      reason: "승인하거나 반려하려면 승인자 역할이 필요합니다.",
+      unavailableReason: "APPROVER_ROLE_REQUIRED" as const,
+      canReject: false,
+    },
+    {
+      language: "en",
+      approve: "Approve execution",
+      reason: "Approval authority could not be verified.",
+      unavailableReason: "AUTHORIZATION_UNAVAILABLE" as const,
+      canReject: false,
+    },
+    {
+      language: "ko",
+      approve: "실행 승인",
+      reason: "승인 권한을 확인할 수 없습니다.",
+      unavailableReason: "AUTHORIZATION_UNAVAILABLE" as const,
+      canReject: false,
     },
   ])(
-    "keeps an unverified requester inspectable with disabled approval and localized reason in $language",
-    async ({ language, approve, reason }) => {
+    "keeps the request inspectable with disabled decision controls and the localized $unavailableReason reason in $language",
+    async ({ language, approve, reason, unavailableReason, canReject }) => {
       await i18next.changeLanguage(language);
       const approveExecutionRequest = vi.fn();
       renderDetail(
@@ -151,8 +183,12 @@ describe("ExecutionRequestDetailPage", () => {
             request({
               capability: {
                 canApprove: false,
-                canReject: true,
-                approveUnavailableReason: "REQUESTER_IDENTITY_UNVERIFIED",
+                canReject,
+                approveUnavailableReason: unavailableReason,
+                ...(!canReject &&
+                unavailableReason !== "REQUESTER_IDENTITY_UNVERIFIED"
+                  ? { rejectUnavailableReason: unavailableReason }
+                  : {}),
               },
             }),
         }),
@@ -161,6 +197,14 @@ describe("ExecutionRequestDetailPage", () => {
       expect(button).toBeDisabled();
       expect(button).toHaveAttribute("title", reason);
       expect(screen.getByText(reason)).toBeInTheDocument();
+      const reject = screen.getByRole("button", {
+        name: language === "en" ? "Reject" : "반려",
+      });
+      if (canReject) expect(reject).toBeEnabled();
+      else {
+        expect(reject).toBeDisabled();
+        expect(reject).toHaveAttribute("title", reason);
+      }
       expect(
         screen.getByText("#101 Run batch payment.daily-close"),
       ).toBeInTheDocument();
@@ -168,6 +212,30 @@ describe("ExecutionRequestDetailPage", () => {
       expect(approveExecutionRequest).not.toHaveBeenCalled();
     },
   );
+
+  it("shows a historical decision without claiming it is authorized by current policy", async () => {
+    renderDetail(
+      createClient({
+        getExecutionRequest: async () =>
+          request({
+            status: "APPROVED",
+            approvalDecision: {
+              actor: "auditor",
+              decidedAt: "2026-09-11T09:01:00.000Z",
+              decision: "APPROVED",
+              reason: "",
+              source: "USER",
+              currentAuthorization: "DENIED",
+            },
+          }),
+      }),
+    );
+    expect(
+      await screen.findByText(
+        "APPROVED by @auditor (Not authorized by current Workspace policy)",
+      ),
+    ).toBeInTheDocument();
+  });
 
   it("renders the localized failure fallback for a non-Error approval rejection", async () => {
     renderDetail(

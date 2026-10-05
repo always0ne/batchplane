@@ -7564,6 +7564,22 @@ function createGitHubRequester({ apiBaseUrl = "https://api.github.com", fetcher 
     throw new GitHubLiteApiError("GitHub token is required.", "bad-request", 400);
   }
   return {
+    async requestList(path) {
+      const items = [];
+      let url = `${apiBaseUrl}${path}`;
+      while (url) {
+        const response = await fetcher(url, {
+          headers: buildHeaders(trimmedToken)
+        });
+        if (!response.ok)
+          throw await buildGitHubApiError(response);
+        if (response.status === 204)
+          return items;
+        items.push(...await response.json());
+        url = response.headers.get("link")?.match(/<([^>]+)>;\s*rel="next"/u)?.[1];
+      }
+      return items;
+    },
     async request(path, init = {}, options = {}) {
       const response = await fetcher(`${apiBaseUrl}${path}`, {
         ...init,
@@ -7849,7 +7865,7 @@ function createPullRequestOperations(requester) {
     },
     async listPullRequests({ owner, repo, state = "open", base, head }) {
       const query = buildQuery({ base, head, per_page: "100", state });
-      const pullRequests = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${query}`);
+      const pullRequests = await requester.requestList(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${query}`);
       return (pullRequests ?? []).map(mapPullRequestResponse);
     },
     async listPullRequestFiles({ owner, repo, pullNumber }) {
@@ -7929,7 +7945,7 @@ function createIssueOperations(requester) {
     },
     async listIssueComments({ owner, repo, issueNumber }) {
       const query = buildQuery({ per_page: "100" });
-      const comments = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments${query}`);
+      const comments = await requester.requestList(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments${query}`);
       return (comments ?? []).map((comment) => mapIssueCommentResponse(comment, issueNumber));
     },
     async listLabels({ owner, repo }) {
@@ -8083,30 +8099,6 @@ function createRepositoryAccessOperations(requester) {
   };
 }
 
-// ../../packages/github-lite/dist/repository-yaml.js
-var import_yaml = __toESM(require_dist(), 1);
-function parseRepositoryYaml(input) {
-  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
-  if (document.errors.length > 0) {
-    return {
-      diagnostics: document.errors.map(toYamlDiagnostic),
-      ok: false
-    };
-  }
-  return { ok: true, value: document.toJS() };
-}
-function formatRepositoryYamlDiagnostics(diagnostics) {
-  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
-}
-function toYamlDiagnostic(error) {
-  const position = error.linePos?.[0];
-  return {
-    column: position?.col ?? 1,
-    line: position?.line ?? 1,
-    message: error.message
-  };
-}
-
 // ../../packages/domain/dist/api-version.js
 var batchPlaneApiVersion = "batchplane.io/v1";
 var legacyBatchPlaneApiVersion = "batchtrail.io/v1";
@@ -8116,6 +8108,23 @@ var supportedBatchPlaneApiVersions = [
 ];
 function isBatchPlaneApiVersion(value) {
   return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
+}
+
+// ../../packages/domain/dist/approval-policy.js
+function authorizeManualApproval(authorization) {
+  if (!authorization.actorHasApproverRole) {
+    return { allowed: false, reason: "APPROVER_ROLE_REQUIRED" };
+  }
+  if (authorization.actorIsRequester && authorization.approvalMode === "SELF_APPROVAL_BLOCKED") {
+    return { allowed: false, reason: "SELF_APPROVAL_BLOCKED" };
+  }
+  return { allowed: true, decisionSource: "USER" };
+}
+function resolveAutoApproval(authorization) {
+  if (!authorization.actorHasRequesterRole) {
+    return { allowed: false, reason: "REQUESTER_ROLE_REQUIRED" };
+  }
+  return authorization.approvalMode === "AUTO_APPROVE" ? { allowed: true, decisionSource: "WORKSPACE_POLICY" } : { allowed: true };
 }
 
 // ../../packages/domain/dist/workspace-policy.js
@@ -8407,6 +8416,30 @@ var roleMappingRoles = [
   "auditor"
 ];
 
+// ../../packages/github-lite/dist/repository-yaml.js
+var import_yaml = __toESM(require_dist(), 1);
+function parseRepositoryYaml(input) {
+  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
+  if (document.errors.length > 0) {
+    return {
+      diagnostics: document.errors.map(toYamlDiagnostic),
+      ok: false
+    };
+  }
+  return { ok: true, value: document.toJS() };
+}
+function formatRepositoryYamlDiagnostics(diagnostics) {
+  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
+}
+function toYamlDiagnostic(error) {
+  const position = error.linePos?.[0];
+  return {
+    column: position?.col ?? 1,
+    line: position?.line ?? 1,
+    message: error.message
+  };
+}
+
 // ../../packages/digest/dist/index.js
 function canonicalize(value) {
   return JSON.stringify(normalize(value));
@@ -8464,6 +8497,134 @@ function isSameGitHubLogin(left, right) {
 }
 function hasAuthoritativeExecutionRequester({ author, requestedBy, canonicalRequestedBy }) {
   return typeof canonicalRequestedBy === "string" && isSameGitHubLogin(author, requestedBy) && isSameGitHubLogin(author, canonicalRequestedBy);
+}
+
+// ../../packages/github-lite/dist/execution-approval-legacy.js
+function parseExecutionDecisionEvidence(comment) {
+  const marker = parseBatchPlaneMarker(comment.body, "execution-approval");
+  const decision = marker.get("decision");
+  const requestId = marker.get("requestId");
+  const batchId = marker.get("batchId");
+  const requestDigest = marker.get("requestDigest");
+  const approvalType = marker.get("approvalType") ?? readMarkdownField(comment.body, "Approval type");
+  if (decision !== "APPROVED" && decision !== "REJECTED" || !requestId || !batchId || !requestDigest)
+    return null;
+  return {
+    requestId,
+    batchId,
+    requestDigest,
+    decision,
+    actor: comment.author.trim(),
+    decidedAt: readMarkdownField(comment.body, decision === "APPROVED" ? "Approved at" : "Rejected at"),
+    reason: readMarkdownField(comment.body, "Reason"),
+    approvalType,
+    approvalMode: marker.get("approvalMode") ?? readMarkdownField(comment.body, "Approval mode"),
+    source: approvalType === "WORKSPACE_AUTO_APPROVED" && readMarkdownField(comment.body, "Approval source") === "WORKSPACE_POLICY" ? "WORKSPACE_POLICY" : "USER",
+    commandDigest: comment.body.split("\n", 1)[0]?.trim().match(/^\/bgcp approve\s+requestDigest=(\S+)$/u)?.[1] ?? null,
+    edited: Boolean(comment.createdAt && comment.updatedAt && comment.createdAt !== comment.updatedAt)
+  };
+}
+function parseBatchPlaneMarker(body, kind) {
+  const marker = /* @__PURE__ */ new Map();
+  const match = body.match(new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`));
+  if (!match?.[1]) {
+    return marker;
+  }
+  for (const line of match[1].split("\n")) {
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex < 0) {
+      continue;
+    }
+    marker.set(line.slice(0, separatorIndex).trim(), line.slice(separatorIndex + 1).trim());
+  }
+  return marker;
+}
+function readMarkdownField(body, label) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = body.match(new RegExp(`- ${escapedLabel}:\\s*(.+)`));
+  const value = match?.[1]?.trim() ?? "";
+  return value.replace(/^`|`$/g, "").trim();
+}
+
+// ../../packages/github-lite/dist/inspection-context.js
+function parseWorkspacePolicyFile(content) {
+  const parsed = parseRepositoryYaml(content);
+  if (!parsed.ok) {
+    throw new Error(formatRepositoryYamlDiagnostics(parsed.diagnostics));
+  }
+  const validated = validateWorkspacePolicyFile(parsed.value);
+  if (!validated.ok) {
+    throw new Error(validated.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; "));
+  }
+  return validated.value.spec;
+}
+
+// ../../packages/github-lite/dist/workspace-authorization.js
+var workspacePolicyPath = ".batch-governance/workspace.yml";
+async function loadHistoricalWorkspacePolicy(client, repository, ref) {
+  const file = await client.getFile({
+    ...repository,
+    path: workspacePolicyPath,
+    ref
+  });
+  if (!file)
+    return defaultWorkspacePolicy;
+  return parseWorkspacePolicyFile(file.content);
+}
+async function loadWorkspaceRoles(client, repository, ref, configPath = ".batch-governance") {
+  const file = await client.getFile({
+    ...repository,
+    path: `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`,
+    ref
+  });
+  if (!file)
+    throw new Error("Workspace role mapping is required.");
+  const parsed = parseRepositoryYaml(file.content);
+  const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
+  if (!validated?.ok)
+    throw new Error("Workspace role mapping is invalid.");
+  return validated.value.spec;
+}
+async function hasWorkspaceRole(client, repository, login, selector) {
+  if (selector.githubUsers?.some((user) => isSameGitHubLogin(user, login)))
+    return true;
+  if (selector.repositoryRoles?.length) {
+    const permission = await client.getRepositoryPermissionForUser({
+      ...repository,
+      username: login.trim().toLowerCase()
+    });
+    if (isSameGitHubLogin(permission.username, login) && selector.repositoryRoles.some((role) => role === permission.roleName?.toLowerCase() || role === permission.permission.toLowerCase())) {
+      return true;
+    }
+  }
+  if (!selector.githubTeams?.length)
+    return false;
+  const memberships = await Promise.all(selector.githubTeams.map((teamSlug) => client.getTeamMembershipForUser({
+    org: repository.owner,
+    teamSlug,
+    username: login.trim().toLowerCase()
+  })));
+  return memberships.some((membership) => membership?.state === "active");
+}
+async function loadCurrentExecutionApprovalPolicy(client, repository, configPath = ".batch-governance") {
+  const metadata = await client.getRepository(repository);
+  const revision = await client.getBranchHeadSha({
+    ...repository,
+    branch: metadata.defaultBranch
+  });
+  const [file, roleMapping] = await Promise.all([
+    client.getFile({
+      ...repository,
+      path: `${configPath.replace(/\/+$/u, "")}/workspace.yml`,
+      ref: revision
+    }),
+    loadWorkspaceRoles(client, repository, revision, configPath)
+  ]);
+  return {
+    policy: file ? parseWorkspacePolicyFile(file.content) : defaultWorkspacePolicy,
+    roleMapping,
+    revision
+  };
 }
 
 // ../../packages/github-lite/dist/batch-definition-codec.js
@@ -8964,57 +9125,6 @@ function sortArtifacts(artifacts) {
   return [...artifacts].sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
 }
 
-// ../../packages/github-lite/dist/change-request-policy.js
-var roleMappingPath = ".batch-governance/policies/role-mapping.yml";
-var workspacePolicyPath = ".batch-governance/workspace.yml";
-async function loadChangeRequestPolicy(client, repository, ref) {
-  const file = await client.getFile({
-    ...repository,
-    path: workspacePolicyPath,
-    ref
-  });
-  if (!file)
-    return defaultWorkspacePolicy;
-  const parsed = parseRepositoryYaml(file.content);
-  const validated = parsed.ok ? validateWorkspacePolicyFile(parsed.value) : null;
-  return validated?.ok ? validated.value.spec : defaultWorkspacePolicy;
-}
-async function loadChangeRequestRoles(client, repository, ref) {
-  const file = await client.getFile({
-    ...repository,
-    path: roleMappingPath,
-    ref
-  });
-  if (!file)
-    throw new Error("Workspace role mapping is required.");
-  const parsed = parseRepositoryYaml(file.content);
-  const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
-  if (!validated?.ok)
-    throw new Error("Workspace role mapping is invalid.");
-  return validated.value.spec;
-}
-async function hasChangeRequestRole(client, repository, login, selector) {
-  if (selector.githubUsers?.includes(login))
-    return true;
-  if (selector.repositoryRoles?.length) {
-    const permission = await client.getRepositoryPermissionForUser({
-      ...repository,
-      username: login
-    });
-    if (selector.repositoryRoles.includes(permission.permission)) {
-      return true;
-    }
-  }
-  if (!selector.githubTeams?.length)
-    return false;
-  const memberships = await Promise.all(selector.githubTeams.map((teamSlug) => client.getTeamMembershipForUser({
-    org: repository.owner,
-    teamSlug,
-    username: login
-  })));
-  return memberships.some((membership) => membership?.state === "active");
-}
-
 // ../../packages/github-lite/dist/change-request-verifier.js
 async function hasAuthoritativeChangeRequest(client, repository, pullRequest, evidence, options = {}) {
   const workspace = await client.getRepository(repository);
@@ -9026,8 +9136,8 @@ async function hasAuthoritativeChangeRequest(client, repository, pullRequest, ev
     return false;
   }
   try {
-    const roleMapping = await loadChangeRequestRoles(client, repository, request.baseRevisionSha);
-    const authorHasRequesterRole = await hasChangeRequestRole(client, repository, pullRequest.author, roleMapping.roles.requester);
+    const roleMapping = await loadWorkspaceRoles(client, repository, request.baseRevisionSha);
+    const authorHasRequesterRole = await hasWorkspaceRole(client, repository, pullRequest.author, roleMapping.roles.requester);
     if (!authorHasRequesterRole)
       return false;
   } catch (error) {
@@ -9317,7 +9427,7 @@ async function loadMergedBatchCandidates(client, repository, batchId) {
     ...repository,
     state: "closed"
   });
-  const candidateNumbers = changes.filter((pullRequest) => pullRequest.merged).map((pullRequest) => pullRequest.number);
+  const candidateNumbers = changes.filter((pullRequest) => pullRequest.merged && parseChangeRequestEvidence(pullRequest.body)?.batchId === batchId).map((pullRequest) => pullRequest.number);
   const candidates = await Promise.all(candidateNumbers.map(async (pullNumber) => {
     const pullRequest = await client.getPullRequest({
       ...repository,
@@ -9360,10 +9470,10 @@ function hasMatchingDecisionRequest(decision, request, requestDigest) {
 }
 async function isAuthorizedDecision({ client, commentAuthor, decision, pullRequest, repository, request }) {
   const [policy, roles, mergedPolicy, mergedRoles] = await Promise.all([
-    loadChangeRequestPolicy(client, repository, decision.authorizationRevisionSha),
-    loadChangeRequestRoles(client, repository, decision.authorizationRevisionSha),
-    loadChangeRequestPolicy(client, repository, pullRequest.mergeSha ?? ""),
-    loadChangeRequestRoles(client, repository, pullRequest.mergeSha ?? "")
+    loadHistoricalWorkspacePolicy(client, repository, decision.authorizationRevisionSha),
+    loadWorkspaceRoles(client, repository, decision.authorizationRevisionSha),
+    loadHistoricalWorkspacePolicy(client, repository, pullRequest.mergeSha ?? ""),
+    loadWorkspaceRoles(client, repository, pullRequest.mergeSha ?? "")
   ]);
   if (!hasEquivalentAuthorization({ policy, roles }, { policy: mergedPolicy, roles: mergedRoles })) {
     return false;
@@ -9372,7 +9482,7 @@ async function isAuthorizedDecision({ client, commentAuthor, decision, pullReque
     return commentAuthor === request.requester && policy.approval.mode === "AUTO_APPROVE";
   }
   const requesterIsApprover = commentAuthor === request.requester;
-  const approverHasRole = await hasChangeRequestRole(client, repository, commentAuthor, roles.roles.approver);
+  const approverHasRole = await hasWorkspaceRole(client, repository, commentAuthor, roles.roles.approver);
   if (!approverHasRole)
     return false;
   if (requesterIsApprover && policy.approval.mode === "SELF_APPROVAL_BLOCKED") {
@@ -9522,12 +9632,6 @@ var supportedBatchPlaneApiVersions2 = [
   batchPlaneApiVersion2,
   legacyBatchPlaneApiVersion2
 ];
-var repositoryRoleValues2 = ["admin", "maintain", "write", "triage"];
-var workspaceApprovalModeValues2 = [
-  "SELF_APPROVAL_BLOCKED",
-  "SELF_APPROVAL_ALLOWED",
-  "AUTO_APPROVE"
-];
 function validateBatchDefinitionFile2(file) {
   if (!isRecord2(file)) {
     return { ok: false };
@@ -9577,73 +9681,6 @@ function validateBatchDefinitionFile2(file) {
     }
   };
 }
-function validateRoleMappingFile2(file) {
-  if (!isRecord2(file)) {
-    return { ok: false };
-  }
-  if (!isBatchPlaneApiVersion2(file.apiVersion) || file.kind !== "RoleMapping") {
-    return { ok: false };
-  }
-  const metadata = asRecord2(file.metadata);
-  const spec = asRecord2(file.spec);
-  const roles = asRecord2(spec?.roles);
-  const approver = asRecord2(roles?.approver);
-  if (!metadata || !spec || !roles || !approver || !isString2(metadata.id)) {
-    return { ok: false };
-  }
-  const githubUsers = readOptionalStringArray(approver.githubUsers);
-  const githubTeams = readOptionalStringArray(approver.githubTeams);
-  const repositoryRoles = readOptionalRepositoryRolesArray(
-    approver.repositoryRoles
-  );
-  if (!githubUsers.ok || !githubTeams.ok || !repositoryRoles.ok) {
-    return { ok: false };
-  }
-  return {
-    ok: true,
-    value: {
-      apiVersion: batchPlaneApiVersion2,
-      kind: "RoleMapping",
-      metadata: { id: metadata.id },
-      spec: {
-        roles: {
-          approver: {
-            ...githubUsers.value ? { githubUsers: githubUsers.value } : {},
-            ...githubTeams.value ? { githubTeams: githubTeams.value } : {},
-            ...repositoryRoles.value ? { repositoryRoles: repositoryRoles.value } : {}
-          }
-        }
-      }
-    }
-  };
-}
-function validateWorkspacePolicyFile2(file) {
-  if (!isRecord2(file)) {
-    return { ok: false };
-  }
-  if (!isBatchPlaneApiVersion2(file.apiVersion) || file.kind !== "WorkspacePolicy") {
-    return { ok: false };
-  }
-  const metadata = asRecord2(file.metadata);
-  const spec = asRecord2(file.spec);
-  const approval = asRecord2(spec?.approval);
-  if (!metadata || !spec || !approval || !isString2(metadata.id) || !isWorkspaceApprovalMode(approval.mode)) {
-    return { ok: false };
-  }
-  return {
-    ok: true,
-    value: {
-      apiVersion: batchPlaneApiVersion2,
-      kind: "WorkspacePolicy",
-      metadata: { id: metadata.id },
-      spec: {
-        approval: {
-          mode: approval.mode
-        }
-      }
-    }
-  };
-}
 function isRecord2(value) {
   return typeof value === "object" && value !== null;
 }
@@ -9662,27 +9699,6 @@ function isBoolean(value) {
 function isAllowedBatchStatus(value) {
   return value === "ACTIVE" || value === "INACTIVE";
 }
-function isWorkspaceApprovalMode(value) {
-  return workspaceApprovalModeValues2.includes(value);
-}
-function readOptionalStringArray(value) {
-  if (value === void 0) {
-    return { ok: true, value: void 0 };
-  }
-  if (!Array.isArray(value) || value.some((item) => !isString2(item))) {
-    return { ok: false };
-  }
-  return { ok: true, value };
-}
-function readOptionalRepositoryRolesArray(value) {
-  if (value === void 0) {
-    return { ok: true, value: void 0 };
-  }
-  if (!Array.isArray(value) || value.some((item) => !repositoryRoleValues2.includes(item))) {
-    return { ok: false };
-  }
-  return { ok: true, value };
-}
 
 // src/gate-evidence.ts
 async function findGitHubApprovalEvidence({
@@ -9699,7 +9715,7 @@ async function findGitHubApprovalEvidence({
   if (!request) {
     return { approval: null, request: null };
   }
-  const approval = loadApproval ? (await client.listIssueComments(issue.number)).map(parseExecutionApprovalEvidence).find(
+  const approval = loadApproval ? (await client.listIssueComments(issue.number)).slice().reverse().map(parseExecutionApprovalEvidence).find(
     (evidence) => evidence ? evidence.requestId === request.requestId && evidence.batchId === request.batchId && evidence.requestDigest === request.requestDigest : false
   ) ?? null : null;
   return {
@@ -9711,15 +9727,15 @@ async function findGitHubApprovalEvidence({
   };
 }
 function parseExecutionRequestEvidence(issueBody) {
-  const marker = parseBatchPlaneMarker(issueBody, "execution-request");
-  const requestId = marker.get("requestId") ?? readMarkdownField(issueBody, "Request ID");
-  const batchId = marker.get("batchId") ?? readMarkdownField(issueBody, "Batch ID");
-  const requestDigest = marker.get("requestDigest") ?? readMarkdownField(issueBody, "Request digest");
-  const status = marker.get("status") ?? readMarkdownField(issueBody, "Status");
+  const marker = parseBatchPlaneMarker2(issueBody, "execution-request");
+  const requestId = marker.get("requestId") ?? readMarkdownField2(issueBody, "Request ID");
+  const batchId = marker.get("batchId") ?? readMarkdownField2(issueBody, "Batch ID");
+  const requestDigest = marker.get("requestDigest") ?? readMarkdownField2(issueBody, "Request digest");
+  const status = marker.get("status") ?? readMarkdownField2(issueBody, "Status");
   const payload = parseCanonicalPayload(issueBody);
   const approvedBatchRevision = readApprovedBatchRevision(payload);
   const workflow = readWorkflowTarget(payload);
-  const requestedBy = readMarkdownField(issueBody, "Requested by").replace(
+  const requestedBy = readMarkdownField2(issueBody, "Requested by").replace(
     /^@/,
     ""
   );
@@ -9755,29 +9771,8 @@ function readApprovedBatchRevision(payload) {
   return typeof governedChangeId === "string" && typeof targetRevisionDigest === "string" && governedChangeId.trim() && targetRevisionDigest.startsWith("sha256:") ? { governedChangeId, targetRevisionDigest } : null;
 }
 function parseExecutionApprovalEvidence(comment) {
-  const commentBody = comment.body;
-  if (!commentBody.startsWith("/bgcp approve ")) {
-    return null;
-  }
-  const command = parseApprovalCommand(commentBody);
-  const marker = parseBatchPlaneMarker(commentBody, "execution-approval");
-  const decision = marker.get("decision");
-  const requestId = marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
-  const batchId = marker.get("batchId") ?? readMarkdownField(commentBody, "Batch ID");
-  const requestDigest = marker.get("requestDigest") ?? readMarkdownField(commentBody, "Request digest");
-  const approvalType = marker.get("approvalType") ?? readMarkdownField(commentBody, "Approval type");
-  if (decision !== "APPROVED" || !requestId || !batchId || !requestDigest) {
-    return null;
-  }
-  return {
-    ...approvalType ? { approvalType } : {},
-    approver: comment.author || readMarkdownField(commentBody, "Approver").replace(/^@/, ""),
-    batchId,
-    commandDigest: command?.digest ?? null,
-    edited: isEditedComment(comment),
-    requestDigest,
-    requestId
-  };
+  const evidence = parseExecutionDecisionEvidence(comment);
+  return evidence ? { ...evidence, approver: evidence.actor } : null;
 }
 function parseBatchDefinitionSnapshot(content) {
   const parsed = parseRepositoryYaml(content);
@@ -9798,22 +9793,6 @@ function parseBatchDefinitionSnapshot(content) {
     status: value.spec.status,
     workflowPath: value.spec.workflow.path,
     workflowRef: value.spec.workflow.ref
-  };
-}
-function parseApproverSelectorFromRoleMappingFile(content) {
-  const parsed = parseRepositoryYaml(content);
-  if (!parsed.ok) {
-    return null;
-  }
-  const validated = validateRoleMappingFile2(parsed.value);
-  if (!validated.ok) {
-    return null;
-  }
-  const approver = validated.value.spec.roles.approver;
-  return {
-    githubTeams: approver.githubTeams ?? [],
-    githubUsers: approver.githubUsers ?? [],
-    repositoryRoles: approver.repositoryRoles ?? []
   };
 }
 function parseCanonicalPayload(issueBody) {
@@ -9896,21 +9875,7 @@ function readTriggerType(payload) {
   const triggerType = spec.triggerType;
   return typeof triggerType === "string" ? triggerType : "";
 }
-function parseApprovalCommand(body) {
-  const firstLine = body.split("\n", 1)[0]?.trim();
-  const match = firstLine?.match(/^\/bgcp approve\s+requestDigest=(\S+)$/u);
-  if (!match?.[1]) {
-    return null;
-  }
-  return { digest: match[1] };
-}
-function isEditedComment(comment) {
-  if (!comment.createdAt || !comment.updatedAt) {
-    return false;
-  }
-  return comment.createdAt !== comment.updatedAt;
-}
-function parseBatchPlaneMarker(body, kind) {
+function parseBatchPlaneMarker2(body, kind) {
   const marker = /* @__PURE__ */ new Map();
   const match = body.match(
     new RegExp(`<!--\\s*batch(?:plane|trail):${kind}\\s*([\\s\\S]*?)-->`)
@@ -9930,7 +9895,7 @@ function parseBatchPlaneMarker(body, kind) {
   }
   return marker;
 }
-function readMarkdownField(body, label) {
+function readMarkdownField2(body, label) {
   const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = body.match(new RegExp(`- ${escapedLabel}:\\s*(.+)`));
   const value = match?.[1]?.trim() ?? "";
@@ -10075,6 +10040,7 @@ function createGateGitHubClient({
     return await response.json();
   }
   const repoPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const liteClient = createGitHubLiteClient({ apiBaseUrl, fetcher, token });
   return {
     async getIssue(issueNumber) {
       const issue = await request(
@@ -10114,24 +10080,17 @@ function createGateGitHubClient({
       return null;
     },
     async listIssueComments(issueNumber) {
-      const comments = [];
-      for (let page = 1; page <= 5; page += 1) {
-        const response = await request(
-          `${repoPath}/issues/${issueNumber}/comments?per_page=100&page=${page}`
-        );
-        if (!response?.length) {
-          break;
-        }
-        comments.push(
-          ...response.map((comment) => ({
-            author: comment.user?.login?.trim() ?? "",
-            body: comment.body ?? "",
-            createdAt: comment.created_at ?? "",
-            updatedAt: comment.updated_at ?? ""
-          }))
-        );
-      }
-      return comments;
+      const comments = await liteClient.listIssueComments({
+        owner,
+        repo,
+        issueNumber
+      });
+      return comments.map(
+        (comment) => ({
+          ...comment,
+          updatedAt: comment.updatedAt ?? comment.createdAt
+        })
+      );
     },
     async getFile(path, ref) {
       const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
@@ -10272,191 +10231,142 @@ function deny2(reasonCode, message) {
 
 // src/gate-manual-authorization.ts
 async function verifyManualAuthorization({
-  client,
   evidence,
   input,
   repository
 }) {
   const request = evidence.request;
   const approval = evidence.approval;
-  if (!request || !approval) {
+  if (!request || !approval)
     return deny3(
       "EXECUTION_REQUEST_NOT_APPROVED",
       "Execution request does not have approved comment evidence."
     );
+  const evidenceFailure = verifyApprovalEvidence(request, approval, input);
+  if (evidenceFailure) return evidenceFailure;
+  const client = createGitHubLiteClient({
+    apiBaseUrl: input.apiBaseUrl,
+    fetcher: input.fetcher,
+    token: input.githubToken ?? ""
+  });
+  try {
+    const authorization = await loadCurrentExecutionApprovalPolicy(
+      client,
+      repository,
+      input.configPath
+    );
+    const context = { client, repository, request, approval, authorization };
+    if (approval.approvalType === "WORKSPACE_AUTO_APPROVED")
+      return await verifyAutomaticApproval(context);
+    return await verifyManualApproval(context);
+  } catch (error) {
+    return deny3(
+      "WORKSPACE_AUTHORIZATION_LOOKUP_FAILED",
+      `Workspace authorization lookup failed: ${toErrorMessage(error)}`
+    );
   }
-  if (approval.edited) {
+}
+function verifyApprovalEvidence(request, approval, input) {
+  if (approval.decision !== "APPROVED")
+    return deny3(
+      "EXECUTION_REQUEST_NOT_APPROVED",
+      "Execution request does not have approved comment evidence."
+    );
+  if (approval.edited)
     return deny3(
       "APPROVAL_COMMENT_EDITED",
       "Execution approval comment was edited after creation."
     );
-  }
-  if (approval.commandDigest && approval.commandDigest !== request.requestDigest) {
+  if (approval.commandDigest !== request.requestDigest)
     return deny3(
       "REQUEST_DIGEST_MISMATCH",
       "Approval command digest does not match execution request digest."
     );
-  }
-  if (approval.requestDigest !== input.requestDigest || approval.requestDigest !== request.requestDigest) {
+  if (approval.requestDigest !== input.requestDigest || approval.requestDigest !== request.requestDigest)
     return deny3(
       "REQUEST_DIGEST_MISMATCH",
       "Execution approval digest does not match execution request digest."
     );
-  }
-  if (approval.approvalType === "SCHEDULE_DELEGATED") {
+  if (!approval.approver)
+    return deny3(
+      "APPROVER_NOT_AUTHORIZED",
+      "The approval comment author could not be verified."
+    );
+  if (approval.approvalType === "SCHEDULE_DELEGATED")
     return deny3(
       "SCHEDULE_DELEGATED_APPROVAL_NOT_SUPPORTED",
       "Delegated schedule approval evidence is historical and cannot authorize a new execution."
     );
-  }
-  let workspaceApprovalMode;
-  try {
-    workspaceApprovalMode = await readWorkspaceApprovalMode({
-      client,
-      configPath: input.configPath,
-      ref: request.workflowRef || input.ref
-    });
-  } catch (error) {
+  return void 0;
+}
+async function verifyAutomaticApproval({
+  client,
+  repository,
+  request,
+  approval,
+  authorization
+}) {
+  if (authorization.policy.approval.mode !== "AUTO_APPROVE" || approval.source !== "WORKSPACE_POLICY" || approval.approvalMode !== "AUTO_APPROVE") {
     return deny3(
-      "WORKSPACE_POLICY_LOOKUP_FAILED",
-      `Workspace policy lookup failed: ${toErrorMessage(error)}`
-    );
-  }
-  if (approval.approvalType === "WORKSPACE_AUTO_APPROVED") {
-    return workspaceApprovalMode === "AUTO_APPROVE" ? {
-      message: "Execution request, Workspace auto-approval evidence, and batch policy are verified.",
-      result: "ALLOW"
-    } : deny3(
       "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
-      "Workspace auto-approval evidence requires AUTO_APPROVE policy mode."
+      "Workspace auto-approval evidence requires AUTO_APPROVE policy mode and explicit Workspace policy evidence."
     );
   }
-  if (isSameGitHubLogin(approval.approver, request.requestedBy) && !allowsSelfApproval(workspaceApprovalMode)) {
-    return deny3(
-      "SELF_APPROVAL_NOT_ALLOWED",
-      "Requester and approver must be different users."
-    );
-  }
-  const approverAuthorized = await verifyApproverAuthorization({
-    allowMissingRoleMapping: isSameGitHubLogin(approval.approver, request.requestedBy) && allowsSelfApproval(workspaceApprovalMode),
-    approver: approval.approver,
-    client,
-    configPath: input.configPath,
-    ref: request.workflowRef || input.ref,
-    repository
+  const automatic = resolveAutoApproval({
+    actorHasRequesterRole: isSameGitHubLogin(approval.approver, request.requestedBy) && await hasWorkspaceRole(
+      client,
+      repository,
+      request.requestedBy,
+      authorization.roleMapping.roles.requester
+    ),
+    approvalMode: authorization.policy.approval.mode
   });
-  if (!approverAuthorized.allowed) {
+  if (!automatic.allowed || automatic.decisionSource !== "WORKSPACE_POLICY")
+    return deny3(
+      "REQUESTER_NOT_AUTHORIZED",
+      "Workspace auto-approval requires an eligible, verified requester."
+    );
+  return {
+    result: "ALLOW",
+    message: "Execution request, Workspace auto-approval evidence, and batch policy are verified."
+  };
+}
+async function verifyManualApproval({
+  client,
+  repository,
+  request,
+  approval,
+  authorization
+}) {
+  const manual = authorizeManualApproval({
+    actorHasApproverRole: await hasWorkspaceRole(
+      client,
+      repository,
+      approval.approver,
+      authorization.roleMapping.roles.approver
+    ),
+    actorHasRequesterRole: false,
+    actorIsRequester: isSameGitHubLogin(approval.approver, request.requestedBy),
+    approvalMode: authorization.policy.approval.mode
+  });
+  if (!manual.allowed) {
+    if (manual.reason === "SELF_APPROVAL_BLOCKED")
+      return deny3(
+        "SELF_APPROVAL_NOT_ALLOWED",
+        "Requester and approver must be different users."
+      );
     return deny3(
       "APPROVER_NOT_AUTHORIZED",
-      approverAuthorized.message || `Approver @${approval.approver} is not authorized.`
+      `Approver @${approval.approver} is not authorized.`
     );
   }
   return {
-    message: "Execution request, approval evidence, and batch policy are verified.",
-    result: "ALLOW"
+    result: "ALLOW",
+    message: "Execution request, approval evidence, and batch policy are verified."
   };
 }
-async function readWorkspaceApprovalMode({
-  client,
-  configPath,
-  ref
-}) {
-  const effectiveRef = ref?.trim();
-  if (!effectiveRef) {
-    return "SELF_APPROVAL_BLOCKED";
-  }
-  const workspacePolicyPath2 = `${configPath.replace(/\/+$/u, "")}/workspace.yml`;
-  const workspacePolicyFile = await client.getFile(
-    workspacePolicyPath2,
-    effectiveRef
-  );
-  if (!workspacePolicyFile) {
-    return "SELF_APPROVAL_BLOCKED";
-  }
-  const parsed = parseRepositoryYaml(workspacePolicyFile.content);
-  if (!parsed.ok) {
-    throw new Error(
-      `Workspace policy YAML is invalid: ${workspacePolicyPath2}.`
-    );
-  }
-  const validated = validateWorkspacePolicyFile2(parsed.value);
-  if (!validated.ok) {
-    throw new Error(`Workspace policy is invalid: ${workspacePolicyPath2}.`);
-  }
-  return validated.value.spec.approval.mode;
-}
-async function verifyApproverAuthorization({
-  allowMissingRoleMapping,
-  approver,
-  client,
-  configPath,
-  ref,
-  repository
-}) {
-  const effectiveRef = ref?.trim();
-  if (!effectiveRef) {
-    return {
-      allowed: false,
-      message: "Workflow ref is required for approver authorization."
-    };
-  }
-  const roleMappingPath2 = `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`;
-  const roleMappingFile = await client.getFile(roleMappingPath2, effectiveRef);
-  if (!roleMappingFile) {
-    if (allowMissingRoleMapping) {
-      return { allowed: true };
-    }
-    return {
-      allowed: false,
-      message: `Role mapping file was not found: ${roleMappingPath2}.`
-    };
-  }
-  const selector = parseApproverSelectorFromRoleMappingFile(
-    roleMappingFile.content
-  );
-  if (!selector) {
-    return {
-      allowed: false,
-      message: `Role mapping file is invalid: ${roleMappingPath2}.`
-    };
-  }
-  const normalizedApprover = approver.trim().toLowerCase();
-  if (selector.githubUsers.length > 0) {
-    const hasUserMatch = selector.githubUsers.map((value) => value.toLowerCase()).includes(normalizedApprover);
-    if (hasUserMatch) {
-      return { allowed: true };
-    }
-  }
-  if (selector.repositoryRoles.length > 0) {
-    const permission = await client.getRepositoryPermissionForUser(approver);
-    const normalizedRoles = selector.repositoryRoles.map(
-      (value) => value.toLowerCase()
-    );
-    const actualRole = permission.roleName?.toLowerCase() ?? "";
-    const fallbackRole = permission.permission.toLowerCase();
-    if (normalizedRoles.includes(actualRole) || normalizedRoles.includes(fallbackRole)) {
-      return { allowed: true };
-    }
-  }
-  if (selector.githubTeams.length > 0) {
-    for (const teamSlug of selector.githubTeams) {
-      const membership = await client.getTeamMembershipForUser({
-        org: repository.owner,
-        teamSlug,
-        username: approver
-      });
-      if (membership?.state === "active") {
-        return { allowed: true };
-      }
-    }
-  }
-  return { allowed: false };
-}
-function allowsSelfApproval(mode) {
-  return mode === "SELF_APPROVAL_ALLOWED" || mode === "AUTO_APPROVE";
-}
 function deny3(reasonCode, message) {
-  return { message, reasonCode, result: "DENY" };
+  return { result: "DENY", reasonCode, message };
 }
 function toErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -10591,7 +10501,6 @@ async function verifyLiteAuthorization(input, verifyBatchRevision = verifyApprov
     evidence,
     input
   }) : await verifyManualAuthorization({
-    client: requestContext.client,
     evidence,
     input,
     repository: requestContext.repository

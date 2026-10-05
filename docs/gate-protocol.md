@@ -28,8 +28,15 @@ completion operation. A declared server mode does not prove a Main server exists
 
 Manual workflow: verified request and approval -> dispatcher -> Gate ->
 business job. Repeated approval or native rerun must not reuse authority.
-Known role/capability/lookup consistency work is #223; actual approved input
-binding is #212; target failed-request termination is #224.
+The #223 correction shares the manual-approval policy and Workspace role lookup
+with the product client. Gate reloads policy and role mapping at one current
+default-branch revision, binds the decision to the request/digest and actual
+unedited comment author, and follows all comment pages. Relaxed modes do not
+replace role proof; automatic approval additionally requires explicit policy
+evidence and an eligible requester. Missing/unreadable authorization denies
+execution. QA-L05 tracks owner/provider revalidation separately from automated
+checks. Actual approved input binding is #212; target failed-request termination
+is #224.
 
 Native schedule workflow:
 [schedule-request](../actions/schedule-request/action.yml) records the occurrence,

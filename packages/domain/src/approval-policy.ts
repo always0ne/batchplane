@@ -6,34 +6,38 @@ export type ChangeRequestDecision = "APPROVED" | "REJECTED" | "WITHDRAWN";
 
 export type ChangeRequestDecisionSource = "USER" | "WORKSPACE_POLICY";
 
-export type ChangeRequestAuthorization = {
+export type ApprovalAuthorization = {
   actorHasApproverRole: boolean;
   actorHasRequesterRole: boolean;
   actorIsRequester: boolean;
   approvalMode: WorkspaceApprovalMode;
 };
 
-export type ChangeRequestAuthorizationResult =
+export type ApprovalAuthorizationResult<
+  Reason extends string =
+    | "APPROVER_ROLE_REQUIRED"
+    | "REQUESTER_ROLE_REQUIRED"
+    | "SELF_APPROVAL_BLOCKED",
+> =
   | { allowed: true; decisionSource?: ChangeRequestDecisionSource }
   | {
       allowed: false;
-      reason:
-        | "APPROVER_ROLE_REQUIRED"
-        | "REQUESTER_ROLE_REQUIRED"
-        | "SELF_APPROVAL_BLOCKED";
+      reason: Reason;
     };
 
 export function authorizeChangeRequestCreation(
-  authorization: Pick<ChangeRequestAuthorization, "actorHasRequesterRole">,
-): ChangeRequestAuthorizationResult {
+  authorization: Pick<ApprovalAuthorization, "actorHasRequesterRole">,
+): ApprovalAuthorizationResult<"REQUESTER_ROLE_REQUIRED"> {
   return authorization.actorHasRequesterRole
     ? { allowed: true }
     : { allowed: false, reason: "REQUESTER_ROLE_REQUIRED" };
 }
 
-export function authorizeChangeRequestApproval(
-  authorization: ChangeRequestAuthorization,
-): ChangeRequestAuthorizationResult {
+export function authorizeManualApproval(
+  authorization: ApprovalAuthorization,
+): ApprovalAuthorizationResult<
+  "APPROVER_ROLE_REQUIRED" | "SELF_APPROVAL_BLOCKED"
+> {
   if (!authorization.actorHasApproverRole) {
     return { allowed: false, reason: "APPROVER_ROLE_REQUIRED" };
   }
@@ -48,9 +52,9 @@ export function authorizeChangeRequestApproval(
   return { allowed: true, decisionSource: "USER" };
 }
 
-export function authorizeChangeRequestRejection(
-  authorization: Pick<ChangeRequestAuthorization, "actorHasApproverRole">,
-): ChangeRequestAuthorizationResult {
+export function authorizeManualRejection(
+  authorization: Pick<ApprovalAuthorization, "actorHasApproverRole">,
+): ApprovalAuthorizationResult<"APPROVER_ROLE_REQUIRED"> {
   return authorization.actorHasApproverRole
     ? { allowed: true, decisionSource: "USER" }
     : { allowed: false, reason: "APPROVER_ROLE_REQUIRED" };
@@ -58,10 +62,10 @@ export function authorizeChangeRequestRejection(
 
 export function resolveAutoApproval(
   authorization: Pick<
-    ChangeRequestAuthorization,
+    ApprovalAuthorization,
     "actorHasRequesterRole" | "approvalMode"
   >,
-): ChangeRequestAuthorizationResult {
+): ApprovalAuthorizationResult<"REQUESTER_ROLE_REQUIRED"> {
   if (!authorization.actorHasRequesterRole) {
     return { allowed: false, reason: "REQUESTER_ROLE_REQUIRED" };
   }

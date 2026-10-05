@@ -5,6 +5,7 @@ import {
 } from "./github-types.js";
 
 export type GitHubRequester = {
+  requestList<T>(path: string): Promise<T[]>;
   request<T>(
     path: string,
     init?: RequestInit,
@@ -29,6 +30,22 @@ export function createGitHubRequester({
   }
 
   return {
+    async requestList<T>(path: string): Promise<T[]> {
+      const items: T[] = [];
+      let url: string | undefined = `${apiBaseUrl}${path}`;
+      while (url) {
+        const response: Response = await fetcher(url, {
+          headers: buildHeaders(trimmedToken),
+        });
+        if (!response.ok) throw await buildGitHubApiError(response);
+        if (response.status === 204) return items;
+        items.push(...((await response.json()) as T[]));
+        url = response.headers
+          .get("link")
+          ?.match(/<([^>]+)>;\s*rel="next"/u)?.[1];
+      }
+      return items;
+    },
     async request<T>(
       path: string,
       init: RequestInit = {},

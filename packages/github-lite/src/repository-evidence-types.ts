@@ -17,6 +17,7 @@ export type RepositoryIssueComment = {
   author: string;
   body: string;
   createdAt: string;
+  updatedAt?: string;
   id: number;
   issueNumber: number;
 };

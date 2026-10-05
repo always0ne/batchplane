@@ -5,7 +5,10 @@ import { listExecutionRunFacts } from "./execution-run-client.js";
 import { createGitHubLiteMockState } from "./mock-state.js";
 import { createMockGitHubLiteClient } from "./mock-client.js";
 import { serializeBatchDefinitionYaml } from "./batch-definition-codec.js";
-import { buildWorkspacePolicyYaml } from "./workspace-installation-templates.js";
+import {
+  buildRoleMappingYaml,
+  buildWorkspacePolicyYaml,
+} from "./workspace-installation-templates.js";
 vi.mock("./approved-batch-revision.js", () => ({
   verifyApprovedBatchRevision: vi.fn(),
 }));
@@ -24,6 +27,12 @@ import { isExecutionRequestCreationUnavailableError } from "@batchplane/ui-clien
 import { describe, expect, it, vi } from "vitest";
 
 import { createGitHubLiteExecutionApprovalClient } from "./execution-approval-client.js";
+import {
+  buildExecutionApprovalComment,
+  parseExecutionRequestDetail,
+} from "./execution-approval-legacy.js";
+import { stringifyRepositoryYaml } from "./repository-yaml.js";
+import { loadHistoricalWorkspacePolicy } from "./workspace-authorization.js";
 import {
   buildChangeRequestBody,
   changeRequestEvidenceVersion,
@@ -61,6 +70,276 @@ const draft = {
 };
 
 describe("GitHub Lite execution approval client", () => {
+  it("defaults only a missing policy and rejects present malformed policy in the shared revision reader", async () => {
+    const context = createContext();
+    const policy = context.client.state.files.find((file) =>
+      file.path.endsWith("workspace.yml"),
+    )!;
+    for (const content of ["spec: [", "kind: WrongPolicy"]) {
+      policy.content = content;
+      await expect(
+        loadHistoricalWorkspacePolicy(
+          context.client,
+          context.repositoryRef,
+          "mock-main-sha",
+        ),
+      ).rejects.toThrow();
+    }
+    context.client.state.files = context.client.state.files.filter(
+      (file) => file !== policy,
+    );
+    await expect(
+      loadHistoricalWorkspacePolicy(
+        context.client,
+        context.repositoryRef,
+        "mock-main-sha",
+      ),
+    ).resolves.toEqual({ approval: { mode: "SELF_APPROVAL_BLOCKED" } });
+  });
+  it("denies both decisions to an actor without an approver role and revalidates commands after a permitted read", async () => {
+    const context = createContext({
+      getExecutionRequestIssue: vi.fn().mockResolvedValue(createIssue()),
+    });
+    const product = createGitHubLiteExecutionApprovalClient(context);
+    expect(
+      (await product.getExecutionRequest({ requestLocator: "71" }))?.capability,
+    ).toMatchObject({ canApprove: true, canReject: true });
+    const policy = context.client.state.files.find((file) =>
+      file.path.endsWith("workspace.yml"),
+    )!;
+    policy.content = buildWorkspacePolicyYaml("SELF_APPROVAL_BLOCKED");
+    await expect(
+      product.approveExecutionRequest({ requestLocator: "71" }),
+    ).rejects.toThrow("not currently approvable");
+    expect(
+      (await product.getExecutionRequest({ requestLocator: "71" }))?.capability,
+    ).toMatchObject({
+      canApprove: false,
+      canReject: true,
+      approveUnavailableReason: "SELF_APPROVAL_BLOCKED",
+    });
+    policy.content = buildWorkspacePolicyYaml("AUTO_APPROVE");
+    context.client.state.repositoryPermissions = [
+      { username: "developer", permission: "write", roleName: "write" },
+    ];
+    expect(
+      (await product.getExecutionRequest({ requestLocator: "71" }))?.capability,
+    ).toEqual({
+      canApprove: false,
+      canReject: false,
+      approveUnavailableReason: "APPROVER_ROLE_REQUIRED",
+      rejectUnavailableReason: "APPROVER_ROLE_REQUIRED",
+    });
+    await expect(
+      product.approveExecutionRequest({ requestLocator: "71" }),
+    ).rejects.toThrow("not currently approvable");
+    await expect(
+      product.rejectExecutionRequest({
+        requestLocator: "71",
+        reason: "Not permitted",
+      }),
+    ).rejects.toThrow("not currently rejectable");
+    expect(context.client.createIssueComment).not.toHaveBeenCalled();
+  });
+
+  it("keeps missing or unreadable role proof inspectable and prevents decision writes", async () => {
+    const context = createContext({
+      getExecutionRequestIssue: vi.fn().mockResolvedValue(createIssue()),
+    });
+    context.client.state.files = context.client.state.files.filter(
+      (file) => !file.path.endsWith("role-mapping.yml"),
+    );
+    const product = createGitHubLiteExecutionApprovalClient(context);
+    for (const failRead of [false, true]) {
+      if (failRead)
+        context.client.getFile = vi
+          .fn()
+          .mockRejectedValue(new Error("role proof unavailable"));
+      const request = await product.getExecutionRequest({
+        requestLocator: "71",
+      });
+      expect(request).toMatchObject({
+        requestId: draft.requestId,
+        capability: {
+          canApprove: false,
+          canReject: false,
+          approveUnavailableReason: "AUTHORIZATION_UNAVAILABLE",
+          rejectUnavailableReason: "AUTHORIZATION_UNAVAILABLE",
+        },
+      });
+      await expect(
+        product.approveExecutionRequest({ requestLocator: "71" }),
+      ).rejects.toThrow();
+      await expect(
+        product.rejectExecutionRequest({
+          requestLocator: "71",
+          reason: "Missing proof",
+        }),
+      ).rejects.toThrow();
+      if (!failRead) {
+        const created = await product.createExecutionRequest({
+          draft: { ...draft, workspaceApprovalMode: "SELF_APPROVAL_BLOCKED" },
+          expiresAt: "2026-09-11T10:00:00.000Z",
+          parameters: [],
+          reason: "Missing role proof",
+          targetRevision: "main",
+        });
+        expect(created.postCreateError).toBeUndefined();
+        expect(created.request.capability).toMatchObject({
+          canApprove: false,
+          canReject: false,
+          approveUnavailableReason: "AUTHORIZATION_UNAVAILABLE",
+          rejectUnavailableReason: "AUTHORIZATION_UNAVAILABLE",
+        });
+      }
+    }
+    expect(context.client.createIssueComment).not.toHaveBeenCalled();
+  });
+
+  it("uses current policy instead of the draft and automatically approves an eligible requester without granting a manual role", async () => {
+    const context = createContext();
+    context.client.state.repositoryPermissions = [
+      { username: "developer", permission: "write", roleName: "write" },
+    ];
+    const product = createGitHubLiteExecutionApprovalClient(context);
+    const input = {
+      draft: {
+        ...draft,
+        workspaceApprovalMode: "SELF_APPROVAL_BLOCKED" as const,
+      },
+      expiresAt: "2026-09-11T10:00:00.000Z",
+      parameters: [],
+      reason: "Reconciled",
+      targetRevision: "main",
+    };
+    const automatic = await product.createExecutionRequest(input);
+    expect(automatic.request).toMatchObject({
+      status: "APPROVED",
+      approvalDecision: {
+        source: "WORKSPACE_POLICY",
+        currentAuthorization: "VERIFIED",
+      },
+    });
+    expect(context.client.createIssueComment).toHaveBeenCalledOnce();
+    const policy = context.client.state.files.find((file) =>
+      file.path.endsWith("workspace.yml"),
+    )!;
+    policy.content = buildWorkspacePolicyYaml("SELF_APPROVAL_BLOCKED");
+    const pending = await product.createExecutionRequest({ ...input, draft });
+    expect(pending.request).toMatchObject({
+      status: "REQUESTED",
+      capability: {
+        canApprove: false,
+        canReject: false,
+        approveUnavailableReason: "APPROVER_ROLE_REQUIRED",
+      },
+    });
+    expect(context.client.createIssueComment).toHaveBeenCalledOnce();
+    policy.content = buildWorkspacePolicyYaml("AUTO_APPROVE");
+    context.client.state.repositoryPermissions = [
+      { username: "developer", permission: "read", roleName: "read" },
+    ];
+    expect(await product.createExecutionRequest(input)).toMatchObject({
+      postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" },
+      request: { status: "REQUESTED" },
+    });
+    expect(context.client.createIssueComment).toHaveBeenCalledOnce();
+  });
+
+  it("records automatic policy approval without requiring unavailable manual approver proof", async () => {
+    const context = createContext();
+    const roles = context.client.state.files.find((file) =>
+      file.path.endsWith("role-mapping.yml"),
+    )!;
+    roles.content = stringifyRepositoryYaml({
+      apiVersion: "batchplane.io/v1",
+      kind: "RoleMapping",
+      metadata: { id: "default" },
+      spec: {
+        roles: {
+          requester: { githubUsers: ["developer"] },
+          approver: { githubTeams: ["approvers"] },
+          maintainer: { githubUsers: ["maintainer"] },
+          auditor: { githubUsers: ["auditor"] },
+        },
+      },
+    });
+    context.client.getTeamMembershipForUser = vi
+      .fn()
+      .mockRejectedValue(
+        new Error("Manual approver membership is unavailable"),
+      );
+    const product = createGitHubLiteExecutionApprovalClient(context);
+    const result = await product.createExecutionRequest({
+      draft,
+      expiresAt: "2026-09-11T10:00:00.000Z",
+      parameters: [],
+      reason: "Reconciled",
+      targetRevision: "main",
+    });
+    expect(result.request).toMatchObject({
+      status: "APPROVED",
+      approvalDecision: {
+        source: "WORKSPACE_POLICY",
+        currentAuthorization: "VERIFIED",
+      },
+    });
+    expect(result.postCreateError).toBeUndefined();
+    expect(context.client.createIssueComment).toHaveBeenCalledOnce();
+  });
+
+  it("keeps historical actor evidence separate from current decision authority and reads policy and roles at one effective SHA", async () => {
+    const issue = createIssue();
+    const parsed = parseExecutionRequestDetail(issue)!;
+    const body = buildExecutionApprovalComment({
+      approvedAt: new Date(),
+      approver: "auditor",
+      request: parsed,
+    });
+    const context = createContext({
+      getExecutionRequestIssue: vi.fn().mockResolvedValue(issue),
+    });
+    context.client.listIssueComments = vi.fn().mockResolvedValue([
+      {
+        author: "auditor",
+        body,
+        createdAt: "2026-09-11T09:01:00.000Z",
+        id: 1,
+        issueNumber: 71,
+      },
+    ]);
+    const getFile = vi.spyOn(context.client, "getFile");
+    const product = createGitHubLiteExecutionApprovalClient(context);
+    expect(
+      await product.getExecutionRequest({ requestLocator: "71" }),
+    ).toMatchObject({
+      approvalDecision: {
+        actor: "auditor",
+        source: "USER",
+        currentAuthorization: "DENIED",
+      },
+    });
+    const policyReads = getFile.mock.calls
+      .map(([input]) => input)
+      .filter(
+        (input) =>
+          input.path.endsWith("workspace.yml") ||
+          input.path.endsWith("role-mapping.yml"),
+      );
+    expect(policyReads).toHaveLength(2);
+    expect(policyReads.every((input) => input.ref === "mock-main-sha")).toBe(
+      true,
+    );
+    context.client.state.repositoryPermissions = [
+      { username: "auditor", permission: "maintain", roleName: "maintain" },
+      { username: "developer", permission: "maintain", roleName: "maintain" },
+    ];
+    expect(
+      (await product.getExecutionRequest({ requestLocator: "71" }))
+        ?.approvalDecision?.currentAuthorization,
+    ).toBe("VERIFIED");
+    expect(context.client.createIssueComment).not.toHaveBeenCalled();
+  });
   it("records a manual approval on the current Issue without closing it", async () => {
     const context = createContext({
       getExecutionRequestIssue: vi.fn().mockResolvedValue(createIssue()),
@@ -818,6 +1097,7 @@ function createContext({
     ...state.files.filter(
       (file) =>
         !file.path.startsWith(".batch-governance/batches/") &&
+        file.path !== ".batch-governance/policies/role-mapping.yml" &&
         file.path !== ".batch-governance/workspace.yml",
     ),
     ...batchDefinitions.map((batch) => ({
@@ -831,6 +1111,12 @@ function createContext({
       content: buildWorkspacePolicyYaml(workspaceApprovalMode),
       path: ".batch-governance/workspace.yml",
       sha: "policy-sha",
+    },
+    {
+      branch: "main",
+      content: buildRoleMappingYaml(),
+      path: ".batch-governance/policies/role-mapping.yml",
+      sha: "roles-sha",
     },
   ];
   const client = createMockGitHubLiteClient(state);

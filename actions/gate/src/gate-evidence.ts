@@ -1,11 +1,13 @@
-import { parseRepositoryYaml } from "@batchplane/github-lite";
+import {
+  parseExecutionDecisionEvidence,
+  parseRepositoryYaml,
+} from "@batchplane/github-lite";
 import {
   validateBatchDefinitionFile,
   validateRoleMappingFile,
 } from "./gate-schema.js";
 import type { GateGitHubClient } from "./gate-github-client.js";
 import type {
-  ApprovalCommand,
   ApproverSelectorSnapshot,
   BatchDefinitionSnapshot,
   ExecutionApprovalEvidence,
@@ -42,6 +44,8 @@ export async function findGitHubApprovalEvidence({
 
   const approval = loadApproval
     ? ((await client.listIssueComments(issue.number))
+        .slice()
+        .reverse()
         .map(parseExecutionApprovalEvidence)
         .find((evidence) =>
           evidence
@@ -136,41 +140,8 @@ function readApprovedBatchRevision(payload: unknown): {
 function parseExecutionApprovalEvidence(
   comment: GateIssueComment,
 ): ExecutionApprovalEvidence | null {
-  const commentBody = comment.body;
-
-  if (!commentBody.startsWith("/bgcp approve ")) {
-    return null;
-  }
-
-  const command = parseApprovalCommand(commentBody);
-  const marker = parseBatchPlaneMarker(commentBody, "execution-approval");
-  const decision = marker.get("decision");
-  const requestId =
-    marker.get("requestId") ?? readMarkdownField(commentBody, "Request ID");
-  const batchId =
-    marker.get("batchId") ?? readMarkdownField(commentBody, "Batch ID");
-  const requestDigest =
-    marker.get("requestDigest") ??
-    readMarkdownField(commentBody, "Request digest");
-  const approvalType =
-    marker.get("approvalType") ??
-    readMarkdownField(commentBody, "Approval type");
-
-  if (decision !== "APPROVED" || !requestId || !batchId || !requestDigest) {
-    return null;
-  }
-
-  return {
-    ...(approvalType ? { approvalType } : {}),
-    approver:
-      comment.author ||
-      readMarkdownField(commentBody, "Approver").replace(/^@/, ""),
-    batchId,
-    commandDigest: command?.digest ?? null,
-    edited: isEditedComment(comment),
-    requestDigest,
-    requestId,
-  };
+  const evidence = parseExecutionDecisionEvidence(comment);
+  return evidence ? { ...evidence, approver: evidence.actor } : null;
 }
 
 export function parseBatchDefinitionSnapshot(
@@ -344,25 +315,6 @@ function readTriggerType(payload: unknown): string {
   const triggerType = (spec as { triggerType?: unknown }).triggerType;
 
   return typeof triggerType === "string" ? triggerType : "";
-}
-
-function parseApprovalCommand(body: string): ApprovalCommand | null {
-  const firstLine = body.split("\n", 1)[0]?.trim();
-  const match = firstLine?.match(/^\/bgcp approve\s+requestDigest=(\S+)$/u);
-
-  if (!match?.[1]) {
-    return null;
-  }
-
-  return { digest: match[1] };
-}
-
-function isEditedComment(comment: GateIssueComment): boolean {
-  if (!comment.createdAt || !comment.updatedAt) {
-    return false;
-  }
-
-  return comment.createdAt !== comment.updatedAt;
 }
 
 function parseBatchPlaneMarker(
