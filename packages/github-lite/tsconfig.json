@@ -6,5 +6,9 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  "references": [{ "path": "../domain" }]
+  "references": [
+    { "path": "../digest" },
+    { "path": "../domain" },
+    { "path": "../ui-client" }
+  ]
 }

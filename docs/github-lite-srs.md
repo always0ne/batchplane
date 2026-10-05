@@ -7,27 +7,29 @@ product semantics in [`main-lite-conformance.md`](./main-lite-conformance.md).
 GitHub Lite is the Git-backed, serverless edition of BatchPlane, not a temporary
 definition of the product before Main exists.
 
-This is the normative target contract. The current 0.x implementation still
-uses delegated-approval schedule evidence and a dispatcher compatibility path;
-read compatibility is retained while new writes migrate according to
-[`control-plane-migration-plan.md`](./control-plane-migration-plan.md).
+This specification includes current behavior and explicitly pending corrections.
+Native same-Run scheduling is implemented under NATIVE_SCHEDULE_V2; live #202
+acceptance remains pending. No new delegated-approval compatibility path is
+required. [Traceability](./requirements-traceability.md) and the
+[roadmap](./control-plane-migration-plan.md) distinguish implementation from
+acceptance and planned work.
 
 ## Scope
 
-GitHub Lite uses a GitHub repository as the governance store and audit surface.
+GitHub Lite stores configuration and audit evidence in a GitHub repository.
 The React/Vite UI runs without a BatchPlane server and calls GitHub APIs with a
 user-provided token stored only in session storage.
 
 GitHub Lite must support:
 
 - Repository installation through a setup pull request.
-- Batch registration through pull requests.
-- Registration approval through the approvals inbox.
+- Batch registration, change, and deletion through change requests.
+- Change request approval through the request detail route and approvals inbox.
 - Execution requests through GitHub Issues.
 - Execution approval evidence through GitHub Issue comments.
 - Dispatcher handoff through a repository workflow.
 - BatchPlane Gate enforcement before any batch command runs.
-- Governed schedules whose approved batch revision authorizes each matching
+- Controlled schedules whose approved batch revision authorizes each matching
   occurrence without fabricating occurrence-level approval.
 
 UI work must also follow the Lite UX baseline in
@@ -36,7 +38,43 @@ implementation is not complete until the user can understand the controlled
 object, the next action, and whether the visible item is approval work,
 execution evidence, or failure follow-up.
 
+### Product Sitemap And Deferred Requests
+
+Execution history uses `/executions`, an exact execution uses
+`/executions/:executionId`, and failure follow-up uses `/executions/failures`.
+Workspace settings use `/workspace`. Internal links must preserve the exact
+execution identity and existing occurrence/attempt context. Product navigation
+uses execution and request/audit terminology, not provider Run or Governance
+categories. Source links may still name the actual provider and its Run.
+
+The sitemap refactoring preserves current change/execution request creation
+and detail routes, single-request behavior, approval policy and evidence.
+Multi-Batch/multi-type/multi-Workspace requests and `/requests/new` plus `/requests/:requestId`
+are deferred to the separate [unified request feature specification](./unified-request-feature-spec.md).
+That document records agreed intent and open decisions; it is not a claim of
+current capability or authorization to implement the feature during refactoring.
+
 ## Installation Requirements
+
+Workspace settings use the shared product UI. A Lite-specific connection form
+owns GitHub credentials; the shared screen owns connection results,
+installation readiness and approval-policy presentation through the product
+client. Only one session-storage connection is supported here. Main identity,
+OAuth is not implemented. Multiple Workspaces and unified requests are planned
+in #142, not provided by this single-connection screen.
+
+Saving a connection must not be reported as verified connectivity. Creating an
+installation/update request must not be reported as applied installation.
+Connection check explicitly saves and verifies the current editor values.
+Installation/update and policy requests require a successful current check and
+must not implicitly save connection fields. Editing owner, repository or token,
+explicitly saving, disconnecting or failing a check invalidates the previous
+verification and related command results. Unavailable commands have localized
+disabled reasons and handler-level guards. A later successful check restores
+only the commands allowed by that inspection's product capabilities.
+Policy requests must display current and requested modes separately until the
+source confirms application. Disconnecting or replacing the connection must
+prevent pending results from restoring the previous connection's screen state.
 
 The setup screen must inspect the connected repository before users rely on
 execution approval.
@@ -87,19 +125,19 @@ be ignored. The dispatcher workflow must serialize runs per execution request
 Issue using workflow `concurrency` so duplicate approval comments cannot
 dispatch the same request in parallel.
 
-This dispatcher workflow is only for approved manual execution intents.
-Scheduled occurrences do not create manual execution approvals and do not use
-the dispatcher. Their native schedule run resolves occurrence context, calls
-Gate against the approved Schedule Revision, and reaches the batch command only
-when Gate allows the same workflow run.
+This dispatcher workflow is for manual approvals. Scheduled occurrences do not
+wait in the approval inbox and never enter the dispatcher path. Their native
+workflow records the request, verifies the approved schedule revision, executes
+the batch after a business-entry recheck, and records its result in that Run.
+Schedule request, Gate and result comments must not become approval commands.
 
 New generated workflows must use the renamed action repository reference
 `always0ne/batchplane`. Development templates currently use `@main`, but a
 production release must pin managed actions to an approved immutable release
 tag or commit SHA and expose outdated references through Workspace installation
-health. Legacy target repositories that still reference
-`always0ne/batchtrail` rely on GitHub repository redirects only during the
-documented regeneration window.
+health under pending #196. Existing repositories that still reference
+`always0ne/batchtrail` should regenerate their managed artifacts; this document
+does not define a new compatibility window or remove historical readers.
 
 ## Registration Requirements
 
@@ -108,7 +146,7 @@ documented regeneration window.
 Registration creates `.batch-governance/batches/{batchId}.yml`.
 
 The `batchId` is mandatory. The UI must not create fallback identifiers such as
-`new-batch` for persistent governance paths.
+`new-batch` for persistent repository paths.
 
 ### Workflow Generation
 
@@ -126,9 +164,9 @@ The generated workflow must include:
   `request_digest`.
 - A `batchplane-gate` job before the batch job.
 - A batch job that depends on `batchplane-gate`.
-- A completion reporter that depends on the batch job, runs with `always()`
-  semantics, and idempotently correlates the terminal outcome to the Gate
-  attempt.
+- Native schedule result reporting through the separate schedule-result Action;
+  manual results remain native execution projections, not a general Gate
+  completion operation.
 - Checkout before running repository-registered execution assets.
 - The user-defined batch command after Gate.
 
@@ -136,37 +174,33 @@ If schedules are enabled for the batch, the generated workflow must also
 include:
 
 - `on.schedule` entries derived from `BatchDefinition.schedules[]`
-- the user-entered POSIX cron and IANA timezone emitted through GitHub Actions
-  native `on.schedule` timezone support
-- validation that enabled schedules in one generated workflow do not use an
-  ambiguous duplicate cron expression, because `github.event.schedule`
-  identifies the triggering entry by cron text
-- one scheduler job per enabled schedule
-- job-level `concurrency` per schedule so duplicate cron deliveries do not
-  create parallel attempts for the same occurrence
-- occurrence-context generation before Gate
-- the same mandatory `batchplane-gate` boundary used by manual execution
-- no dispatcher or approval-comment dependency for the scheduled path
+- original cron and native timezone entries, without generating year-round
+  winter/summer UTC alternatives
+- separate control, business and result responsibilities for each matching
+  schedule within the same Run
+- an explicit validation error for equal cron strings with different timezones
+  in one workflow; equal cron/timezone schedules retain distinct identities
+- request and Gate-evidence recording before business is permitted
+- actual Run/attempt and current approved-revision checks before the command,
+  including when only the business job is rerun
+- result correlation to that schedule's jobs and attempt, not the entire Run's
+  conclusion
 
-The native scheduled workflow may continue to the batch job only through its
-mandatory Gate dependency. No schedule helper may bypass Gate or launch a
-second uncorrelated workflow.
+The control job must never execute the batch command or pass its Issue-write
+permission to the business job. The schedule does not invoke dispatcher.
 
 `gateRequired` is an invariant. It is not an optional checkbox.
 
 The Gate must deny GitHub Actions UI reruns by default. A rerun reuses the
 original `workflow_dispatch` inputs, so it is not treated as a new BatchPlane
-authorization. A retry must be represented by a new execution request or by a
-future explicit retry approval.
+authorization. A new execution requires a new request; no implicit retry or
+same-request redispatch after confirmed failure is approved.
 
-The Gate must also verify GitHub evidence independently. For manual execution,
-the generated workflow passes the repository `GITHUB_TOKEN` to Gate, and Gate
-must confirm that the workflow run was initiated by dispatcher automation and
-that a matching execution request Issue plus APPROVED approval comment exist.
-For schedule execution, Gate must instead verify the effective merged Batch and
-Schedule Revision, the native schedule event, the occurrence time, the workflow
-target, and the first-attempt constraint. Manual approval evidence must not be
-required or synthesized for this path.
+For manual executions, Gate must also verify GitHub evidence independently. The generated workflow
+passes the repository `GITHUB_TOKEN` to Gate, and Gate must confirm that the
+workflow run was initiated by the dispatcher automation and that a matching
+execution request Issue plus APPROVED approval comment exist for the submitted
+`request_id`, `batch_id`, and `request_digest`.
 
 ### Execution Environment
 
@@ -202,30 +236,45 @@ If the command field is empty when a file is uploaded, the UI may populate a
 default command that executes the uploaded artifact. The command must update if
 it was auto-generated and the Batch ID changes.
 
+Business metadata and platform execution settings have separate typed owners.
+GitHub-specific runner/ref fields are handled by the GitHub execution settings
+component, while the shared page retains the same registration/change flow.
+This separation must not remove command, runner, revision or execution-file
+information from Batch detail or execution requests, add a separate save step,
+or require a second change request. It does not implement a new platform.
+
+Repository file readers must use the same standard YAML interpretation in the
+Lite adapter and Actions. Syntax diagnostics retain line/column information;
+file-schema and authorization validation remain mandatory. A parser/formatter
+change must not rewrite existing evidence or invalidate a historical approval
+by hashing reformatted content in place of the original artifact bytes.
+
 ### Registration Review UX
 
-Before creating the registration pull request, the UI must show a PR review
-panel with:
+Before creating a change request, the UI must show a review panel
+with:
 
 - generated file paths for the batch definition, workflow, and optional
   execution file
-- a governance checklist confirming Batch ID-derived paths, mandatory Gate,
+- a control checklist confirming Batch ID-derived paths, mandatory Gate,
   selected execution environment, and recorded Batch command
 - a YAML preview for the batch definition and generated workflow
-- a short handoff note that creation routes the PR to approvals and GitHub list
-  results can lag briefly
+- a short note that the created request opens immediately in its internal detail
+  route while GitHub list results can lag briefly
 
-Registration PR creation routes directly to the returned PR detail page. The
-approvals inbox may still lag behind GitHub list APIs, so newly created
-registration, change, and deletion requests must remain reviewable through the
-direct detail route immediately after creation.
+The registration, change, and deletion pages invoke `BatchPlaneClient` product
+operations. The GitHub Lite adapter owns branch, file, and pull-request
+mechanics; the page does not treat a pull-request body as its command contract.
+Each successful mutation routes directly to the returned internal change request
+detail page. The approvals inbox may still lag behind GitHub list APIs,
+so the direct detail route remains immediately available.
 
 The review panel is the primary operator surface. YAML preview is supporting
 evidence, not the first thing the user should have to interpret.
 
 ### Batch Deletion Request Requirements
 
-Batch deletion is a governed change request, not a direct repository mutation.
+Batch deletion is a change request, not a direct repository mutation.
 The batch detail screen must offer a delete request action in the same request
 area as execution and change requests. Creating a delete request must open a
 pull request titled `Delete batch {batchId}` and remove:
@@ -234,13 +283,25 @@ pull request titled `Delete batch {batchId}` and remove:
 - the generated workflow path recorded in the batch definition
 - the optional execution artifact path, when one is registered and present
 
-The delete request body must preserve a deleted batch archive snapshot:
+The delete request must preserve enough verified evidence to recover the
+deleted batch archive after merge. The change request evidence must include
+the deletion base revision and the `beforeDigest` for the BatchDefinition
+artifact. The archive source of truth is the BatchDefinition at that recorded
+`baseRevisionSha`, not the editable PR body summary. The recovered definition
+must preserve:
 
-- request type `DELETE`
-- Batch ID, name, owner, domain, environment, criticality
-- workflow path, runner, command, optional execution file
+- Batch ID, name, owner, domain, environment, and criticality
+- workflow path and ref
+- runner, command, and optional execution file
 - embedded schedules at deletion time
-- source request number and URL through the PR itself
+- the source request number and URL
+
+The adapter must compare the recovered BatchDefinition bytes with the
+evidence `beforeDigest` before returning the archive to the UI. If the request
+evidence is malformed, altered, or the base revision cannot be read or does
+not match the digest, the UI must show an explicit archive-evidence-unavailable
+state and source request link. It must not reconstruct or display archive
+fields from the PR body.
 
 After the delete PR is merged, the batch no longer appears as an active
 definition, but direct access to `/batches/{batchId}` must still show the
@@ -294,6 +355,19 @@ digest as the primary decision material.
 
 ## Approval Requirements
 
+For controlled registration, change, and deletion requests, GitHub PR comments
+are repository-backed audit evidence only. They never grant merge authority on
+their own. Before every approval or approved-change apply attempt, BatchPlane
+must reload the current Workspace policy and role mapping, re-authorize the
+current actor under the current self-approval rule, and reject a stale approval
+when that authority has been removed or tightened.
+
+The authoritative verifier must read the PR head rather than trust request
+evidence alone. It must require the canonical BatchDefinition and generated
+Gate-first workflow transition for the requested operation, and it may govern
+only the definition, generated workflow, and the permitted batch artifact
+envelope. Arbitrary repository paths are never controlled artifacts.
+
 Execution approval happens in the approvals inbox.
 
 The Workspace approval mode is repository-backed configuration, not browser
@@ -304,7 +378,7 @@ local state. The policy file path is:
 ```
 
 If the file is missing, the effective approval mode is `SELF_APPROVAL_BLOCKED`.
-`SELF_APPROVAL_BLOCKED` is the default four-eyes mode: requester and approver
+`SELF_APPROVAL_BLOCKED` is the default separation-of-duties mode: requester and approver
 must be different users. `SELF_APPROVAL_ALLOWED` is an explicit Workspace
 policy choice for personal testing, demos, or low-risk automation where the
 same operator may request and approve eligible Batch changes or manual
@@ -322,6 +396,12 @@ self-approval is also allowed under this mode.
 Policy, role-mapping, and installation changes are evaluated against the
 currently effective policy and repository protection. A proposed policy must
 not authorize or auto-merge itself using values that are not effective yet.
+
+For failure follow-up evidence, both `SELF_APPROVAL_ALLOWED` and `AUTO_APPROVE`
+also permit a current `maintain` or `admin` user to manually review their own
+follow-up. This does not synthesize a post-failure review decision: even in
+`AUTO_APPROVE`, the manager must submit an explicit review comment with one of
+the terminal decisions and a nonblank reason.
 
 The Workspace screen must allow an operator to prepare a Workspace policy
 change without editing YAML by hand. Saving an approval mode change creates a
@@ -344,9 +424,25 @@ items awaiting review, and failed or Gate-blocked runs that require follow-up.
 Every row must route to the relevant BatchPlane detail screen rather than only
 to a raw GitHub page.
 
+Failure follow-up routing is stateful. If no valid follow-up exists, the
+execution requester receives `Write follow-up` for a business failure. A
+Gate-blocked run with no follow-up remains `Gate blocked` evidence work and
+routes its requester to `Review evidence`; it must not claim that a business
+failure explanation is missing because the batch command never ran. A follow-up in
+`AWAITING_REVIEW` is review work only for a Runtime-eligible Workspace manager;
+the requester must not receive a false missing-evidence item merely because
+they requested the run. `APPROVED` clears follow-up work for its author and
+requester. `CHANGES_REQUESTED` and `REJECTED` route the follow-up author or
+owner to `Submit follow-up update` at the execution detail follow-up anchor.
+An `OPEN` or `INVESTIGATING` follow-up may remain assigned as `Continue
+follow-up`, but must not duplicate an eligible manager's review item for the
+same record. Gate-block follow-ups preserve the `Gate blocked` label and Gate
+context for ongoing work; Gate revisions may use the same update action as
+business-failure revisions while retaining that label.
+
 Each execution request must also have a BatchPlane detail screen. The detail
 screen must show request status, requester, batch, environment, workflow
-path/ref, runner, batch command, request digest, governance checks, canonical
+path/ref, runner, batch command, request digest, control checks, canonical
 request payload, approval evidence, dispatcher evidence, and Gate evidence when
 available. The detail screen is the primary place to explain why approval did or
 did not lead to dispatch.
@@ -380,14 +476,33 @@ from business failures and route rows to execution run detail. Business failure
 rows must support audit follow-up/explanation separately from approval work. A
 failure explanation must capture explanation text, action taken, owner,
 follow-up status, author, timestamp, and related run/request IDs. In GitHub
-Lite this explanation must be stored as immutable GitHub-backed evidence, such
-as structured Issue comments or repository evidence files. Final closure of a
-failure explanation requires a Workspace manager review/approval workflow; that
-review workflow is tracked separately from the initial explanation capture.
+Lite this explanation must be stored as GitHub-backed evidence, such as
+structured Issue comments or repository evidence files. Final closure of a
+failure explanation requires a Workspace manager review/approval workflow. A
+review record is accepted only when its actual GitHub comment author currently
+has `maintain` or `admin` repository permission; marker text cannot supply the
+reviewer identity or timestamp. Operational follow-up status (`OPEN`,
+`INVESTIGATING`, `RESOLVED`, or `ACCEPTED_RISK`) is independent from review
+status (`AWAITING_REVIEW`, `APPROVED`, `CHANGES_REQUESTED`, or `REJECTED`). Each
+of the three terminal review decisions requires a nonblank reason. Under the
+default `SELF_APPROVAL_BLOCKED` policy, the author cannot review their own
+follow-up; `SELF_APPROVAL_ALLOWED` and `AUTO_APPROVE` explicitly permit a
+manager's manual self-review. `AUTO_APPROVE` does not create a post-failure
+review decision automatically: the manager must still write an explicit review
+comment with a nonblank reason.
+For a request Issue, a follow-up marker is eligible only when its `requestId`
+and `batchId` match the containing execution request. The first valid base
+comment for each `followUpId` is authoritative, and only the first valid
+terminal review for that base record affects its state. Detail screens show
+ineligible review state as a compact reason/tooltip, not an apparently usable
+decision control. GitHub comments remain editable or deletable under GitHub's
+own permissions, and Lite has no trusted cross-client transaction lock, so it
+presents repository-backed evidence rather than claiming an independent
+immutable audit store.
 
 Registration pull requests must also have a BatchPlane detail screen reachable
 from the approvals inbox. The registration detail screen must show pull request
-metadata, review state, governance checklist, YAML change summary for governed
+metadata, review state, control checklist, YAML change summary for controlled
 files, refresh action, and GitHub pull request link. Approval wording on this
 screen must be explicit that approval merges the registration pull request.
 Registration approve/reject actions are executed from this detail screen, not
@@ -399,6 +514,19 @@ execution request Issues, approval comments, dispatcher comments, Gate decision
 comments, and workflow_dispatch run records. The timeline must support filtering
 by Batch ID and request ID and show GitHub source links for each event when the
 source URL is available.
+
+Dashboard approval and failure summaries must use the same eligible records as
+their destination screens. Scheduled occurrences are not pending human approval
+work. A failed workflow without verified Gate permission is not counted as a
+business failure. The summary and detail views must preserve the same native
+occurrence, attempt, source-only observation, and deleted-batch history.
+
+Inspection screens must preserve filters, log view/search, and an unsent
+explanation when the operator changes language. Refresh performs a new provider
+read and distinguishes a failed query from an empty result. Responses belonging
+to a previous execution or Workspace must not update the newly opened one.
+These continuity requirements do not add result synchronization, cancellation,
+new follow-up eligibility, or new review authority.
 
 Approving an execution request must write an approval comment that starts with:
 
@@ -428,9 +556,10 @@ Rejecting an execution request must require a reason and write a rejection
 comment containing the rejector, rejected timestamp, request ID, batch ID,
 request digest, and rejection reason.
 
-Self-approval must be blocked in the UI. The requester may see the request
-detail, but the approval button must be disabled with an explicit reason when
-the current GitHub user is also the requester.
+Self-approval must follow the effective Workspace mode and actual approver
+authority. In SELF_APPROVAL_BLOCKED, the requester sees a disabled approval
+control with a reason. Relaxed modes do not give an otherwise unauthorized
+user approval rights. UI, command and Gate consistency is tracked in #223.
 
 If the target repository does not have the BatchPlane dispatcher workflow
 installed, approval records evidence but cannot dispatch the batch workflow.
@@ -449,8 +578,11 @@ The dispatcher must ignore duplicate approval comments when matching
 `DISPATCHING` or `DISPATCHED` evidence already exists for the same request ID,
 Batch ID, and request digest.
 
-An explicit `retry-dispatch` comment may reuse the existing approval evidence
-only when the latest matching dispatcher state is `DISPATCH_FAILED`.
+Current implementation caveat: the dispatcher still recognizes a
+`retry-dispatch` command after DISPATCH_FAILED. The approved target in #224
+removes that same-request redelivery path. Confirmed dispatch failure terminates
+the request; the user creates a new request under current inputs/policy.
+Unknown acceptance must not be misclassified as confirmed failure.
 
 Readers must continue to accept legacy `batchtrail.io/v1`, `batchtrail:*`
 markers, and `batchtrail:*` labels so existing Lite repositories remain
@@ -458,61 +590,86 @@ auditable after the BatchPlane rebrand.
 
 ## Schedule Requirements
 
-Schedule registration, change, enable, disable, and deletion are governed Batch
-changes. Once the change PR is approved and merged, the effective Batch Revision
-and its embedded Schedule Revision are the authority for unattended execution.
+Schedules are stored only in `BatchDefinition.spec.schedules` and are changed
+through the owning Batch's controlled registration or change request.
 
-Lite targets GitHub.com native IANA timezone-aware schedules. It must preserve
-the user's cron and timezone in both Batch Definition and generated workflow.
-It must not silently convert an unsupported timezone to a fixed UTC cron. A
-GitHub deployment without native timezone support must report that capability
-as unsupported or require an explicit UTC schedule.
+An approved schedule embedded in a BatchDefinition revision means:
 
-For every due time, the native scheduler must create or reuse a scheduled
-occurrence identified by an idempotency key containing at least Workspace,
-repository, Batch, Schedule Revision, and normalized scheduled time.
+> This verified batch revision may run unattended under these recurrence rules.
 
-Each scheduled occurrence must include:
+Each observed native schedule occurrence has an execution request identified
+from `(repositoryId, batchId, scheduleId, sourceRunId)`. Attempt and worker time
+must not change this identity. A same-Run rerun cannot obtain a new execution
+authorization. Distinct Runs for one nominal slot are not claimed to be deduplicated.
+
+Each scheduled occurrence request must identify the approved owning Batch
+revision and include:
 
 - `triggerType: SCHEDULE`
 - `scheduleId`
-- `scheduledAt`
-- approved schedule definition path
-- approved schedule definition commit SHA
+- source Run and actual attempt, with schedule-specific job correlation
+- BatchDefinition path
+- BatchDefinition revision SHA
 - current batch/workflow target
-- Schedule Revision digest
-- native workflow run and attempt identity
+- occurrence-specific request digest
 
-The generated schedule path must call Gate before the batch command in the same
-native run. Gate verifies the currently effective approved schedule and records
-an allowed or denied Execution Attempt. A scheduled occurrence is not an
-Execution Request, automatic approval, delegated approval, or human approval
-task and must not appear in the manual approval inbox.
+The original change request and verified revision authorize the occurrence.
+No per-occurrence approval comment is required or fabricated, regardless of
+Workspace manual approval mode. Gate verifies the actual schedule event,
+workflow source, active definition, approved revision and source occurrence.
+Business-entry verification repeats the applicable checks immediately before
+executing from the verified SHA. Old delegated approval cannot authorize new
+schedule execution; no new compatibility or migration layer is required.
 
-Previous occurrence state may be used for idempotency, overlap prevention,
-misfire handling, retry, and skip policy. It must not authorize a different
-occurrence. GitHub Actions UI reruns are denied by default because they are a
-new attempt without new schedule authority.
+Existing occurrence state correlates evidence; it cannot authorize a different
+occurrence or a same-Run rerun. GitHub Actions full and partial reruns must be
+denied at the relevant admission and business-entry boundaries. This does not
+promise nominal-slot deduplication across distinct Runs.
 
-The current Lite reader may recognize legacy occurrence Issues and delegated
-approval markers. They are rendered as scheduled execution evidence, not as
-approval decisions. New writers must use the scheduled-occurrence contract,
-and removal of legacy reading follows the compatibility window in
-[`main-lite-conformance.md`](./main-lite-conformance.md).
+Scheduled occurrence requests must not appear in the manual approval inbox.
+They are auditable execution records, not human approval tasks.
 
-GitHub scheduled workflows run only from the latest default-branch revision.
-GitHub may delay a scheduled run and may drop it under sufficiently high load.
-Lite must display this provider limitation, preserve expected-versus-observed
-timing when it can be calculated, and must not claim that native cron delivery
-is guaranteed. A missed-run policy is a separate explicit behavior, not an
-implicit delayed execution.
+Do not infer a nominal scheduled time from worker time or Run creation time.
+Delay does not expire a valid schedule occurrence. There is no automatic
+catchup or re-execution. Uncertain required writes block business admission;
+result-recording failure must not restart the command. The latest request,
+Issue existence, labels and bot identity are not authorization or unique locks.
+
+Query models must distinguish schedule authority, Gate decision and actual
+business result. Scheduled failures are initially assigned to the executing
+revision's Batch owner. Blank owner defaults to the authenticated change
+requester before preview and approval; explicit owners and historical
+assignments are preserved. Owner designation does not grant permissions.
+
+See [Schedule Execution Contract](./schedule-execution-contract.md) for the
+shared UI, correlation, failure and verification acceptance criteria.
 
 ## Audit Requirements
 
-Each manual execution intent must have request and approval evidence. Each
-scheduled occurrence must instead have Schedule Revision authority, occurrence,
-Gate decision, and native-attempt evidence.
+Each execution occurrence must retain its request, authorization source, Gate
+decision and actual result evidence. Manual authorization is an execution
+approval; scheduled authorization is the verified owning controlled revision.
+Missing result evidence is not proof of business failure or success.
 
-GitHub Lite may store scheduled evidence in repository-native artifacts, Issues,
-comments, workflow summaries, or runs, but the storage shape must not change the
-product semantics. Main stores the equivalent normalized evidence in MySQL.
+For scheduled runs, Issue volume is acceptable in GitHub Lite. Issues and
+comments are repository-backed records subject to GitHub edit, deletion and
+retention, not immutable storage. Main may store the same product evidence in
+its database. Reason-required real engine cancellation and approved withdrawal
+are required before Lite acceptance (#225), but are not implemented by this
+document. Result synchronization is a separate observation-repair capability;
+Main includes it in its first flow, and Lite timing remains separate.
+
+## Remaining Operating Acceptance
+
+- #212 binds approved parameter values to the actual business command.
+- #223 aligns approval capability/command/Gate and complete approved-revision lookup.
+- #224 corrects expiry/failure termination and removes same-request failed dispatch retry.
+- #225 implements approved withdrawal, explicit queued cancel/running stop and real outcomes.
+- #206 provides cross-Batch schedule inventory/detail and cron preview agreement.
+- #226 completes older execution/audit retrieval and keeps old unresolved My Work visible.
+- #142 provides authorized multi-Workspace queries and unified requests, requiring
+  one common approver for all targets before creation. Lite-first deferral needs
+  demonstrated constraints and user approval.
+
+Use the [user QA sheet](./user-qa.ko.md); these requirements are not claims of
+current UI controls or passing tests.

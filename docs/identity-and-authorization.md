@@ -1,223 +1,108 @@
-# BatchPlane Identity And Authorization
+# Identity And Authorization
 
-Status: Architecture baseline for issue #191
+Status: Product rules accepted; Main model details require #227.
+Reconciled 2026-10-05.
 
-## Principle
+## Ownership
 
-Identity providers authenticate users and services. BatchPlane owns product
-roles, Workspace membership, policy evaluation, separation of duties, and the
-authorization result.
+Identity adapters authenticate users/services and provide external facts.
+BatchPlane owns product identity mapping, Workspace membership, authorization,
+approval policy and audit. AD/LDAP/OIDC/GitHub groups and repository permissions
+are facts to map, not hard-coded product permission definitions.
 
-AD, LDAP, OIDC, GitHub organizations, repository roles, and Jenkins authorities
-are external identity facts. They do not become hard-coded product roles.
+No Main identity provider, session protocol or complete role list has been
+selected by this document. OIDC, AD/LDAP and GitHub are candidates according to
+deployment needs.
 
-## Principal Model
+## Basic Model To Approve Before Main Code
 
-```text
-Principal
-  principalId
-  principalType: USER | SERVICE | AUTOMATION | PLATFORM
-  status
-  displayName
-  externalIdentities[]
+#227 must define:
 
-ExternalIdentity
-  providerKey
-  issuer
-  subject
-  username
-  attributes
-  lastVerifiedAt
-```
+- Stable internal account identity and its external authentication identities.
+- Workspace membership and permission scope, separate from platform connection.
+- Human, automation and platform actors and their recorded authorization source.
+- Request, execution, approval, management, follow-up review and audit permissions.
+- Which operation can target which Batches/connections/Workspaces.
+- Revocation/current-policy behavior and historical role evidence.
+- Unified-request all-target authority and actual cancellation permission mapping.
+- Concrete API/MySQL representation after these concepts are approved.
 
-One Principal may have multiple external identities. Historical audit records
-refer to `principalId` and preserve the external subject used for the action.
+A connection may be one of several platforms inside a Workspace. A login session
+is not a Workspace. Do not let global administration silently imply approval of
+every Workspace's work.
 
-## Identity Provider Port
+## Approved Request Rules
 
-An identity adapter normalizes:
+Default self-approval is blocked. Explicit Workspace modes:
 
-- issuer and stable subject
-- login/display attributes
-- verified email when policy allows its use
-- external groups, teams, or roles
-- authentication time and assurance context
-- service or platform identity claims
+| Mode                    | Meaning                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `SELF_APPROVAL_BLOCKED` | Requester cannot approve their own request.                                                                  |
+| `SELF_APPROVAL_ALLOWED` | An otherwise eligible approver may self-approve; evidence identifies this.                                   |
+| `AUTO_APPROVE`          | Eligible request types receive policy-based approval evidence; also includes permitted manual self-approval. |
 
-Main initially supports an OIDC adapter as the recommended interactive login
-path. AD/LDAP group lookup and GitHub identity are provider adapters behind the
-same port. Exact deployment priority is configurable.
+These modes do not grant an unqualified user an approver role. UI capability,
+actual command and Gate must agree; Lite consistency and complete approved
+revision lookup are #223.
 
-## Workspace Roles
+Eligible Batch changes and manual execution use the current policy. Proposed
+policy/role/installation changes do not authorize themselves using proposed
+values. Preserve decision actor, subject digest, policy context and reason.
+Rejection requires a reason; modifying the approved content invalidates it.
 
-Initial internal roles are:
+Native schedules use an approved owning Batch revision in every mode. They do
+not wait for per-occurrence human approval or fabricate an automatic approver.
 
-| Role                | Core permissions                                              |
-| ------------------- | ------------------------------------------------------------- |
-| `WORKSPACE_MANAGER` | Manage connections, policies, role mappings, follow-up review |
-| `BATCH_MANAGER`     | Propose and inspect governed Batch changes                    |
-| `REQUESTER`         | Create execution and change requests                          |
-| `APPROVER`          | Decide requests allowed by policy                             |
-| `OPERATOR`          | Execute, cancel, retry, inspect runs and logs as allowed      |
-| `FAILURE_OWNER`     | Submit failure explanation and action                         |
-| `AUDITOR`           | Read audit and evidence without operational mutation          |
+Failure explanation requires explicit authorized manager review with its own
+decision/reason. A self-approval-enabled policy may permit an eligible manager
+to review their own submission; AUTO_APPROVE does not silently close the case.
 
-Roles are Workspace-scoped. System administration is a separate deployment
-role and does not automatically grant approval authority inside every
-Workspace.
+## Unified Requests
 
-## Role Bindings
+One request may include several Batches, operation types and Workspaces.
+Creation requires at least one common approver with authority for **every**
+included operation. One common approver approves the whole request. Do not
+replace this with collecting independent Workspace approvals.
 
-```text
-RoleBinding
-  roleBindingId
-  workspaceId
-  internalRole
-  subjectSelector
-  effectiveFrom
-  effectiveUntil
-  status
-```
+The request creator must have permission for each target operation, and
+aggregate reads expose only authorized scope. Cross-repository evidence storage
+in Lite and multi-target Main contracts are designed in #142/#227. No hidden
+shared repository token or new central authority is assumed.
 
-Subject selectors may target:
+## Withdrawal, Cancel And Result Synchronization
 
-- an internal Principal
-- an external user subject
-- an external group/team subject
-- a service identity
-- a provider-native role mapped by an edition adapter
+Before delivery, approved work can be withdrawn by the requester, its actual
+approver or a user authorized to execute the target. Recheck at command/delivery/
+Gate boundaries; a hidden button is not a control.
 
-Main stores role bindings in MySQL. Lite maps GitHub users, teams, and
-repository permissions to equivalent internal Lite roles through repository
-configuration and verified API responses.
+When queued or running, use explicit real cancel/stop confirmation with a reason.
+Detailed mapping from product roles to cancel authority requires #225/#227
+approval. Cancellation records requested and actual outcome. Unknown state is
+not completion, and cancellation is not rollback of already-performed effects.
 
-## Approval Policy
+Result synchronization is a separate observation repair. It must never grant
+permission to dispatch, retry or cancel.
 
-```text
-ApprovalPolicyRevision
-  policyRevisionId
-  workspaceId
-  subjectTypes[]
-  conditions
-  requirements[]
-  separationRules[]
-  effectiveFrom
-  effectiveUntil
-  canonicalDigest
-```
+## Edition Trust Boundaries
 
-A requirement identifies an internal role and count. Conditions may inspect
-operation type, environment, criticality, provider, Batch label, trigger type,
-or risk classification.
+Lite currently uses a repository-backed Workspace, sessionStorage-only GitHub
+token and repository evidence/verified API facts. Browser compromise can expose
+the current token; local state cannot weaken effective approval policy.
 
-Separation rules include:
+Main keeps provider secrets server-side or behind a credential-storage adapter.
+The browser does not receive reusable engine/connector secrets. Authentication
+of platform callbacks and Gate identity must bind actual connection/native
+identity; accepting an ID in JSON does not establish authenticity.
 
-- requester and approver must differ
-- change author and final approver must differ
-- failure submitter and manager reviewer must differ
-- a service that applies a change cannot be represented as the human approver
+Supported product APIs preserve audit evidence, but GitHub editors and database
+administrators remain infrastructure trust boundaries. Historical evidence and
+current permissions are distinct; do not infer present permission from an old
+comment alone.
 
-Every approval decision records the policy revision and effective role evidence
-used at decision time.
+## Checks And Evidence
 
-## Approval Modes
-
-The existing Workspace modes remain supported as policy presets:
-
-- `SELF_APPROVAL_BLOCKED`: separation of requester and approver is required.
-- `SELF_APPROVAL_ALLOWED`: the same Principal may request and approve where the
-  policy permits it; evidence records self-approval.
-- `AUTO_APPROVE`: eligible request types may be authorized by a Workspace policy
-  automation Principal; evidence records the policy source.
-
-These presets do not replace detailed Approval Policy revisions. Main may
-expose them as templates. Lite may continue using the compact Workspace policy
-file.
-
-`AUTO_APPROVE` includes self-approval permission for manually approvable work,
-but scheduled execution does not depend on this mode. An approved Schedule
-Revision is its own authority source.
-
-Policy, role-binding, credential, and installation changes are authorized by
-the policy revision effective before the proposed mutation. Proposed policy
-content cannot authorize its own activation. A deployment may require stronger
-fixed separation rules for these security-administration subjects even when the
-general Workspace preset is `AUTO_APPROVE`.
-
-## Authorization Boundaries
-
-Authorization is checked at:
-
-- every command API
-- every Workspace-scoped query
-- provider credential use
-- native log access
-- approval decision creation
-- Gate start and completion authentication
-- audit export
-- policy and role-binding mutation
-- failure manager review
-
-UI visibility is not an authorization control. Server queries and commands
-must enforce Workspace and action scope independently.
-
-## Service And Automation Identities
-
-The following must have separate Principals:
-
-- Main outbox worker
-- provider reconciliation worker
-- GitHub App installation
-- GitHub Actions Gate connector
-- Lite dispatcher automation
-- Jenkins Plugin installation
-- notification adapter
-
-Audit records must distinguish the human who authorized work from the service
-that dispatched or applied it.
-
-## Session And Credential Rules
-
-### Main
-
-- Interactive sessions use secure server-issued sessions or validated OIDC
-  access tokens.
-- Provider credentials are server-side only.
-- Browser storage does not contain GitHub App private keys, Jenkins tokens, or
-  reusable Gate service credentials.
-- Connector credentials are rotatable without changing Batch identities.
-
-### Lite
-
-- GitHub token remains in `sessionStorage` only.
-- The UI documents that browser compromise can expose the current session.
-- Repository permissions are re-read for sensitive decisions.
-- Browser-local state cannot weaken repository-backed approval policy.
-
-## Denial And Audit
-
-Authorization denial uses stable reason codes and records:
-
-- Principal and external identity
-- Workspace and requested action
-- subject and provider context
-- applicable policy revision
-- denial reason
-- occurred time and correlation ID
-
-Sensitive token values and full identity assertions are never recorded in the
-audit payload.
-
-## Open Deployment Decisions
-
-Before a production Main release, deployment owners must decide:
-
-- primary interactive IdP and required assurance level
-- AD/LDAP synchronization versus on-demand lookup
-- system-administrator scope and emergency access process
-- session lifetime and reauthentication for sensitive actions
-- secret-manager implementation
-- group-membership refresh and revocation timing
-
-These values are deployment policy, not assumptions embedded in the core
-domain.
+Enforce authority on queries, mutation, approvals, provider commands, logs,
+review and Gate, not only in React. Record safe actor/subject/context/reason
+without tokens or raw identity assertions. Verify both allowed and denied
+paths through the [QA sheet](./user-qa.ko.md); no new identity framework or
+speculative permission hierarchy is approved here.

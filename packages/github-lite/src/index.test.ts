@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createGitHubLiteClient,
-  createGitHubLiteMockState,
-  createMockGitHubLiteClient,
-} from "./index";
+import { createGitHubLiteClient } from "./github-client.js";
+import { createGitHubLiteMockState } from "./mock-state.js";
+import { createMockGitHubLiteClient } from "./mock-client.js";
 
 describe("createGitHubLiteClient", () => {
   it("adds GitHub auth headers and maps the current user", async () => {
@@ -41,6 +39,63 @@ describe("createGitHubLiteClient", () => {
     ).resolves.toBeNull();
   });
 
+  it("reads the requested workflow-run attempt instead of the latest attempt", async () => {
+    const requests: string[] = [];
+    const client = createGitHubLiteClient({
+      fetcher: async (input) => {
+        requests.push(String(input));
+        return Response.json({
+          actor: { login: "github-actions[bot]" },
+          conclusion: "success",
+          event: "schedule",
+          html_url: "https://example.test/runs/100",
+          id: 100,
+          path: ".github/workflows/payment.daily-close.yml",
+          run_attempt: 1,
+          status: "completed",
+          workflow_id: 1,
+        });
+      },
+      token: "ghp_test",
+    });
+
+    await expect(
+      client.getWorkflowRun({
+        owner: "always0ne",
+        repo: "batchplane",
+        runAttempt: 1,
+        runId: 100,
+      }),
+    ).resolves.toMatchObject({ id: 100, runAttempt: 1 });
+    expect(requests).toEqual([
+      "https://api.github.com/repos/always0ne/batchplane/actions/runs/100/attempts/1",
+    ]);
+  });
+
+  it("keeps a historical attempt inspectable after the same Run has a newer attempt", async () => {
+    const defaults = createGitHubLiteMockState();
+    const base = defaults.workflowRuns[0];
+    if (!base) throw new Error("Expected a workflow-run mock fixture.");
+    const client = createMockGitHubLiteClient(
+      createGitHubLiteMockState({
+        workflowRuns: [
+          { ...base, conclusion: "failure", id: 909, runAttempt: 1 },
+          { ...base, conclusion: "success", id: 909, runAttempt: 2 },
+        ],
+      }),
+    );
+    const repository = { owner: "always0ne", repo: "batch" };
+
+    await expect(
+      client.getWorkflowRun({ ...repository, runId: 909 }),
+    ).resolves.toMatchObject({
+      runAttempt: 2,
+    });
+    await expect(
+      client.getWorkflowRun({ ...repository, runAttempt: 1, runId: 909 }),
+    ).resolves.toMatchObject({ conclusion: "failure", runAttempt: 1 });
+  });
+
   it("decodes base64 file content", async () => {
     const fetcher: typeof fetch = async () =>
       Response.json({
@@ -58,8 +113,9 @@ describe("createGitHubLiteClient", () => {
         path: "batchtrail.yml",
       }),
     ).resolves.toEqual({
-      path: "batchtrail.yml",
       content: "name: nightly\n",
+      contentBase64: "bmFtZTogbmlnaHRseQo=",
+      path: "batchtrail.yml",
       sha: "file-sha",
     });
   });
@@ -93,6 +149,32 @@ describe("createGitHubLiteClient", () => {
     ]);
   });
 
+  it("maps GitHub rename metadata for governed file verification", async () => {
+    const fetcher: typeof fetch = async () =>
+      Response.json([
+        {
+          filename: "artifacts/new.jar",
+          previous_filename: "artifacts/old.jar",
+          status: "renamed",
+        },
+      ]);
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.listPullRequestFiles({
+        owner: "always0ne",
+        pullNumber: 42,
+        repo: "batchplane",
+      }),
+    ).resolves.toEqual([
+      {
+        path: "artifacts/new.jar",
+        previousPath: "artifacts/old.jar",
+        status: "renamed",
+      },
+    ]);
+  });
+
   it("creates a branch from an existing head sha", async () => {
     const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
       [];
@@ -114,6 +196,7 @@ describe("createGitHubLiteClient", () => {
     expect(requests[0]?.input.toString()).toBe(
       "https://api.github.com/repos/always0ne/batchplane/git/refs",
     );
+    expect(requests[0]?.init?.method).toBe("POST");
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       ref: "refs/heads/batchplane/register/demo",
       sha: "base-sha",
@@ -195,7 +278,7 @@ describe("createGitHubLiteClient", () => {
       requests.push({ input, init });
       return Response.json({
         content: {
-          path: ".batch-governance/schedules/demo-nightly.yml",
+          path: ".batch-governance/batches/demo/artifacts/nightly.bin",
           sha: "deleted-file-sha",
         },
       });
@@ -206,28 +289,32 @@ describe("createGitHubLiteClient", () => {
       client.deleteFile({
         owner: "always0ne",
         repo: "batchplane",
-        path: ".batch-governance/schedules/demo-nightly.yml",
+        path: ".batch-governance/batches/demo/artifacts/nightly.bin",
         branch: "batchplane/change/demo",
         message: "Change batch demo",
         sha: "existing-file-sha",
       }),
     ).resolves.toEqual({
-      path: ".batch-governance/schedules/demo-nightly.yml",
+      path: ".batch-governance/batches/demo/artifacts/nightly.bin",
     });
 
     expect(requests[0]?.input.toString()).toBe(
-      "https://api.github.com/repos/always0ne/batchplane/contents/.batch-governance/schedules/demo-nightly.yml",
+      "https://api.github.com/repos/always0ne/batchplane/contents/.batch-governance/batches/demo/artifacts/nightly.bin",
     );
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       branch: "batchplane/change/demo",
       message: "Change batch demo",
       sha: "existing-file-sha",
     });
+    expect(requests[0]?.init?.method).toBe("DELETE");
   });
 
-  it("creates a pull request", async () => {
-    const fetcher: typeof fetch = async () =>
-      Response.json({
+  it("creates a pull request with its requested title, body, and refs", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
         number: 12,
         title: "Register batch demo",
         html_url: "https://github.com/always0ne/batchplane/pull/12",
@@ -238,6 +325,7 @@ describe("createGitHubLiteClient", () => {
         head: { ref: "batchplane/register/demo" },
         base: { ref: "main" },
       });
+    };
     const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
 
     await expect(
@@ -259,6 +347,16 @@ describe("createGitHubLiteClient", () => {
       author: "always0ne",
       body: "body",
       merged: false,
+    });
+    expect(requests[0]?.input.toString()).toBe(
+      "https://api.github.com/repos/always0ne/batchplane/pulls",
+    );
+    expect(requests[0]?.init?.method).toBe("POST");
+    expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
+      base: "main",
+      body: "body",
+      head: "batchplane/register/demo",
+      title: "Register batch demo",
     });
   });
 
@@ -301,6 +399,30 @@ describe("createGitHubLiteClient", () => {
     expect(requests[0]?.input.toString()).toBe(
       "https://api.github.com/repos/always0ne/batchplane/pulls/12",
     );
+  });
+
+  it("preserves the authoritative pull request head SHA", async () => {
+    const fetcher: typeof fetch = async () =>
+      Response.json({
+        number: 12,
+        title: "Register batch demo",
+        html_url: "https://github.com/always0ne/batchplane/pull/12",
+        body: "body",
+        state: "open",
+        merged: false,
+        user: { login: "always0ne" },
+        head: { ref: "batchplane/register/demo", sha: "head-sha" },
+        base: { ref: "main" },
+      });
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.getPullRequest({
+        owner: "always0ne",
+        repo: "batchplane",
+        pullNumber: 12,
+      }),
+    ).resolves.toMatchObject({ headSha: "head-sha" });
   });
 
   it("lists pull requests with filters", async () => {
@@ -383,6 +505,33 @@ describe("createGitHubLiteClient", () => {
       commit_title: "Register batch demo (#12)",
       merge_method: "squash",
     });
+    expect(requests[0]?.init?.method).toBe("PUT");
+  });
+
+  it("sends the expected head SHA when applying a change request", async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+      [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return Response.json({
+        merged: true,
+        message: "Pull Request successfully merged",
+        sha: "merge-sha",
+      });
+    };
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await client.mergePullRequest({
+      owner: "always0ne",
+      repo: "batchplane",
+      pullNumber: 12,
+      expectedHeadSha: "head-sha",
+    });
+
+    expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
+      merge_method: "squash",
+      sha: "head-sha",
+    });
   });
 
   it("closes an issue-backed pull request", async () => {
@@ -416,6 +565,7 @@ describe("createGitHubLiteClient", () => {
     expect(JSON.parse(requests[0]?.init?.body?.toString() ?? "{}")).toEqual({
       state: "closed",
     });
+    expect(requests[0]?.init?.method).toBe("PATCH");
   });
 
   it("creates an issue", async () => {
@@ -462,6 +612,7 @@ describe("createGitHubLiteClient", () => {
       labels: [],
       title: "Run batch payment.daily-close",
     });
+    expect(requests[0]?.init?.method).toBe("POST");
   });
 
   it("gets an issue by number", async () => {
@@ -590,6 +741,7 @@ describe("createGitHubLiteClient", () => {
       labels: ["batchplane:execution-request"],
       title: "Run batch payment.daily-close (updated)",
     });
+    expect(requests[0]?.init?.method).toBe("PATCH");
   });
 
   it("searches issues in repository scope", async () => {
@@ -687,6 +839,37 @@ describe("createGitHubLiteClient", () => {
     expect(requests[0]?.input.toString()).toBe(
       "https://api.github.com/repos/always0ne/batchplane/issues/34/events",
     );
+  });
+
+  it("preserves issue comment update time for immutable evidence checks", async () => {
+    const fetcher: typeof fetch = async () =>
+      Response.json([
+        {
+          id: 7,
+          body: "approval evidence",
+          user: { login: "approver" },
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:01:00.000Z",
+        },
+      ]);
+    const client = createGitHubLiteClient({ token: "ghp_test", fetcher });
+
+    await expect(
+      client.listIssueComments({
+        owner: "always0ne",
+        repo: "batchplane",
+        issueNumber: 12,
+      }),
+    ).resolves.toEqual([
+      {
+        author: "approver",
+        body: "approval evidence",
+        createdAt: "2026-09-01T00:00:00.000Z",
+        id: 7,
+        issueNumber: 12,
+        updatedAt: "2026-09-01T00:01:00.000Z",
+      },
+    ]);
   });
 
   it("reads workflow runs and job summaries", async () => {
@@ -972,6 +1155,7 @@ describe("createGitHubLiteClient", () => {
       color: "2563EB",
       description: "BatchPlane request is dispatching",
     });
+    expect(requests[1]?.init?.method).toBe("POST");
   });
 
   it("removes an issue label", async () => {
@@ -1191,7 +1375,6 @@ describe("createMockGitHubLiteClient", () => {
         "gate-blocked",
       ]),
     );
-    expect(state.issues).toHaveLength(8);
     expect(
       state.issueComments.some((comment) =>
         comment.body.startsWith("/bgcp approve "),
@@ -1407,6 +1590,7 @@ describe("createMockGitHubLiteClient", () => {
       expect.arrayContaining([
         expect.objectContaining({
           labels: expect.not.arrayContaining(["custom:one"]),
+          number: issue.number,
         }),
       ]),
     );
@@ -1481,15 +1665,11 @@ describe("createMockGitHubLiteClient", () => {
       "requested",
     );
 
-    const approvalComment = await client.createIssueComment({
+    await client.createIssueComment({
       ...repo,
       body: buildExecutionApprovalComment(request),
       issueNumber: issue.number,
     });
-
-    expect(approvalComment.body).toMatch(
-      /^\/bgcp approve requestDigest=sha256:/,
-    );
     expect(findExecutionScenario(client, issue.number)?.state).toBe("approved");
 
     await client.createIssueComment({

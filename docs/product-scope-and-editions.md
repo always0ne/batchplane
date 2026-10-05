@@ -1,167 +1,85 @@
 # BatchPlane Product Scope And Editions
 
-Status: Architecture baseline for issue #191
+Status: Product direction and delivery scope reconciled 2026-10-05.
+See the [approved roadmap](./control-plane-migration-plan.md) for implementation
+order and [traceability](./requirements-traceability.md) for readiness.
 
 ## Product Definition
 
-BatchPlane is a unified batch control and audit platform. It gives operators one
-Workspace-oriented experience for batch inventory, governed changes, execution,
-schedules, Gate decisions, run history, failure follow-up, and audit evidence
-across different batch platforms.
+BatchPlane is a unified batch control and audit platform. Integration of multiple
+batch engines is its central purpose. Approval, mandatory Gate enforcement,
+internal authorization, operational history and failure review are also P0
+requirements, not optional extras.
 
-BatchPlane does not replace the execution lifecycle of GitHub Actions, Jenkins,
-or future platforms. Each platform continues to own its native jobs, workflows,
-schedulers, runners, branching, downstream execution, and completion behavior.
-BatchPlane owns the common control plane and normalizes platform-specific
-operations and evidence for users.
+Native platforms own scheduling, runners and execution. BatchPlane owns common
+requests, approvals, authorization, controlled changes, execution admission,
+correlation, operating queries and audit. GitHub Actions is first, Jenkins next,
+and a third platform will be selected and actually validated. SCDF was an
+example, not the committed third provider.
 
-## Product Priorities
+## Editions And Current Availability
 
-The following are product-level P0 invariants:
+| Concern                | Lite baseline                                                                                               | Main target                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Runtime                | React/Vite static UI plus GitHub APIs and Actions; no product server/DB                                     | Kotlin/Spring Boot modular monolith and MySQL                              |
+| UI                     | Existing shared React product Pages                                                                         | Same source with a Main client implementation, not a second UI             |
+| Authority              | Repository definitions, PRs, Issues/comments and native execution evidence                                  | Product state, decisions and audit in MySQL                                |
+| Identity               | Session-scoped GitHub identity mapped to product roles                                                      | Environment-specific identity adapters; product-owned authorization        |
+| Connections            | Currently one connected repository-backed Workspace                                                         | Multiple Workspaces, multiple platform connections per Workspace           |
+| Change / execution     | Implemented core flow, with known gaps and pending QA                                                       | Planned complete vertical flows                                            |
+| Schedule               | Native same-execution control/business/result implementation; live #202 still open                          | Approved-revision authority, native scheduler and delay monitoring         |
+| Approved input binding | End-to-end correction pending #212                                                                          | Required in first manual execution flow                                    |
+| Lifecycle              | Termination correction #224 and approved withdrawal/real cancel #225 pending                                | Required in first flow; result synchronization is a separate command       |
+| Multi-Workspace        | #142: aggregate authorized queries and unified requests, Lite-first subject to agreed feasibility gate      | Required product scope, not just switching                                 |
+| History / review       | Execution logs, deleted history, explanation and explicit manager review present; completeness #226 pending | Required across supported operations                                       |
+| Supported engines      | GitHub Actions                                                                                              | GitHub Actions, early real Jenkins, then broader/third-platform validation |
 
-- Multi-platform batch inventory and operation through one control plane.
-- Governed registration, change, and deletion.
-- Governed manual and remote execution.
-- Governed schedules whose approved revision is the execution authority.
-- Mandatory pre-start Gate enforcement for governed execution.
-- Independent records for requests, approvals, execution attempts, Gate
-  decisions, completion, and rejected attempts.
-- Internal authorization and separation-of-duties policy.
-- Immutable audit evidence for user and service activity.
-- Business-failure explanation, action, and manager review.
-- Cross-Workspace and cross-platform run, failure, and audit views.
+“Present” means code exists, not that manual or live acceptance passed.
+Read the [user QA sheet](./user-qa.ko.md) before claiming operating readiness.
 
-P0 defines the contract an adapter must satisfy before it is considered a fully
-governed provider. It does not require every provider to ship in the same
-release. Provider delivery order is GitHub Actions first, Jenkins second, and
-additional platforms after the Provider contract is proven.
+## Shared Product Semantics
 
-## Editions
+A Workspace is an access and policy boundary; a platform connection identifies
+a configured engine installation or endpoint within it. They are not synonyms.
+A Batch has product identity and a provider-specific external reference.
 
-BatchPlane has one product model and two runtime editions.
+A Change Request authorizes a precise proposed revision. A manual execution
+request authorizes its precise target and inputs. A native scheduled occurrence
+uses the approved owning Batch/schedule revision without a new human approval.
 
-### Main
+One unified request may contain several Batches, operation types and Workspaces.
+A common approver authorized for every target is required before creation; one
+common approver approves the whole request. Repository-backed trust boundaries
+do not disappear when the UI aggregates them. The Lite cross-repository evidence
+and credential design still requires #142 approval; difficulty does not authorize
+silently reducing the agreed user flow.
 
-Main is the installable control-plane edition.
+Approval, dispatch acceptance, Gate admission and business completion are
+different facts. Confirmed dispatch failure requires a new request, not reuse of
+the old approval. Withdrawal and real cancellation depend on native execution
+state. Result synchronization updates observations without starting or stopping
+execution.
 
-- Kotlin and Spring Boot application.
-- MySQL authority for product state.
-- Append-only audit and transactional outbox records in MySQL.
-- React/Vite Main UI build.
-- Internal RBAC fed by pluggable identity providers.
-- Multiple Workspaces and Platform Connections.
-- GitHub Actions as the first provider.
-- Jenkins as the next provider.
-- Provider SDK for future platforms.
-- Server Gate API for platform-side Gate connectors.
+## Audit Limits
 
-### Lite
+Main targets append-only decisions through supported APIs, backed by deployment
+access and retention controls. Lite writes structured GitHub evidence, whose
+contents remain subject to GitHub permissions, edits, deletion and retention.
+Neither a digest nor an Issue label is an authorization credential or an
+immutable audit store. Deleted Batches retain their accessible historical
+revision and execution links; missing native evidence must be identified.
 
-Lite is the GitHub-native, serverless edition.
+## Delivery And Non-Goals
 
-- React/Vite Lite UI build hosted by GitHub Pages or another static host.
-- No BatchPlane application server or database.
-- GitHub repository files as configuration and definition evidence.
-- Pull Requests as governed change records.
-- Issues and comments as execution, approval, dispatch, and follow-up evidence.
-- GitHub Actions as the only execution provider.
-- GitHub identity and repository membership mapped to Lite roles.
-- Gate Action verifies repository-backed evidence locally.
-- Multiple repository-backed Workspaces connected in one browser session, with
-  Workspace switching and portfolio views.
+P0 does not mean every provider ships in one release. Each provider's supported
+scope must be explicit; a successful dispatch alone does not establish full
+control. Jenkins's early first-flow proof is separate from full support.
 
-Lite is not the definition of the core domain. It is one runtime implementation
-of the common product semantics.
+The source repository remains a [modular monorepo](./adr/0001-modular-monorepo.md)
+with separate runtime artifacts. No new engine, speculative plugin loader,
+second UI, compatibility framework, automatic retry or backfill is approved.
 
-Lite v1 deliberately does not pretend that several private repositories share
-one central Workspace authority. Without a server, a target repository's Gate
-cannot safely read an unrelated private repository using its repository-scoped
-token. Multi-repository Lite therefore connects multiple repository-backed
-Workspaces and provides switching and aggregate portfolio views. Main supports
-the broader model of multiple Platform Connections inside one Workspace.
-
-## Shared And Edition-Specific Responsibilities
-
-| Concern             | Shared product meaning                            | Main authority             | Lite authority                                                              |
-| ------------------- | ------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------- |
-| Workspace           | Governance and access boundary                    | MySQL                      | One repository-backed trust boundary; multiple may be connected per session |
-| Platform Connection | Configured batch-platform endpoint                | MySQL and secret reference | GitHub repository session                                                   |
-| Batch               | Governed batch identity and current revision      | MySQL                      | Batch definition file                                                       |
-| Change Request      | Proposed register/change/delete operation         | MySQL workflow             | Pull Request                                                                |
-| Approval            | Immutable decision under a policy snapshot        | MySQL decision record      | PR review/comment evidence                                                  |
-| Execution Intent    | Requested reason, target, parameters, and trigger | MySQL                      | Issue body and digest                                                       |
-| Schedule Authority  | Approved schedule revision                        | MySQL revision             | Merged batch definition revision                                            |
-| Execution Attempt   | One native start attempt                          | MySQL                      | GitHub Actions run and evidence                                             |
-| Gate Decision       | Allow or deny before business work                | Server Gate API record     | Gate Action evidence                                                        |
-| Failure Follow-up   | Explanation, action, and manager review           | MySQL                      | Structured immutable comments                                               |
-| Audit               | Searchable evidence timeline                      | Append-only table          | GitHub-backed evidence projection                                           |
-
-## Provider Roadmap
-
-### Reference Provider: GitHub Actions
-
-GitHub Actions is the reference provider because it exercises both editions.
-
-- Lite uses repository-native governance and the GitHub Actions runtime.
-- Main uses a GitHub App/server credential, the Main approval authority, the
-  GitHub Actions Server Adapter, webhooks, and Gate Action server mode.
-- The same provider semantics must pass the common Adapter TCK in both modes.
-
-### Second Provider: Jenkins
-
-Jenkins validates that the product contract is not GitHub-specific.
-
-- Jenkins Server Adapter manages discovery, change, execution, schedules,
-  observation, and logs.
-- Jenkins Plugin enforces the actual pre-start boundary and reports completion.
-- Jenkins-native identities and objects are mapped to BatchPlane internal
-  principals and external resource references.
-
-### Future Providers
-
-SCDF, Kubernetes-oriented platforms, and other schedulers are examples, not
-hard-coded roadmap commitments. A new provider must be addable without adding
-provider-specific types to the core domain or provider-specific routes to the
-shared UI.
-
-## Product Boundaries
-
-BatchPlane owns:
-
-- Product identity, Workspace membership, internal roles, and policy mapping.
-- Governed request and approval lifecycle.
-- Execution authorization and Gate decision lifecycle.
-- Normalized inventory, schedule, execution, failure, and audit views.
-- Correlation between product requests and native platform resources.
-- Provider capability, compatibility, health, and enforcement coverage.
-
-Batch platforms own:
-
-- Native workflow or Job execution.
-- Native scheduling and runner allocation.
-- Branching, joining, retry, and downstream execution semantics.
-- Native logs and platform-specific diagnostics.
-- Native resource availability.
-
-Identity providers own authentication facts and external group membership.
-BatchPlane maps those facts to internal Workspace roles and evaluates product
-authorization itself.
-
-## Non-Goals
-
-- Replacing every platform with a new batch execution engine.
-- Hiding all provider-specific diagnostics from advanced operators.
-- Loading untrusted third-party JVM code dynamically into the Main server in
-  the first provider-SDK release.
-- Treating platform polling after business work started as a substitute for
-  mandatory pre-start enforcement.
-- Treating a digest, Issue label, or external role as sufficient authorization
-  without policy and evidence verification.
-
-## Release Principle
-
-A provider may initially declare only a subset of capabilities, but the product
-must label unprotected or unsupported operations explicitly. A provider cannot
-be advertised as fully governed until registration/change/delete, execution,
-schedule, Gate, observation, audit correlation, and failure follow-up satisfy
-the P0 contract or are explicitly outside the provider's documented scope.
+Older proposals for discovery/onboarding, export, external notifications and
+recurrence reports are preserved for scope confirmation, not deleted or treated
+as newly approved implementation. Exact Main contracts and provider integration
+details are designed at their roadmap stage.

@@ -10,22 +10,24 @@
     "command": "배치 명령",
     "domain": "업무 도메인",
     "environment": "환경",
-    "governed": "통제 대상",
+    "controlled": "통제 대상",
     "missingCommand": "배치 명령 없음",
     "owner": "소유자",
     "runsOn": "실행 환경",
-    "workflowPath": "Workflow 경로"
+    "workflowPath": "실행 대상"
   },
   "detail": {
     "title": "실행 요청 상세",
     "subtitle": "{{requestId}} 요청을 검토하고 승인 증적을 기록합니다.",
+    "nativeScheduleSubtitle": "요청 {{requestId}}",
     "actions": {
       "approve": "실행 승인",
       "backToApprovals": "승인함으로",
+      "backToRequestInventory": "요청 목록으로",
       "closedTitle": "승인 작업 없음",
-      "note": "승인은 Issue comment 증적으로 기록됩니다. 브라우저는 Workflow를 직접 dispatch하지 않습니다.",
-      "openIssue": "Issue 열기",
-      "openRunDetail": "Run 상세 보기",
+      "note": "승인은 요청 증적으로 기록됩니다. 브라우저는 Workflow를 직접 dispatch하지 않습니다.",
+      "openSourceRequest": "원본 요청 열기",
+      "openRunDetail": "실행 상세 보기",
       "refresh": "새로고침",
       "reject": "반려",
       "title": "승인 판단"
@@ -37,6 +39,8 @@
       "gateBlocked": "차단",
       "gateEvidence": "Gate 증적",
       "noBrowserDispatch": "BatchPlane UI는 증적만 기록합니다. 저장소 dispatcher workflow가 승인 comment를 감지해 workflow_dispatch를 수행합니다.",
+      "nativeScheduleEvidence": "이 항목은 기록된 네이티브 일정 발생입니다. 관찰된 Actions 실행 시도가 실행 증거입니다.",
+      "nativeScheduleTitle": "네이티브 일정 증거",
       "none": "증적 없음",
       "noWorkflowRun": "연결된 workflow run 없음",
       "status": "상태",
@@ -46,25 +50,27 @@
     },
     "fields": {
       "artifact": "실행 파일",
+      "approvedBatchRevision": "승인된 Batch 리비전",
       "batchId": "Batch ID",
       "command": "배치 명령",
       "environment": "환경",
       "expiresAt": "만료 시각",
-      "issueState": "Issue 상태",
+      "issueState": "원본 요청 상태",
       "reason": "사유",
       "repository": "Workspace",
       "requestDigest": "Request digest",
       "requestedAt": "요청 시각",
       "requestedBy": "요청자",
       "runsOn": "실행 환경",
-      "workflow": "Workflow"
+      "sourceChange": "원본 변경 요청",
+      "workflow": "실행 대상"
     },
-    "governance": {
+    "control": {
       "digest": "Request digest가 존재합니다.",
       "gateMissing": "BatchPlane Gate 증적이 누락되었습니다.",
       "gateRequired": "BatchPlane Gate는 배치 명령 전에 반드시 실행됩니다.",
       "requester": "요청자 증적이 존재합니다.",
-      "title": "통제 점검"
+      "title": "통제 확인"
     },
     "material": {
       "title": "판단 정보"
@@ -81,7 +87,9 @@
       "error": "실행 요청 상세를 불러오지 못했습니다.",
       "loading": "실행 요청 상세를 불러오는 중...",
       "noSession": "실행 요청을 검토하려면 Workspace를 먼저 연결하세요.",
-      "notFound": "실행 요청 Issue #{{issueNumber}}를 찾을 수 없습니다."
+      "notFound": "실행 요청 {{requestLocator}}를 찾을 수 없습니다.",
+      "pending": "요청은 기록되었으며 후속 상태 반영을 기다리고 있습니다.",
+      "unavailable": "최신 상태를 확인하지 못했습니다. 마지막으로 확인한 처리 결과를 표시합니다."
     },
     "status": {
       "APPROVED": "승인 기록됨",
@@ -90,7 +98,8 @@
       "DISPATCH_FAILED": "Dispatch 실패",
       "GATE_BLOCKED": "Gate 차단",
       "REJECTED": "반려됨",
-      "REQUESTED": "승인 대기"
+      "REQUESTED": "승인 대기",
+      "SCHEDULE_RECORDED": "스케줄 발생 기록됨"
     },
     "statusHelp": {
       "APPROVED": "승인 comment 증적이 존재합니다. Dispatcher가 이를 감지해야 합니다.",
@@ -99,33 +108,38 @@
       "DISPATCH_FAILED": "Dispatcher 증적상 workflow dispatch가 실패했습니다.",
       "GATE_BLOCKED": "Gate 증적상 workflow 실행이 차단되었습니다.",
       "REJECTED": "요청이 반려되어 dispatch되면 안 됩니다.",
-      "REQUESTED": "Maintainer 승인 comment가 아직 필요합니다."
+      "REQUESTED": "Maintainer 승인 comment가 아직 필요합니다.",
+      "SCHEDULE_RECORDED": "이 항목은 native 스케줄 발생입니다. 승인된 Batch 리비전, Gate 관측, 실행 증적을 각각 표시하며 사람 승인을 기다리는 항목이 아닙니다."
     },
     "values": {
       "selfApprovalAllowed": "Workspace 정책({{mode}})에 따라 자가승인이 허용됩니다. 이 승인도 자가승인 증적으로 기록됩니다.",
-      "selfApprovalBlocked": "요청자와 승인자는 서로 다른 사용자여야 합니다."
+      "selfApprovalBlocked": "요청자와 승인자는 서로 다른 사용자여야 합니다.",
+      "requesterIdentityUnverified": "이 요청의 요청자 신원을 확인할 수 없습니다."
     }
   },
   "runDetail": {
-    "title": "실행 Run 상세",
-    "subtitle": "{{runId}} workflow run 증적을 확인합니다.",
+    "sourceRunTitle": "원본 실행 상세",
+    "title": "실행 상세",
+    "subtitle": "실행 {{executionId}} 증적을 확인합니다.",
     "actions": {
       "backToFailures": "실패내역으로",
-      "backToRuns": "Runs로",
+      "backToExecutions": "실행 이력으로",
       "openBatch": "배치 열기",
-      "openGitHubRun": "GitHub run 열기",
+      "openGitHubRun": "원본 실행 열기",
       "refresh": "새로고침"
     },
     "business": {
+      "sourceRunUnconfirmed": "이 원본 Run은 기록된 스케줄 회차와 연결되지 않았습니다. Job과 로그를 확인할 수 있으나 업무 결과는 귀속하지 않습니다.",
       "current": "업무 실행 상태: {{status}}.",
       "failed": "Gate 통과 후 배치 명령 또는 업무 job이 실패했습니다.",
       "notReached": "Gate에서 차단되어 배치 명령은 실행되지 않았습니다.",
+      "verificationUnknown": "Workflow는 실패했지만 Gate 검증 상태를 알 수 없습니다. BatchPlane은 이를 업무 실패로 분류하지 않습니다.",
       "title": "업무 실행"
     },
     "followUp": {
       "actionTaken": "조치 내용",
       "actionTakenPlaceholder": "정정, 재실행, 에스컬레이션, 위험수용 제안 등 후속 조치를 입력하세요.",
-      "description": "운영자 소명과 후속 조치를 GitHub 기반 불변 증적으로 기록합니다. Workspace 관리자 검토는 별도 이슈에서 처리합니다.",
+      "description": "운영자 소명, 후속 조치, Workspace 관리자 검토를 GitHub 기반 감사 증적으로 기록합니다.",
       "empty": "아직 실패 소명이 기록되지 않았습니다.",
       "error": "실패 후속처리를 저장하지 못했습니다.",
       "explanation": "소명 내용",
@@ -133,6 +147,28 @@
       "history": "기록된 소명",
       "owner": "담당자",
       "ownerPlaceholder": "ops-team 또는 @username",
+      "review": {
+        "approve": "소명 승인",
+        "error": "검토 판단을 기록하지 못했습니다.",
+        "latest": "@{{reviewer}} 검토, {{reviewedAt}}",
+        "reason": "검토 사유",
+        "reasonPlaceholder": "소명을 승인, 반려, 수정요청하는 판단 근거를 기록하세요.",
+        "reject": "반려",
+        "requestChanges": "수정요청",
+        "saving": "기록 중...",
+        "statusValues": {
+          "APPROVED": "관리자 승인",
+          "AWAITING_REVIEW": "관리자 검토 대기",
+          "CHANGES_REQUESTED": "수정요청",
+          "REJECTED": "관리자 반려"
+        },
+        "unavailableReasons": {
+          "ALREADY_REVIEWED": "관리자 검토 판단이 이미 기록되어 있습니다.",
+          "NOT_WORKSPACE_MANAGER": "이 소명을 검토하려면 Workspace 관리자 권한이 필요합니다.",
+          "PERMISSION_UNAVAILABLE": "Workspace 관리자 권한을 확인할 수 없습니다.",
+          "SELF_REVIEW_BLOCKED": "현재 Workspace 정책에서는 본인이 작성한 소명을 검토할 수 없습니다."
+        }
+      },
       "save": "후속처리 기록",
       "saving": "기록 중...",
       "status": "후속처리 상태",
@@ -154,15 +190,16 @@
       "reasonCode": "Reason code",
       "requestId": "Request ID",
       "runAttempt": "시도",
-      "runId": "Run ID",
+      "executionId": "실행 ID",
+      "sourceRunId": "원본 실행 ID",
       "startedAt": "시작 시각",
-      "workflow": "Workflow"
+      "workflow": "실행 대상"
     },
     "gate": {
       "allowedMessage": "Gate가 배치 명령 전 실행을 허용했습니다.",
       "blockedMessage": "Gate가 배치 명령 전에 실행을 차단했습니다. 업무 실패와 분리해서 판단해야 합니다.",
       "blockedTitle": "Gate 차단",
-      "noEvidence": "아직 Gate job 증적을 확인할 수 없습니다.",
+      "noEvidence": "구조화된 Gate 증적을 읽을 수 없거나 이 실행과 일치하지 않아 Gate 검증 상태를 알 수 없습니다.",
       "title": "Gate 통제"
     },
     "jobs": {
@@ -175,6 +212,7 @@
       "hideLog": "로그 접기",
       "jobId": "Job ID {{jobId}}",
       "kind": {
+        "source": "원본 job",
         "business": "업무 job",
         "gate": "Gate job"
       },
@@ -185,6 +223,7 @@
       "logUnavailable": "로그 링크 없음",
       "logViewTruncated": "일치하는 로그 {{count}}줄 중 처음 {{limit}}줄만 표시합니다.",
       "openBusinessLog": "업무 로그 열기",
+      "openSourceLog": "원본 로그 열기",
       "openGateLog": "Gate 로그 열기",
       "openLogForJob": "{{name}} GitHub Actions 로그 열기",
       "rawLogNotPersisted": "GitHub에서 필요할 때만 불러옵니다. 로그 본문은 감사 증적으로 기록하지 않습니다.",
@@ -192,6 +231,7 @@
       "searchLog": "로그 검색",
       "searchPlaceholder": "표시할 로그 라인을 필터링",
       "viewBusinessLog": "업무 로그 보기",
+      "viewSourceLog": "원본 로그 보기",
       "viewGateLog": "Gate 로그 보기",
       "title": "Job 결과 요약"
     },
@@ -201,28 +241,31 @@
       "FAILED": "실패",
       "QUEUED": "대기 중",
       "RUNNING": "실행 중",
-      "SUCCEEDED": "성공"
+      "SUCCEEDED": "성공",
+      "UNCONFIRMED": "증적 확인 불가"
     },
     "states": {
       "actionsPermission": "Run 증적과 job 로그 링크를 불러오려면 GitHub Actions 읽기 권한이 필요합니다. 비공개 저장소 토큰 권한을 확인하세요.",
       "error": "실행 run 상세를 불러오지 못했습니다.",
       "loading": "실행 run 상세를 불러오는 중...",
       "noSession": "실행 run을 보려면 Workspace를 먼저 연결하세요.",
-      "notFound": "실행 run {{runId}}를 찾을 수 없습니다."
+      "notFound": "실행 {{executionId}}를 찾을 수 없습니다."
     },
     "status": {
       "BLOCKED": "Gate 차단",
       "CANCELED": "취소됨",
       "FAILED": "업무 실패",
+      "GATE_VERIFICATION_UNKNOWN": "Gate 판정 확인 불가",
       "QUEUED": "대기 중",
       "RUNNING": "실행 중",
-      "SUCCEEDED": "성공"
+      "SUCCEEDED": "성공",
+      "UNCONFIRMED": "증적 확인 불가"
     },
     "values": {
       "inProgress": "진행 중",
       "none": "없음",
       "unknown": "알 수 없음",
-      "unknownWorkflow": "GitHub Actions workflow"
+      "unknownWorkflow": "실행 대상 정보 없음"
     }
   },
   "form": {
@@ -231,7 +274,8 @@
     "expiresInOption": "{{hours}}시간",
     "reason": "사유",
     "title": "요청 내용",
-    "workflowRef": "Workflow ref"
+    "workflowRef": "Workflow ref",
+    "targetRevision": "대상 리비전"
   },
   "parameters": {
     "add": "파라미터 추가",
@@ -239,7 +283,7 @@
     "name": "이름",
     "remove": "파라미터 삭제",
     "sensitive": "민감값",
-    "sensitiveHint": "민감 파라미터 값은 GitHub Issue에 기록하지 않습니다. 감사 비교용 value digest만 저장합니다.",
+    "sensitiveHint": "민감 파라미터 값은 원본 요청에 기록하지 않습니다. 감사 비교용 value digest만 저장합니다.",
     "title": "파라미터",
     "value": "값"
   },
@@ -250,21 +294,21 @@
   },
   "review": {
     "commandReady": "배치 명령이 요청 payload에 포함됩니다.",
-    "autoApproval": "Workspace 정책에 따라 Issue 생성 후 이 요청은 자동 승인됩니다. BatchPlane은 승인 증적만 기록하고 workflow_dispatch는 dispatcher가 수행합니다.",
+    "autoApproval": "Workspace 정책에 따라 생성 후 이 요청은 자동 승인됩니다. BatchPlane은 승인 증적만 기록하고 dispatcher가 통제된 workflow dispatch를 수행합니다.",
     "digest": "Request digest",
-    "digestReady": "Request digest가 Issue marker에 기록됩니다.",
+    "digestReady": "Request digest가 요청 증적에 기록됩니다.",
     "expiresAt": "만료 시각",
     "gateRequired": "BatchPlane Gate는 배치 명령 전에 반드시 실행됩니다.",
     "nextStep": "생성 후 BatchPlane은 실행요청 상세로 바로 이동합니다.",
-    "noDispatch": "Issue 생성만으로 Workflow를 실행하지 않습니다.",
+    "noDispatch": "요청 생성만으로 Workflow를 실행하지 않습니다.",
     "pending": "대기 중",
     "requestId": "Request ID",
     "runner": "실행 환경",
     "title": "요청 검토",
-    "workflow": "Workflow"
+    "workflow": "실행 대상"
   },
   "states": {
-    "completeForm": "Issue 생성 전에 요청 내용을 완료해주세요.",
+    "completeForm": "요청을 생성하기 전에 요청 내용을 완료해주세요.",
     "created": "실행 요청이 생성되었습니다.",
     "error": "실행 요청 화면을 불러오지 못했습니다.",
     "loading": "실행 요청 화면을 불러오는 중...",
@@ -275,12 +319,18 @@
     "submitError": "실행 요청을 생성하지 못했습니다."
   },
   "validation": {
+    "readiness": {
+      "BATCH_INACTIVE": "비활성 배치는 실행 요청할 수 없습니다.",
+      "EXECUTION_COMMAND_UNAVAILABLE": "배치 정의에 배치 명령이 기록되어 있지 않습니다.",
+      "GATE_NOT_REQUIRED": "BatchPlane Gate는 실행 요청 전에 필수입니다."
+    },
     "expiresIn": "승인 만료 시간을 선택해야 합니다.",
     "gateRequired": "BatchPlane Gate는 실행 요청 전에 필수입니다.",
     "inactive": "비활성 배치는 실행 요청할 수 없습니다.",
     "missingCommand": "배치 정의에 배치 명령이 기록되어 있지 않습니다.",
     "parameterName": "값을 입력한 파라미터는 이름이 필요합니다.",
     "reason": "사유는 필수입니다.",
-    "workflowRef": "Workflow ref는 필수입니다."
+    "workflowRef": "Workflow ref는 필수입니다.",
+    "targetRevision": "대상 리비전은 필수입니다."
   }
 }

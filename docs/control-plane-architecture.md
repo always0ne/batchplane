@@ -1,441 +1,189 @@
 # BatchPlane Control Plane Architecture
 
-Status: Architecture baseline for issue #191
+Status: Accepted direction; current Lite boundary and planned Main design.
+Reconciled 2026-10-05. Concrete Main contracts require #227 approval.
 
 ## Architecture Decision
 
-BatchPlane Main is a Kotlin/Spring Boot modular monolith using hexagonal
-boundaries. BatchPlane Lite is a TypeScript serverless runtime. Both editions
-share product contracts and React UI source, but they do not share an authority
-or persistence implementation.
+Main is a Kotlin/Spring Boot modular monolith using hexagonal dependency
+boundaries and MySQL. Lite is a TypeScript serverless runtime backed by GitHub.
+Both use the same React UI source and product semantics, not the same authority,
+storage implementation or deployment artifact.
 
-The architecture uses one product, two runtime editions, and multiple Platform
-Provider Bundles.
+One source repository is retained under
+[ADR-0001](./adr/0001-modular-monorepo.md). Neither edition imports the other's
+runtime implementation. Do not create separate UI source trees.
 
-Main and Lite remain in one authoritative source repository during the current
-product stage, but they are independent builds and release artifacts. Neither
-edition may import the other's implementation. The repository decision and its
-reconsideration triggers are recorded in
-[`ADR-0001`](./adr/0001-modular-monorepo.md).
-
-## System Context
+## Context
 
 ```mermaid
 flowchart TB
-    USER[User / Operator / Auditor]
-    SOURCE[Shared React/Vite Source]
-    SOURCE --> MAIN_UI[Main UI Build]
-    SOURCE --> LITE_UI[Lite UI Build]
-    USER --> MAIN_UI
-    USER --> LITE_UI
-
-    subgraph MAIN[Main Runtime]
-        MAIN_UI --> API[REST API]
-        API --> APP[Application Use Cases]
-        APP --> DOMAIN[Pure Kotlin Domain]
-        APP --> MYSQL[(MySQL: state + audit + outbox)]
-        APP --> PROVIDERS[Provider Registry]
-        GATE_API[Gate API] --> APP
-        EVENT_API[Provider Event API] --> APP
-        IDP[Identity Adapters] --> API
-    end
-
-    subgraph LITE[Lite Runtime]
-        LITE_UI --> LITE_APP[TypeScript Lite Use Cases]
-        LITE_APP --> GITHUB_STORE[GitHub Governance Adapter]
-        GITHUB_STORE --> REPO[Files / PRs / Issues]
-        LITE_APP --> LITE_GHA[GitHub Actions Lite Adapter]
-    end
-
-    PROVIDERS --> GHA_SERVER[GitHub Actions Server Adapter]
-    PROVIDERS --> JENKINS_SERVER[Jenkins Server Adapter]
-    PROVIDERS --> FUTURE_SERVER[Future Provider Adapter]
-
-    GHA_SERVER --> GHA[GitHub Actions]
-    LITE_GHA --> GHA
-    JENKINS_SERVER --> JENKINS[Jenkins]
-    FUTURE_SERVER --> FUTURE[Future Platform]
-
-    GHA --> GATE_ACTION[Gate Action]
-    GATE_ACTION -->|server mode| GATE_API
-    GATE_ACTION -->|lite mode| GITHUB_STORE
-    GHA --> GHA_EVENTS[GitHub Webhooks]
-    GHA_EVENTS --> EVENT_API
-
-    JENKINS --> JENKINS_PLUGIN[Jenkins Plugin]
-    JENKINS_PLUGIN --> GATE_API
-    JENKINS --> JENKINS_EVENTS[Jenkins Events]
-    JENKINS_EVENTS --> EVENT_API
+    UI[Shared React Pages] --> CLIENT[BatchPlaneClient]
+    CLIENT --> LITE[Lite implementation]
+    CLIENT --> HTTP[Planned Main HTTP implementation]
+    LITE --> GH[GitHub files, PRs, Issues and Actions]
+    HTTP --> API[Main inbound API adapter]
+    API --> APP[Kotlin application use cases]
+    APP --> DOMAIN[Product domain and authorization]
+    APP --> PORTS[Outbound ports]
+    PORTS --> DB[MySQL adapter]
+    PORTS --> IDENTITY[Identity adapters]
+    PORTS --> PROVIDERS[Platform adapters]
+    PROVIDERS --> GHA[GitHub Actions]
+    PROVIDERS --> JENKINS[Jenkins]
+    PROVIDERS --> NEXT[Later selected platform]
+    GHA --> GATE[Platform-side pre-business Gate]
+    JENKINS --> GATE
+    NEXT --> GATE
+    GATE --> APP
 ```
 
-## Runtime Ownership
+Main and its connectors in this diagram are planned, not installed services.
+The actual Lite Gate verifies repository evidence inside the native execution.
+It does not call a hidden BatchPlane server.
 
-### Main
+## Authority And Execution Ownership
 
-Main owns product state, identity mapping, internal authorization, policy
-evaluation, execution permits, normalized projections, audit events, provider
-orchestration, reconciliation, notification outbox, and cross-provider views.
+Main owns product identity, authorization, requests, decisions, normalized
+observations and audit. Authentication facts come from environment adapters;
+external group membership is not itself a product permission.
 
-### Lite
+Native platforms own schedulers, runners, execution and logs. Platform adapters
+translate management and observation. A platform-side connector enforces Gate
+before business work. Polling after work starts cannot replace that boundary.
 
-Lite maps common product operations to GitHub repository primitives. Pull
-Requests, Issues, comments, repository files, and workflow runs are storage and
-transport mechanisms, not core domain types.
+Lite currently connects one repository-backed Workspace. #142 adds authorized
+multi-Workspace reads and unified requests, subject to an approved feasibility
+design. A browser session does not erase separate repository trust boundaries.
+Main supports multiple connections inside one Workspace.
 
-One private repository is one Lite governance trust boundary because its
-repository token, policy files, branch protection, and Gate evidence are scoped
-together. The Lite composition root may hold several volatile repository
-sessions and provide Workspace switching or read-only portfolio aggregation.
-Every mutation and authorization is still bound to one selected Workspace.
+A unified request can cover several Workspaces and requires one common approver
+authorized for every target. Exact request storage, cross-repository evidence,
+IDs and partial-result contracts are not decided by this diagram.
 
-Treating multiple private repositories as one policy Workspace would require a
-shared trusted authority and cross-repository credentials. That is a Main
-deployment concern, not an implicit browser-side Lite capability.
-
-### Batch Platform
-
-Each platform owns its native resources, scheduler, execution engine, runners,
-branching, downstream execution, native state, and logs. Platform-side Gate
-connectors enforce BatchPlane decisions at the actual pre-business boundary.
-
-## Repository And Main Module Structure
+## Current Repository, Not A New Directory Migration
 
 ```text
-apps/
-  control-plane-server/
-  web/                         shared React feature source
-  web-main/                    Main composition and build entry
-  web-lite/                    Lite composition and build entry
-
-server/
-  modules/
-    workspace/
-    catalog/
-    governance/
-    execution-control/
-    scheduling/
-    observation/
-    failure-management/
-    audit/
-  adapters/
-    inbound-rest/
-    inbound-events/
-    outbound-mysql/
-    outbound-identity/
-    outbound-secrets/
-    outbound-notification/
-  bootstrap/
-
+apps/web/src/
+  app/                         routing and composition
+  pages/                       product Pages and owned components/Hooks
+  components/                  neutral shared controls and visual tokens
+  client/                      product-client Context
+  runtime/                     implementation injection
 packages/
-  contracts/                   OpenAPI, JSON Schema, reason codes, fixtures
-  ui-client/                   TypeScript BatchPlaneClient contract
-  ui-kit/
-  digest/
-
-providers/
-  sdk/
-    spi/
-    tck/
-  github-actions/
-    main-adapter/
-    lite-adapter/
-    gate-action/
-    dispatcher-action/
-  jenkins/
-    main-adapter/
-    gate-plugin/
+  ui-client/                   actual TypeScript product UI contract
+  github-lite/                 GitHub transport, evidence and Lite operations
+  domain/                      current TypeScript domain behavior
+  digest/                      canonical digest implementation
+actions/
+  dispatcher/                  approved manual-request delivery
+  gate/                        pre-business evidence verification
+  schedule-request/            native occurrence record
+  schedule-result/             native occurrence outcome record
 ```
 
-The first implementation MAY keep current pnpm packages and add a Gradle build
-alongside them. Root CI orchestrates pnpm and Gradle without making one language
-toolchain responsible for the other.
+These boundaries have already been extracted. R1-R7 are not restarted by #192.
+Current source is authoritative for package names and methods.
 
-## Source Repository Strategy
+Main adds only the packages/modules needed for its approved first flow.
+A future Gradle build can coexist with pnpm. The exact module tree is designed
+in #227/#228; this document does not mandate a separate module per business noun,
+a ui-kit package, generated client, schema form engine or dynamic plugin SDK.
 
-BatchPlane uses a modular monorepo, not a single undifferentiated application.
-The repository contains Main, Lite, shared libraries, and provider source so
-that contract and conformance changes can be verified atomically while those
-boundaries are still evolving.
+## Hexagonal Dependency Rules
 
 ```text
-Main ----\
-          +---> shared UI, contracts, policy, and provider SPI
-Lite ----/
-
-Main --X--> Lite implementation
-Lite --X--> Main implementation
+inbound adapters -> application use cases -> domain
+outbound adapters -> application-declared ports
+bootstrap -> concrete adapters for composition
+React Pages -> product client, not provider transport
 ```
 
-Main and Lite have separate composition roots, build entry points, deployment
-pipelines, and release artifacts. Shared React source produces separate Main
-and Lite builds. Shared-module changes run all affected consumer tests; an
-edition-local change may use path-scoped CI.
+Domain rules do not depend on Spring, SQL, HTTP, GitHub or Jenkins DTOs.
+Application use cases coordinate authorization and side effects. Outbound ports
+are introduced for real persistence, identity and platform needs. Group by
+business responsibility; do not distribute one readable operation among empty
+layers or speculative interfaces.
 
-This source layout is reassessed only after Main completes a production-capable
-vertical flow and GitHub Actions passes Main/Lite conformance in both hosting
-modes. Independent teams, materially different release cadences, repository-
-level security isolation, or measurable repository and CI cost may then justify
-a split through a new ADR.
+## Main Persistence And Side Effects
 
-## Dependency Rules
+MySQL stores product state, historical decisions and audit. State transition and
+its audit record must not disagree after a transaction. Native engine commands
+cannot share the database transaction; record intent and distinguish accepted,
+confirmed failed and unknown outcomes.
 
-```text
-adapter-in-*  ──→ application ──→ domain
-adapter-out-* ──→ application ports
-provider adapters ──→ provider SPI + contracts
-bootstrap ──→ all concrete modules for composition only
-web ──→ generated client contract, never Kotlin domain classes
-lite runtime ──→ TypeScript product contract + GitHub adapter
-```
+An outbox or explicit recoverable orchestration is a candidate for that boundary,
+not a claim of exactly-once external effects. #227/#228 approve the minimum
+mechanism, API and tables before implementation. No microservices, event-sourcing
+framework or general notification infrastructure is required by this baseline.
 
-- `domain` imports no Spring, persistence, GitHub, Jenkins, HTTP, or UI code.
-- `application` imports domain and declares inbound use cases and outbound
-  ports.
-- inbound adapters translate REST/webhook messages to application commands.
-- outbound adapters implement persistence, provider, identity, secret, audit,
-  and notification ports.
-- provider implementations do not import UI features.
-- UI pages receive a `BatchPlaneClient` from application composition and do not
-  read sessions or construct adapters directly.
+Schedules are logically owned by the approved Batch revision. Lite embeds them
+in that definition. Main may query a related schedule table/projection without
+making a schedule independently approvable. Table shape belongs to Main design.
 
-Each `server/modules/*` Gradle module contains its own domain model,
-application use cases, and declared ports. Cross-module calls use exported
-application contracts or domain events; one module never reaches into another
-module's persistence adapter.
+## Complete Control Flows
 
-## Application Modules
+### Change
 
-The modular monolith is divided by business capability, not technical layer
-alone:
+Request exact proposed configuration and diff -> authorize under effective
+policy -> verify current base -> apply through provider -> confirm resulting
+revision -> expose result and audit. Approval is not proof that apply succeeded.
+Deleted Batch revisions and execution references remain accessible.
 
-| Module             | Primary responsibility                                           |
-| ------------------ | ---------------------------------------------------------------- |
-| Workspace          | Workspace, membership, roles, policies, Platform Connections     |
-| Catalog            | Batch discovery, onboarding, revision, drift, search projections |
-| Governance         | Change Requests, Approval Cases, provider apply orchestration    |
-| Execution Control  | Execution Intents, permits, dispatch, Gate start/complete        |
-| Scheduling         | Schedule revisions, effective authority, occurrence correlation  |
-| Observation        | Provider events, attempt state, reconciliation, logs metadata    |
-| Failure Management | Failure cases, cause taxonomy, follow-up, manager review         |
-| Audit              | Append-only event creation, search, export, evidence references  |
-| Notification       | Outbox consumption and delivery-channel adapters                 |
+### Manual Execution
 
-Each capability may have `domain`, `application`, and adapter packages inside
-its module while still enforcing the dependency direction above.
+Request exact target and parameters -> approval -> controlled delivery ->
+native attempt -> mandatory Gate -> actual approved business inputs ->
+result, logs and audit. UI capability, command authorization and Gate must agree.
 
-## Command And Query Separation
+Confirmed dispatch failure is terminal and requires a new request. Unknown
+delivery is not assumed failure and does not trigger blind retransmission.
+Approved withdrawal and real queued/running cancellation use the state-specific
+flow in [the roadmap](./control-plane-migration-plan.md).
 
-BatchPlane uses pragmatic command/query separation, not independent services.
+### Native Schedule
 
-- Commands load aggregates, enforce invariants, write current state, append
-  audit events, and enqueue outbox records in one MySQL transaction.
-- Queries read Workspace-scoped projections optimized for batch, run, failure,
-  work-queue, and audit screens.
-- Provider webhooks and reconciliation update projections through idempotent
-  application commands.
-- Full event sourcing is not required.
+Approve the owning Batch/schedule revision -> native platform fires ->
+record occurrence -> verify authority/Gate -> execute from the verified revision
+in the same native execution -> correlate the actual attempt/job result.
 
-## MySQL Boundaries
+The [implemented Lite schedule contract](./schedule-execution-contract.md) owns
+exact evidence fields. It denies same-Run reruns and rechecks at business entry;
+it does not promise nominal-slot deduplication across distinct native Runs.
+No per-occurrence fake approval, automatic catch-up or automatic execution retry.
 
-One MySQL deployment may initially contain all Main tables:
+### Observation And Cancellation
 
-```text
-workspace / membership / role_binding / policy_revision
-platform_connection / provider_capability / provider_health
-batch / batch_revision / batch_external_ref / schedule_projection
-change_request / approval_case / approval_decision / apply_attempt
-execution_intent / execution_permit / execution_attempt / gate_decision
-failure_case / failure_submission / failure_review
-audit_event / audit_evidence_ref
-outbox_event / inbox_deduplication
-```
+Provider events or explicit reads update observations. Result synchronization
+repairs stored state without starting/stopping work. Cancellation sends an actual
+provider command with a reason and records the confirmed result, not a UI-only
+terminal state. Both belong to Main's first flow; Lite cancellation is #225.
 
-Responsibilities remain separate even when tables share a schema:
+## Integration And Validation Order
 
-- Current-state tables may be updated under aggregate rules.
-- Approval decisions, Gate decisions, audit events, and historical revisions are
-  append-only through supported APIs.
-- Outbox records are created in the state transaction and delivered later.
-- Unique constraints enforce idempotency for command, provider event, native
-  attempt, and Gate start/complete keys.
+Complete required Lite flows and acceptance first. Approve Main's basic model,
+then complete GitHub registration/manual execution. Validate real Jenkins in
+the same Workspace immediately afterwards, before all Main operations are done.
+Select a third platform after learning from those two; no specific third engine
+is assumed.
 
-## Shared UI Composition
+Reuse approved product-policy fixtures across TypeScript and Kotlin where
+meaningful. Do not require shared compiled implementation across runtimes or
+duplicate business rules in React. Provider-specific data and enforced
+limitations stay in adapters and support documentation.
 
-The shared information architecture and screen contract are defined in
-[`control-plane-ui-architecture.md`](./control-plane-ui-architecture.md).
+## Design And Evidence Links
 
-The same React source creates two configured builds:
+- [Delivery order and remaining scope decisions](./control-plane-migration-plan.md)
+- [Requirements and readiness](./requirements-traceability.md)
+- [Domain concepts](./domain-model.md)
+- [Identity and authorization](./identity-and-authorization.md)
+- [Provider design candidates](./platform-provider-contract.md)
+- [Gate semantics and proposal boundary](./gate-protocol.md)
+- [Shared UI and current sitemap](./control-plane-ui-architecture.md)
+- [Edition conformance](./main-lite-conformance.md)
+- [User QA](./user-qa.ko.md)
 
-```text
-Main build: runtime.kind=server-api, API base URL configured
-Lite build: runtime.kind=github-lite, GitHub session adapter configured
-```
-
-At application startup:
-
-```typescript
-type BatchPlaneClient = {
-  session: SessionClient;
-  workspaces: WorkspaceClient;
-  platformConnections: PlatformConnectionClient;
-  batches: BatchClient;
-  changes: ChangeRequestClient;
-  approvals: ApprovalClient;
-  executions: ExecutionClient;
-  schedules: ScheduleClient;
-  failures: FailureClient;
-  audit: AuditClient;
-  capabilities: CapabilityClient;
-};
-```
-
-This client is injected through application context. Feature pages never select
-Main versus Lite or GitHub versus Jenkins themselves.
-
-## Provider Event Flow
-
-Platform integration is bidirectional:
-
-```text
-BatchPlane command
-  -> provider control adapter
-  -> native platform operation
-  -> native operation ID recorded
-
-Native platform event
-  -> authenticated webhook/plugin/event adapter
-  -> inbox deduplication
-  -> normalized application command
-  -> attempt/projection/audit update
-```
-
-Polling is a reconciliation fallback, not the primary source when reliable
-events exist. Late or repeated events are expected and processed idempotently.
-
-## End-To-End Control Flows
-
-The following sequences describe product semantics. Main persists the Core
-steps in MySQL; Lite maps them to repository-native evidence.
-In Lite sequence interpretation, `Core` means the product rules packaged into
-the browser application service or Gate Action; it does not imply a hidden
-BatchPlane server.
-
-### Governed Change
-
-```mermaid
-sequenceDiagram
-    actor Requester
-    participant UI
-    participant Core
-    participant Provider
-    actor Approver
-
-    Requester->>UI: Propose register/change/delete
-    UI->>Core: Create Change Request
-    Core->>Provider: Plan native change
-    Provider-->>Core: Normalized diff + native preview + plan digest
-    Core-->>UI: Pending approval with complete diff
-    Approver->>UI: Approve exact subject digest
-    UI->>Core: Record immutable decision
-    Core->>Core: Recheck policy and base revision
-    Core->>Provider: Apply with idempotency key
-    Provider-->>Core: Native operation reference
-    Provider-->>Core: Completion event or reconciled result
-    Core->>Core: Activate revision and append audit
-```
-
-An approval authorizes only the planned content. A provider operation can still
-fail, conflict, or remain pending; the UI must not label the change effective
-until the provider result is confirmed.
-
-### Manual Or API Execution
-
-```mermaid
-sequenceDiagram
-    actor Requester
-    participant UI
-    participant Core
-    actor Approver
-    participant Provider
-    participant GateConnector as Platform Gate Connector
-    participant Engine as Native Batch Engine
-
-    Requester->>UI: Request execution
-    UI->>Core: Create Execution Intent
-    Approver->>UI: Approve exact intent digest
-    UI->>Core: Record immutable decision
-    Core->>Provider: Dispatch authorized intent
-    Provider->>Engine: Create native attempt
-    Engine->>GateConnector: Reach pre-business boundary
-    GateConnector->>Core: START with authenticated native identity
-    Core-->>GateConnector: ALLOW or DENY
-    alt Allowed
-        GateConnector->>Engine: Continue business command
-        Engine-->>Core: Lifecycle events / reconciliation
-        GateConnector->>Core: COMPLETE same attempt
-    else Denied
-        GateConnector-->>Engine: Stop before business command
-    end
-```
-
-In Lite, the manual dispatcher is part of the GitHub provider implementation.
-In Main, the provider worker dispatches after committed authorization. Neither
-path allows the browser to call the native execution API directly.
-
-### Scheduled Execution
-
-```mermaid
-sequenceDiagram
-    actor Approver
-    participant Core
-    participant Provider
-    participant Scheduler as Native Scheduler
-    participant GateConnector as Platform Gate Connector
-    participant Engine as Native Batch Engine
-
-    Approver->>Core: Approve Batch and Schedule Revision
-    Core->>Provider: Apply effective native schedule
-    Provider-->>Core: Confirm schedule revision
-    Scheduler->>Engine: Fire native occurrence
-    Engine->>GateConnector: Reach pre-business boundary
-    GateConnector->>Core: START with schedule and occurrence context
-    Core->>Core: Resolve effective approved Schedule Revision
-    Core-->>GateConnector: ALLOW or DENY
-    alt Allowed
-        GateConnector->>Engine: Continue business command
-        Engine-->>Core: Lifecycle events / reconciliation
-        GateConnector->>Core: COMPLETE same attempt
-    else Denied
-        GateConnector-->>Engine: Stop before business command
-    end
-```
-
-The schedule approval is the authority. The occurrence creates an Execution
-Attempt and Gate decision, not a fabricated human or automatic approval.
-
-## Deployment Units
-
-Initial deployment units are:
-
-- `batchplane-server`: Kotlin application and Main UI static build.
-- `batchplane-mysql`: externally managed or bundled MySQL deployment.
-- `batchplane-worker`: optional separate process later; initially the server may
-  execute outbox workers under the same codebase.
-- `batchplane-lite`: static Lite UI build.
-- `batchplane-gate-action`: published GitHub Action supporting Lite and Server
-  modes.
-- `batchplane-dispatcher-action`: Lite dispatcher.
-- `batchplane-jenkins-plugin`: Jenkins enforcement and lifecycle connector.
-
-Splitting Main into microservices requires measured scaling, availability, or
-ownership pressure and a new architecture decision. It is not part of the
-initial design.
-
-## Architecture Enforcement
-
-- Gradle module dependencies and ArchUnit tests enforce Kotlin boundaries.
-- ESLint import rules enforce UI, Lite application, and adapter boundaries.
-- OpenAPI and JSON Schema compatibility checks run in CI.
-- The Adapter TCK runs against provider simulators and integration fixtures.
-- A dependency report MUST fail CI when core domain code imports provider-
-  specific packages.
+Architecture documents do not establish live acceptance. Runtime packaging,
+connector authentication, Main schema/API, Main permission mappings and deployment
+targets remain design work, not hidden implementation decisions.

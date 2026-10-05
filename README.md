@@ -2,33 +2,184 @@
 
 Unified batch control and audit across execution platforms.
 
-BatchPlane gives operators one governed inventory for batch registration,
-change, deletion, execution, schedules, Gate decisions, run history, failure
+BatchPlane gives operators one controlled inventory for batch registration,
+change, deletion, execution, schedules, Gate decisions, execution history, failure
 follow-up, and audit evidence. GitHub Actions is the first supported platform;
 Jenkins is the next provider used to prove the platform boundary. Other batch
-platforms can be added through versioned provider contracts.
+platforms are planned through adapters validated against shared product contracts.
 
 The product architecture defines two editions:
 
 - **BatchPlane Main** is the planned Kotlin/Spring Boot control plane backed by
-  MySQL. It supports multiple Workspaces and platform connections, including
+  MySQL. Its target supports multiple Workspaces and platform connections, including
   GitHub Actions.
 - **BatchPlane Lite** is the currently implemented GitHub-native edition. It uses a repository, pull
   requests, Issues, comments, and Actions as its authority and requires no
   BatchPlane server.
 
-Both editions share product semantics and the React/Vite feature UI. Their
+Both editions share product semantics and the React/Vite product UI. Their
 runtime bootstraps and authoritative stores differ.
+
+Implementation availability is not operating acceptance. Main is planned;
+Lite still has known request/input/query gaps and pending live schedule QA.
+Use the [approved roadmap](docs/control-plane-migration-plan.md),
+[requirements and issue mapping](docs/requirements-traceability.md), and
+[Korean user QA sheet](docs/user-qa.ko.md) to track the remaining work.
+Record actual results with the [QA result template](docs/qa-result-template.ko.md).
 
 ## Development
 
 This repository uses pnpm workspaces.
 
+Before contributing, read the mandatory repository instructions in
+[`AGENTS.md`](AGENTS.md) and the shared React application principles in
+[`docs/frontend-engineering-principles.md`](docs/frontend-engineering-principles.md).
+
 ```bash
 corepack prepare pnpm@10.14.0 --activate
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
+
+Run `pnpm dev` from the repository root. It builds the internal package
+prerequisites, then starts one TypeScript package watcher alongside Vite.
+Changes to package sources are rebuilt automatically. Stop both with Ctrl-C.
+The Web app and TypeScript resolve internal packages through pnpm workspace
+links and their declared `exports`, without source-path aliases or an extra
+development plugin. Package `dist` directories are generated, not committed.
+
+## Code Navigation
+
+[Graphify](https://github.com/Graphify-Labs/graphify#installation) is an optional
+local code-navigation tool, not a product dependency or CI requirement. Install
+[uv](https://docs.astral.sh/uv/getting-started/installation/) first, then follow
+Graphify's official Codex setup:
+
+```bash
+uv tool install graphifyy
+uv tool update-shell
+```
+
+Open a new terminal so the tool directory is on `PATH`, then run:
+
+```bash
+graphify install --platform codex
+```
+
+From this repository's root, build a code-only graph without model extraction:
+
+```bash
+graphify extract . --code-only \
+  --exclude '**/dist/**' --exclude '**/node_modules/**' \
+  --exclude '**/coverage/**' --exclude 'docs/**' --exclude '*.local.*' \
+  --exclude 'apps/web/src/shared/i18n/locales/**'
+graphify cluster-only . --no-label
+graphify codex install
+```
+
+The last command adds query-first guidance to `AGENTS.md` and generates local
+Codex hook settings. Existing project instructions still apply. Graph artifacts
+and machine-specific hook settings are ignored by Git.
+
+```bash
+graphify query "LiteSetupPage" --budget 1600
+graphify explain useExecutionRunDetail
+graphify path ExecutionRunDetailPage useExecutionRunDetail
+graphify update .
+```
+
+In Codex, invoke the installed skill with `$graphify`, for example
+`$graphify query LiteSetupPage`. A bare `$graphify .` requests a full graph build,
+not a lookup; documents and media can involve model-based extraction. For
+parallel extraction, Graphify requires Codex's `multi_agent` feature to be enabled.
+Use graph results to locate relevant source, then read that source. An absent
+graph relationship does not establish a missing implementation or a defect.
+
+### Git Hooks
+
+Install Graphify's official hooks once per clone, after building the graph:
+
+```bash
+graphify hook install
+graphify hook status
+```
+
+The `post-commit` and `post-checkout` hooks update the code graph in the background
+after commits and branch switches. They use AST extraction without model calls
+and do not block Git while rebuilding. After `git pull` or `git merge`, run
+`graphify update .` explicitly; these operations have no Graphify hook.
+
+The installer also registers a repository-local merge driver and a
+`.gitattributes` entry for `graphify-out/graph.json`. BatchPlane keeps graph
+artifacts ignored, so they are not committed automatically. Git hooks are local
+to the clone and are not installed merely by pulling this README.
+
+Re-run `graphify hook install` after upgrading or reinstalling Graphify to refresh
+the pinned Python path. Use `graphify hook uninstall` to remove the integration.
+Reinstalling replaces the generated hooks, so any local Obsidian-export extension
+must be reapplied afterward.
+
+### Obsidian
+
+Export the existing graph with Graphify's official exporter; no extra Obsidian
+plugin or model extraction is required:
+
+```bash
+graphify export obsidian --dir "/path/to/your/Obsidian Vault"
+```
+
+This creates linked Markdown notes for graph nodes and communities, plus
+`graph.canvas`. Open the destination vault in Obsidian to browse the graph,
+search symbols, or follow links between notes. The exporter preserves existing
+user notes and graph settings; it tracks its generated notes in
+`.graphify_obsidian_manifest.json`. Keep personal annotations in separate notes
+because generated notes are replaced on the next export.
+
+This is a one-way export, not bidirectional synchronization. Graphify's official
+Git hooks update only `graphify-out/graph.json`. A local extension can run the
+export inside the existing background job, after `_rebuild_code` reports success.
+The configured local checkout uses this extension for commits and branch
+switches. Failed or skipped rebuilds do not export; export failures are logged
+without failing Git. Output goes to `~/.cache/graphify-rebuild.log`.
+
+This extension is a local edit to `.git/hooks`, not a Graphify setting or a hook
+distributed by this repository. Other clones require their own setup. After
+pulling or merging changes, refresh both explicitly from the repository root:
+
+```bash
+graphify update .
+graphify export obsidian --dir "/path/to/your/Obsidian Vault"
+```
+
+## Local Verification
+
+BatchPlane requires Node 24 or later. CI and the checked-in JavaScript Actions
+use Node 24. `.node-version` provides the single version-manager hint. The
+complete local verification sequence is:
+
+```bash
+corepack prepare pnpm@10.14.0 --activate
+pnpm install --frozen-lockfile
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist actions/schedule-result/dist
+VITE_BASE_PATH=/batchplane/ pnpm --filter @batchplane/web build
+git diff --check
+```
+
+Each JavaScript Action builds a self-contained Node 24 `dist/index.js` bundle.
+The Action dist diff check fails when a build changed a tracked bundle that has
+not been committed. Generated dispatcher, target, and scheduled workflow
+behavior is covered by focused TypeScript tests, including the exact
+single-quoted `github.event.schedule` expression. No Go toolchain is required.
+
+These checks use deterministic fixtures and generated workflow tests only;
+they do not prove a live GitHub repository cycle. Repository installation,
+Issue/PR writes, approval evidence, dispatcher, Gate, Actions logs, and cron
+trigger behavior still require the separate authorized Lite smoke test below.
 
 ## Lite Smoke Test
 
@@ -64,11 +215,14 @@ In `Workspace`, enter:
 - Repository: `batch`
 - Token: the fine-grained personal access token
 
-Use `Save session`, then `Check connection`. Tokens are stored in
-`sessionStorage` only. Connection check also inspects whether the repository has
-BatchPlane Lite installed.
+Use `Check connection` to save and verify the entered connection and inspect
+whether the repository has BatchPlane Lite installed. Tokens are stored in
+`sessionStorage` only. `Save session` alone does not verify connectivity.
+Editing or clearing the connection requires another successful check before
+creating installation, update or policy requests; those requests never save
+connection fields implicitly.
 
-If Lite is not installed, choose `Create installation PR` in `Workspace`. The
+If Lite is not installed, choose `Create installation request` in `Workspace`. The
 installation pull request adds:
 
 - `.github/workflows/batchplane-dispatcher.yml`
@@ -101,16 +255,23 @@ branch, and removes the request from the approval inbox. Return to `Batches` and
 choose `Refresh`; the approved batch definition should appear from the
 repository's `.batch-governance/batches` directory.
 
-To test the current 0.x schedule flow, include at least one enabled schedule
-during batch registration or change approval. After merge, the generated cron
-job creates occurrence-specific Issue evidence, writes the legacy
-`SCHEDULE_DELEGATED` compatibility marker, and calls the dispatcher. It does not
-wait in `Approvals`. This compatibility representation is being replaced by
-the v2 contract in `docs/github-lite-srs.md`: the merged Schedule Revision is
-the authority, and a scheduled occurrence reaches Gate in the same native run
-without fabricating approval. GitHub Actions scheduled workflows run from the
-latest default-branch commit, have a minimum five-minute interval, and can be
-delayed or dropped under high load.
+To test schedule execution, include at least one enabled schedule during batch
+registration or change approval. The approved revision authorizes unattended
+execution; a schedule does not need another human approval for each occurrence.
+The native scheduled workflow records an execution request, verifies Gate,
+rechecks authority immediately before the batch command, and records the result
+in the same workflow. It does not dispatch another workflow or fabricate an
+approval comment. Scheduled occurrences appear in requests, runs and audit,
+but not as approval work.
+
+Generated schedules retain the original cron and native IANA timezone. Within
+one batch, the same cron with different timezones is rejected because the
+documented trigger context does not distinguish them. A source occurrence is
+identified by the repository, batch, schedule and native Run, not an inferred
+nominal time. Full and partial native reruns are denied; deduplication of
+separate Runs for the same nominal slot is not guaranteed. GitHub may delay or
+drop scheduled runs. See the [schedule execution contract](docs/schedule-execution-contract.md)
+for trust boundaries and the separate live verification procedure.
 
 Lite currently covers repository installation PR creation, registration
 request, approval, merge, Workspace-backed batch listing, execution request creation,
@@ -164,18 +325,21 @@ See also:
 ## Current Lite Workspace
 
 ```text
-apps/web              React/Vite Lite UI
-packages/domain       Shared domain types
-packages/digest       Canonical payload utilities
-packages/github-lite  GitHub Lite client contracts
-actions/gate          BatchPlane Gate Action scaffold
-actions/dispatcher    BatchPlane Dispatcher Action scaffold
+apps/web                 Shared React/Vite product UI, current Lite runtime
+packages/ui-client       Product client contract
+packages/domain          Domain types and behavior
+packages/digest          Canonical payload utilities
+packages/github-lite     GitHub transport, evidence and Lite operations
+actions/gate             Pre-business authorization
+actions/dispatcher       Approved manual-request delivery
+actions/schedule-request Native occurrence evidence
+actions/schedule-result  Native occurrence outcome
 ```
 
-The target modular-monolith and provider layout is defined in
-`docs/control-plane-architecture.md`. The migration deliberately keeps this
-Lite workspace runnable while product contracts, UI ports, Kotlin Main modules,
-and platform providers are extracted in reviewable phases.
+The current boundaries and planned Main direction are defined in
+`docs/control-plane-architecture.md`. The UI/client extraction is already the
+baseline; Main contracts and platform integrations follow the approved roadmap
+without repeating the refactoring or adding speculative modules.
 
 ## Internationalization
 

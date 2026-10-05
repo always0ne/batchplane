@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -30,9176 +31,8406 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/types.js
-var require_types = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/types.js"(exports) {
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js
+var require_identity = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js"(exports) {
     "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
+    var ALIAS = /* @__PURE__ */ Symbol.for("yaml.alias");
+    var DOC = /* @__PURE__ */ Symbol.for("yaml.document");
+    var MAP = /* @__PURE__ */ Symbol.for("yaml.map");
+    var PAIR = /* @__PURE__ */ Symbol.for("yaml.pair");
+    var SCALAR = /* @__PURE__ */ Symbol.for("yaml.scalar");
+    var SEQ = /* @__PURE__ */ Symbol.for("yaml.seq");
+    var NODE_TYPE = /* @__PURE__ */ Symbol.for("yaml.node.type");
+    var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
+    var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
+    var isMap = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
+    var isPair = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === PAIR;
+    var isScalar = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SCALAR;
+    var isSeq = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SEQ;
+    function isCollection(node) {
+      if (node && typeof node === "object")
+        switch (node[NODE_TYPE]) {
+          case MAP:
+          case SEQ:
+            return true;
+        }
+      return false;
+    }
+    function isNode(node) {
+      if (node && typeof node === "object")
+        switch (node[NODE_TYPE]) {
+          case ALIAS:
+          case MAP:
+          case SCALAR:
+          case SEQ:
+            return true;
+        }
+      return false;
+    }
+    var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
+    exports.ALIAS = ALIAS;
+    exports.DOC = DOC;
+    exports.MAP = MAP;
+    exports.NODE_TYPE = NODE_TYPE;
+    exports.PAIR = PAIR;
+    exports.SCALAR = SCALAR;
+    exports.SEQ = SEQ;
+    exports.hasAnchor = hasAnchor;
+    exports.isAlias = isAlias;
+    exports.isCollection = isCollection;
+    exports.isDocument = isDocument;
+    exports.isMap = isMap;
+    exports.isNode = isNode;
+    exports.isPair = isPair;
+    exports.isScalar = isScalar;
+    exports.isSeq = isSeq;
   }
 });
 
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronField.js
-var require_CronField = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronField.js"(exports) {
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js
+var require_visit = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js"(exports) {
     "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronField = void 0;
-    var CronField = class _CronField {
-      #hasLastChar = false;
-      #hasQuestionMarkChar = false;
-      #wildcard = false;
-      #values = [];
-      options = { rawValue: "" };
-      /**
-       * Returns the minimum value allowed for this field.
-       */
-      /* istanbul ignore next */
-      static get min() {
-        throw new Error("min must be overridden");
-      }
-      /**
-       * Returns the maximum value allowed for this field.
-       */
-      /* istanbul ignore next */
-      static get max() {
-        throw new Error("max must be overridden");
-      }
-      /**
-       * Returns the allowed characters for this field.
-       */
-      /* istanbul ignore next */
-      static get chars() {
-        return Object.freeze([]);
-      }
-      /**
-       * Returns the regular expression used to validate this field.
-       */
-      static get validChars() {
-        return /^[?,*\dH/-]+$|^.*H\(\d+-\d+\)\/\d+.*$|^.*H\(\d+-\d+\).*$|^.*H\/\d+.*$/;
-      }
-      /**
-       * Returns the constraints for this field.
-       */
-      static get constraints() {
-        return { min: this.min, max: this.max, chars: this.chars, validChars: this.validChars };
-      }
-      /**
-       * CronField constructor. Initializes the field with the provided values.
-       * @param {number[] | string[]} values - Values for this field
-       * @param {CronFieldOptions} [options] - Options provided by the parser
-       * @throws {TypeError} if the constructor is called directly
-       * @throws {Error} if validation fails
-       */
-      constructor(values, options = { rawValue: "" }) {
-        if (!Array.isArray(values)) {
-          throw new Error(`${this.constructor.name} Validation error, values is not an array`);
-        }
-        if (!(values.length > 0)) {
-          throw new Error(`${this.constructor.name} Validation error, values contains no values`);
-        }
-        this.options = {
-          ...options,
-          rawValue: options.rawValue ?? ""
-        };
-        this.#values = values.sort(_CronField.sorter);
-        this.#wildcard = this.options.wildcard !== void 0 ? this.options.wildcard : this.#isWildcardValue();
-        this.#hasLastChar = this.options.rawValue.includes("L") || values.includes("L");
-        this.#hasQuestionMarkChar = this.options.rawValue.includes("?") || values.includes("?");
-      }
-      /**
-       * Returns the minimum value allowed for this field.
-       * @returns {number}
-       */
-      get min() {
-        return this.constructor.min;
-      }
-      /**
-       * Returns the maximum value allowed for this field.
-       * @returns {number}
-       */
-      get max() {
-        return this.constructor.max;
-      }
-      /**
-       * Returns an array of allowed special characters for this field.
-       * @returns {string[]}
-       */
-      get chars() {
-        return this.constructor.chars;
-      }
-      /**
-       * Indicates whether this field has a "last" character.
-       * @returns {boolean}
-       */
-      get hasLastChar() {
-        return this.#hasLastChar;
-      }
-      /**
-       * Indicates whether this field has a "question mark" character.
-       * @returns {boolean}
-       */
-      get hasQuestionMarkChar() {
-        return this.#hasQuestionMarkChar;
-      }
-      /**
-       * Indicates whether this field is a wildcard.
-       * @returns {boolean}
-       */
-      get isWildcard() {
-        return this.#wildcard;
-      }
-      /**
-       * Returns an array of allowed values for this field.
-       * @returns {CronFieldType}
-       */
-      get values() {
-        return this.#values;
-      }
-      /**
-       * Helper function to sort values in ascending order.
-       * @param {number | string} a - First value to compare
-       * @param {number | string} b - Second value to compare
-       * @returns {number} - A negative, zero, or positive value, depending on the sort order
-       */
-      static sorter(a, b) {
-        const aIsNumber = typeof a === "number";
-        const bIsNumber = typeof b === "number";
-        if (aIsNumber && bIsNumber)
-          return a - b;
-        if (!aIsNumber && !bIsNumber)
-          return a.localeCompare(b);
-        return aIsNumber ? (
-          /* istanbul ignore next - A will always be a number until L-2 is supported */
-          -1
-        ) : 1;
-      }
-      /**
-       * Find the next (or previous when `reverse` is true) numeric value in a sorted list.
-       * Returns null if there's no value strictly after/before the current one.
-       *
-       * @param values - Sorted numeric values
-       * @param currentValue - Current value to compare against
-       * @param reverse - When true, search in reverse for previous smaller value
-       */
-      static findNearestValueInList(values, currentValue, reverse = false) {
-        if (reverse) {
-          for (let i = values.length - 1; i >= 0; i--) {
-            if (values[i] < currentValue)
-              return values[i];
-          }
-          return null;
-        }
-        for (let i = 0; i < values.length; i++) {
-          if (values[i] > currentValue)
-            return values[i];
-        }
-        return null;
-      }
-      /**
-       * Instance helper that operates on this field's numeric `values`.
-       *
-       * @param currentValue - Current value to compare against
-       * @param reverse - When true, search in reverse for previous smaller value
-       */
-      findNearestValue(currentValue, reverse = false) {
-        return this.constructor.findNearestValueInList(this.values, currentValue, reverse);
-      }
-      /**
-       * Serializes the field to an object.
-       * @returns {SerializedCronField}
-       */
-      serialize() {
-        return {
-          wildcard: this.#wildcard,
-          values: this.#values
-        };
-      }
-      /**
-       * Validates the field values against the allowed range and special characters.
-       * @throws {Error} if validation fails
-       */
-      validate() {
-        let badValue;
-        const charsString = this.chars.length > 0 ? ` or chars ${this.chars.join("")}` : "";
-        const charTest = (value) => (char) => new RegExp(`^\\d{0,2}${char}$`).test(value);
-        const rangeTest = (value) => {
-          badValue = value;
-          return typeof value === "number" ? value >= this.min && value <= this.max : this.chars.some(charTest(value));
-        };
-        const isValidRange = this.#values.every(rangeTest);
-        if (!isValidRange) {
-          throw new Error(`${this.constructor.name} Validation error, got value ${badValue} expected range ${this.min}-${this.max}${charsString}`);
-        }
-        const duplicate = this.#values.find((value, index) => this.#values.indexOf(value) !== index);
-        if (duplicate) {
-          throw new Error(`${this.constructor.name} Validation error, duplicate values found: ${duplicate}`);
-        }
-      }
-      /**
-       * Determines if the field is a wildcard based on the values.
-       * When options.rawValue is not empty, it checks if the raw value is a wildcard, otherwise it checks if all values in the range are included.
-       * @returns {boolean}
-       */
-      #isWildcardValue() {
-        if (this.options.rawValue.length > 0) {
-          return ["*", "?"].includes(this.options.rawValue);
-        }
-        return Array.from({ length: this.max - this.min + 1 }, (_, i) => i + this.min).every((value) => this.#values.includes(value));
-      }
-    };
-    exports.CronField = CronField;
-  }
-});
-
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronDayOfMonth.js
-var require_CronDayOfMonth = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronDayOfMonth.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronDayOfMonth = void 0;
-    var CronField_1 = require_CronField();
-    var MIN_DAY = 1;
-    var MAX_DAY = 31;
-    var DAY_CHARS = Object.freeze(["L"]);
-    var CronDayOfMonth = class extends CronField_1.CronField {
-      static get min() {
-        return MIN_DAY;
-      }
-      static get max() {
-        return MAX_DAY;
-      }
-      static get chars() {
-        return DAY_CHARS;
-      }
-      static get validChars() {
-        return /^[?,*\dLH/-]+$|^.*H\(\d+-\d+\)\/\d+.*$|^.*H\(\d+-\d+\).*$|^.*H\/\d+.*$/;
-      }
-      /**
-       * CronDayOfMonth constructor. Initializes the "day of the month" field with the provided values.
-       * @param {DayOfMonthRange[]} values - Values for the "day of the month" field
-       * @param {CronFieldOptions} [options] - Options provided by the parser
-       * @throws {Error} if validation fails
-       */
-      constructor(values, options) {
-        super(values, options);
-        this.validate();
-      }
-      /**
-       * Returns an array of allowed values for the "day of the month" field.
-       * @returns {DayOfMonthRange[]}
-       */
-      get values() {
-        return super.values;
-      }
-    };
-    exports.CronDayOfMonth = CronDayOfMonth;
-  }
-});
-
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronDayOfWeek.js
-var require_CronDayOfWeek = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronDayOfWeek.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronDayOfWeek = void 0;
-    var CronField_1 = require_CronField();
-    var MIN_DAY = 0;
-    var MAX_DAY = 7;
-    var DAY_CHARS = Object.freeze(["L"]);
-    var CronDayOfWeek = class extends CronField_1.CronField {
-      static get min() {
-        return MIN_DAY;
-      }
-      static get max() {
-        return MAX_DAY;
-      }
-      static get chars() {
-        return DAY_CHARS;
-      }
-      static get validChars() {
-        return /^[?,*\dLH#/-]+$|^.*H\(\d+-\d+\)\/\d+.*$|^.*H\(\d+-\d+\).*$|^.*H\/\d+.*$/;
-      }
-      /**
-       * CronDayOfTheWeek constructor. Initializes the "day of the week" field with the provided values.
-       * @param {DayOfWeekRange[]} values - Values for the "day of the week" field
-       * @param {CronFieldOptions} [options] - Options provided by the parser
-       */
-      constructor(values, options) {
-        super(values, options);
-        this.validate();
-      }
-      /**
-       * Returns an array of allowed values for the "day of the week" field.
-       * @returns {DayOfWeekRange[]}
-       */
-      get values() {
-        return super.values;
-      }
-      /**
-       * Returns the nth day of the week if specified in the cron expression.
-       * This is used for the '#' character in the cron expression.
-       * @returns {number} The nth day of the week (1-5) or 0 if not specified.
-       */
-      get nthDay() {
-        return this.options.nthDayOfWeek ?? 0;
-      }
-    };
-    exports.CronDayOfWeek = CronDayOfWeek;
-  }
-});
-
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronHour.js
-var require_CronHour = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronHour.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronHour = void 0;
-    var CronField_1 = require_CronField();
-    var MIN_HOUR = 0;
-    var MAX_HOUR = 23;
-    var HOUR_CHARS = Object.freeze([]);
-    var CronHour = class extends CronField_1.CronField {
-      static get min() {
-        return MIN_HOUR;
-      }
-      static get max() {
-        return MAX_HOUR;
-      }
-      static get chars() {
-        return HOUR_CHARS;
-      }
-      /**
-       * CronHour constructor. Initializes the "hour" field with the provided values.
-       * @param {HourRange[]} values - Values for the "hour" field
-       * @param {CronFieldOptions} [options] - Options provided by the parser
-       */
-      constructor(values, options) {
-        super(values, options);
-        this.validate();
-      }
-      /**
-       * Returns an array of allowed values for the "hour" field.
-       * @returns {HourRange[]}
-       */
-      get values() {
-        return super.values;
-      }
-    };
-    exports.CronHour = CronHour;
-  }
-});
-
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronMinute.js
-var require_CronMinute = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronMinute.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronMinute = void 0;
-    var CronField_1 = require_CronField();
-    var MIN_MINUTE = 0;
-    var MAX_MINUTE = 59;
-    var MINUTE_CHARS = Object.freeze([]);
-    var CronMinute = class extends CronField_1.CronField {
-      static get min() {
-        return MIN_MINUTE;
-      }
-      static get max() {
-        return MAX_MINUTE;
-      }
-      static get chars() {
-        return MINUTE_CHARS;
-      }
-      /**
-       * CronSecond constructor. Initializes the "second" field with the provided values.
-       * @param {SixtyRange[]} values - Values for the "second" field
-       * @param {CronFieldOptions} [options] - Options provided by the parser
-       */
-      constructor(values, options) {
-        super(values, options);
-        this.validate();
-      }
-      /**
-       * Returns an array of allowed values for the "second" field.
-       * @returns {SixtyRange[]}
-       */
-      get values() {
-        return super.values;
-      }
-    };
-    exports.CronMinute = CronMinute;
-  }
-});
-
-// ../../node_modules/.pnpm/luxon@3.7.2/node_modules/luxon/build/node/luxon.js
-var require_luxon = __commonJS({
-  "../../node_modules/.pnpm/luxon@3.7.2/node_modules/luxon/build/node/luxon.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    var LuxonError = class extends Error {
-    };
-    var InvalidDateTimeError = class extends LuxonError {
-      constructor(reason) {
-        super(`Invalid DateTime: ${reason.toMessage()}`);
-      }
-    };
-    var InvalidIntervalError = class extends LuxonError {
-      constructor(reason) {
-        super(`Invalid Interval: ${reason.toMessage()}`);
-      }
-    };
-    var InvalidDurationError = class extends LuxonError {
-      constructor(reason) {
-        super(`Invalid Duration: ${reason.toMessage()}`);
-      }
-    };
-    var ConflictingSpecificationError = class extends LuxonError {
-    };
-    var InvalidUnitError = class extends LuxonError {
-      constructor(unit) {
-        super(`Invalid unit ${unit}`);
-      }
-    };
-    var InvalidArgumentError = class extends LuxonError {
-    };
-    var ZoneIsAbstractError = class extends LuxonError {
-      constructor() {
-        super("Zone is an abstract class");
-      }
-    };
-    var n = "numeric";
-    var s = "short";
-    var l = "long";
-    var DATE_SHORT = {
-      year: n,
-      month: n,
-      day: n
-    };
-    var DATE_MED = {
-      year: n,
-      month: s,
-      day: n
-    };
-    var DATE_MED_WITH_WEEKDAY = {
-      year: n,
-      month: s,
-      day: n,
-      weekday: s
-    };
-    var DATE_FULL = {
-      year: n,
-      month: l,
-      day: n
-    };
-    var DATE_HUGE = {
-      year: n,
-      month: l,
-      day: n,
-      weekday: l
-    };
-    var TIME_SIMPLE = {
-      hour: n,
-      minute: n
-    };
-    var TIME_WITH_SECONDS = {
-      hour: n,
-      minute: n,
-      second: n
-    };
-    var TIME_WITH_SHORT_OFFSET = {
-      hour: n,
-      minute: n,
-      second: n,
-      timeZoneName: s
-    };
-    var TIME_WITH_LONG_OFFSET = {
-      hour: n,
-      minute: n,
-      second: n,
-      timeZoneName: l
-    };
-    var TIME_24_SIMPLE = {
-      hour: n,
-      minute: n,
-      hourCycle: "h23"
-    };
-    var TIME_24_WITH_SECONDS = {
-      hour: n,
-      minute: n,
-      second: n,
-      hourCycle: "h23"
-    };
-    var TIME_24_WITH_SHORT_OFFSET = {
-      hour: n,
-      minute: n,
-      second: n,
-      hourCycle: "h23",
-      timeZoneName: s
-    };
-    var TIME_24_WITH_LONG_OFFSET = {
-      hour: n,
-      minute: n,
-      second: n,
-      hourCycle: "h23",
-      timeZoneName: l
-    };
-    var DATETIME_SHORT = {
-      year: n,
-      month: n,
-      day: n,
-      hour: n,
-      minute: n
-    };
-    var DATETIME_SHORT_WITH_SECONDS = {
-      year: n,
-      month: n,
-      day: n,
-      hour: n,
-      minute: n,
-      second: n
-    };
-    var DATETIME_MED = {
-      year: n,
-      month: s,
-      day: n,
-      hour: n,
-      minute: n
-    };
-    var DATETIME_MED_WITH_SECONDS = {
-      year: n,
-      month: s,
-      day: n,
-      hour: n,
-      minute: n,
-      second: n
-    };
-    var DATETIME_MED_WITH_WEEKDAY = {
-      year: n,
-      month: s,
-      day: n,
-      weekday: s,
-      hour: n,
-      minute: n
-    };
-    var DATETIME_FULL = {
-      year: n,
-      month: l,
-      day: n,
-      hour: n,
-      minute: n,
-      timeZoneName: s
-    };
-    var DATETIME_FULL_WITH_SECONDS = {
-      year: n,
-      month: l,
-      day: n,
-      hour: n,
-      minute: n,
-      second: n,
-      timeZoneName: s
-    };
-    var DATETIME_HUGE = {
-      year: n,
-      month: l,
-      day: n,
-      weekday: l,
-      hour: n,
-      minute: n,
-      timeZoneName: l
-    };
-    var DATETIME_HUGE_WITH_SECONDS = {
-      year: n,
-      month: l,
-      day: n,
-      weekday: l,
-      hour: n,
-      minute: n,
-      second: n,
-      timeZoneName: l
-    };
-    var Zone = class {
-      /**
-       * The type of zone
-       * @abstract
-       * @type {string}
-       */
-      get type() {
-        throw new ZoneIsAbstractError();
-      }
-      /**
-       * The name of this zone.
-       * @abstract
-       * @type {string}
-       */
-      get name() {
-        throw new ZoneIsAbstractError();
-      }
-      /**
-       * The IANA name of this zone.
-       * Defaults to `name` if not overwritten by a subclass.
-       * @abstract
-       * @type {string}
-       */
-      get ianaName() {
-        return this.name;
-      }
-      /**
-       * Returns whether the offset is known to be fixed for the whole year.
-       * @abstract
-       * @type {boolean}
-       */
-      get isUniversal() {
-        throw new ZoneIsAbstractError();
-      }
-      /**
-       * Returns the offset's common name (such as EST) at the specified timestamp
-       * @abstract
-       * @param {number} ts - Epoch milliseconds for which to get the name
-       * @param {Object} opts - Options to affect the format
-       * @param {string} opts.format - What style of offset to return. Accepts 'long' or 'short'.
-       * @param {string} opts.locale - What locale to return the offset name in.
-       * @return {string}
-       */
-      offsetName(ts, opts) {
-        throw new ZoneIsAbstractError();
-      }
-      /**
-       * Returns the offset's value as a string
-       * @abstract
-       * @param {number} ts - Epoch milliseconds for which to get the offset
-       * @param {string} format - What style of offset to return.
-       *                          Accepts 'narrow', 'short', or 'techie'. Returning '+6', '+06:00', or '+0600' respectively
-       * @return {string}
-       */
-      formatOffset(ts, format) {
-        throw new ZoneIsAbstractError();
-      }
-      /**
-       * Return the offset in minutes for this zone at the specified timestamp.
-       * @abstract
-       * @param {number} ts - Epoch milliseconds for which to compute the offset
-       * @return {number}
-       */
-      offset(ts) {
-        throw new ZoneIsAbstractError();
-      }
-      /**
-       * Return whether this Zone is equal to another zone
-       * @abstract
-       * @param {Zone} otherZone - the zone to compare
-       * @return {boolean}
-       */
-      equals(otherZone) {
-        throw new ZoneIsAbstractError();
-      }
-      /**
-       * Return whether this Zone is valid.
-       * @abstract
-       * @type {boolean}
-       */
-      get isValid() {
-        throw new ZoneIsAbstractError();
-      }
-    };
-    var singleton$1 = null;
-    var SystemZone = class _SystemZone extends Zone {
-      /**
-       * Get a singleton instance of the local zone
-       * @return {SystemZone}
-       */
-      static get instance() {
-        if (singleton$1 === null) {
-          singleton$1 = new _SystemZone();
-        }
-        return singleton$1;
-      }
-      /** @override **/
-      get type() {
-        return "system";
-      }
-      /** @override **/
-      get name() {
-        return new Intl.DateTimeFormat().resolvedOptions().timeZone;
-      }
-      /** @override **/
-      get isUniversal() {
-        return false;
-      }
-      /** @override **/
-      offsetName(ts, {
-        format,
-        locale
-      }) {
-        return parseZoneInfo(ts, format, locale);
-      }
-      /** @override **/
-      formatOffset(ts, format) {
-        return formatOffset(this.offset(ts), format);
-      }
-      /** @override **/
-      offset(ts) {
-        return -new Date(ts).getTimezoneOffset();
-      }
-      /** @override **/
-      equals(otherZone) {
-        return otherZone.type === "system";
-      }
-      /** @override **/
-      get isValid() {
-        return true;
-      }
-    };
-    var dtfCache = /* @__PURE__ */ new Map();
-    function makeDTF(zoneName) {
-      let dtf = dtfCache.get(zoneName);
-      if (dtf === void 0) {
-        dtf = new Intl.DateTimeFormat("en-US", {
-          hour12: false,
-          timeZone: zoneName,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          era: "short"
-        });
-        dtfCache.set(zoneName, dtf);
-      }
-      return dtf;
+    var identity = require_identity();
+    var BREAK = /* @__PURE__ */ Symbol("break visit");
+    var SKIP = /* @__PURE__ */ Symbol("skip children");
+    var REMOVE = /* @__PURE__ */ Symbol("remove node");
+    function visit(node, visitor) {
+      const visitor_ = initVisitor(visitor);
+      if (identity.isDocument(node)) {
+        const cd = visit_(null, node.contents, visitor_, Object.freeze([node]));
+        if (cd === REMOVE)
+          node.contents = null;
+      } else
+        visit_(null, node, visitor_, Object.freeze([]));
     }
-    var typeToPos = {
-      year: 0,
-      month: 1,
-      day: 2,
-      era: 3,
-      hour: 4,
-      minute: 5,
-      second: 6
-    };
-    function hackyOffset(dtf, date) {
-      const formatted = dtf.format(date).replace(/\u200E/g, ""), parsed = /(\d+)\/(\d+)\/(\d+) (AD|BC),? (\d+):(\d+):(\d+)/.exec(formatted), [, fMonth, fDay, fYear, fadOrBc, fHour, fMinute, fSecond] = parsed;
-      return [fYear, fMonth, fDay, fadOrBc, fHour, fMinute, fSecond];
-    }
-    function partsOffset(dtf, date) {
-      const formatted = dtf.formatToParts(date);
-      const filled = [];
-      for (let i = 0; i < formatted.length; i++) {
-        const {
-          type,
-          value
-        } = formatted[i];
-        const pos = typeToPos[type];
-        if (type === "era") {
-          filled[pos] = value;
-        } else if (!isUndefined(pos)) {
-          filled[pos] = parseInt(value, 10);
-        }
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP;
+    visit.REMOVE = REMOVE;
+    function visit_(key, node, visitor, path) {
+      const ctrl = callVisitor(key, node, visitor, path);
+      if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
+        replaceNode(key, path, ctrl);
+        return visit_(key, ctrl, visitor, path);
       }
-      return filled;
-    }
-    var ianaZoneCache = /* @__PURE__ */ new Map();
-    var IANAZone = class _IANAZone extends Zone {
-      /**
-       * @param {string} name - Zone name
-       * @return {IANAZone}
-       */
-      static create(name) {
-        let zone = ianaZoneCache.get(name);
-        if (zone === void 0) {
-          ianaZoneCache.set(name, zone = new _IANAZone(name));
-        }
-        return zone;
-      }
-      /**
-       * Reset local caches. Should only be necessary in testing scenarios.
-       * @return {void}
-       */
-      static resetCache() {
-        ianaZoneCache.clear();
-        dtfCache.clear();
-      }
-      /**
-       * Returns whether the provided string is a valid specifier. This only checks the string's format, not that the specifier identifies a known zone; see isValidZone for that.
-       * @param {string} s - The string to check validity on
-       * @example IANAZone.isValidSpecifier("America/New_York") //=> true
-       * @example IANAZone.isValidSpecifier("Sport~~blorp") //=> false
-       * @deprecated For backward compatibility, this forwards to isValidZone, better use `isValidZone()` directly instead.
-       * @return {boolean}
-       */
-      static isValidSpecifier(s2) {
-        return this.isValidZone(s2);
-      }
-      /**
-       * Returns whether the provided string identifies a real zone
-       * @param {string} zone - The string to check
-       * @example IANAZone.isValidZone("America/New_York") //=> true
-       * @example IANAZone.isValidZone("Fantasia/Castle") //=> false
-       * @example IANAZone.isValidZone("Sport~~blorp") //=> false
-       * @return {boolean}
-       */
-      static isValidZone(zone) {
-        if (!zone) {
-          return false;
-        }
-        try {
-          new Intl.DateTimeFormat("en-US", {
-            timeZone: zone
-          }).format();
-          return true;
-        } catch (e) {
-          return false;
-        }
-      }
-      constructor(name) {
-        super();
-        this.zoneName = name;
-        this.valid = _IANAZone.isValidZone(name);
-      }
-      /**
-       * The type of zone. `iana` for all instances of `IANAZone`.
-       * @override
-       * @type {string}
-       */
-      get type() {
-        return "iana";
-      }
-      /**
-       * The name of this zone (i.e. the IANA zone name).
-       * @override
-       * @type {string}
-       */
-      get name() {
-        return this.zoneName;
-      }
-      /**
-       * Returns whether the offset is known to be fixed for the whole year:
-       * Always returns false for all IANA zones.
-       * @override
-       * @type {boolean}
-       */
-      get isUniversal() {
-        return false;
-      }
-      /**
-       * Returns the offset's common name (such as EST) at the specified timestamp
-       * @override
-       * @param {number} ts - Epoch milliseconds for which to get the name
-       * @param {Object} opts - Options to affect the format
-       * @param {string} opts.format - What style of offset to return. Accepts 'long' or 'short'.
-       * @param {string} opts.locale - What locale to return the offset name in.
-       * @return {string}
-       */
-      offsetName(ts, {
-        format,
-        locale
-      }) {
-        return parseZoneInfo(ts, format, locale, this.name);
-      }
-      /**
-       * Returns the offset's value as a string
-       * @override
-       * @param {number} ts - Epoch milliseconds for which to get the offset
-       * @param {string} format - What style of offset to return.
-       *                          Accepts 'narrow', 'short', or 'techie'. Returning '+6', '+06:00', or '+0600' respectively
-       * @return {string}
-       */
-      formatOffset(ts, format) {
-        return formatOffset(this.offset(ts), format);
-      }
-      /**
-       * Return the offset in minutes for this zone at the specified timestamp.
-       * @override
-       * @param {number} ts - Epoch milliseconds for which to compute the offset
-       * @return {number}
-       */
-      offset(ts) {
-        if (!this.valid) return NaN;
-        const date = new Date(ts);
-        if (isNaN(date)) return NaN;
-        const dtf = makeDTF(this.name);
-        let [year, month, day, adOrBc, hour, minute, second] = dtf.formatToParts ? partsOffset(dtf, date) : hackyOffset(dtf, date);
-        if (adOrBc === "BC") {
-          year = -Math.abs(year) + 1;
-        }
-        const adjustedHour = hour === 24 ? 0 : hour;
-        const asUTC = objToLocalTS({
-          year,
-          month,
-          day,
-          hour: adjustedHour,
-          minute,
-          second,
-          millisecond: 0
-        });
-        let asTS = +date;
-        const over = asTS % 1e3;
-        asTS -= over >= 0 ? over : 1e3 + over;
-        return (asUTC - asTS) / (60 * 1e3);
-      }
-      /**
-       * Return whether this Zone is equal to another zone
-       * @override
-       * @param {Zone} otherZone - the zone to compare
-       * @return {boolean}
-       */
-      equals(otherZone) {
-        return otherZone.type === "iana" && otherZone.name === this.name;
-      }
-      /**
-       * Return whether this Zone is valid.
-       * @override
-       * @type {boolean}
-       */
-      get isValid() {
-        return this.valid;
-      }
-    };
-    var intlLFCache = {};
-    function getCachedLF(locString, opts = {}) {
-      const key = JSON.stringify([locString, opts]);
-      let dtf = intlLFCache[key];
-      if (!dtf) {
-        dtf = new Intl.ListFormat(locString, opts);
-        intlLFCache[key] = dtf;
-      }
-      return dtf;
-    }
-    var intlDTCache = /* @__PURE__ */ new Map();
-    function getCachedDTF(locString, opts = {}) {
-      const key = JSON.stringify([locString, opts]);
-      let dtf = intlDTCache.get(key);
-      if (dtf === void 0) {
-        dtf = new Intl.DateTimeFormat(locString, opts);
-        intlDTCache.set(key, dtf);
-      }
-      return dtf;
-    }
-    var intlNumCache = /* @__PURE__ */ new Map();
-    function getCachedINF(locString, opts = {}) {
-      const key = JSON.stringify([locString, opts]);
-      let inf = intlNumCache.get(key);
-      if (inf === void 0) {
-        inf = new Intl.NumberFormat(locString, opts);
-        intlNumCache.set(key, inf);
-      }
-      return inf;
-    }
-    var intlRelCache = /* @__PURE__ */ new Map();
-    function getCachedRTF(locString, opts = {}) {
-      const {
-        base,
-        ...cacheKeyOpts
-      } = opts;
-      const key = JSON.stringify([locString, cacheKeyOpts]);
-      let inf = intlRelCache.get(key);
-      if (inf === void 0) {
-        inf = new Intl.RelativeTimeFormat(locString, opts);
-        intlRelCache.set(key, inf);
-      }
-      return inf;
-    }
-    var sysLocaleCache = null;
-    function systemLocale() {
-      if (sysLocaleCache) {
-        return sysLocaleCache;
-      } else {
-        sysLocaleCache = new Intl.DateTimeFormat().resolvedOptions().locale;
-        return sysLocaleCache;
-      }
-    }
-    var intlResolvedOptionsCache = /* @__PURE__ */ new Map();
-    function getCachedIntResolvedOptions(locString) {
-      let opts = intlResolvedOptionsCache.get(locString);
-      if (opts === void 0) {
-        opts = new Intl.DateTimeFormat(locString).resolvedOptions();
-        intlResolvedOptionsCache.set(locString, opts);
-      }
-      return opts;
-    }
-    var weekInfoCache = /* @__PURE__ */ new Map();
-    function getCachedWeekInfo(locString) {
-      let data = weekInfoCache.get(locString);
-      if (!data) {
-        const locale = new Intl.Locale(locString);
-        data = "getWeekInfo" in locale ? locale.getWeekInfo() : locale.weekInfo;
-        if (!("minimalDays" in data)) {
-          data = {
-            ...fallbackWeekSettings,
-            ...data
-          };
-        }
-        weekInfoCache.set(locString, data);
-      }
-      return data;
-    }
-    function parseLocaleString(localeStr) {
-      const xIndex = localeStr.indexOf("-x-");
-      if (xIndex !== -1) {
-        localeStr = localeStr.substring(0, xIndex);
-      }
-      const uIndex = localeStr.indexOf("-u-");
-      if (uIndex === -1) {
-        return [localeStr];
-      } else {
-        let options;
-        let selectedStr;
-        try {
-          options = getCachedDTF(localeStr).resolvedOptions();
-          selectedStr = localeStr;
-        } catch (e) {
-          const smaller = localeStr.substring(0, uIndex);
-          options = getCachedDTF(smaller).resolvedOptions();
-          selectedStr = smaller;
-        }
-        const {
-          numberingSystem,
-          calendar
-        } = options;
-        return [selectedStr, numberingSystem, calendar];
-      }
-    }
-    function intlConfigString(localeStr, numberingSystem, outputCalendar) {
-      if (outputCalendar || numberingSystem) {
-        if (!localeStr.includes("-u-")) {
-          localeStr += "-u";
-        }
-        if (outputCalendar) {
-          localeStr += `-ca-${outputCalendar}`;
-        }
-        if (numberingSystem) {
-          localeStr += `-nu-${numberingSystem}`;
-        }
-        return localeStr;
-      } else {
-        return localeStr;
-      }
-    }
-    function mapMonths(f) {
-      const ms = [];
-      for (let i = 1; i <= 12; i++) {
-        const dt = DateTime.utc(2009, i, 1);
-        ms.push(f(dt));
-      }
-      return ms;
-    }
-    function mapWeekdays(f) {
-      const ms = [];
-      for (let i = 1; i <= 7; i++) {
-        const dt = DateTime.utc(2016, 11, 13 + i);
-        ms.push(f(dt));
-      }
-      return ms;
-    }
-    function listStuff(loc, length, englishFn, intlFn) {
-      const mode = loc.listingMode();
-      if (mode === "error") {
-        return null;
-      } else if (mode === "en") {
-        return englishFn(length);
-      } else {
-        return intlFn(length);
-      }
-    }
-    function supportsFastNumbers(loc) {
-      if (loc.numberingSystem && loc.numberingSystem !== "latn") {
-        return false;
-      } else {
-        return loc.numberingSystem === "latn" || !loc.locale || loc.locale.startsWith("en") || getCachedIntResolvedOptions(loc.locale).numberingSystem === "latn";
-      }
-    }
-    var PolyNumberFormatter = class {
-      constructor(intl, forceSimple, opts) {
-        this.padTo = opts.padTo || 0;
-        this.floor = opts.floor || false;
-        const {
-          padTo,
-          floor,
-          ...otherOpts
-        } = opts;
-        if (!forceSimple || Object.keys(otherOpts).length > 0) {
-          const intlOpts = {
-            useGrouping: false,
-            ...opts
-          };
-          if (opts.padTo > 0) intlOpts.minimumIntegerDigits = opts.padTo;
-          this.inf = getCachedINF(intl, intlOpts);
-        }
-      }
-      format(i) {
-        if (this.inf) {
-          const fixed = this.floor ? Math.floor(i) : i;
-          return this.inf.format(fixed);
-        } else {
-          const fixed = this.floor ? Math.floor(i) : roundTo(i, 3);
-          return padStart(fixed, this.padTo);
-        }
-      }
-    };
-    var PolyDateFormatter = class {
-      constructor(dt, intl, opts) {
-        this.opts = opts;
-        this.originalZone = void 0;
-        let z = void 0;
-        if (this.opts.timeZone) {
-          this.dt = dt;
-        } else if (dt.zone.type === "fixed") {
-          const gmtOffset = -1 * (dt.offset / 60);
-          const offsetZ = gmtOffset >= 0 ? `Etc/GMT+${gmtOffset}` : `Etc/GMT${gmtOffset}`;
-          if (dt.offset !== 0 && IANAZone.create(offsetZ).valid) {
-            z = offsetZ;
-            this.dt = dt;
-          } else {
-            z = "UTC";
-            this.dt = dt.offset === 0 ? dt : dt.setZone("UTC").plus({
-              minutes: dt.offset
-            });
-            this.originalZone = dt.zone;
-          }
-        } else if (dt.zone.type === "system") {
-          this.dt = dt;
-        } else if (dt.zone.type === "iana") {
-          this.dt = dt;
-          z = dt.zone.name;
-        } else {
-          z = "UTC";
-          this.dt = dt.setZone("UTC").plus({
-            minutes: dt.offset
-          });
-          this.originalZone = dt.zone;
-        }
-        const intlOpts = {
-          ...this.opts
-        };
-        intlOpts.timeZone = intlOpts.timeZone || z;
-        this.dtf = getCachedDTF(intl, intlOpts);
-      }
-      format() {
-        if (this.originalZone) {
-          return this.formatToParts().map(({
-            value
-          }) => value).join("");
-        }
-        return this.dtf.format(this.dt.toJSDate());
-      }
-      formatToParts() {
-        const parts = this.dtf.formatToParts(this.dt.toJSDate());
-        if (this.originalZone) {
-          return parts.map((part) => {
-            if (part.type === "timeZoneName") {
-              const offsetName = this.originalZone.offsetName(this.dt.ts, {
-                locale: this.dt.locale,
-                format: this.opts.timeZoneName
-              });
-              return {
-                ...part,
-                value: offsetName
-              };
-            } else {
-              return part;
+      if (typeof ctrl !== "symbol") {
+        if (identity.isCollection(node)) {
+          path = Object.freeze(path.concat(node));
+          for (let i = 0; i < node.items.length; ++i) {
+            const ci = visit_(i, node.items[i], visitor, path);
+            if (typeof ci === "number")
+              i = ci - 1;
+            else if (ci === BREAK)
+              return BREAK;
+            else if (ci === REMOVE) {
+              node.items.splice(i, 1);
+              i -= 1;
             }
-          });
-        }
-        return parts;
-      }
-      resolvedOptions() {
-        return this.dtf.resolvedOptions();
-      }
-    };
-    var PolyRelFormatter = class {
-      constructor(intl, isEnglish, opts) {
-        this.opts = {
-          style: "long",
-          ...opts
-        };
-        if (!isEnglish && hasRelative()) {
-          this.rtf = getCachedRTF(intl, opts);
-        }
-      }
-      format(count, unit) {
-        if (this.rtf) {
-          return this.rtf.format(count, unit);
-        } else {
-          return formatRelativeTime(unit, count, this.opts.numeric, this.opts.style !== "long");
-        }
-      }
-      formatToParts(count, unit) {
-        if (this.rtf) {
-          return this.rtf.formatToParts(count, unit);
-        } else {
-          return [];
-        }
-      }
-    };
-    var fallbackWeekSettings = {
-      firstDay: 1,
-      minimalDays: 4,
-      weekend: [6, 7]
-    };
-    var Locale = class _Locale {
-      static fromOpts(opts) {
-        return _Locale.create(opts.locale, opts.numberingSystem, opts.outputCalendar, opts.weekSettings, opts.defaultToEN);
-      }
-      static create(locale, numberingSystem, outputCalendar, weekSettings, defaultToEN = false) {
-        const specifiedLocale = locale || Settings.defaultLocale;
-        const localeR = specifiedLocale || (defaultToEN ? "en-US" : systemLocale());
-        const numberingSystemR = numberingSystem || Settings.defaultNumberingSystem;
-        const outputCalendarR = outputCalendar || Settings.defaultOutputCalendar;
-        const weekSettingsR = validateWeekSettings(weekSettings) || Settings.defaultWeekSettings;
-        return new _Locale(localeR, numberingSystemR, outputCalendarR, weekSettingsR, specifiedLocale);
-      }
-      static resetCache() {
-        sysLocaleCache = null;
-        intlDTCache.clear();
-        intlNumCache.clear();
-        intlRelCache.clear();
-        intlResolvedOptionsCache.clear();
-        weekInfoCache.clear();
-      }
-      static fromObject({
-        locale,
-        numberingSystem,
-        outputCalendar,
-        weekSettings
-      } = {}) {
-        return _Locale.create(locale, numberingSystem, outputCalendar, weekSettings);
-      }
-      constructor(locale, numbering, outputCalendar, weekSettings, specifiedLocale) {
-        const [parsedLocale, parsedNumberingSystem, parsedOutputCalendar] = parseLocaleString(locale);
-        this.locale = parsedLocale;
-        this.numberingSystem = numbering || parsedNumberingSystem || null;
-        this.outputCalendar = outputCalendar || parsedOutputCalendar || null;
-        this.weekSettings = weekSettings;
-        this.intl = intlConfigString(this.locale, this.numberingSystem, this.outputCalendar);
-        this.weekdaysCache = {
-          format: {},
-          standalone: {}
-        };
-        this.monthsCache = {
-          format: {},
-          standalone: {}
-        };
-        this.meridiemCache = null;
-        this.eraCache = {};
-        this.specifiedLocale = specifiedLocale;
-        this.fastNumbersCached = null;
-      }
-      get fastNumbers() {
-        if (this.fastNumbersCached == null) {
-          this.fastNumbersCached = supportsFastNumbers(this);
-        }
-        return this.fastNumbersCached;
-      }
-      listingMode() {
-        const isActuallyEn = this.isEnglish();
-        const hasNoWeirdness = (this.numberingSystem === null || this.numberingSystem === "latn") && (this.outputCalendar === null || this.outputCalendar === "gregory");
-        return isActuallyEn && hasNoWeirdness ? "en" : "intl";
-      }
-      clone(alts) {
-        if (!alts || Object.getOwnPropertyNames(alts).length === 0) {
-          return this;
-        } else {
-          return _Locale.create(alts.locale || this.specifiedLocale, alts.numberingSystem || this.numberingSystem, alts.outputCalendar || this.outputCalendar, validateWeekSettings(alts.weekSettings) || this.weekSettings, alts.defaultToEN || false);
-        }
-      }
-      redefaultToEN(alts = {}) {
-        return this.clone({
-          ...alts,
-          defaultToEN: true
-        });
-      }
-      redefaultToSystem(alts = {}) {
-        return this.clone({
-          ...alts,
-          defaultToEN: false
-        });
-      }
-      months(length, format = false) {
-        return listStuff(this, length, months, () => {
-          const monthSpecialCase = this.intl === "ja" || this.intl.startsWith("ja-");
-          format &= !monthSpecialCase;
-          const intl = format ? {
-            month: length,
-            day: "numeric"
-          } : {
-            month: length
-          }, formatStr = format ? "format" : "standalone";
-          if (!this.monthsCache[formatStr][length]) {
-            const mapper = !monthSpecialCase ? (dt) => this.extract(dt, intl, "month") : (dt) => this.dtFormatter(dt, intl).format();
-            this.monthsCache[formatStr][length] = mapMonths(mapper);
           }
-          return this.monthsCache[formatStr][length];
-        });
+        } else if (identity.isPair(node)) {
+          path = Object.freeze(path.concat(node));
+          const ck = visit_("key", node.key, visitor, path);
+          if (ck === BREAK)
+            return BREAK;
+          else if (ck === REMOVE)
+            node.key = null;
+          const cv = visit_("value", node.value, visitor, path);
+          if (cv === BREAK)
+            return BREAK;
+          else if (cv === REMOVE)
+            node.value = null;
+        }
       }
-      weekdays(length, format = false) {
-        return listStuff(this, length, weekdays, () => {
-          const intl = format ? {
-            weekday: length,
-            year: "numeric",
-            month: "long",
-            day: "numeric"
-          } : {
-            weekday: length
-          }, formatStr = format ? "format" : "standalone";
-          if (!this.weekdaysCache[formatStr][length]) {
-            this.weekdaysCache[formatStr][length] = mapWeekdays((dt) => this.extract(dt, intl, "weekday"));
+      return ctrl;
+    }
+    async function visitAsync(node, visitor) {
+      const visitor_ = initVisitor(visitor);
+      if (identity.isDocument(node)) {
+        const cd = await visitAsync_(null, node.contents, visitor_, Object.freeze([node]));
+        if (cd === REMOVE)
+          node.contents = null;
+      } else
+        await visitAsync_(null, node, visitor_, Object.freeze([]));
+    }
+    visitAsync.BREAK = BREAK;
+    visitAsync.SKIP = SKIP;
+    visitAsync.REMOVE = REMOVE;
+    async function visitAsync_(key, node, visitor, path) {
+      const ctrl = await callVisitor(key, node, visitor, path);
+      if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
+        replaceNode(key, path, ctrl);
+        return visitAsync_(key, ctrl, visitor, path);
+      }
+      if (typeof ctrl !== "symbol") {
+        if (identity.isCollection(node)) {
+          path = Object.freeze(path.concat(node));
+          for (let i = 0; i < node.items.length; ++i) {
+            const ci = await visitAsync_(i, node.items[i], visitor, path);
+            if (typeof ci === "number")
+              i = ci - 1;
+            else if (ci === BREAK)
+              return BREAK;
+            else if (ci === REMOVE) {
+              node.items.splice(i, 1);
+              i -= 1;
+            }
           }
-          return this.weekdaysCache[formatStr][length];
-        });
+        } else if (identity.isPair(node)) {
+          path = Object.freeze(path.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path);
+          if (ck === BREAK)
+            return BREAK;
+          else if (ck === REMOVE)
+            node.key = null;
+          const cv = await visitAsync_("value", node.value, visitor, path);
+          if (cv === BREAK)
+            return BREAK;
+          else if (cv === REMOVE)
+            node.value = null;
+        }
       }
-      meridiems() {
-        return listStuff(this, void 0, () => meridiems, () => {
-          if (!this.meridiemCache) {
-            const intl = {
-              hour: "numeric",
-              hourCycle: "h12"
+      return ctrl;
+    }
+    function initVisitor(visitor) {
+      if (typeof visitor === "object" && (visitor.Collection || visitor.Node || visitor.Value)) {
+        return Object.assign({
+          Alias: visitor.Node,
+          Map: visitor.Node,
+          Scalar: visitor.Node,
+          Seq: visitor.Node
+        }, visitor.Value && {
+          Map: visitor.Value,
+          Scalar: visitor.Value,
+          Seq: visitor.Value
+        }, visitor.Collection && {
+          Map: visitor.Collection,
+          Seq: visitor.Collection
+        }, visitor);
+      }
+      return visitor;
+    }
+    function callVisitor(key, node, visitor, path) {
+      if (typeof visitor === "function")
+        return visitor(key, node, path);
+      if (identity.isMap(node))
+        return visitor.Map?.(key, node, path);
+      if (identity.isSeq(node))
+        return visitor.Seq?.(key, node, path);
+      if (identity.isPair(node))
+        return visitor.Pair?.(key, node, path);
+      if (identity.isScalar(node))
+        return visitor.Scalar?.(key, node, path);
+      if (identity.isAlias(node))
+        return visitor.Alias?.(key, node, path);
+      return void 0;
+    }
+    function replaceNode(key, path, node) {
+      const parent = path[path.length - 1];
+      if (identity.isCollection(parent)) {
+        parent.items[key] = node;
+      } else if (identity.isPair(parent)) {
+        if (key === "key")
+          parent.key = node;
+        else
+          parent.value = node;
+      } else if (identity.isDocument(parent)) {
+        parent.contents = node;
+      } else {
+        const pt = identity.isAlias(parent) ? "alias" : "scalar";
+        throw new Error(`Cannot replace node with ${pt} parent`);
+      }
+    }
+    exports.visit = visit;
+    exports.visitAsync = visitAsync;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js
+var require_directives = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var visit = require_visit();
+    var escapeChars = {
+      "!": "%21",
+      ",": "%2C",
+      "[": "%5B",
+      "]": "%5D",
+      "{": "%7B",
+      "}": "%7D"
+    };
+    var escapeTagName = (tn) => tn.replace(/[!,[\]{}]/g, (ch) => escapeChars[ch]);
+    var Directives = class _Directives {
+      constructor(yaml, tags) {
+        this.docStart = null;
+        this.docEnd = false;
+        this.yaml = Object.assign({}, _Directives.defaultYaml, yaml);
+        this.tags = Object.assign({}, _Directives.defaultTags, tags);
+      }
+      clone() {
+        const copy = new _Directives(this.yaml, this.tags);
+        copy.docStart = this.docStart;
+        return copy;
+      }
+      /**
+       * During parsing, get a Directives instance for the current document and
+       * update the stream state according to the current version's spec.
+       */
+      atDocument() {
+        const res = new _Directives(this.yaml, this.tags);
+        switch (this.yaml.version) {
+          case "1.1":
+            this.atNextDocument = true;
+            break;
+          case "1.2":
+            this.atNextDocument = false;
+            this.yaml = {
+              explicit: _Directives.defaultYaml.explicit,
+              version: "1.2"
             };
-            this.meridiemCache = [DateTime.utc(2016, 11, 13, 9), DateTime.utc(2016, 11, 13, 19)].map((dt) => this.extract(dt, intl, "dayperiod"));
-          }
-          return this.meridiemCache;
-        });
-      }
-      eras(length) {
-        return listStuff(this, length, eras, () => {
-          const intl = {
-            era: length
-          };
-          if (!this.eraCache[length]) {
-            this.eraCache[length] = [DateTime.utc(-40, 1, 1), DateTime.utc(2017, 1, 1)].map((dt) => this.extract(dt, intl, "era"));
-          }
-          return this.eraCache[length];
-        });
-      }
-      extract(dt, intlOpts, field) {
-        const df = this.dtFormatter(dt, intlOpts), results = df.formatToParts(), matching = results.find((m) => m.type.toLowerCase() === field);
-        return matching ? matching.value : null;
-      }
-      numberFormatter(opts = {}) {
-        return new PolyNumberFormatter(this.intl, opts.forceSimple || this.fastNumbers, opts);
-      }
-      dtFormatter(dt, intlOpts = {}) {
-        return new PolyDateFormatter(dt, this.intl, intlOpts);
-      }
-      relFormatter(opts = {}) {
-        return new PolyRelFormatter(this.intl, this.isEnglish(), opts);
-      }
-      listFormatter(opts = {}) {
-        return getCachedLF(this.intl, opts);
-      }
-      isEnglish() {
-        return this.locale === "en" || this.locale.toLowerCase() === "en-us" || getCachedIntResolvedOptions(this.intl).locale.startsWith("en-us");
-      }
-      getWeekSettings() {
-        if (this.weekSettings) {
-          return this.weekSettings;
-        } else if (!hasLocaleWeekInfo()) {
-          return fallbackWeekSettings;
-        } else {
-          return getCachedWeekInfo(this.locale);
+            this.tags = Object.assign({}, _Directives.defaultTags);
+            break;
         }
+        return res;
       }
-      getStartOfWeek() {
-        return this.getWeekSettings().firstDay;
-      }
-      getMinDaysInFirstWeek() {
-        return this.getWeekSettings().minimalDays;
-      }
-      getWeekendDays() {
-        return this.getWeekSettings().weekend;
-      }
-      equals(other) {
-        return this.locale === other.locale && this.numberingSystem === other.numberingSystem && this.outputCalendar === other.outputCalendar;
-      }
-      toString() {
-        return `Locale(${this.locale}, ${this.numberingSystem}, ${this.outputCalendar})`;
-      }
-    };
-    var singleton = null;
-    var FixedOffsetZone = class _FixedOffsetZone extends Zone {
       /**
-       * Get a singleton instance of UTC
-       * @return {FixedOffsetZone}
+       * @param onError - May be called even if the action was successful
+       * @returns `true` on success
        */
-      static get utcInstance() {
-        if (singleton === null) {
-          singleton = new _FixedOffsetZone(0);
+      add(line, onError) {
+        if (this.atNextDocument) {
+          this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" };
+          this.tags = Object.assign({}, _Directives.defaultTags);
+          this.atNextDocument = false;
         }
-        return singleton;
-      }
-      /**
-       * Get an instance with a specified offset
-       * @param {number} offset - The offset in minutes
-       * @return {FixedOffsetZone}
-       */
-      static instance(offset2) {
-        return offset2 === 0 ? _FixedOffsetZone.utcInstance : new _FixedOffsetZone(offset2);
-      }
-      /**
-       * Get an instance of FixedOffsetZone from a UTC offset string, like "UTC+6"
-       * @param {string} s - The offset string to parse
-       * @example FixedOffsetZone.parseSpecifier("UTC+6")
-       * @example FixedOffsetZone.parseSpecifier("UTC+06")
-       * @example FixedOffsetZone.parseSpecifier("UTC-6:00")
-       * @return {FixedOffsetZone}
-       */
-      static parseSpecifier(s2) {
-        if (s2) {
-          const r = s2.match(/^utc(?:([+-]\d{1,2})(?::(\d{2}))?)?$/i);
-          if (r) {
-            return new _FixedOffsetZone(signedOffset(r[1], r[2]));
-          }
-        }
-        return null;
-      }
-      constructor(offset2) {
-        super();
-        this.fixed = offset2;
-      }
-      /**
-       * The type of zone. `fixed` for all instances of `FixedOffsetZone`.
-       * @override
-       * @type {string}
-       */
-      get type() {
-        return "fixed";
-      }
-      /**
-       * The name of this zone.
-       * All fixed zones' names always start with "UTC" (plus optional offset)
-       * @override
-       * @type {string}
-       */
-      get name() {
-        return this.fixed === 0 ? "UTC" : `UTC${formatOffset(this.fixed, "narrow")}`;
-      }
-      /**
-       * The IANA name of this zone, i.e. `Etc/UTC` or `Etc/GMT+/-nn`
-       *
-       * @override
-       * @type {string}
-       */
-      get ianaName() {
-        if (this.fixed === 0) {
-          return "Etc/UTC";
-        } else {
-          return `Etc/GMT${formatOffset(-this.fixed, "narrow")}`;
-        }
-      }
-      /**
-       * Returns the offset's common name at the specified timestamp.
-       *
-       * For fixed offset zones this equals to the zone name.
-       * @override
-       */
-      offsetName() {
-        return this.name;
-      }
-      /**
-       * Returns the offset's value as a string
-       * @override
-       * @param {number} ts - Epoch milliseconds for which to get the offset
-       * @param {string} format - What style of offset to return.
-       *                          Accepts 'narrow', 'short', or 'techie'. Returning '+6', '+06:00', or '+0600' respectively
-       * @return {string}
-       */
-      formatOffset(ts, format) {
-        return formatOffset(this.fixed, format);
-      }
-      /**
-       * Returns whether the offset is known to be fixed for the whole year:
-       * Always returns true for all fixed offset zones.
-       * @override
-       * @type {boolean}
-       */
-      get isUniversal() {
-        return true;
-      }
-      /**
-       * Return the offset in minutes for this zone at the specified timestamp.
-       *
-       * For fixed offset zones, this is constant and does not depend on a timestamp.
-       * @override
-       * @return {number}
-       */
-      offset() {
-        return this.fixed;
-      }
-      /**
-       * Return whether this Zone is equal to another zone (i.e. also fixed and same offset)
-       * @override
-       * @param {Zone} otherZone - the zone to compare
-       * @return {boolean}
-       */
-      equals(otherZone) {
-        return otherZone.type === "fixed" && otherZone.fixed === this.fixed;
-      }
-      /**
-       * Return whether this Zone is valid:
-       * All fixed offset zones are valid.
-       * @override
-       * @type {boolean}
-       */
-      get isValid() {
-        return true;
-      }
-    };
-    var InvalidZone = class extends Zone {
-      constructor(zoneName) {
-        super();
-        this.zoneName = zoneName;
-      }
-      /** @override **/
-      get type() {
-        return "invalid";
-      }
-      /** @override **/
-      get name() {
-        return this.zoneName;
-      }
-      /** @override **/
-      get isUniversal() {
-        return false;
-      }
-      /** @override **/
-      offsetName() {
-        return null;
-      }
-      /** @override **/
-      formatOffset() {
-        return "";
-      }
-      /** @override **/
-      offset() {
-        return NaN;
-      }
-      /** @override **/
-      equals() {
-        return false;
-      }
-      /** @override **/
-      get isValid() {
-        return false;
-      }
-    };
-    function normalizeZone(input, defaultZone2) {
-      if (isUndefined(input) || input === null) {
-        return defaultZone2;
-      } else if (input instanceof Zone) {
-        return input;
-      } else if (isString(input)) {
-        const lowered = input.toLowerCase();
-        if (lowered === "default") return defaultZone2;
-        else if (lowered === "local" || lowered === "system") return SystemZone.instance;
-        else if (lowered === "utc" || lowered === "gmt") return FixedOffsetZone.utcInstance;
-        else return FixedOffsetZone.parseSpecifier(lowered) || IANAZone.create(input);
-      } else if (isNumber(input)) {
-        return FixedOffsetZone.instance(input);
-      } else if (typeof input === "object" && "offset" in input && typeof input.offset === "function") {
-        return input;
-      } else {
-        return new InvalidZone(input);
-      }
-    }
-    var numberingSystems = {
-      arab: "[\u0660-\u0669]",
-      arabext: "[\u06F0-\u06F9]",
-      bali: "[\u1B50-\u1B59]",
-      beng: "[\u09E6-\u09EF]",
-      deva: "[\u0966-\u096F]",
-      fullwide: "[\uFF10-\uFF19]",
-      gujr: "[\u0AE6-\u0AEF]",
-      hanidec: "[\u3007|\u4E00|\u4E8C|\u4E09|\u56DB|\u4E94|\u516D|\u4E03|\u516B|\u4E5D]",
-      khmr: "[\u17E0-\u17E9]",
-      knda: "[\u0CE6-\u0CEF]",
-      laoo: "[\u0ED0-\u0ED9]",
-      limb: "[\u1946-\u194F]",
-      mlym: "[\u0D66-\u0D6F]",
-      mong: "[\u1810-\u1819]",
-      mymr: "[\u1040-\u1049]",
-      orya: "[\u0B66-\u0B6F]",
-      tamldec: "[\u0BE6-\u0BEF]",
-      telu: "[\u0C66-\u0C6F]",
-      thai: "[\u0E50-\u0E59]",
-      tibt: "[\u0F20-\u0F29]",
-      latn: "\\d"
-    };
-    var numberingSystemsUTF16 = {
-      arab: [1632, 1641],
-      arabext: [1776, 1785],
-      bali: [6992, 7001],
-      beng: [2534, 2543],
-      deva: [2406, 2415],
-      fullwide: [65296, 65303],
-      gujr: [2790, 2799],
-      khmr: [6112, 6121],
-      knda: [3302, 3311],
-      laoo: [3792, 3801],
-      limb: [6470, 6479],
-      mlym: [3430, 3439],
-      mong: [6160, 6169],
-      mymr: [4160, 4169],
-      orya: [2918, 2927],
-      tamldec: [3046, 3055],
-      telu: [3174, 3183],
-      thai: [3664, 3673],
-      tibt: [3872, 3881]
-    };
-    var hanidecChars = numberingSystems.hanidec.replace(/[\[|\]]/g, "").split("");
-    function parseDigits(str) {
-      let value = parseInt(str, 10);
-      if (isNaN(value)) {
-        value = "";
-        for (let i = 0; i < str.length; i++) {
-          const code = str.charCodeAt(i);
-          if (str[i].search(numberingSystems.hanidec) !== -1) {
-            value += hanidecChars.indexOf(str[i]);
-          } else {
-            for (const key in numberingSystemsUTF16) {
-              const [min, max] = numberingSystemsUTF16[key];
-              if (code >= min && code <= max) {
-                value += code - min;
-              }
+        const parts = line.trim().split(/[ \t]+/);
+        const name = parts.shift();
+        switch (name) {
+          case "%TAG": {
+            if (parts.length !== 2) {
+              onError(0, "%TAG directive should contain exactly two parts");
+              if (parts.length < 2)
+                return false;
             }
+            const [handle, prefix] = parts;
+            this.tags[handle] = prefix;
+            return true;
           }
-        }
-        return parseInt(value, 10);
-      } else {
-        return value;
-      }
-    }
-    var digitRegexCache = /* @__PURE__ */ new Map();
-    function resetDigitRegexCache() {
-      digitRegexCache.clear();
-    }
-    function digitRegex({
-      numberingSystem
-    }, append = "") {
-      const ns = numberingSystem || "latn";
-      let appendCache = digitRegexCache.get(ns);
-      if (appendCache === void 0) {
-        appendCache = /* @__PURE__ */ new Map();
-        digitRegexCache.set(ns, appendCache);
-      }
-      let regex = appendCache.get(append);
-      if (regex === void 0) {
-        regex = new RegExp(`${numberingSystems[ns]}${append}`);
-        appendCache.set(append, regex);
-      }
-      return regex;
-    }
-    var now = () => Date.now();
-    var defaultZone = "system";
-    var defaultLocale = null;
-    var defaultNumberingSystem = null;
-    var defaultOutputCalendar = null;
-    var twoDigitCutoffYear = 60;
-    var throwOnInvalid;
-    var defaultWeekSettings = null;
-    var Settings = class {
-      /**
-       * Get the callback for returning the current timestamp.
-       * @type {function}
-       */
-      static get now() {
-        return now;
-      }
-      /**
-       * Set the callback for returning the current timestamp.
-       * The function should return a number, which will be interpreted as an Epoch millisecond count
-       * @type {function}
-       * @example Settings.now = () => Date.now() + 3000 // pretend it is 3 seconds in the future
-       * @example Settings.now = () => 0 // always pretend it's Jan 1, 1970 at midnight in UTC time
-       */
-      static set now(n2) {
-        now = n2;
-      }
-      /**
-       * Set the default time zone to create DateTimes in. Does not affect existing instances.
-       * Use the value "system" to reset this value to the system's time zone.
-       * @type {string}
-       */
-      static set defaultZone(zone) {
-        defaultZone = zone;
-      }
-      /**
-       * Get the default time zone object currently used to create DateTimes. Does not affect existing instances.
-       * The default value is the system's time zone (the one set on the machine that runs this code).
-       * @type {Zone}
-       */
-      static get defaultZone() {
-        return normalizeZone(defaultZone, SystemZone.instance);
-      }
-      /**
-       * Get the default locale to create DateTimes with. Does not affect existing instances.
-       * @type {string}
-       */
-      static get defaultLocale() {
-        return defaultLocale;
-      }
-      /**
-       * Set the default locale to create DateTimes with. Does not affect existing instances.
-       * @type {string}
-       */
-      static set defaultLocale(locale) {
-        defaultLocale = locale;
-      }
-      /**
-       * Get the default numbering system to create DateTimes with. Does not affect existing instances.
-       * @type {string}
-       */
-      static get defaultNumberingSystem() {
-        return defaultNumberingSystem;
-      }
-      /**
-       * Set the default numbering system to create DateTimes with. Does not affect existing instances.
-       * @type {string}
-       */
-      static set defaultNumberingSystem(numberingSystem) {
-        defaultNumberingSystem = numberingSystem;
-      }
-      /**
-       * Get the default output calendar to create DateTimes with. Does not affect existing instances.
-       * @type {string}
-       */
-      static get defaultOutputCalendar() {
-        return defaultOutputCalendar;
-      }
-      /**
-       * Set the default output calendar to create DateTimes with. Does not affect existing instances.
-       * @type {string}
-       */
-      static set defaultOutputCalendar(outputCalendar) {
-        defaultOutputCalendar = outputCalendar;
-      }
-      /**
-       * @typedef {Object} WeekSettings
-       * @property {number} firstDay
-       * @property {number} minimalDays
-       * @property {number[]} weekend
-       */
-      /**
-       * @return {WeekSettings|null}
-       */
-      static get defaultWeekSettings() {
-        return defaultWeekSettings;
-      }
-      /**
-       * Allows overriding the default locale week settings, i.e. the start of the week, the weekend and
-       * how many days are required in the first week of a year.
-       * Does not affect existing instances.
-       *
-       * @param {WeekSettings|null} weekSettings
-       */
-      static set defaultWeekSettings(weekSettings) {
-        defaultWeekSettings = validateWeekSettings(weekSettings);
-      }
-      /**
-       * Get the cutoff year for whether a 2-digit year string is interpreted in the current or previous century. Numbers higher than the cutoff will be considered to mean 19xx and numbers lower or equal to the cutoff will be considered 20xx.
-       * @type {number}
-       */
-      static get twoDigitCutoffYear() {
-        return twoDigitCutoffYear;
-      }
-      /**
-       * Set the cutoff year for whether a 2-digit year string is interpreted in the current or previous century. Numbers higher than the cutoff will be considered to mean 19xx and numbers lower or equal to the cutoff will be considered 20xx.
-       * @type {number}
-       * @example Settings.twoDigitCutoffYear = 0 // all 'yy' are interpreted as 20th century
-       * @example Settings.twoDigitCutoffYear = 99 // all 'yy' are interpreted as 21st century
-       * @example Settings.twoDigitCutoffYear = 50 // '49' -> 2049; '50' -> 1950
-       * @example Settings.twoDigitCutoffYear = 1950 // interpreted as 50
-       * @example Settings.twoDigitCutoffYear = 2050 // ALSO interpreted as 50
-       */
-      static set twoDigitCutoffYear(cutoffYear) {
-        twoDigitCutoffYear = cutoffYear % 100;
-      }
-      /**
-       * Get whether Luxon will throw when it encounters invalid DateTimes, Durations, or Intervals
-       * @type {boolean}
-       */
-      static get throwOnInvalid() {
-        return throwOnInvalid;
-      }
-      /**
-       * Set whether Luxon will throw when it encounters invalid DateTimes, Durations, or Intervals
-       * @type {boolean}
-       */
-      static set throwOnInvalid(t) {
-        throwOnInvalid = t;
-      }
-      /**
-       * Reset Luxon's global caches. Should only be necessary in testing scenarios.
-       * @return {void}
-       */
-      static resetCaches() {
-        Locale.resetCache();
-        IANAZone.resetCache();
-        DateTime.resetCache();
-        resetDigitRegexCache();
-      }
-    };
-    var Invalid = class {
-      constructor(reason, explanation) {
-        this.reason = reason;
-        this.explanation = explanation;
-      }
-      toMessage() {
-        if (this.explanation) {
-          return `${this.reason}: ${this.explanation}`;
-        } else {
-          return this.reason;
-        }
-      }
-    };
-    var nonLeapLadder = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    var leapLadder = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
-    function unitOutOfRange(unit, value) {
-      return new Invalid("unit out of range", `you specified ${value} (of type ${typeof value}) as a ${unit}, which is invalid`);
-    }
-    function dayOfWeek(year, month, day) {
-      const d = new Date(Date.UTC(year, month - 1, day));
-      if (year < 100 && year >= 0) {
-        d.setUTCFullYear(d.getUTCFullYear() - 1900);
-      }
-      const js = d.getUTCDay();
-      return js === 0 ? 7 : js;
-    }
-    function computeOrdinal(year, month, day) {
-      return day + (isLeapYear(year) ? leapLadder : nonLeapLadder)[month - 1];
-    }
-    function uncomputeOrdinal(year, ordinal) {
-      const table = isLeapYear(year) ? leapLadder : nonLeapLadder, month0 = table.findIndex((i) => i < ordinal), day = ordinal - table[month0];
-      return {
-        month: month0 + 1,
-        day
-      };
-    }
-    function isoWeekdayToLocal(isoWeekday, startOfWeek) {
-      return (isoWeekday - startOfWeek + 7) % 7 + 1;
-    }
-    function gregorianToWeek(gregObj, minDaysInFirstWeek = 4, startOfWeek = 1) {
-      const {
-        year,
-        month,
-        day
-      } = gregObj, ordinal = computeOrdinal(year, month, day), weekday = isoWeekdayToLocal(dayOfWeek(year, month, day), startOfWeek);
-      let weekNumber = Math.floor((ordinal - weekday + 14 - minDaysInFirstWeek) / 7), weekYear;
-      if (weekNumber < 1) {
-        weekYear = year - 1;
-        weekNumber = weeksInWeekYear(weekYear, minDaysInFirstWeek, startOfWeek);
-      } else if (weekNumber > weeksInWeekYear(year, minDaysInFirstWeek, startOfWeek)) {
-        weekYear = year + 1;
-        weekNumber = 1;
-      } else {
-        weekYear = year;
-      }
-      return {
-        weekYear,
-        weekNumber,
-        weekday,
-        ...timeObject(gregObj)
-      };
-    }
-    function weekToGregorian(weekData, minDaysInFirstWeek = 4, startOfWeek = 1) {
-      const {
-        weekYear,
-        weekNumber,
-        weekday
-      } = weekData, weekdayOfJan4 = isoWeekdayToLocal(dayOfWeek(weekYear, 1, minDaysInFirstWeek), startOfWeek), yearInDays = daysInYear(weekYear);
-      let ordinal = weekNumber * 7 + weekday - weekdayOfJan4 - 7 + minDaysInFirstWeek, year;
-      if (ordinal < 1) {
-        year = weekYear - 1;
-        ordinal += daysInYear(year);
-      } else if (ordinal > yearInDays) {
-        year = weekYear + 1;
-        ordinal -= daysInYear(weekYear);
-      } else {
-        year = weekYear;
-      }
-      const {
-        month,
-        day
-      } = uncomputeOrdinal(year, ordinal);
-      return {
-        year,
-        month,
-        day,
-        ...timeObject(weekData)
-      };
-    }
-    function gregorianToOrdinal(gregData) {
-      const {
-        year,
-        month,
-        day
-      } = gregData;
-      const ordinal = computeOrdinal(year, month, day);
-      return {
-        year,
-        ordinal,
-        ...timeObject(gregData)
-      };
-    }
-    function ordinalToGregorian(ordinalData) {
-      const {
-        year,
-        ordinal
-      } = ordinalData;
-      const {
-        month,
-        day
-      } = uncomputeOrdinal(year, ordinal);
-      return {
-        year,
-        month,
-        day,
-        ...timeObject(ordinalData)
-      };
-    }
-    function usesLocalWeekValues(obj, loc) {
-      const hasLocaleWeekData = !isUndefined(obj.localWeekday) || !isUndefined(obj.localWeekNumber) || !isUndefined(obj.localWeekYear);
-      if (hasLocaleWeekData) {
-        const hasIsoWeekData = !isUndefined(obj.weekday) || !isUndefined(obj.weekNumber) || !isUndefined(obj.weekYear);
-        if (hasIsoWeekData) {
-          throw new ConflictingSpecificationError("Cannot mix locale-based week fields with ISO-based week fields");
-        }
-        if (!isUndefined(obj.localWeekday)) obj.weekday = obj.localWeekday;
-        if (!isUndefined(obj.localWeekNumber)) obj.weekNumber = obj.localWeekNumber;
-        if (!isUndefined(obj.localWeekYear)) obj.weekYear = obj.localWeekYear;
-        delete obj.localWeekday;
-        delete obj.localWeekNumber;
-        delete obj.localWeekYear;
-        return {
-          minDaysInFirstWeek: loc.getMinDaysInFirstWeek(),
-          startOfWeek: loc.getStartOfWeek()
-        };
-      } else {
-        return {
-          minDaysInFirstWeek: 4,
-          startOfWeek: 1
-        };
-      }
-    }
-    function hasInvalidWeekData(obj, minDaysInFirstWeek = 4, startOfWeek = 1) {
-      const validYear = isInteger(obj.weekYear), validWeek = integerBetween(obj.weekNumber, 1, weeksInWeekYear(obj.weekYear, minDaysInFirstWeek, startOfWeek)), validWeekday = integerBetween(obj.weekday, 1, 7);
-      if (!validYear) {
-        return unitOutOfRange("weekYear", obj.weekYear);
-      } else if (!validWeek) {
-        return unitOutOfRange("week", obj.weekNumber);
-      } else if (!validWeekday) {
-        return unitOutOfRange("weekday", obj.weekday);
-      } else return false;
-    }
-    function hasInvalidOrdinalData(obj) {
-      const validYear = isInteger(obj.year), validOrdinal = integerBetween(obj.ordinal, 1, daysInYear(obj.year));
-      if (!validYear) {
-        return unitOutOfRange("year", obj.year);
-      } else if (!validOrdinal) {
-        return unitOutOfRange("ordinal", obj.ordinal);
-      } else return false;
-    }
-    function hasInvalidGregorianData(obj) {
-      const validYear = isInteger(obj.year), validMonth = integerBetween(obj.month, 1, 12), validDay = integerBetween(obj.day, 1, daysInMonth(obj.year, obj.month));
-      if (!validYear) {
-        return unitOutOfRange("year", obj.year);
-      } else if (!validMonth) {
-        return unitOutOfRange("month", obj.month);
-      } else if (!validDay) {
-        return unitOutOfRange("day", obj.day);
-      } else return false;
-    }
-    function hasInvalidTimeData(obj) {
-      const {
-        hour,
-        minute,
-        second,
-        millisecond
-      } = obj;
-      const validHour = integerBetween(hour, 0, 23) || hour === 24 && minute === 0 && second === 0 && millisecond === 0, validMinute = integerBetween(minute, 0, 59), validSecond = integerBetween(second, 0, 59), validMillisecond = integerBetween(millisecond, 0, 999);
-      if (!validHour) {
-        return unitOutOfRange("hour", hour);
-      } else if (!validMinute) {
-        return unitOutOfRange("minute", minute);
-      } else if (!validSecond) {
-        return unitOutOfRange("second", second);
-      } else if (!validMillisecond) {
-        return unitOutOfRange("millisecond", millisecond);
-      } else return false;
-    }
-    function isUndefined(o) {
-      return typeof o === "undefined";
-    }
-    function isNumber(o) {
-      return typeof o === "number";
-    }
-    function isInteger(o) {
-      return typeof o === "number" && o % 1 === 0;
-    }
-    function isString(o) {
-      return typeof o === "string";
-    }
-    function isDate(o) {
-      return Object.prototype.toString.call(o) === "[object Date]";
-    }
-    function hasRelative() {
-      try {
-        return typeof Intl !== "undefined" && !!Intl.RelativeTimeFormat;
-      } catch (e) {
-        return false;
-      }
-    }
-    function hasLocaleWeekInfo() {
-      try {
-        return typeof Intl !== "undefined" && !!Intl.Locale && ("weekInfo" in Intl.Locale.prototype || "getWeekInfo" in Intl.Locale.prototype);
-      } catch (e) {
-        return false;
-      }
-    }
-    function maybeArray(thing) {
-      return Array.isArray(thing) ? thing : [thing];
-    }
-    function bestBy(arr, by, compare) {
-      if (arr.length === 0) {
-        return void 0;
-      }
-      return arr.reduce((best, next) => {
-        const pair = [by(next), next];
-        if (!best) {
-          return pair;
-        } else if (compare(best[0], pair[0]) === best[0]) {
-          return best;
-        } else {
-          return pair;
-        }
-      }, null)[1];
-    }
-    function pick(obj, keys) {
-      return keys.reduce((a, k) => {
-        a[k] = obj[k];
-        return a;
-      }, {});
-    }
-    function hasOwnProperty(obj, prop) {
-      return Object.prototype.hasOwnProperty.call(obj, prop);
-    }
-    function validateWeekSettings(settings) {
-      if (settings == null) {
-        return null;
-      } else if (typeof settings !== "object") {
-        throw new InvalidArgumentError("Week settings must be an object");
-      } else {
-        if (!integerBetween(settings.firstDay, 1, 7) || !integerBetween(settings.minimalDays, 1, 7) || !Array.isArray(settings.weekend) || settings.weekend.some((v) => !integerBetween(v, 1, 7))) {
-          throw new InvalidArgumentError("Invalid week settings");
-        }
-        return {
-          firstDay: settings.firstDay,
-          minimalDays: settings.minimalDays,
-          weekend: Array.from(settings.weekend)
-        };
-      }
-    }
-    function integerBetween(thing, bottom, top) {
-      return isInteger(thing) && thing >= bottom && thing <= top;
-    }
-    function floorMod(x, n2) {
-      return x - n2 * Math.floor(x / n2);
-    }
-    function padStart(input, n2 = 2) {
-      const isNeg = input < 0;
-      let padded;
-      if (isNeg) {
-        padded = "-" + ("" + -input).padStart(n2, "0");
-      } else {
-        padded = ("" + input).padStart(n2, "0");
-      }
-      return padded;
-    }
-    function parseInteger(string) {
-      if (isUndefined(string) || string === null || string === "") {
-        return void 0;
-      } else {
-        return parseInt(string, 10);
-      }
-    }
-    function parseFloating(string) {
-      if (isUndefined(string) || string === null || string === "") {
-        return void 0;
-      } else {
-        return parseFloat(string);
-      }
-    }
-    function parseMillis(fraction) {
-      if (isUndefined(fraction) || fraction === null || fraction === "") {
-        return void 0;
-      } else {
-        const f = parseFloat("0." + fraction) * 1e3;
-        return Math.floor(f);
-      }
-    }
-    function roundTo(number, digits, rounding = "round") {
-      const factor = 10 ** digits;
-      switch (rounding) {
-        case "expand":
-          return number > 0 ? Math.ceil(number * factor) / factor : Math.floor(number * factor) / factor;
-        case "trunc":
-          return Math.trunc(number * factor) / factor;
-        case "round":
-          return Math.round(number * factor) / factor;
-        case "floor":
-          return Math.floor(number * factor) / factor;
-        case "ceil":
-          return Math.ceil(number * factor) / factor;
-        default:
-          throw new RangeError(`Value rounding ${rounding} is out of range`);
-      }
-    }
-    function isLeapYear(year) {
-      return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-    }
-    function daysInYear(year) {
-      return isLeapYear(year) ? 366 : 365;
-    }
-    function daysInMonth(year, month) {
-      const modMonth = floorMod(month - 1, 12) + 1, modYear = year + (month - modMonth) / 12;
-      if (modMonth === 2) {
-        return isLeapYear(modYear) ? 29 : 28;
-      } else {
-        return [31, null, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][modMonth - 1];
-      }
-    }
-    function objToLocalTS(obj) {
-      let d = Date.UTC(obj.year, obj.month - 1, obj.day, obj.hour, obj.minute, obj.second, obj.millisecond);
-      if (obj.year < 100 && obj.year >= 0) {
-        d = new Date(d);
-        d.setUTCFullYear(obj.year, obj.month - 1, obj.day);
-      }
-      return +d;
-    }
-    function firstWeekOffset(year, minDaysInFirstWeek, startOfWeek) {
-      const fwdlw = isoWeekdayToLocal(dayOfWeek(year, 1, minDaysInFirstWeek), startOfWeek);
-      return -fwdlw + minDaysInFirstWeek - 1;
-    }
-    function weeksInWeekYear(weekYear, minDaysInFirstWeek = 4, startOfWeek = 1) {
-      const weekOffset = firstWeekOffset(weekYear, minDaysInFirstWeek, startOfWeek);
-      const weekOffsetNext = firstWeekOffset(weekYear + 1, minDaysInFirstWeek, startOfWeek);
-      return (daysInYear(weekYear) - weekOffset + weekOffsetNext) / 7;
-    }
-    function untruncateYear(year) {
-      if (year > 99) {
-        return year;
-      } else return year > Settings.twoDigitCutoffYear ? 1900 + year : 2e3 + year;
-    }
-    function parseZoneInfo(ts, offsetFormat, locale, timeZone = null) {
-      const date = new Date(ts), intlOpts = {
-        hourCycle: "h23",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
-      };
-      if (timeZone) {
-        intlOpts.timeZone = timeZone;
-      }
-      const modified = {
-        timeZoneName: offsetFormat,
-        ...intlOpts
-      };
-      const parsed = new Intl.DateTimeFormat(locale, modified).formatToParts(date).find((m) => m.type.toLowerCase() === "timezonename");
-      return parsed ? parsed.value : null;
-    }
-    function signedOffset(offHourStr, offMinuteStr) {
-      let offHour = parseInt(offHourStr, 10);
-      if (Number.isNaN(offHour)) {
-        offHour = 0;
-      }
-      const offMin = parseInt(offMinuteStr, 10) || 0, offMinSigned = offHour < 0 || Object.is(offHour, -0) ? -offMin : offMin;
-      return offHour * 60 + offMinSigned;
-    }
-    function asNumber(value) {
-      const numericValue = Number(value);
-      if (typeof value === "boolean" || value === "" || !Number.isFinite(numericValue)) throw new InvalidArgumentError(`Invalid unit value ${value}`);
-      return numericValue;
-    }
-    function normalizeObject(obj, normalizer) {
-      const normalized = {};
-      for (const u in obj) {
-        if (hasOwnProperty(obj, u)) {
-          const v = obj[u];
-          if (v === void 0 || v === null) continue;
-          normalized[normalizer(u)] = asNumber(v);
-        }
-      }
-      return normalized;
-    }
-    function formatOffset(offset2, format) {
-      const hours = Math.trunc(Math.abs(offset2 / 60)), minutes = Math.trunc(Math.abs(offset2 % 60)), sign = offset2 >= 0 ? "+" : "-";
-      switch (format) {
-        case "short":
-          return `${sign}${padStart(hours, 2)}:${padStart(minutes, 2)}`;
-        case "narrow":
-          return `${sign}${hours}${minutes > 0 ? `:${minutes}` : ""}`;
-        case "techie":
-          return `${sign}${padStart(hours, 2)}${padStart(minutes, 2)}`;
-        default:
-          throw new RangeError(`Value format ${format} is out of range for property format`);
-      }
-    }
-    function timeObject(obj) {
-      return pick(obj, ["hour", "minute", "second", "millisecond"]);
-    }
-    var monthsLong = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    var monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    var monthsNarrow = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
-    function months(length) {
-      switch (length) {
-        case "narrow":
-          return [...monthsNarrow];
-        case "short":
-          return [...monthsShort];
-        case "long":
-          return [...monthsLong];
-        case "numeric":
-          return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
-        case "2-digit":
-          return ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
-        default:
-          return null;
-      }
-    }
-    var weekdaysLong = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    var weekdaysShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    var weekdaysNarrow = ["M", "T", "W", "T", "F", "S", "S"];
-    function weekdays(length) {
-      switch (length) {
-        case "narrow":
-          return [...weekdaysNarrow];
-        case "short":
-          return [...weekdaysShort];
-        case "long":
-          return [...weekdaysLong];
-        case "numeric":
-          return ["1", "2", "3", "4", "5", "6", "7"];
-        default:
-          return null;
-      }
-    }
-    var meridiems = ["AM", "PM"];
-    var erasLong = ["Before Christ", "Anno Domini"];
-    var erasShort = ["BC", "AD"];
-    var erasNarrow = ["B", "A"];
-    function eras(length) {
-      switch (length) {
-        case "narrow":
-          return [...erasNarrow];
-        case "short":
-          return [...erasShort];
-        case "long":
-          return [...erasLong];
-        default:
-          return null;
-      }
-    }
-    function meridiemForDateTime(dt) {
-      return meridiems[dt.hour < 12 ? 0 : 1];
-    }
-    function weekdayForDateTime(dt, length) {
-      return weekdays(length)[dt.weekday - 1];
-    }
-    function monthForDateTime(dt, length) {
-      return months(length)[dt.month - 1];
-    }
-    function eraForDateTime(dt, length) {
-      return eras(length)[dt.year < 0 ? 0 : 1];
-    }
-    function formatRelativeTime(unit, count, numeric = "always", narrow = false) {
-      const units = {
-        years: ["year", "yr."],
-        quarters: ["quarter", "qtr."],
-        months: ["month", "mo."],
-        weeks: ["week", "wk."],
-        days: ["day", "day", "days"],
-        hours: ["hour", "hr."],
-        minutes: ["minute", "min."],
-        seconds: ["second", "sec."]
-      };
-      const lastable = ["hours", "minutes", "seconds"].indexOf(unit) === -1;
-      if (numeric === "auto" && lastable) {
-        const isDay = unit === "days";
-        switch (count) {
-          case 1:
-            return isDay ? "tomorrow" : `next ${units[unit][0]}`;
-          case -1:
-            return isDay ? "yesterday" : `last ${units[unit][0]}`;
-          case 0:
-            return isDay ? "today" : `this ${units[unit][0]}`;
-        }
-      }
-      const isInPast = Object.is(count, -0) || count < 0, fmtValue = Math.abs(count), singular = fmtValue === 1, lilUnits = units[unit], fmtUnit = narrow ? singular ? lilUnits[1] : lilUnits[2] || lilUnits[1] : singular ? units[unit][0] : unit;
-      return isInPast ? `${fmtValue} ${fmtUnit} ago` : `in ${fmtValue} ${fmtUnit}`;
-    }
-    function stringifyTokens(splits, tokenToString) {
-      let s2 = "";
-      for (const token of splits) {
-        if (token.literal) {
-          s2 += token.val;
-        } else {
-          s2 += tokenToString(token.val);
-        }
-      }
-      return s2;
-    }
-    var macroTokenToFormatOpts = {
-      D: DATE_SHORT,
-      DD: DATE_MED,
-      DDD: DATE_FULL,
-      DDDD: DATE_HUGE,
-      t: TIME_SIMPLE,
-      tt: TIME_WITH_SECONDS,
-      ttt: TIME_WITH_SHORT_OFFSET,
-      tttt: TIME_WITH_LONG_OFFSET,
-      T: TIME_24_SIMPLE,
-      TT: TIME_24_WITH_SECONDS,
-      TTT: TIME_24_WITH_SHORT_OFFSET,
-      TTTT: TIME_24_WITH_LONG_OFFSET,
-      f: DATETIME_SHORT,
-      ff: DATETIME_MED,
-      fff: DATETIME_FULL,
-      ffff: DATETIME_HUGE,
-      F: DATETIME_SHORT_WITH_SECONDS,
-      FF: DATETIME_MED_WITH_SECONDS,
-      FFF: DATETIME_FULL_WITH_SECONDS,
-      FFFF: DATETIME_HUGE_WITH_SECONDS
-    };
-    var Formatter = class _Formatter {
-      static create(locale, opts = {}) {
-        return new _Formatter(locale, opts);
-      }
-      static parseFormat(fmt) {
-        let current = null, currentFull = "", bracketed = false;
-        const splits = [];
-        for (let i = 0; i < fmt.length; i++) {
-          const c = fmt.charAt(i);
-          if (c === "'") {
-            if (currentFull.length > 0 || bracketed) {
-              splits.push({
-                literal: bracketed || /^\s+$/.test(currentFull),
-                val: currentFull === "" ? "'" : currentFull
-              });
+          case "%YAML": {
+            this.yaml.explicit = true;
+            if (parts.length !== 1) {
+              onError(0, "%YAML directive should contain exactly one part");
+              return false;
             }
-            current = null;
-            currentFull = "";
-            bracketed = !bracketed;
-          } else if (bracketed) {
-            currentFull += c;
-          } else if (c === current) {
-            currentFull += c;
-          } else {
-            if (currentFull.length > 0) {
-              splits.push({
-                literal: /^\s+$/.test(currentFull),
-                val: currentFull
-              });
-            }
-            currentFull = c;
-            current = c;
-          }
-        }
-        if (currentFull.length > 0) {
-          splits.push({
-            literal: bracketed || /^\s+$/.test(currentFull),
-            val: currentFull
-          });
-        }
-        return splits;
-      }
-      static macroTokenToFormatOpts(token) {
-        return macroTokenToFormatOpts[token];
-      }
-      constructor(locale, formatOpts) {
-        this.opts = formatOpts;
-        this.loc = locale;
-        this.systemLoc = null;
-      }
-      formatWithSystemDefault(dt, opts) {
-        if (this.systemLoc === null) {
-          this.systemLoc = this.loc.redefaultToSystem();
-        }
-        const df = this.systemLoc.dtFormatter(dt, {
-          ...this.opts,
-          ...opts
-        });
-        return df.format();
-      }
-      dtFormatter(dt, opts = {}) {
-        return this.loc.dtFormatter(dt, {
-          ...this.opts,
-          ...opts
-        });
-      }
-      formatDateTime(dt, opts) {
-        return this.dtFormatter(dt, opts).format();
-      }
-      formatDateTimeParts(dt, opts) {
-        return this.dtFormatter(dt, opts).formatToParts();
-      }
-      formatInterval(interval, opts) {
-        const df = this.dtFormatter(interval.start, opts);
-        return df.dtf.formatRange(interval.start.toJSDate(), interval.end.toJSDate());
-      }
-      resolvedOptions(dt, opts) {
-        return this.dtFormatter(dt, opts).resolvedOptions();
-      }
-      num(n2, p = 0, signDisplay = void 0) {
-        if (this.opts.forceSimple) {
-          return padStart(n2, p);
-        }
-        const opts = {
-          ...this.opts
-        };
-        if (p > 0) {
-          opts.padTo = p;
-        }
-        if (signDisplay) {
-          opts.signDisplay = signDisplay;
-        }
-        return this.loc.numberFormatter(opts).format(n2);
-      }
-      formatDateTimeFromString(dt, fmt) {
-        const knownEnglish = this.loc.listingMode() === "en", useDateTimeFormatter = this.loc.outputCalendar && this.loc.outputCalendar !== "gregory", string = (opts, extract) => this.loc.extract(dt, opts, extract), formatOffset2 = (opts) => {
-          if (dt.isOffsetFixed && dt.offset === 0 && opts.allowZ) {
-            return "Z";
-          }
-          return dt.isValid ? dt.zone.formatOffset(dt.ts, opts.format) : "";
-        }, meridiem = () => knownEnglish ? meridiemForDateTime(dt) : string({
-          hour: "numeric",
-          hourCycle: "h12"
-        }, "dayperiod"), month = (length, standalone) => knownEnglish ? monthForDateTime(dt, length) : string(standalone ? {
-          month: length
-        } : {
-          month: length,
-          day: "numeric"
-        }, "month"), weekday = (length, standalone) => knownEnglish ? weekdayForDateTime(dt, length) : string(standalone ? {
-          weekday: length
-        } : {
-          weekday: length,
-          month: "long",
-          day: "numeric"
-        }, "weekday"), maybeMacro = (token) => {
-          const formatOpts = _Formatter.macroTokenToFormatOpts(token);
-          if (formatOpts) {
-            return this.formatWithSystemDefault(dt, formatOpts);
-          } else {
-            return token;
-          }
-        }, era = (length) => knownEnglish ? eraForDateTime(dt, length) : string({
-          era: length
-        }, "era"), tokenToString = (token) => {
-          switch (token) {
-            // ms
-            case "S":
-              return this.num(dt.millisecond);
-            case "u":
-            // falls through
-            case "SSS":
-              return this.num(dt.millisecond, 3);
-            // seconds
-            case "s":
-              return this.num(dt.second);
-            case "ss":
-              return this.num(dt.second, 2);
-            // fractional seconds
-            case "uu":
-              return this.num(Math.floor(dt.millisecond / 10), 2);
-            case "uuu":
-              return this.num(Math.floor(dt.millisecond / 100));
-            // minutes
-            case "m":
-              return this.num(dt.minute);
-            case "mm":
-              return this.num(dt.minute, 2);
-            // hours
-            case "h":
-              return this.num(dt.hour % 12 === 0 ? 12 : dt.hour % 12);
-            case "hh":
-              return this.num(dt.hour % 12 === 0 ? 12 : dt.hour % 12, 2);
-            case "H":
-              return this.num(dt.hour);
-            case "HH":
-              return this.num(dt.hour, 2);
-            // offset
-            case "Z":
-              return formatOffset2({
-                format: "narrow",
-                allowZ: this.opts.allowZ
-              });
-            case "ZZ":
-              return formatOffset2({
-                format: "short",
-                allowZ: this.opts.allowZ
-              });
-            case "ZZZ":
-              return formatOffset2({
-                format: "techie",
-                allowZ: this.opts.allowZ
-              });
-            case "ZZZZ":
-              return dt.zone.offsetName(dt.ts, {
-                format: "short",
-                locale: this.loc.locale
-              });
-            case "ZZZZZ":
-              return dt.zone.offsetName(dt.ts, {
-                format: "long",
-                locale: this.loc.locale
-              });
-            // zone
-            case "z":
-              return dt.zoneName;
-            // meridiems
-            case "a":
-              return meridiem();
-            // dates
-            case "d":
-              return useDateTimeFormatter ? string({
-                day: "numeric"
-              }, "day") : this.num(dt.day);
-            case "dd":
-              return useDateTimeFormatter ? string({
-                day: "2-digit"
-              }, "day") : this.num(dt.day, 2);
-            // weekdays - standalone
-            case "c":
-              return this.num(dt.weekday);
-            case "ccc":
-              return weekday("short", true);
-            case "cccc":
-              return weekday("long", true);
-            case "ccccc":
-              return weekday("narrow", true);
-            // weekdays - format
-            case "E":
-              return this.num(dt.weekday);
-            case "EEE":
-              return weekday("short", false);
-            case "EEEE":
-              return weekday("long", false);
-            case "EEEEE":
-              return weekday("narrow", false);
-            // months - standalone
-            case "L":
-              return useDateTimeFormatter ? string({
-                month: "numeric",
-                day: "numeric"
-              }, "month") : this.num(dt.month);
-            case "LL":
-              return useDateTimeFormatter ? string({
-                month: "2-digit",
-                day: "numeric"
-              }, "month") : this.num(dt.month, 2);
-            case "LLL":
-              return month("short", true);
-            case "LLLL":
-              return month("long", true);
-            case "LLLLL":
-              return month("narrow", true);
-            // months - format
-            case "M":
-              return useDateTimeFormatter ? string({
-                month: "numeric"
-              }, "month") : this.num(dt.month);
-            case "MM":
-              return useDateTimeFormatter ? string({
-                month: "2-digit"
-              }, "month") : this.num(dt.month, 2);
-            case "MMM":
-              return month("short", false);
-            case "MMMM":
-              return month("long", false);
-            case "MMMMM":
-              return month("narrow", false);
-            // years
-            case "y":
-              return useDateTimeFormatter ? string({
-                year: "numeric"
-              }, "year") : this.num(dt.year);
-            case "yy":
-              return useDateTimeFormatter ? string({
-                year: "2-digit"
-              }, "year") : this.num(dt.year.toString().slice(-2), 2);
-            case "yyyy":
-              return useDateTimeFormatter ? string({
-                year: "numeric"
-              }, "year") : this.num(dt.year, 4);
-            case "yyyyyy":
-              return useDateTimeFormatter ? string({
-                year: "numeric"
-              }, "year") : this.num(dt.year, 6);
-            // eras
-            case "G":
-              return era("short");
-            case "GG":
-              return era("long");
-            case "GGGGG":
-              return era("narrow");
-            case "kk":
-              return this.num(dt.weekYear.toString().slice(-2), 2);
-            case "kkkk":
-              return this.num(dt.weekYear, 4);
-            case "W":
-              return this.num(dt.weekNumber);
-            case "WW":
-              return this.num(dt.weekNumber, 2);
-            case "n":
-              return this.num(dt.localWeekNumber);
-            case "nn":
-              return this.num(dt.localWeekNumber, 2);
-            case "ii":
-              return this.num(dt.localWeekYear.toString().slice(-2), 2);
-            case "iiii":
-              return this.num(dt.localWeekYear, 4);
-            case "o":
-              return this.num(dt.ordinal);
-            case "ooo":
-              return this.num(dt.ordinal, 3);
-            case "q":
-              return this.num(dt.quarter);
-            case "qq":
-              return this.num(dt.quarter, 2);
-            case "X":
-              return this.num(Math.floor(dt.ts / 1e3));
-            case "x":
-              return this.num(dt.ts);
-            default:
-              return maybeMacro(token);
-          }
-        };
-        return stringifyTokens(_Formatter.parseFormat(fmt), tokenToString);
-      }
-      formatDurationFromString(dur, fmt) {
-        const invertLargest = this.opts.signMode === "negativeLargestOnly" ? -1 : 1;
-        const tokenToField = (token) => {
-          switch (token[0]) {
-            case "S":
-              return "milliseconds";
-            case "s":
-              return "seconds";
-            case "m":
-              return "minutes";
-            case "h":
-              return "hours";
-            case "d":
-              return "days";
-            case "w":
-              return "weeks";
-            case "M":
-              return "months";
-            case "y":
-              return "years";
-            default:
-              return null;
-          }
-        }, tokenToString = (lildur, info) => (token) => {
-          const mapped = tokenToField(token);
-          if (mapped) {
-            const inversionFactor = info.isNegativeDuration && mapped !== info.largestUnit ? invertLargest : 1;
-            let signDisplay;
-            if (this.opts.signMode === "negativeLargestOnly" && mapped !== info.largestUnit) {
-              signDisplay = "never";
-            } else if (this.opts.signMode === "all") {
-              signDisplay = "always";
+            const [version] = parts;
+            if (version === "1.1" || version === "1.2") {
+              this.yaml.version = version;
+              return true;
             } else {
-              signDisplay = "auto";
+              const isValid = /^\d+\.\d+$/.test(version);
+              onError(6, `Unsupported YAML version ${version}`, isValid);
+              return false;
             }
-            return this.num(lildur.get(mapped) * inversionFactor, token.length, signDisplay);
-          } else {
-            return token;
           }
-        }, tokens = _Formatter.parseFormat(fmt), realTokens = tokens.reduce((found, {
-          literal,
-          val
-        }) => literal ? found : found.concat(val), []), collapsed = dur.shiftTo(...realTokens.map(tokenToField).filter((t) => t)), durationInfo = {
-          isNegativeDuration: collapsed < 0,
-          // this relies on "collapsed" being based on "shiftTo", which builds up the object
-          // in order
-          largestUnit: Object.keys(collapsed.values)[0]
-        };
-        return stringifyTokens(tokens, tokenToString(collapsed, durationInfo));
-      }
-    };
-    var ianaRegex = /[A-Za-z_+-]{1,256}(?::?\/[A-Za-z0-9_+-]{1,256}(?:\/[A-Za-z0-9_+-]{1,256})?)?/;
-    function combineRegexes(...regexes) {
-      const full = regexes.reduce((f, r) => f + r.source, "");
-      return RegExp(`^${full}$`);
-    }
-    function combineExtractors(...extractors) {
-      return (m) => extractors.reduce(([mergedVals, mergedZone, cursor], ex) => {
-        const [val, zone, next] = ex(m, cursor);
-        return [{
-          ...mergedVals,
-          ...val
-        }, zone || mergedZone, next];
-      }, [{}, null, 1]).slice(0, 2);
-    }
-    function parse(s2, ...patterns) {
-      if (s2 == null) {
-        return [null, null];
-      }
-      for (const [regex, extractor] of patterns) {
-        const m = regex.exec(s2);
-        if (m) {
-          return extractor(m);
+          default:
+            onError(0, `Unknown directive ${name}`, true);
+            return false;
         }
-      }
-      return [null, null];
-    }
-    function simpleParse(...keys) {
-      return (match2, cursor) => {
-        const ret = {};
-        let i;
-        for (i = 0; i < keys.length; i++) {
-          ret[keys[i]] = parseInteger(match2[cursor + i]);
-        }
-        return [ret, null, cursor + i];
-      };
-    }
-    var offsetRegex = /(?:([Zz])|([+-]\d\d)(?::?(\d\d))?)/;
-    var isoExtendedZone = `(?:${offsetRegex.source}?(?:\\[(${ianaRegex.source})\\])?)?`;
-    var isoTimeBaseRegex = /(\d\d)(?::?(\d\d)(?::?(\d\d)(?:[.,](\d{1,30}))?)?)?/;
-    var isoTimeRegex = RegExp(`${isoTimeBaseRegex.source}${isoExtendedZone}`);
-    var isoTimeExtensionRegex = RegExp(`(?:[Tt]${isoTimeRegex.source})?`);
-    var isoYmdRegex = /([+-]\d{6}|\d{4})(?:-?(\d\d)(?:-?(\d\d))?)?/;
-    var isoWeekRegex = /(\d{4})-?W(\d\d)(?:-?(\d))?/;
-    var isoOrdinalRegex = /(\d{4})-?(\d{3})/;
-    var extractISOWeekData = simpleParse("weekYear", "weekNumber", "weekDay");
-    var extractISOOrdinalData = simpleParse("year", "ordinal");
-    var sqlYmdRegex = /(\d{4})-(\d\d)-(\d\d)/;
-    var sqlTimeRegex = RegExp(`${isoTimeBaseRegex.source} ?(?:${offsetRegex.source}|(${ianaRegex.source}))?`);
-    var sqlTimeExtensionRegex = RegExp(`(?: ${sqlTimeRegex.source})?`);
-    function int(match2, pos, fallback) {
-      const m = match2[pos];
-      return isUndefined(m) ? fallback : parseInteger(m);
-    }
-    function extractISOYmd(match2, cursor) {
-      const item = {
-        year: int(match2, cursor),
-        month: int(match2, cursor + 1, 1),
-        day: int(match2, cursor + 2, 1)
-      };
-      return [item, null, cursor + 3];
-    }
-    function extractISOTime(match2, cursor) {
-      const item = {
-        hours: int(match2, cursor, 0),
-        minutes: int(match2, cursor + 1, 0),
-        seconds: int(match2, cursor + 2, 0),
-        milliseconds: parseMillis(match2[cursor + 3])
-      };
-      return [item, null, cursor + 4];
-    }
-    function extractISOOffset(match2, cursor) {
-      const local = !match2[cursor] && !match2[cursor + 1], fullOffset = signedOffset(match2[cursor + 1], match2[cursor + 2]), zone = local ? null : FixedOffsetZone.instance(fullOffset);
-      return [{}, zone, cursor + 3];
-    }
-    function extractIANAZone(match2, cursor) {
-      const zone = match2[cursor] ? IANAZone.create(match2[cursor]) : null;
-      return [{}, zone, cursor + 1];
-    }
-    var isoTimeOnly = RegExp(`^T?${isoTimeBaseRegex.source}$`);
-    var isoDuration = /^-?P(?:(?:(-?\d{1,20}(?:\.\d{1,20})?)Y)?(?:(-?\d{1,20}(?:\.\d{1,20})?)M)?(?:(-?\d{1,20}(?:\.\d{1,20})?)W)?(?:(-?\d{1,20}(?:\.\d{1,20})?)D)?(?:T(?:(-?\d{1,20}(?:\.\d{1,20})?)H)?(?:(-?\d{1,20}(?:\.\d{1,20})?)M)?(?:(-?\d{1,20})(?:[.,](-?\d{1,20}))?S)?)?)$/;
-    function extractISODuration(match2) {
-      const [s2, yearStr, monthStr, weekStr, dayStr, hourStr, minuteStr, secondStr, millisecondsStr] = match2;
-      const hasNegativePrefix = s2[0] === "-";
-      const negativeSeconds = secondStr && secondStr[0] === "-";
-      const maybeNegate = (num, force = false) => num !== void 0 && (force || num && hasNegativePrefix) ? -num : num;
-      return [{
-        years: maybeNegate(parseFloating(yearStr)),
-        months: maybeNegate(parseFloating(monthStr)),
-        weeks: maybeNegate(parseFloating(weekStr)),
-        days: maybeNegate(parseFloating(dayStr)),
-        hours: maybeNegate(parseFloating(hourStr)),
-        minutes: maybeNegate(parseFloating(minuteStr)),
-        seconds: maybeNegate(parseFloating(secondStr), secondStr === "-0"),
-        milliseconds: maybeNegate(parseMillis(millisecondsStr), negativeSeconds)
-      }];
-    }
-    var obsOffsets = {
-      GMT: 0,
-      EDT: -4 * 60,
-      EST: -5 * 60,
-      CDT: -5 * 60,
-      CST: -6 * 60,
-      MDT: -6 * 60,
-      MST: -7 * 60,
-      PDT: -7 * 60,
-      PST: -8 * 60
-    };
-    function fromStrings(weekdayStr, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr) {
-      const result = {
-        year: yearStr.length === 2 ? untruncateYear(parseInteger(yearStr)) : parseInteger(yearStr),
-        month: monthsShort.indexOf(monthStr) + 1,
-        day: parseInteger(dayStr),
-        hour: parseInteger(hourStr),
-        minute: parseInteger(minuteStr)
-      };
-      if (secondStr) result.second = parseInteger(secondStr);
-      if (weekdayStr) {
-        result.weekday = weekdayStr.length > 3 ? weekdaysLong.indexOf(weekdayStr) + 1 : weekdaysShort.indexOf(weekdayStr) + 1;
-      }
-      return result;
-    }
-    var rfc2822 = /^(?:(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s)?(\d{1,2})\s(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{2,4})\s(\d\d):(\d\d)(?::(\d\d))?\s(?:(UT|GMT|[ECMP][SD]T)|([Zz])|(?:([+-]\d\d)(\d\d)))$/;
-    function extractRFC2822(match2) {
-      const [, weekdayStr, dayStr, monthStr, yearStr, hourStr, minuteStr, secondStr, obsOffset, milOffset, offHourStr, offMinuteStr] = match2, result = fromStrings(weekdayStr, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr);
-      let offset2;
-      if (obsOffset) {
-        offset2 = obsOffsets[obsOffset];
-      } else if (milOffset) {
-        offset2 = 0;
-      } else {
-        offset2 = signedOffset(offHourStr, offMinuteStr);
-      }
-      return [result, new FixedOffsetZone(offset2)];
-    }
-    function preprocessRFC2822(s2) {
-      return s2.replace(/\([^()]*\)|[\n\t]/g, " ").replace(/(\s\s+)/g, " ").trim();
-    }
-    var rfc1123 = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d\d) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d\d):(\d\d):(\d\d) GMT$/;
-    var rfc850 = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d\d)-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d\d) (\d\d):(\d\d):(\d\d) GMT$/;
-    var ascii = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ( \d|\d\d) (\d\d):(\d\d):(\d\d) (\d{4})$/;
-    function extractRFC1123Or850(match2) {
-      const [, weekdayStr, dayStr, monthStr, yearStr, hourStr, minuteStr, secondStr] = match2, result = fromStrings(weekdayStr, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr);
-      return [result, FixedOffsetZone.utcInstance];
-    }
-    function extractASCII(match2) {
-      const [, weekdayStr, monthStr, dayStr, hourStr, minuteStr, secondStr, yearStr] = match2, result = fromStrings(weekdayStr, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr);
-      return [result, FixedOffsetZone.utcInstance];
-    }
-    var isoYmdWithTimeExtensionRegex = combineRegexes(isoYmdRegex, isoTimeExtensionRegex);
-    var isoWeekWithTimeExtensionRegex = combineRegexes(isoWeekRegex, isoTimeExtensionRegex);
-    var isoOrdinalWithTimeExtensionRegex = combineRegexes(isoOrdinalRegex, isoTimeExtensionRegex);
-    var isoTimeCombinedRegex = combineRegexes(isoTimeRegex);
-    var extractISOYmdTimeAndOffset = combineExtractors(extractISOYmd, extractISOTime, extractISOOffset, extractIANAZone);
-    var extractISOWeekTimeAndOffset = combineExtractors(extractISOWeekData, extractISOTime, extractISOOffset, extractIANAZone);
-    var extractISOOrdinalDateAndTime = combineExtractors(extractISOOrdinalData, extractISOTime, extractISOOffset, extractIANAZone);
-    var extractISOTimeAndOffset = combineExtractors(extractISOTime, extractISOOffset, extractIANAZone);
-    function parseISODate(s2) {
-      return parse(s2, [isoYmdWithTimeExtensionRegex, extractISOYmdTimeAndOffset], [isoWeekWithTimeExtensionRegex, extractISOWeekTimeAndOffset], [isoOrdinalWithTimeExtensionRegex, extractISOOrdinalDateAndTime], [isoTimeCombinedRegex, extractISOTimeAndOffset]);
-    }
-    function parseRFC2822Date(s2) {
-      return parse(preprocessRFC2822(s2), [rfc2822, extractRFC2822]);
-    }
-    function parseHTTPDate(s2) {
-      return parse(s2, [rfc1123, extractRFC1123Or850], [rfc850, extractRFC1123Or850], [ascii, extractASCII]);
-    }
-    function parseISODuration(s2) {
-      return parse(s2, [isoDuration, extractISODuration]);
-    }
-    var extractISOTimeOnly = combineExtractors(extractISOTime);
-    function parseISOTimeOnly(s2) {
-      return parse(s2, [isoTimeOnly, extractISOTimeOnly]);
-    }
-    var sqlYmdWithTimeExtensionRegex = combineRegexes(sqlYmdRegex, sqlTimeExtensionRegex);
-    var sqlTimeCombinedRegex = combineRegexes(sqlTimeRegex);
-    var extractISOTimeOffsetAndIANAZone = combineExtractors(extractISOTime, extractISOOffset, extractIANAZone);
-    function parseSQL(s2) {
-      return parse(s2, [sqlYmdWithTimeExtensionRegex, extractISOYmdTimeAndOffset], [sqlTimeCombinedRegex, extractISOTimeOffsetAndIANAZone]);
-    }
-    var INVALID$2 = "Invalid Duration";
-    var lowOrderMatrix = {
-      weeks: {
-        days: 7,
-        hours: 7 * 24,
-        minutes: 7 * 24 * 60,
-        seconds: 7 * 24 * 60 * 60,
-        milliseconds: 7 * 24 * 60 * 60 * 1e3
-      },
-      days: {
-        hours: 24,
-        minutes: 24 * 60,
-        seconds: 24 * 60 * 60,
-        milliseconds: 24 * 60 * 60 * 1e3
-      },
-      hours: {
-        minutes: 60,
-        seconds: 60 * 60,
-        milliseconds: 60 * 60 * 1e3
-      },
-      minutes: {
-        seconds: 60,
-        milliseconds: 60 * 1e3
-      },
-      seconds: {
-        milliseconds: 1e3
-      }
-    };
-    var casualMatrix = {
-      years: {
-        quarters: 4,
-        months: 12,
-        weeks: 52,
-        days: 365,
-        hours: 365 * 24,
-        minutes: 365 * 24 * 60,
-        seconds: 365 * 24 * 60 * 60,
-        milliseconds: 365 * 24 * 60 * 60 * 1e3
-      },
-      quarters: {
-        months: 3,
-        weeks: 13,
-        days: 91,
-        hours: 91 * 24,
-        minutes: 91 * 24 * 60,
-        seconds: 91 * 24 * 60 * 60,
-        milliseconds: 91 * 24 * 60 * 60 * 1e3
-      },
-      months: {
-        weeks: 4,
-        days: 30,
-        hours: 30 * 24,
-        minutes: 30 * 24 * 60,
-        seconds: 30 * 24 * 60 * 60,
-        milliseconds: 30 * 24 * 60 * 60 * 1e3
-      },
-      ...lowOrderMatrix
-    };
-    var daysInYearAccurate = 146097 / 400;
-    var daysInMonthAccurate = 146097 / 4800;
-    var accurateMatrix = {
-      years: {
-        quarters: 4,
-        months: 12,
-        weeks: daysInYearAccurate / 7,
-        days: daysInYearAccurate,
-        hours: daysInYearAccurate * 24,
-        minutes: daysInYearAccurate * 24 * 60,
-        seconds: daysInYearAccurate * 24 * 60 * 60,
-        milliseconds: daysInYearAccurate * 24 * 60 * 60 * 1e3
-      },
-      quarters: {
-        months: 3,
-        weeks: daysInYearAccurate / 28,
-        days: daysInYearAccurate / 4,
-        hours: daysInYearAccurate * 24 / 4,
-        minutes: daysInYearAccurate * 24 * 60 / 4,
-        seconds: daysInYearAccurate * 24 * 60 * 60 / 4,
-        milliseconds: daysInYearAccurate * 24 * 60 * 60 * 1e3 / 4
-      },
-      months: {
-        weeks: daysInMonthAccurate / 7,
-        days: daysInMonthAccurate,
-        hours: daysInMonthAccurate * 24,
-        minutes: daysInMonthAccurate * 24 * 60,
-        seconds: daysInMonthAccurate * 24 * 60 * 60,
-        milliseconds: daysInMonthAccurate * 24 * 60 * 60 * 1e3
-      },
-      ...lowOrderMatrix
-    };
-    var orderedUnits$1 = ["years", "quarters", "months", "weeks", "days", "hours", "minutes", "seconds", "milliseconds"];
-    var reverseUnits = orderedUnits$1.slice(0).reverse();
-    function clone$1(dur, alts, clear = false) {
-      const conf = {
-        values: clear ? alts.values : {
-          ...dur.values,
-          ...alts.values || {}
-        },
-        loc: dur.loc.clone(alts.loc),
-        conversionAccuracy: alts.conversionAccuracy || dur.conversionAccuracy,
-        matrix: alts.matrix || dur.matrix
-      };
-      return new Duration(conf);
-    }
-    function durationToMillis(matrix, vals) {
-      var _vals$milliseconds;
-      let sum = (_vals$milliseconds = vals.milliseconds) != null ? _vals$milliseconds : 0;
-      for (const unit of reverseUnits.slice(1)) {
-        if (vals[unit]) {
-          sum += vals[unit] * matrix[unit]["milliseconds"];
-        }
-      }
-      return sum;
-    }
-    function normalizeValues(matrix, vals) {
-      const factor = durationToMillis(matrix, vals) < 0 ? -1 : 1;
-      orderedUnits$1.reduceRight((previous, current) => {
-        if (!isUndefined(vals[current])) {
-          if (previous) {
-            const previousVal = vals[previous] * factor;
-            const conv = matrix[current][previous];
-            const rollUp = Math.floor(previousVal / conv);
-            vals[current] += rollUp * factor;
-            vals[previous] -= rollUp * conv * factor;
-          }
-          return current;
-        } else {
-          return previous;
-        }
-      }, null);
-      orderedUnits$1.reduce((previous, current) => {
-        if (!isUndefined(vals[current])) {
-          if (previous) {
-            const fraction = vals[previous] % 1;
-            vals[previous] -= fraction;
-            vals[current] += fraction * matrix[previous][current];
-          }
-          return current;
-        } else {
-          return previous;
-        }
-      }, null);
-    }
-    function removeZeroes(vals) {
-      const newVals = {};
-      for (const [key, value] of Object.entries(vals)) {
-        if (value !== 0) {
-          newVals[key] = value;
-        }
-      }
-      return newVals;
-    }
-    var Duration = class _Duration {
-      /**
-       * @private
-       */
-      constructor(config) {
-        const accurate = config.conversionAccuracy === "longterm" || false;
-        let matrix = accurate ? accurateMatrix : casualMatrix;
-        if (config.matrix) {
-          matrix = config.matrix;
-        }
-        this.values = config.values;
-        this.loc = config.loc || Locale.create();
-        this.conversionAccuracy = accurate ? "longterm" : "casual";
-        this.invalid = config.invalid || null;
-        this.matrix = matrix;
-        this.isLuxonDuration = true;
       }
       /**
-       * Create Duration from a number of milliseconds.
-       * @param {number} count of milliseconds
-       * @param {Object} opts - options for parsing
-       * @param {string} [opts.locale='en-US'] - the locale to use
-       * @param {string} opts.numberingSystem - the numbering system to use
-       * @param {string} [opts.conversionAccuracy='casual'] - the conversion system to use
-       * @return {Duration}
-       */
-      static fromMillis(count, opts) {
-        return _Duration.fromObject({
-          milliseconds: count
-        }, opts);
-      }
-      /**
-       * Create a Duration from a JavaScript object with keys like 'years' and 'hours'.
-       * If this object is empty then a zero milliseconds duration is returned.
-       * @param {Object} obj - the object to create the DateTime from
-       * @param {number} obj.years
-       * @param {number} obj.quarters
-       * @param {number} obj.months
-       * @param {number} obj.weeks
-       * @param {number} obj.days
-       * @param {number} obj.hours
-       * @param {number} obj.minutes
-       * @param {number} obj.seconds
-       * @param {number} obj.milliseconds
-       * @param {Object} [opts=[]] - options for creating this Duration
-       * @param {string} [opts.locale='en-US'] - the locale to use
-       * @param {string} opts.numberingSystem - the numbering system to use
-       * @param {string} [opts.conversionAccuracy='casual'] - the preset conversion system to use
-       * @param {string} [opts.matrix=Object] - the custom conversion system to use
-       * @return {Duration}
-       */
-      static fromObject(obj, opts = {}) {
-        if (obj == null || typeof obj !== "object") {
-          throw new InvalidArgumentError(`Duration.fromObject: argument expected to be an object, got ${obj === null ? "null" : typeof obj}`);
-        }
-        return new _Duration({
-          values: normalizeObject(obj, _Duration.normalizeUnit),
-          loc: Locale.fromObject(opts),
-          conversionAccuracy: opts.conversionAccuracy,
-          matrix: opts.matrix
-        });
-      }
-      /**
-       * Create a Duration from DurationLike.
+       * Resolves a tag, matching handles to those defined in %TAG directives.
        *
-       * @param {Object | number | Duration} durationLike
-       * One of:
-       * - object with keys like 'years' and 'hours'.
-       * - number representing milliseconds
-       * - Duration instance
-       * @return {Duration}
+       * @returns Resolved tag, which may also be the non-specific tag `'!'` or a
+       *   `'!local'` tag, or `null` if unresolvable.
        */
-      static fromDurationLike(durationLike) {
-        if (isNumber(durationLike)) {
-          return _Duration.fromMillis(durationLike);
-        } else if (_Duration.isDuration(durationLike)) {
-          return durationLike;
-        } else if (typeof durationLike === "object") {
-          return _Duration.fromObject(durationLike);
-        } else {
-          throw new InvalidArgumentError(`Unknown duration argument ${durationLike} of type ${typeof durationLike}`);
+      tagName(source, onError) {
+        if (source === "!")
+          return "!";
+        if (source[0] !== "!") {
+          onError(`Not a valid tag: ${source}`);
+          return null;
         }
-      }
-      /**
-       * Create a Duration from an ISO 8601 duration string.
-       * @param {string} text - text to parse
-       * @param {Object} opts - options for parsing
-       * @param {string} [opts.locale='en-US'] - the locale to use
-       * @param {string} opts.numberingSystem - the numbering system to use
-       * @param {string} [opts.conversionAccuracy='casual'] - the preset conversion system to use
-       * @param {string} [opts.matrix=Object] - the preset conversion system to use
-       * @see https://en.wikipedia.org/wiki/ISO_8601#Durations
-       * @example Duration.fromISO('P3Y6M1W4DT12H30M5S').toObject() //=> { years: 3, months: 6, weeks: 1, days: 4, hours: 12, minutes: 30, seconds: 5 }
-       * @example Duration.fromISO('PT23H').toObject() //=> { hours: 23 }
-       * @example Duration.fromISO('P5Y3M').toObject() //=> { years: 5, months: 3 }
-       * @return {Duration}
-       */
-      static fromISO(text, opts) {
-        const [parsed] = parseISODuration(text);
-        if (parsed) {
-          return _Duration.fromObject(parsed, opts);
-        } else {
-          return _Duration.invalid("unparsable", `the input "${text}" can't be parsed as ISO 8601`);
-        }
-      }
-      /**
-       * Create a Duration from an ISO 8601 time string.
-       * @param {string} text - text to parse
-       * @param {Object} opts - options for parsing
-       * @param {string} [opts.locale='en-US'] - the locale to use
-       * @param {string} opts.numberingSystem - the numbering system to use
-       * @param {string} [opts.conversionAccuracy='casual'] - the preset conversion system to use
-       * @param {string} [opts.matrix=Object] - the conversion system to use
-       * @see https://en.wikipedia.org/wiki/ISO_8601#Times
-       * @example Duration.fromISOTime('11:22:33.444').toObject() //=> { hours: 11, minutes: 22, seconds: 33, milliseconds: 444 }
-       * @example Duration.fromISOTime('11:00').toObject() //=> { hours: 11, minutes: 0, seconds: 0 }
-       * @example Duration.fromISOTime('T11:00').toObject() //=> { hours: 11, minutes: 0, seconds: 0 }
-       * @example Duration.fromISOTime('1100').toObject() //=> { hours: 11, minutes: 0, seconds: 0 }
-       * @example Duration.fromISOTime('T1100').toObject() //=> { hours: 11, minutes: 0, seconds: 0 }
-       * @return {Duration}
-       */
-      static fromISOTime(text, opts) {
-        const [parsed] = parseISOTimeOnly(text);
-        if (parsed) {
-          return _Duration.fromObject(parsed, opts);
-        } else {
-          return _Duration.invalid("unparsable", `the input "${text}" can't be parsed as ISO 8601`);
-        }
-      }
-      /**
-       * Create an invalid Duration.
-       * @param {string} reason - simple string of why this datetime is invalid. Should not contain parameters or anything else data-dependent
-       * @param {string} [explanation=null] - longer explanation, may include parameters and other useful debugging information
-       * @return {Duration}
-       */
-      static invalid(reason, explanation = null) {
-        if (!reason) {
-          throw new InvalidArgumentError("need to specify a reason the Duration is invalid");
-        }
-        const invalid = reason instanceof Invalid ? reason : new Invalid(reason, explanation);
-        if (Settings.throwOnInvalid) {
-          throw new InvalidDurationError(invalid);
-        } else {
-          return new _Duration({
-            invalid
-          });
-        }
-      }
-      /**
-       * @private
-       */
-      static normalizeUnit(unit) {
-        const normalized = {
-          year: "years",
-          years: "years",
-          quarter: "quarters",
-          quarters: "quarters",
-          month: "months",
-          months: "months",
-          week: "weeks",
-          weeks: "weeks",
-          day: "days",
-          days: "days",
-          hour: "hours",
-          hours: "hours",
-          minute: "minutes",
-          minutes: "minutes",
-          second: "seconds",
-          seconds: "seconds",
-          millisecond: "milliseconds",
-          milliseconds: "milliseconds"
-        }[unit ? unit.toLowerCase() : unit];
-        if (!normalized) throw new InvalidUnitError(unit);
-        return normalized;
-      }
-      /**
-       * Check if an object is a Duration. Works across context boundaries
-       * @param {object} o
-       * @return {boolean}
-       */
-      static isDuration(o) {
-        return o && o.isLuxonDuration || false;
-      }
-      /**
-       * Get  the locale of a Duration, such 'en-GB'
-       * @type {string}
-       */
-      get locale() {
-        return this.isValid ? this.loc.locale : null;
-      }
-      /**
-       * Get the numbering system of a Duration, such 'beng'. The numbering system is used when formatting the Duration
-       *
-       * @type {string}
-       */
-      get numberingSystem() {
-        return this.isValid ? this.loc.numberingSystem : null;
-      }
-      /**
-       * Returns a string representation of this Duration formatted according to the specified format string. You may use these tokens:
-       * * `S` for milliseconds
-       * * `s` for seconds
-       * * `m` for minutes
-       * * `h` for hours
-       * * `d` for days
-       * * `w` for weeks
-       * * `M` for months
-       * * `y` for years
-       * Notes:
-       * * Add padding by repeating the token, e.g. "yy" pads the years to two digits, "hhhh" pads the hours out to four digits
-       * * Tokens can be escaped by wrapping with single quotes.
-       * * The duration will be converted to the set of units in the format string using {@link Duration#shiftTo} and the Durations's conversion accuracy setting.
-       * @param {string} fmt - the format string
-       * @param {Object} opts - options
-       * @param {boolean} [opts.floor=true] - floor numerical values
-       * @param {'negative'|'all'|'negativeLargestOnly'} [opts.signMode=negative] - How to handle signs
-       * @example Duration.fromObject({ years: 1, days: 6, seconds: 2 }).toFormat("y d s") //=> "1 6 2"
-       * @example Duration.fromObject({ years: 1, days: 6, seconds: 2 }).toFormat("yy dd sss") //=> "01 06 002"
-       * @example Duration.fromObject({ years: 1, days: 6, seconds: 2 }).toFormat("M S") //=> "12 518402000"
-       * @example Duration.fromObject({ days: 6, seconds: 2 }).toFormat("d s", { signMode: "all" }) //=> "+6 +2"
-       * @example Duration.fromObject({ days: -6, seconds: -2 }).toFormat("d s", { signMode: "all" }) //=> "-6 -2"
-       * @example Duration.fromObject({ days: -6, seconds: -2 }).toFormat("d s", { signMode: "negativeLargestOnly" }) //=> "-6 2"
-       * @return {string}
-       */
-      toFormat(fmt, opts = {}) {
-        const fmtOpts = {
-          ...opts,
-          floor: opts.round !== false && opts.floor !== false
-        };
-        return this.isValid ? Formatter.create(this.loc, fmtOpts).formatDurationFromString(this, fmt) : INVALID$2;
-      }
-      /**
-       * Returns a string representation of a Duration with all units included.
-       * To modify its behavior, use `listStyle` and any Intl.NumberFormat option, though `unitDisplay` is especially relevant.
-       * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat#options
-       * @param {Object} opts - Formatting options. Accepts the same keys as the options parameter of the native `Intl.NumberFormat` constructor, as well as `listStyle`.
-       * @param {string} [opts.listStyle='narrow'] - How to format the merged list. Corresponds to the `style` property of the options parameter of the native `Intl.ListFormat` constructor.
-       * @param {boolean} [opts.showZeros=true] - Show all units previously used by the duration even if they are zero
-       * @example
-       * ```js
-       * var dur = Duration.fromObject({ months: 1, weeks: 0, hours: 5, minutes: 6 })
-       * dur.toHuman() //=> '1 month, 0 weeks, 5 hours, 6 minutes'
-       * dur.toHuman({ listStyle: "long" }) //=> '1 month, 0 weeks, 5 hours, and 6 minutes'
-       * dur.toHuman({ unitDisplay: "short" }) //=> '1 mth, 0 wks, 5 hr, 6 min'
-       * dur.toHuman({ showZeros: false }) //=> '1 month, 5 hours, 6 minutes'
-       * ```
-       */
-      toHuman(opts = {}) {
-        if (!this.isValid) return INVALID$2;
-        const showZeros = opts.showZeros !== false;
-        const l2 = orderedUnits$1.map((unit) => {
-          const val = this.values[unit];
-          if (isUndefined(val) || val === 0 && !showZeros) {
+        if (source[1] === "<") {
+          const verbatim = source.slice(2, -1);
+          if (verbatim === "!" || verbatim === "!!") {
+            onError(`Verbatim tags aren't resolved, so ${source} is invalid.`);
             return null;
           }
-          return this.loc.numberFormatter({
-            style: "unit",
-            unitDisplay: "long",
-            ...opts,
-            unit: unit.slice(0, -1)
-          }).format(val);
-        }).filter((n2) => n2);
-        return this.loc.listFormatter({
-          type: "conjunction",
-          style: opts.listStyle || "narrow",
-          ...opts
-        }).format(l2);
-      }
-      /**
-       * Returns a JavaScript object with this Duration's values.
-       * @example Duration.fromObject({ years: 1, days: 6, seconds: 2 }).toObject() //=> { years: 1, days: 6, seconds: 2 }
-       * @return {Object}
-       */
-      toObject() {
-        if (!this.isValid) return {};
-        return {
-          ...this.values
-        };
-      }
-      /**
-       * Returns an ISO 8601-compliant string representation of this Duration.
-       * @see https://en.wikipedia.org/wiki/ISO_8601#Durations
-       * @example Duration.fromObject({ years: 3, seconds: 45 }).toISO() //=> 'P3YT45S'
-       * @example Duration.fromObject({ months: 4, seconds: 45 }).toISO() //=> 'P4MT45S'
-       * @example Duration.fromObject({ months: 5 }).toISO() //=> 'P5M'
-       * @example Duration.fromObject({ minutes: 5 }).toISO() //=> 'PT5M'
-       * @example Duration.fromObject({ milliseconds: 6 }).toISO() //=> 'PT0.006S'
-       * @return {string}
-       */
-      toISO() {
-        if (!this.isValid) return null;
-        let s2 = "P";
-        if (this.years !== 0) s2 += this.years + "Y";
-        if (this.months !== 0 || this.quarters !== 0) s2 += this.months + this.quarters * 3 + "M";
-        if (this.weeks !== 0) s2 += this.weeks + "W";
-        if (this.days !== 0) s2 += this.days + "D";
-        if (this.hours !== 0 || this.minutes !== 0 || this.seconds !== 0 || this.milliseconds !== 0) s2 += "T";
-        if (this.hours !== 0) s2 += this.hours + "H";
-        if (this.minutes !== 0) s2 += this.minutes + "M";
-        if (this.seconds !== 0 || this.milliseconds !== 0)
-          s2 += roundTo(this.seconds + this.milliseconds / 1e3, 3) + "S";
-        if (s2 === "P") s2 += "T0S";
-        return s2;
-      }
-      /**
-       * Returns an ISO 8601-compliant string representation of this Duration, formatted as a time of day.
-       * Note that this will return null if the duration is invalid, negative, or equal to or greater than 24 hours.
-       * @see https://en.wikipedia.org/wiki/ISO_8601#Times
-       * @param {Object} opts - options
-       * @param {boolean} [opts.suppressMilliseconds=false] - exclude milliseconds from the format if they're 0
-       * @param {boolean} [opts.suppressSeconds=false] - exclude seconds from the format if they're 0
-       * @param {boolean} [opts.includePrefix=false] - include the `T` prefix
-       * @param {string} [opts.format='extended'] - choose between the basic and extended format
-       * @example Duration.fromObject({ hours: 11 }).toISOTime() //=> '11:00:00.000'
-       * @example Duration.fromObject({ hours: 11 }).toISOTime({ suppressMilliseconds: true }) //=> '11:00:00'
-       * @example Duration.fromObject({ hours: 11 }).toISOTime({ suppressSeconds: true }) //=> '11:00'
-       * @example Duration.fromObject({ hours: 11 }).toISOTime({ includePrefix: true }) //=> 'T11:00:00.000'
-       * @example Duration.fromObject({ hours: 11 }).toISOTime({ format: 'basic' }) //=> '110000.000'
-       * @return {string}
-       */
-      toISOTime(opts = {}) {
-        if (!this.isValid) return null;
-        const millis = this.toMillis();
-        if (millis < 0 || millis >= 864e5) return null;
-        opts = {
-          suppressMilliseconds: false,
-          suppressSeconds: false,
-          includePrefix: false,
-          format: "extended",
-          ...opts,
-          includeOffset: false
-        };
-        const dateTime = DateTime.fromMillis(millis, {
-          zone: "UTC"
-        });
-        return dateTime.toISOTime(opts);
-      }
-      /**
-       * Returns an ISO 8601 representation of this Duration appropriate for use in JSON.
-       * @return {string}
-       */
-      toJSON() {
-        return this.toISO();
-      }
-      /**
-       * Returns an ISO 8601 representation of this Duration appropriate for use in debugging.
-       * @return {string}
-       */
-      toString() {
-        return this.toISO();
-      }
-      /**
-       * Returns a string representation of this Duration appropriate for the REPL.
-       * @return {string}
-       */
-      [/* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom")]() {
-        if (this.isValid) {
-          return `Duration { values: ${JSON.stringify(this.values)} }`;
-        } else {
-          return `Duration { Invalid, reason: ${this.invalidReason} }`;
+          if (source[source.length - 1] !== ">")
+            onError("Verbatim tags must end with a >");
+          return verbatim;
         }
-      }
-      /**
-       * Returns an milliseconds value of this Duration.
-       * @return {number}
-       */
-      toMillis() {
-        if (!this.isValid) return NaN;
-        return durationToMillis(this.matrix, this.values);
-      }
-      /**
-       * Returns an milliseconds value of this Duration. Alias of {@link toMillis}
-       * @return {number}
-       */
-      valueOf() {
-        return this.toMillis();
-      }
-      /**
-       * Make this Duration longer by the specified amount. Return a newly-constructed Duration.
-       * @param {Duration|Object|number} duration - The amount to add. Either a Luxon Duration, a number of milliseconds, the object argument to Duration.fromObject()
-       * @return {Duration}
-       */
-      plus(duration) {
-        if (!this.isValid) return this;
-        const dur = _Duration.fromDurationLike(duration), result = {};
-        for (const k of orderedUnits$1) {
-          if (hasOwnProperty(dur.values, k) || hasOwnProperty(this.values, k)) {
-            result[k] = dur.get(k) + this.get(k);
+        const [, handle, suffix] = source.match(/^(.*!)([^!]*)$/s);
+        if (!suffix)
+          onError(`The ${source} tag has no suffix`);
+        const prefix = this.tags[handle];
+        if (prefix) {
+          try {
+            return prefix + decodeURIComponent(suffix);
+          } catch (error) {
+            onError(String(error));
+            return null;
           }
         }
-        return clone$1(this, {
-          values: result
-        }, true);
-      }
-      /**
-       * Make this Duration shorter by the specified amount. Return a newly-constructed Duration.
-       * @param {Duration|Object|number} duration - The amount to subtract. Either a Luxon Duration, a number of milliseconds, the object argument to Duration.fromObject()
-       * @return {Duration}
-       */
-      minus(duration) {
-        if (!this.isValid) return this;
-        const dur = _Duration.fromDurationLike(duration);
-        return this.plus(dur.negate());
-      }
-      /**
-       * Scale this Duration by the specified amount. Return a newly-constructed Duration.
-       * @param {function} fn - The function to apply to each unit. Arity is 1 or 2: the value of the unit and, optionally, the unit name. Must return a number.
-       * @example Duration.fromObject({ hours: 1, minutes: 30 }).mapUnits(x => x * 2) //=> { hours: 2, minutes: 60 }
-       * @example Duration.fromObject({ hours: 1, minutes: 30 }).mapUnits((x, u) => u === "hours" ? x * 2 : x) //=> { hours: 2, minutes: 30 }
-       * @return {Duration}
-       */
-      mapUnits(fn) {
-        if (!this.isValid) return this;
-        const result = {};
-        for (const k of Object.keys(this.values)) {
-          result[k] = asNumber(fn(this.values[k], k));
-        }
-        return clone$1(this, {
-          values: result
-        }, true);
-      }
-      /**
-       * Get the value of unit.
-       * @param {string} unit - a unit such as 'minute' or 'day'
-       * @example Duration.fromObject({years: 2, days: 3}).get('years') //=> 2
-       * @example Duration.fromObject({years: 2, days: 3}).get('months') //=> 0
-       * @example Duration.fromObject({years: 2, days: 3}).get('days') //=> 3
-       * @return {number}
-       */
-      get(unit) {
-        return this[_Duration.normalizeUnit(unit)];
-      }
-      /**
-       * "Set" the values of specified units. Return a newly-constructed Duration.
-       * @param {Object} values - a mapping of units to numbers
-       * @example dur.set({ years: 2017 })
-       * @example dur.set({ hours: 8, minutes: 30 })
-       * @return {Duration}
-       */
-      set(values) {
-        if (!this.isValid) return this;
-        const mixed = {
-          ...this.values,
-          ...normalizeObject(values, _Duration.normalizeUnit)
-        };
-        return clone$1(this, {
-          values: mixed
-        });
-      }
-      /**
-       * "Set" the locale and/or numberingSystem.  Returns a newly-constructed Duration.
-       * @example dur.reconfigure({ locale: 'en-GB' })
-       * @return {Duration}
-       */
-      reconfigure({
-        locale,
-        numberingSystem,
-        conversionAccuracy,
-        matrix
-      } = {}) {
-        const loc = this.loc.clone({
-          locale,
-          numberingSystem
-        });
-        const opts = {
-          loc,
-          matrix,
-          conversionAccuracy
-        };
-        return clone$1(this, opts);
-      }
-      /**
-       * Return the length of the duration in the specified unit.
-       * @param {string} unit - a unit such as 'minutes' or 'days'
-       * @example Duration.fromObject({years: 1}).as('days') //=> 365
-       * @example Duration.fromObject({years: 1}).as('months') //=> 12
-       * @example Duration.fromObject({hours: 60}).as('days') //=> 2.5
-       * @return {number}
-       */
-      as(unit) {
-        return this.isValid ? this.shiftTo(unit).get(unit) : NaN;
-      }
-      /**
-       * Reduce this Duration to its canonical representation in its current units.
-       * Assuming the overall value of the Duration is positive, this means:
-       * - excessive values for lower-order units are converted to higher-order units (if possible, see first and second example)
-       * - negative lower-order units are converted to higher order units (there must be such a higher order unit, otherwise
-       *   the overall value would be negative, see third example)
-       * - fractional values for higher-order units are converted to lower-order units (if possible, see fourth example)
-       *
-       * If the overall value is negative, the result of this method is equivalent to `this.negate().normalize().negate()`.
-       * @example Duration.fromObject({ years: 2, days: 5000 }).normalize().toObject() //=> { years: 15, days: 255 }
-       * @example Duration.fromObject({ days: 5000 }).normalize().toObject() //=> { days: 5000 }
-       * @example Duration.fromObject({ hours: 12, minutes: -45 }).normalize().toObject() //=> { hours: 11, minutes: 15 }
-       * @example Duration.fromObject({ years: 2.5, days: 0, hours: 0 }).normalize().toObject() //=> { years: 2, days: 182, hours: 12 }
-       * @return {Duration}
-       */
-      normalize() {
-        if (!this.isValid) return this;
-        const vals = this.toObject();
-        normalizeValues(this.matrix, vals);
-        return clone$1(this, {
-          values: vals
-        }, true);
-      }
-      /**
-       * Rescale units to its largest representation
-       * @example Duration.fromObject({ milliseconds: 90000 }).rescale().toObject() //=> { minutes: 1, seconds: 30 }
-       * @return {Duration}
-       */
-      rescale() {
-        if (!this.isValid) return this;
-        const vals = removeZeroes(this.normalize().shiftToAll().toObject());
-        return clone$1(this, {
-          values: vals
-        }, true);
-      }
-      /**
-       * Convert this Duration into its representation in a different set of units.
-       * @example Duration.fromObject({ hours: 1, seconds: 30 }).shiftTo('minutes', 'milliseconds').toObject() //=> { minutes: 60, milliseconds: 30000 }
-       * @return {Duration}
-       */
-      shiftTo(...units) {
-        if (!this.isValid) return this;
-        if (units.length === 0) {
-          return this;
-        }
-        units = units.map((u) => _Duration.normalizeUnit(u));
-        const built = {}, accumulated = {}, vals = this.toObject();
-        let lastUnit;
-        for (const k of orderedUnits$1) {
-          if (units.indexOf(k) >= 0) {
-            lastUnit = k;
-            let own = 0;
-            for (const ak in accumulated) {
-              own += this.matrix[ak][k] * accumulated[ak];
-              accumulated[ak] = 0;
-            }
-            if (isNumber(vals[k])) {
-              own += vals[k];
-            }
-            const i = Math.trunc(own);
-            built[k] = i;
-            accumulated[k] = (own * 1e3 - i * 1e3) / 1e3;
-          } else if (isNumber(vals[k])) {
-            accumulated[k] = vals[k];
-          }
-        }
-        for (const key in accumulated) {
-          if (accumulated[key] !== 0) {
-            built[lastUnit] += key === lastUnit ? accumulated[key] : accumulated[key] / this.matrix[lastUnit][key];
-          }
-        }
-        normalizeValues(this.matrix, built);
-        return clone$1(this, {
-          values: built
-        }, true);
-      }
-      /**
-       * Shift this Duration to all available units.
-       * Same as shiftTo("years", "months", "weeks", "days", "hours", "minutes", "seconds", "milliseconds")
-       * @return {Duration}
-       */
-      shiftToAll() {
-        if (!this.isValid) return this;
-        return this.shiftTo("years", "months", "weeks", "days", "hours", "minutes", "seconds", "milliseconds");
-      }
-      /**
-       * Return the negative of this Duration.
-       * @example Duration.fromObject({ hours: 1, seconds: 30 }).negate().toObject() //=> { hours: -1, seconds: -30 }
-       * @return {Duration}
-       */
-      negate() {
-        if (!this.isValid) return this;
-        const negated = {};
-        for (const k of Object.keys(this.values)) {
-          negated[k] = this.values[k] === 0 ? 0 : -this.values[k];
-        }
-        return clone$1(this, {
-          values: negated
-        }, true);
-      }
-      /**
-       * Removes all units with values equal to 0 from this Duration.
-       * @example Duration.fromObject({ years: 2, days: 0, hours: 0, minutes: 0 }).removeZeros().toObject() //=> { years: 2 }
-       * @return {Duration}
-       */
-      removeZeros() {
-        if (!this.isValid) return this;
-        const vals = removeZeroes(this.values);
-        return clone$1(this, {
-          values: vals
-        }, true);
-      }
-      /**
-       * Get the years.
-       * @type {number}
-       */
-      get years() {
-        return this.isValid ? this.values.years || 0 : NaN;
-      }
-      /**
-       * Get the quarters.
-       * @type {number}
-       */
-      get quarters() {
-        return this.isValid ? this.values.quarters || 0 : NaN;
-      }
-      /**
-       * Get the months.
-       * @type {number}
-       */
-      get months() {
-        return this.isValid ? this.values.months || 0 : NaN;
-      }
-      /**
-       * Get the weeks
-       * @type {number}
-       */
-      get weeks() {
-        return this.isValid ? this.values.weeks || 0 : NaN;
-      }
-      /**
-       * Get the days.
-       * @type {number}
-       */
-      get days() {
-        return this.isValid ? this.values.days || 0 : NaN;
-      }
-      /**
-       * Get the hours.
-       * @type {number}
-       */
-      get hours() {
-        return this.isValid ? this.values.hours || 0 : NaN;
-      }
-      /**
-       * Get the minutes.
-       * @type {number}
-       */
-      get minutes() {
-        return this.isValid ? this.values.minutes || 0 : NaN;
-      }
-      /**
-       * Get the seconds.
-       * @return {number}
-       */
-      get seconds() {
-        return this.isValid ? this.values.seconds || 0 : NaN;
-      }
-      /**
-       * Get the milliseconds.
-       * @return {number}
-       */
-      get milliseconds() {
-        return this.isValid ? this.values.milliseconds || 0 : NaN;
-      }
-      /**
-       * Returns whether the Duration is invalid. Invalid durations are returned by diff operations
-       * on invalid DateTimes or Intervals.
-       * @return {boolean}
-       */
-      get isValid() {
-        return this.invalid === null;
-      }
-      /**
-       * Returns an error code if this Duration became invalid, or null if the Duration is valid
-       * @return {string}
-       */
-      get invalidReason() {
-        return this.invalid ? this.invalid.reason : null;
-      }
-      /**
-       * Returns an explanation of why this Duration became invalid, or null if the Duration is valid
-       * @type {string}
-       */
-      get invalidExplanation() {
-        return this.invalid ? this.invalid.explanation : null;
-      }
-      /**
-       * Equality check
-       * Two Durations are equal iff they have the same units and the same values for each unit.
-       * @param {Duration} other
-       * @return {boolean}
-       */
-      equals(other) {
-        if (!this.isValid || !other.isValid) {
-          return false;
-        }
-        if (!this.loc.equals(other.loc)) {
-          return false;
-        }
-        function eq(v1, v2) {
-          if (v1 === void 0 || v1 === 0) return v2 === void 0 || v2 === 0;
-          return v1 === v2;
-        }
-        for (const u of orderedUnits$1) {
-          if (!eq(this.values[u], other.values[u])) {
-            return false;
-          }
-        }
-        return true;
-      }
-    };
-    var INVALID$1 = "Invalid Interval";
-    function validateStartEnd(start, end) {
-      if (!start || !start.isValid) {
-        return Interval.invalid("missing or invalid start");
-      } else if (!end || !end.isValid) {
-        return Interval.invalid("missing or invalid end");
-      } else if (end < start) {
-        return Interval.invalid("end before start", `The end of an interval must be after its start, but you had start=${start.toISO()} and end=${end.toISO()}`);
-      } else {
+        if (handle === "!")
+          return source;
+        onError(`Could not resolve tag: ${source}`);
         return null;
       }
+      /**
+       * Given a fully resolved tag, returns its printable string form,
+       * taking into account current tag prefixes and defaults.
+       */
+      tagString(tag) {
+        for (const [handle, prefix] of Object.entries(this.tags)) {
+          if (tag.startsWith(prefix))
+            return handle + escapeTagName(tag.substring(prefix.length));
+        }
+        return tag[0] === "!" ? tag : `!<${tag}>`;
+      }
+      toString(doc) {
+        const lines = this.yaml.explicit ? [`%YAML ${this.yaml.version || "1.2"}`] : [];
+        const tagEntries = Object.entries(this.tags);
+        let tagNames;
+        if (doc && tagEntries.length > 0 && identity.isNode(doc.contents)) {
+          const tags = {};
+          visit.visit(doc.contents, (_key, node) => {
+            if (identity.isNode(node) && node.tag)
+              tags[node.tag] = true;
+          });
+          tagNames = Object.keys(tags);
+        } else
+          tagNames = [];
+        for (const [handle, prefix] of tagEntries) {
+          if (handle === "!!" && prefix === "tag:yaml.org,2002:")
+            continue;
+          if (!doc || tagNames.some((tn) => tn.startsWith(prefix)))
+            lines.push(`%TAG ${handle} ${prefix}`);
+        }
+        return lines.join("\n");
+      }
+    };
+    Directives.defaultYaml = { explicit: false, version: "1.2" };
+    Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
+    exports.Directives = Directives;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js
+var require_anchors = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var visit = require_visit();
+    function anchorIsValid(anchor) {
+      if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
+        const sa = JSON.stringify(anchor);
+        const msg = `Anchor must not contain whitespace or control characters: ${sa}`;
+        throw new Error(msg);
+      }
+      return true;
     }
-    var Interval = class _Interval {
-      /**
-       * @private
-       */
-      constructor(config) {
-        this.s = config.start;
-        this.e = config.end;
-        this.invalid = config.invalid || null;
-        this.isLuxonInterval = true;
-      }
-      /**
-       * Create an invalid Interval.
-       * @param {string} reason - simple string of why this Interval is invalid. Should not contain parameters or anything else data-dependent
-       * @param {string} [explanation=null] - longer explanation, may include parameters and other useful debugging information
-       * @return {Interval}
-       */
-      static invalid(reason, explanation = null) {
-        if (!reason) {
-          throw new InvalidArgumentError("need to specify a reason the Interval is invalid");
+    function anchorNames(root) {
+      const anchors = /* @__PURE__ */ new Set();
+      visit.visit(root, {
+        Value(_key, node) {
+          if (node.anchor)
+            anchors.add(node.anchor);
         }
-        const invalid = reason instanceof Invalid ? reason : new Invalid(reason, explanation);
-        if (Settings.throwOnInvalid) {
-          throw new InvalidIntervalError(invalid);
-        } else {
-          return new _Interval({
-            invalid
-          });
-        }
+      });
+      return anchors;
+    }
+    function findNewAnchor(prefix, exclude) {
+      for (let i = 1; true; ++i) {
+        const name = `${prefix}${i}`;
+        if (!exclude.has(name))
+          return name;
       }
-      /**
-       * Create an Interval from a start DateTime and an end DateTime. Inclusive of the start but not the end.
-       * @param {DateTime|Date|Object} start
-       * @param {DateTime|Date|Object} end
-       * @return {Interval}
-       */
-      static fromDateTimes(start, end) {
-        const builtStart = friendlyDateTime(start), builtEnd = friendlyDateTime(end);
-        const validateError = validateStartEnd(builtStart, builtEnd);
-        if (validateError == null) {
-          return new _Interval({
-            start: builtStart,
-            end: builtEnd
-          });
-        } else {
-          return validateError;
-        }
-      }
-      /**
-       * Create an Interval from a start DateTime and a Duration to extend to.
-       * @param {DateTime|Date|Object} start
-       * @param {Duration|Object|number} duration - the length of the Interval.
-       * @return {Interval}
-       */
-      static after(start, duration) {
-        const dur = Duration.fromDurationLike(duration), dt = friendlyDateTime(start);
-        return _Interval.fromDateTimes(dt, dt.plus(dur));
-      }
-      /**
-       * Create an Interval from an end DateTime and a Duration to extend backwards to.
-       * @param {DateTime|Date|Object} end
-       * @param {Duration|Object|number} duration - the length of the Interval.
-       * @return {Interval}
-       */
-      static before(end, duration) {
-        const dur = Duration.fromDurationLike(duration), dt = friendlyDateTime(end);
-        return _Interval.fromDateTimes(dt.minus(dur), dt);
-      }
-      /**
-       * Create an Interval from an ISO 8601 string.
-       * Accepts `<start>/<end>`, `<start>/<duration>`, and `<duration>/<end>` formats.
-       * @param {string} text - the ISO string to parse
-       * @param {Object} [opts] - options to pass {@link DateTime#fromISO} and optionally {@link Duration#fromISO}
-       * @see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals
-       * @return {Interval}
-       */
-      static fromISO(text, opts) {
-        const [s2, e] = (text || "").split("/", 2);
-        if (s2 && e) {
-          let start, startIsValid;
-          try {
-            start = DateTime.fromISO(s2, opts);
-            startIsValid = start.isValid;
-          } catch (e2) {
-            startIsValid = false;
-          }
-          let end, endIsValid;
-          try {
-            end = DateTime.fromISO(e, opts);
-            endIsValid = end.isValid;
-          } catch (e2) {
-            endIsValid = false;
-          }
-          if (startIsValid && endIsValid) {
-            return _Interval.fromDateTimes(start, end);
-          }
-          if (startIsValid) {
-            const dur = Duration.fromISO(e, opts);
-            if (dur.isValid) {
-              return _Interval.after(start, dur);
-            }
-          } else if (endIsValid) {
-            const dur = Duration.fromISO(s2, opts);
-            if (dur.isValid) {
-              return _Interval.before(end, dur);
+    }
+    function createNodeAnchors(doc, prefix) {
+      const aliasObjects = [];
+      const sourceObjects = /* @__PURE__ */ new Map();
+      let prevAnchors = null;
+      return {
+        onAnchor: (source) => {
+          aliasObjects.push(source);
+          prevAnchors ?? (prevAnchors = anchorNames(doc));
+          const anchor = findNewAnchor(prefix, prevAnchors);
+          prevAnchors.add(anchor);
+          return anchor;
+        },
+        /**
+         * With circular references, the source node is only resolved after all
+         * of its child nodes are. This is why anchors are set only after all of
+         * the nodes have been created.
+         */
+        setAnchors: () => {
+          for (const source of aliasObjects) {
+            const ref = sourceObjects.get(source);
+            if (typeof ref === "object" && ref.anchor && (identity.isScalar(ref.node) || identity.isCollection(ref.node))) {
+              ref.node.anchor = ref.anchor;
+            } else {
+              const error = new Error("Failed to resolve repeated object (this should not happen)");
+              error.source = source;
+              throw error;
             }
           }
-        }
-        return _Interval.invalid("unparsable", `the input "${text}" can't be parsed as ISO 8601`);
-      }
-      /**
-       * Check if an object is an Interval. Works across context boundaries
-       * @param {object} o
-       * @return {boolean}
-       */
-      static isInterval(o) {
-        return o && o.isLuxonInterval || false;
-      }
-      /**
-       * Returns the start of the Interval
-       * @type {DateTime}
-       */
-      get start() {
-        return this.isValid ? this.s : null;
-      }
-      /**
-       * Returns the end of the Interval. This is the first instant which is not part of the interval
-       * (Interval is half-open).
-       * @type {DateTime}
-       */
-      get end() {
-        return this.isValid ? this.e : null;
-      }
-      /**
-       * Returns the last DateTime included in the interval (since end is not part of the interval)
-       * @type {DateTime}
-       */
-      get lastDateTime() {
-        return this.isValid ? this.e ? this.e.minus(1) : null : null;
-      }
-      /**
-       * Returns whether this Interval's end is at least its start, meaning that the Interval isn't 'backwards'.
-       * @type {boolean}
-       */
-      get isValid() {
-        return this.invalidReason === null;
-      }
-      /**
-       * Returns an error code if this Interval is invalid, or null if the Interval is valid
-       * @type {string}
-       */
-      get invalidReason() {
-        return this.invalid ? this.invalid.reason : null;
-      }
-      /**
-       * Returns an explanation of why this Interval became invalid, or null if the Interval is valid
-       * @type {string}
-       */
-      get invalidExplanation() {
-        return this.invalid ? this.invalid.explanation : null;
-      }
-      /**
-       * Returns the length of the Interval in the specified unit.
-       * @param {string} unit - the unit (such as 'hours' or 'days') to return the length in.
-       * @return {number}
-       */
-      length(unit = "milliseconds") {
-        return this.isValid ? this.toDuration(...[unit]).get(unit) : NaN;
-      }
-      /**
-       * Returns the count of minutes, hours, days, months, or years included in the Interval, even in part.
-       * Unlike {@link Interval#length} this counts sections of the calendar, not periods of time, e.g. specifying 'day'
-       * asks 'what dates are included in this interval?', not 'how many days long is this interval?'
-       * @param {string} [unit='milliseconds'] - the unit of time to count.
-       * @param {Object} opts - options
-       * @param {boolean} [opts.useLocaleWeeks=false] - If true, use weeks based on the locale, i.e. use the locale-dependent start of the week; this operation will always use the locale of the start DateTime
-       * @return {number}
-       */
-      count(unit = "milliseconds", opts) {
-        if (!this.isValid) return NaN;
-        const start = this.start.startOf(unit, opts);
-        let end;
-        if (opts != null && opts.useLocaleWeeks) {
-          end = this.end.reconfigure({
-            locale: start.locale
-          });
-        } else {
-          end = this.end;
-        }
-        end = end.startOf(unit, opts);
-        return Math.floor(end.diff(start, unit).get(unit)) + (end.valueOf() !== this.end.valueOf());
-      }
-      /**
-       * Returns whether this Interval's start and end are both in the same unit of time
-       * @param {string} unit - the unit of time to check sameness on
-       * @return {boolean}
-       */
-      hasSame(unit) {
-        return this.isValid ? this.isEmpty() || this.e.minus(1).hasSame(this.s, unit) : false;
-      }
-      /**
-       * Return whether this Interval has the same start and end DateTimes.
-       * @return {boolean}
-       */
-      isEmpty() {
-        return this.s.valueOf() === this.e.valueOf();
-      }
-      /**
-       * Return whether this Interval's start is after the specified DateTime.
-       * @param {DateTime} dateTime
-       * @return {boolean}
-       */
-      isAfter(dateTime) {
-        if (!this.isValid) return false;
-        return this.s > dateTime;
-      }
-      /**
-       * Return whether this Interval's end is before the specified DateTime.
-       * @param {DateTime} dateTime
-       * @return {boolean}
-       */
-      isBefore(dateTime) {
-        if (!this.isValid) return false;
-        return this.e <= dateTime;
-      }
-      /**
-       * Return whether this Interval contains the specified DateTime.
-       * @param {DateTime} dateTime
-       * @return {boolean}
-       */
-      contains(dateTime) {
-        if (!this.isValid) return false;
-        return this.s <= dateTime && this.e > dateTime;
-      }
-      /**
-       * "Sets" the start and/or end dates. Returns a newly-constructed Interval.
-       * @param {Object} values - the values to set
-       * @param {DateTime} values.start - the starting DateTime
-       * @param {DateTime} values.end - the ending DateTime
-       * @return {Interval}
-       */
-      set({
-        start,
-        end
-      } = {}) {
-        if (!this.isValid) return this;
-        return _Interval.fromDateTimes(start || this.s, end || this.e);
-      }
-      /**
-       * Split this Interval at each of the specified DateTimes
-       * @param {...DateTime} dateTimes - the unit of time to count.
-       * @return {Array}
-       */
-      splitAt(...dateTimes) {
-        if (!this.isValid) return [];
-        const sorted = dateTimes.map(friendlyDateTime).filter((d) => this.contains(d)).sort((a, b) => a.toMillis() - b.toMillis()), results = [];
-        let {
-          s: s2
-        } = this, i = 0;
-        while (s2 < this.e) {
-          const added = sorted[i] || this.e, next = +added > +this.e ? this.e : added;
-          results.push(_Interval.fromDateTimes(s2, next));
-          s2 = next;
-          i += 1;
-        }
-        return results;
-      }
-      /**
-       * Split this Interval into smaller Intervals, each of the specified length.
-       * Left over time is grouped into a smaller interval
-       * @param {Duration|Object|number} duration - The length of each resulting interval.
-       * @return {Array}
-       */
-      splitBy(duration) {
-        const dur = Duration.fromDurationLike(duration);
-        if (!this.isValid || !dur.isValid || dur.as("milliseconds") === 0) {
-          return [];
-        }
-        let {
-          s: s2
-        } = this, idx = 1, next;
-        const results = [];
-        while (s2 < this.e) {
-          const added = this.start.plus(dur.mapUnits((x) => x * idx));
-          next = +added > +this.e ? this.e : added;
-          results.push(_Interval.fromDateTimes(s2, next));
-          s2 = next;
-          idx += 1;
-        }
-        return results;
-      }
-      /**
-       * Split this Interval into the specified number of smaller intervals.
-       * @param {number} numberOfParts - The number of Intervals to divide the Interval into.
-       * @return {Array}
-       */
-      divideEqually(numberOfParts) {
-        if (!this.isValid) return [];
-        return this.splitBy(this.length() / numberOfParts).slice(0, numberOfParts);
-      }
-      /**
-       * Return whether this Interval overlaps with the specified Interval
-       * @param {Interval} other
-       * @return {boolean}
-       */
-      overlaps(other) {
-        return this.e > other.s && this.s < other.e;
-      }
-      /**
-       * Return whether this Interval's end is adjacent to the specified Interval's start.
-       * @param {Interval} other
-       * @return {boolean}
-       */
-      abutsStart(other) {
-        if (!this.isValid) return false;
-        return +this.e === +other.s;
-      }
-      /**
-       * Return whether this Interval's start is adjacent to the specified Interval's end.
-       * @param {Interval} other
-       * @return {boolean}
-       */
-      abutsEnd(other) {
-        if (!this.isValid) return false;
-        return +other.e === +this.s;
-      }
-      /**
-       * Returns true if this Interval fully contains the specified Interval, specifically if the intersect (of this Interval and the other Interval) is equal to the other Interval; false otherwise.
-       * @param {Interval} other
-       * @return {boolean}
-       */
-      engulfs(other) {
-        if (!this.isValid) return false;
-        return this.s <= other.s && this.e >= other.e;
-      }
-      /**
-       * Return whether this Interval has the same start and end as the specified Interval.
-       * @param {Interval} other
-       * @return {boolean}
-       */
-      equals(other) {
-        if (!this.isValid || !other.isValid) {
-          return false;
-        }
-        return this.s.equals(other.s) && this.e.equals(other.e);
-      }
-      /**
-       * Return an Interval representing the intersection of this Interval and the specified Interval.
-       * Specifically, the resulting Interval has the maximum start time and the minimum end time of the two Intervals.
-       * Returns null if the intersection is empty, meaning, the intervals don't intersect.
-       * @param {Interval} other
-       * @return {Interval}
-       */
-      intersection(other) {
-        if (!this.isValid) return this;
-        const s2 = this.s > other.s ? this.s : other.s, e = this.e < other.e ? this.e : other.e;
-        if (s2 >= e) {
-          return null;
-        } else {
-          return _Interval.fromDateTimes(s2, e);
-        }
-      }
-      /**
-       * Return an Interval representing the union of this Interval and the specified Interval.
-       * Specifically, the resulting Interval has the minimum start time and the maximum end time of the two Intervals.
-       * @param {Interval} other
-       * @return {Interval}
-       */
-      union(other) {
-        if (!this.isValid) return this;
-        const s2 = this.s < other.s ? this.s : other.s, e = this.e > other.e ? this.e : other.e;
-        return _Interval.fromDateTimes(s2, e);
-      }
-      /**
-       * Merge an array of Intervals into an equivalent minimal set of Intervals.
-       * Combines overlapping and adjacent Intervals.
-       * The resulting array will contain the Intervals in ascending order, that is, starting with the earliest Interval
-       * and ending with the latest.
-       *
-       * @param {Array} intervals
-       * @return {Array}
-       */
-      static merge(intervals) {
-        const [found, final] = intervals.sort((a, b) => a.s - b.s).reduce(([sofar, current], item) => {
-          if (!current) {
-            return [sofar, item];
-          } else if (current.overlaps(item) || current.abutsStart(item)) {
-            return [sofar, current.union(item)];
-          } else {
-            return [sofar.concat([current]), item];
+        },
+        sourceObjects
+      };
+    }
+    exports.anchorIsValid = anchorIsValid;
+    exports.anchorNames = anchorNames;
+    exports.createNodeAnchors = createNodeAnchors;
+    exports.findNewAnchor = findNewAnchor;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js
+var require_applyReviver = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+    "use strict";
+    function applyReviver(reviver, obj, key, val) {
+      if (val && typeof val === "object") {
+        if (Array.isArray(val)) {
+          for (let i = 0, len = val.length; i < len; ++i) {
+            const v0 = val[i];
+            const v1 = applyReviver(reviver, val, String(i), v0);
+            if (v1 === void 0)
+              delete val[i];
+            else if (v1 !== v0)
+              val[i] = v1;
           }
-        }, [[], null]);
-        if (final) {
-          found.push(final);
+        } else if (val instanceof Map) {
+          for (const k of Array.from(val.keys())) {
+            const v0 = val.get(k);
+            const v1 = applyReviver(reviver, val, k, v0);
+            if (v1 === void 0)
+              val.delete(k);
+            else if (v1 !== v0)
+              val.set(k, v1);
+          }
+        } else if (val instanceof Set) {
+          for (const v0 of Array.from(val)) {
+            const v1 = applyReviver(reviver, val, v0, v0);
+            if (v1 === void 0)
+              val.delete(v0);
+            else if (v1 !== v0) {
+              val.delete(v0);
+              val.add(v1);
+            }
+          }
+        } else {
+          for (const [k, v0] of Object.entries(val)) {
+            const v1 = applyReviver(reviver, val, k, v0);
+            if (v1 === void 0)
+              delete val[k];
+            else if (v1 !== v0)
+              val[k] = v1;
+          }
+        }
+      }
+      return reviver.call(obj, key, val);
+    }
+    exports.applyReviver = applyReviver;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js
+var require_toJS = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    function toJS(value, arg, ctx) {
+      if (Array.isArray(value))
+        return value.map((v, i) => toJS(v, String(i), ctx));
+      if (value && typeof value.toJSON === "function") {
+        if (!ctx || !identity.hasAnchor(value))
+          return value.toJSON(arg, ctx);
+        const data = { aliasCount: 0, count: 1, res: void 0 };
+        ctx.anchors.set(value, data);
+        ctx.onCreate = (res2) => {
+          data.res = res2;
+          delete ctx.onCreate;
+        };
+        const res = value.toJSON(arg, ctx);
+        if (ctx.onCreate)
+          ctx.onCreate(res);
+        return res;
+      }
+      if (typeof value === "bigint" && !ctx?.keep)
+        return Number(value);
+      return value;
+    }
+    exports.toJS = toJS;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js
+var require_Node = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js"(exports) {
+    "use strict";
+    var applyReviver = require_applyReviver();
+    var identity = require_identity();
+    var toJS = require_toJS();
+    var NodeBase = class {
+      constructor(type) {
+        Object.defineProperty(this, identity.NODE_TYPE, { value: type });
+      }
+      /** Create a copy of this node.  */
+      clone() {
+        const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
+        if (this.range)
+          copy.range = this.range.slice();
+        return copy;
+      }
+      /** A plain JavaScript representation of this node. */
+      toJS(doc, { mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+        if (!identity.isDocument(doc))
+          throw new TypeError("A document argument is required");
+        const ctx = {
+          anchors: /* @__PURE__ */ new Map(),
+          doc,
+          keep: true,
+          mapAsMap: mapAsMap === true,
+          mapKeyWarned: false,
+          maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
+        };
+        const res = toJS.toJS(this, "", ctx);
+        if (typeof onAnchor === "function")
+          for (const { count, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count);
+        return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
+      }
+    };
+    exports.NodeBase = NodeBase;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js
+var require_Alias = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js"(exports) {
+    "use strict";
+    var anchors = require_anchors();
+    var visit = require_visit();
+    var identity = require_identity();
+    var Node = require_Node();
+    var toJS = require_toJS();
+    var Alias = class extends Node.NodeBase {
+      constructor(source) {
+        super(identity.ALIAS);
+        this.source = source;
+        Object.defineProperty(this, "tag", {
+          set() {
+            throw new Error("Alias nodes cannot have tags");
+          }
+        });
+      }
+      /**
+       * Resolve the value of this alias within `doc`, finding the last
+       * instance of the `source` anchor before this node.
+       */
+      resolve(doc, ctx) {
+        if (ctx?.maxAliasCount === 0)
+          throw new ReferenceError("Alias resolution is disabled");
+        let nodes;
+        if (ctx?.aliasResolveCache) {
+          nodes = ctx.aliasResolveCache;
+        } else {
+          nodes = [];
+          visit.visit(doc, {
+            Node: (_key, node) => {
+              if (identity.isAlias(node) || identity.hasAnchor(node))
+                nodes.push(node);
+            }
+          });
+          if (ctx)
+            ctx.aliasResolveCache = nodes;
+        }
+        let found = void 0;
+        for (const node of nodes) {
+          if (node === this)
+            break;
+          if (node.anchor === this.source)
+            found = node;
         }
         return found;
       }
-      /**
-       * Return an array of Intervals representing the spans of time that only appear in one of the specified Intervals.
-       * @param {Array} intervals
-       * @return {Array}
-       */
-      static xor(intervals) {
-        let start = null, currentCount = 0;
-        const results = [], ends = intervals.map((i) => [{
-          time: i.s,
-          type: "s"
-        }, {
-          time: i.e,
-          type: "e"
-        }]), flattened = Array.prototype.concat(...ends), arr = flattened.sort((a, b) => a.time - b.time);
-        for (const i of arr) {
-          currentCount += i.type === "s" ? 1 : -1;
-          if (currentCount === 1) {
-            start = i.time;
-          } else {
-            if (start && +start !== +i.time) {
-              results.push(_Interval.fromDateTimes(start, i.time));
-            }
-            start = null;
+      toJSON(_arg, ctx) {
+        if (!ctx)
+          return { source: this.source };
+        const { anchors: anchors2, doc, maxAliasCount } = ctx;
+        const source = this.resolve(doc, ctx);
+        if (!source) {
+          const msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
+          throw new ReferenceError(msg);
+        }
+        let data = anchors2.get(source);
+        if (!data) {
+          toJS.toJS(source, null, ctx);
+          data = anchors2.get(source);
+        }
+        if (data?.res === void 0) {
+          const msg = "This should not happen: Alias anchor was not resolved?";
+          throw new ReferenceError(msg);
+        }
+        if (maxAliasCount >= 0) {
+          data.count += 1;
+          if (data.aliasCount === 0)
+            data.aliasCount = getAliasCount(doc, source, anchors2);
+          if (data.count * data.aliasCount > maxAliasCount) {
+            const msg = "Excessive alias count indicates a resource exhaustion attack";
+            throw new ReferenceError(msg);
           }
         }
-        return _Interval.merge(results);
+        return data.res;
       }
-      /**
-       * Return an Interval representing the span of time in this Interval that doesn't overlap with any of the specified Intervals.
-       * @param {...Interval} intervals
-       * @return {Array}
-       */
-      difference(...intervals) {
-        return _Interval.xor([this].concat(intervals)).map((i) => this.intersection(i)).filter((i) => i && !i.isEmpty());
+      toString(ctx, _onComment, _onChompKeep) {
+        const src = `*${this.source}`;
+        if (ctx) {
+          anchors.anchorIsValid(this.source);
+          if (ctx.options.verifyAliasOrder && !ctx.anchors.has(this.source)) {
+            const msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
+            throw new Error(msg);
+          }
+          if (ctx.implicitKey)
+            return `${src} `;
+        }
+        return src;
       }
-      /**
-       * Returns a string representation of this Interval appropriate for debugging.
-       * @return {string}
-       */
+    };
+    function getAliasCount(doc, node, anchors2) {
+      if (identity.isAlias(node)) {
+        const source = node.resolve(doc);
+        const anchor = anchors2 && source && anchors2.get(source);
+        return anchor ? anchor.count * anchor.aliasCount : 0;
+      } else if (identity.isCollection(node)) {
+        let count = 0;
+        for (const item of node.items) {
+          const c = getAliasCount(doc, item, anchors2);
+          if (c > count)
+            count = c;
+        }
+        return count;
+      } else if (identity.isPair(node)) {
+        const kc = getAliasCount(doc, node.key, anchors2);
+        const vc = getAliasCount(doc, node.value, anchors2);
+        return Math.max(kc, vc);
+      }
+      return 1;
+    }
+    exports.Alias = Alias;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js
+var require_Scalar = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Node = require_Node();
+    var toJS = require_toJS();
+    var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
+    var Scalar = class extends Node.NodeBase {
+      constructor(value) {
+        super(identity.SCALAR);
+        this.value = value;
+      }
+      toJSON(arg, ctx) {
+        return ctx?.keep ? this.value : toJS.toJS(this.value, arg, ctx);
+      }
       toString() {
-        if (!this.isValid) return INVALID$1;
-        return `[${this.s.toISO()} \u2013 ${this.e.toISO()})`;
-      }
-      /**
-       * Returns a string representation of this Interval appropriate for the REPL.
-       * @return {string}
-       */
-      [/* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom")]() {
-        if (this.isValid) {
-          return `Interval { start: ${this.s.toISO()}, end: ${this.e.toISO()} }`;
-        } else {
-          return `Interval { Invalid, reason: ${this.invalidReason} }`;
-        }
-      }
-      /**
-       * Returns a localized string representing this Interval. Accepts the same options as the
-       * Intl.DateTimeFormat constructor and any presets defined by Luxon, such as
-       * {@link DateTime.DATE_FULL} or {@link DateTime.TIME_SIMPLE}. The exact behavior of this method
-       * is browser-specific, but in general it will return an appropriate representation of the
-       * Interval in the assigned locale. Defaults to the system's locale if no locale has been
-       * specified.
-       * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DateTimeFormat
-       * @param {Object} [formatOpts=DateTime.DATE_SHORT] - Either a DateTime preset or
-       * Intl.DateTimeFormat constructor options.
-       * @param {Object} opts - Options to override the configuration of the start DateTime.
-       * @example Interval.fromISO('2022-11-07T09:00Z/2022-11-08T09:00Z').toLocaleString(); //=> 11/7/2022 – 11/8/2022
-       * @example Interval.fromISO('2022-11-07T09:00Z/2022-11-08T09:00Z').toLocaleString(DateTime.DATE_FULL); //=> November 7 – 8, 2022
-       * @example Interval.fromISO('2022-11-07T09:00Z/2022-11-08T09:00Z').toLocaleString(DateTime.DATE_FULL, { locale: 'fr-FR' }); //=> 7–8 novembre 2022
-       * @example Interval.fromISO('2022-11-07T17:00Z/2022-11-07T19:00Z').toLocaleString(DateTime.TIME_SIMPLE); //=> 6:00 – 8:00 PM
-       * @example Interval.fromISO('2022-11-07T17:00Z/2022-11-07T19:00Z').toLocaleString({ weekday: 'short', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }); //=> Mon, Nov 07, 6:00 – 8:00 p
-       * @return {string}
-       */
-      toLocaleString(formatOpts = DATE_SHORT, opts = {}) {
-        return this.isValid ? Formatter.create(this.s.loc.clone(opts), formatOpts).formatInterval(this) : INVALID$1;
-      }
-      /**
-       * Returns an ISO 8601-compliant string representation of this Interval.
-       * @see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals
-       * @param {Object} opts - The same options as {@link DateTime#toISO}
-       * @return {string}
-       */
-      toISO(opts) {
-        if (!this.isValid) return INVALID$1;
-        return `${this.s.toISO(opts)}/${this.e.toISO(opts)}`;
-      }
-      /**
-       * Returns an ISO 8601-compliant string representation of date of this Interval.
-       * The time components are ignored.
-       * @see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals
-       * @return {string}
-       */
-      toISODate() {
-        if (!this.isValid) return INVALID$1;
-        return `${this.s.toISODate()}/${this.e.toISODate()}`;
-      }
-      /**
-       * Returns an ISO 8601-compliant string representation of time of this Interval.
-       * The date components are ignored.
-       * @see https://en.wikipedia.org/wiki/ISO_8601#Time_intervals
-       * @param {Object} opts - The same options as {@link DateTime#toISO}
-       * @return {string}
-       */
-      toISOTime(opts) {
-        if (!this.isValid) return INVALID$1;
-        return `${this.s.toISOTime(opts)}/${this.e.toISOTime(opts)}`;
-      }
-      /**
-       * Returns a string representation of this Interval formatted according to the specified format
-       * string. **You may not want this.** See {@link Interval#toLocaleString} for a more flexible
-       * formatting tool.
-       * @param {string} dateFormat - The format string. This string formats the start and end time.
-       * See {@link DateTime#toFormat} for details.
-       * @param {Object} opts - Options.
-       * @param {string} [opts.separator =  ' – '] - A separator to place between the start and end
-       * representations.
-       * @return {string}
-       */
-      toFormat(dateFormat, {
-        separator = " \u2013 "
-      } = {}) {
-        if (!this.isValid) return INVALID$1;
-        return `${this.s.toFormat(dateFormat)}${separator}${this.e.toFormat(dateFormat)}`;
-      }
-      /**
-       * Return a Duration representing the time spanned by this interval.
-       * @param {string|string[]} [unit=['milliseconds']] - the unit or units (such as 'hours' or 'days') to include in the duration.
-       * @param {Object} opts - options that affect the creation of the Duration
-       * @param {string} [opts.conversionAccuracy='casual'] - the conversion system to use
-       * @example Interval.fromDateTimes(dt1, dt2).toDuration().toObject() //=> { milliseconds: 88489257 }
-       * @example Interval.fromDateTimes(dt1, dt2).toDuration('days').toObject() //=> { days: 1.0241812152777778 }
-       * @example Interval.fromDateTimes(dt1, dt2).toDuration(['hours', 'minutes']).toObject() //=> { hours: 24, minutes: 34.82095 }
-       * @example Interval.fromDateTimes(dt1, dt2).toDuration(['hours', 'minutes', 'seconds']).toObject() //=> { hours: 24, minutes: 34, seconds: 49.257 }
-       * @example Interval.fromDateTimes(dt1, dt2).toDuration('seconds').toObject() //=> { seconds: 88489.257 }
-       * @return {Duration}
-       */
-      toDuration(unit, opts) {
-        if (!this.isValid) {
-          return Duration.invalid(this.invalidReason);
-        }
-        return this.e.diff(this.s, unit, opts);
-      }
-      /**
-       * Run mapFn on the interval start and end, returning a new Interval from the resulting DateTimes
-       * @param {function} mapFn
-       * @return {Interval}
-       * @example Interval.fromDateTimes(dt1, dt2).mapEndpoints(endpoint => endpoint.toUTC())
-       * @example Interval.fromDateTimes(dt1, dt2).mapEndpoints(endpoint => endpoint.plus({ hours: 2 }))
-       */
-      mapEndpoints(mapFn) {
-        return _Interval.fromDateTimes(mapFn(this.s), mapFn(this.e));
+        return String(this.value);
       }
     };
-    var Info = class {
-      /**
-       * Return whether the specified zone contains a DST.
-       * @param {string|Zone} [zone='local'] - Zone to check. Defaults to the environment's local zone.
-       * @return {boolean}
-       */
-      static hasDST(zone = Settings.defaultZone) {
-        const proto = DateTime.now().setZone(zone).set({
-          month: 12
+    Scalar.BLOCK_FOLDED = "BLOCK_FOLDED";
+    Scalar.BLOCK_LITERAL = "BLOCK_LITERAL";
+    Scalar.PLAIN = "PLAIN";
+    Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
+    Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
+    exports.Scalar = Scalar;
+    exports.isScalarValue = isScalarValue;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js
+var require_createNode = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js"(exports) {
+    "use strict";
+    var Alias = require_Alias();
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var defaultTagPrefix = "tag:yaml.org,2002:";
+    function findTagObject(value, tagName, tags) {
+      if (tagName) {
+        const match = tags.filter((t) => t.tag === tagName);
+        const tagObj = match.find((t) => !t.format) ?? match[0];
+        if (!tagObj)
+          throw new Error(`Tag ${tagName} not found`);
+        return tagObj;
+      }
+      return tags.find((t) => t.identify?.(value) && !t.format);
+    }
+    function createNode(value, tagName, ctx) {
+      if (identity.isDocument(value))
+        value = value.contents;
+      if (identity.isNode(value))
+        return value;
+      if (identity.isPair(value)) {
+        const map = ctx.schema[identity.MAP].createNode?.(ctx.schema, null, ctx);
+        map.items.push(value);
+        return map;
+      }
+      if (value instanceof String || value instanceof Number || value instanceof Boolean || typeof BigInt !== "undefined" && value instanceof BigInt) {
+        value = value.valueOf();
+      }
+      const { aliasDuplicateObjects, onAnchor, onTagObj, schema, sourceObjects } = ctx;
+      let ref = void 0;
+      if (aliasDuplicateObjects && value && typeof value === "object") {
+        ref = sourceObjects.get(value);
+        if (ref) {
+          ref.anchor ?? (ref.anchor = onAnchor(value));
+          return new Alias.Alias(ref.anchor);
+        } else {
+          ref = { anchor: null, node: null };
+          sourceObjects.set(value, ref);
+        }
+      }
+      if (tagName?.startsWith("!!"))
+        tagName = defaultTagPrefix + tagName.slice(2);
+      let tagObj = findTagObject(value, tagName, schema.tags);
+      if (!tagObj) {
+        if (value && typeof value.toJSON === "function") {
+          value = value.toJSON();
+        }
+        if (!value || typeof value !== "object") {
+          const node2 = new Scalar.Scalar(value);
+          if (ref)
+            ref.node = node2;
+          return node2;
+        }
+        tagObj = value instanceof Map ? schema[identity.MAP] : Symbol.iterator in Object(value) ? schema[identity.SEQ] : schema[identity.MAP];
+      }
+      if (onTagObj) {
+        onTagObj(tagObj);
+        delete ctx.onTagObj;
+      }
+      const node = tagObj?.createNode ? tagObj.createNode(ctx.schema, value, ctx) : typeof tagObj?.nodeClass?.from === "function" ? tagObj.nodeClass.from(ctx.schema, value, ctx) : new Scalar.Scalar(value);
+      if (tagName)
+        node.tag = tagName;
+      else if (!tagObj.default)
+        node.tag = tagObj.tag;
+      if (ref)
+        ref.node = node;
+      return node;
+    }
+    exports.createNode = createNode;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js
+var require_Collection = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js"(exports) {
+    "use strict";
+    var createNode = require_createNode();
+    var identity = require_identity();
+    var Node = require_Node();
+    function collectionFromPath(schema, path, value) {
+      let v = value;
+      for (let i = path.length - 1; i >= 0; --i) {
+        const k = path[i];
+        if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
+          const a = [];
+          a[k] = v;
+          v = a;
+        } else {
+          v = /* @__PURE__ */ new Map([[k, v]]);
+        }
+      }
+      return createNode.createNode(v, void 0, {
+        aliasDuplicateObjects: false,
+        keepUndefined: false,
+        onAnchor: () => {
+          throw new Error("This should not happen, please report a bug.");
+        },
+        schema,
+        sourceObjects: /* @__PURE__ */ new Map()
+      });
+    }
+    var isEmptyPath = (path) => path == null || typeof path === "object" && !!path[Symbol.iterator]().next().done;
+    var Collection = class extends Node.NodeBase {
+      constructor(type, schema) {
+        super(type);
+        Object.defineProperty(this, "schema", {
+          value: schema,
+          configurable: true,
+          enumerable: false,
+          writable: true
         });
-        return !zone.isUniversal && proto.offset !== proto.set({
-          month: 6
-        }).offset;
       }
       /**
-       * Return whether the specified zone is a valid IANA specifier.
-       * @param {string} zone - Zone to check
-       * @return {boolean}
-       */
-      static isValidIANAZone(zone) {
-        return IANAZone.isValidZone(zone);
-      }
-      /**
-       * Converts the input into a {@link Zone} instance.
+       * Create a copy of this collection.
        *
-       * * If `input` is already a Zone instance, it is returned unchanged.
-       * * If `input` is a string containing a valid time zone name, a Zone instance
-       *   with that name is returned.
-       * * If `input` is a string that doesn't refer to a known time zone, a Zone
-       *   instance with {@link Zone#isValid} == false is returned.
-       * * If `input is a number, a Zone instance with the specified fixed offset
-       *   in minutes is returned.
-       * * If `input` is `null` or `undefined`, the default zone is returned.
-       * @param {string|Zone|number} [input] - the value to be converted
-       * @return {Zone}
+       * @param schema - If defined, overwrites the original's schema
        */
-      static normalizeZone(input) {
-        return normalizeZone(input, Settings.defaultZone);
+      clone(schema) {
+        const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
+        if (schema)
+          copy.schema = schema;
+        copy.items = copy.items.map((it) => identity.isNode(it) || identity.isPair(it) ? it.clone(schema) : it);
+        if (this.range)
+          copy.range = this.range.slice();
+        return copy;
       }
       /**
-       * Get the weekday on which the week starts according to the given locale.
-       * @param {Object} opts - options
-       * @param {string} [opts.locale] - the locale code
-       * @param {string} [opts.locObj=null] - an existing locale object to use
-       * @returns {number} the start of the week, 1 for Monday through 7 for Sunday
+       * Adds a value to the collection. For `!!map` and `!!omap` the value must
+       * be a Pair instance or a `{ key, value }` object, which may not have a key
+       * that already exists in the map.
        */
-      static getStartOfWeek({
-        locale = null,
-        locObj = null
-      } = {}) {
-        return (locObj || Locale.create(locale)).getStartOfWeek();
-      }
-      /**
-       * Get the minimum number of days necessary in a week before it is considered part of the next year according
-       * to the given locale.
-       * @param {Object} opts - options
-       * @param {string} [opts.locale] - the locale code
-       * @param {string} [opts.locObj=null] - an existing locale object to use
-       * @returns {number}
-       */
-      static getMinimumDaysInFirstWeek({
-        locale = null,
-        locObj = null
-      } = {}) {
-        return (locObj || Locale.create(locale)).getMinDaysInFirstWeek();
-      }
-      /**
-       * Get the weekdays, which are considered the weekend according to the given locale
-       * @param {Object} opts - options
-       * @param {string} [opts.locale] - the locale code
-       * @param {string} [opts.locObj=null] - an existing locale object to use
-       * @returns {number[]} an array of weekdays, 1 for Monday through 7 for Sunday
-       */
-      static getWeekendWeekdays({
-        locale = null,
-        locObj = null
-      } = {}) {
-        return (locObj || Locale.create(locale)).getWeekendDays().slice();
-      }
-      /**
-       * Return an array of standalone month names.
-       * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DateTimeFormat
-       * @param {string} [length='long'] - the length of the month representation, such as "numeric", "2-digit", "narrow", "short", "long"
-       * @param {Object} opts - options
-       * @param {string} [opts.locale] - the locale code
-       * @param {string} [opts.numberingSystem=null] - the numbering system
-       * @param {string} [opts.locObj=null] - an existing locale object to use
-       * @param {string} [opts.outputCalendar='gregory'] - the calendar
-       * @example Info.months()[0] //=> 'January'
-       * @example Info.months('short')[0] //=> 'Jan'
-       * @example Info.months('numeric')[0] //=> '1'
-       * @example Info.months('short', { locale: 'fr-CA' } )[0] //=> 'janv.'
-       * @example Info.months('numeric', { locale: 'ar' })[0] //=> '١'
-       * @example Info.months('long', { outputCalendar: 'islamic' })[0] //=> 'Rabiʻ I'
-       * @return {Array}
-       */
-      static months(length = "long", {
-        locale = null,
-        numberingSystem = null,
-        locObj = null,
-        outputCalendar = "gregory"
-      } = {}) {
-        return (locObj || Locale.create(locale, numberingSystem, outputCalendar)).months(length);
-      }
-      /**
-       * Return an array of format month names.
-       * Format months differ from standalone months in that they're meant to appear next to the day of the month. In some languages, that
-       * changes the string.
-       * See {@link Info#months}
-       * @param {string} [length='long'] - the length of the month representation, such as "numeric", "2-digit", "narrow", "short", "long"
-       * @param {Object} opts - options
-       * @param {string} [opts.locale] - the locale code
-       * @param {string} [opts.numberingSystem=null] - the numbering system
-       * @param {string} [opts.locObj=null] - an existing locale object to use
-       * @param {string} [opts.outputCalendar='gregory'] - the calendar
-       * @return {Array}
-       */
-      static monthsFormat(length = "long", {
-        locale = null,
-        numberingSystem = null,
-        locObj = null,
-        outputCalendar = "gregory"
-      } = {}) {
-        return (locObj || Locale.create(locale, numberingSystem, outputCalendar)).months(length, true);
-      }
-      /**
-       * Return an array of standalone week names.
-       * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DateTimeFormat
-       * @param {string} [length='long'] - the length of the weekday representation, such as "narrow", "short", "long".
-       * @param {Object} opts - options
-       * @param {string} [opts.locale] - the locale code
-       * @param {string} [opts.numberingSystem=null] - the numbering system
-       * @param {string} [opts.locObj=null] - an existing locale object to use
-       * @example Info.weekdays()[0] //=> 'Monday'
-       * @example Info.weekdays('short')[0] //=> 'Mon'
-       * @example Info.weekdays('short', { locale: 'fr-CA' })[0] //=> 'lun.'
-       * @example Info.weekdays('short', { locale: 'ar' })[0] //=> 'الاثنين'
-       * @return {Array}
-       */
-      static weekdays(length = "long", {
-        locale = null,
-        numberingSystem = null,
-        locObj = null
-      } = {}) {
-        return (locObj || Locale.create(locale, numberingSystem, null)).weekdays(length);
-      }
-      /**
-       * Return an array of format week names.
-       * Format weekdays differ from standalone weekdays in that they're meant to appear next to more date information. In some languages, that
-       * changes the string.
-       * See {@link Info#weekdays}
-       * @param {string} [length='long'] - the length of the month representation, such as "narrow", "short", "long".
-       * @param {Object} opts - options
-       * @param {string} [opts.locale=null] - the locale code
-       * @param {string} [opts.numberingSystem=null] - the numbering system
-       * @param {string} [opts.locObj=null] - an existing locale object to use
-       * @return {Array}
-       */
-      static weekdaysFormat(length = "long", {
-        locale = null,
-        numberingSystem = null,
-        locObj = null
-      } = {}) {
-        return (locObj || Locale.create(locale, numberingSystem, null)).weekdays(length, true);
-      }
-      /**
-       * Return an array of meridiems.
-       * @param {Object} opts - options
-       * @param {string} [opts.locale] - the locale code
-       * @example Info.meridiems() //=> [ 'AM', 'PM' ]
-       * @example Info.meridiems({ locale: 'my' }) //=> [ 'နံနက်', 'ညနေ' ]
-       * @return {Array}
-       */
-      static meridiems({
-        locale = null
-      } = {}) {
-        return Locale.create(locale).meridiems();
-      }
-      /**
-       * Return an array of eras, such as ['BC', 'AD']. The locale can be specified, but the calendar system is always Gregorian.
-       * @param {string} [length='short'] - the length of the era representation, such as "short" or "long".
-       * @param {Object} opts - options
-       * @param {string} [opts.locale] - the locale code
-       * @example Info.eras() //=> [ 'BC', 'AD' ]
-       * @example Info.eras('long') //=> [ 'Before Christ', 'Anno Domini' ]
-       * @example Info.eras('long', { locale: 'fr' }) //=> [ 'avant Jésus-Christ', 'après Jésus-Christ' ]
-       * @return {Array}
-       */
-      static eras(length = "short", {
-        locale = null
-      } = {}) {
-        return Locale.create(locale, null, "gregory").eras(length);
-      }
-      /**
-       * Return the set of available features in this environment.
-       * Some features of Luxon are not available in all environments. For example, on older browsers, relative time formatting support is not available. Use this function to figure out if that's the case.
-       * Keys:
-       * * `relative`: whether this environment supports relative time formatting
-       * * `localeWeek`: whether this environment supports different weekdays for the start of the week based on the locale
-       * @example Info.features() //=> { relative: false, localeWeek: true }
-       * @return {Object}
-       */
-      static features() {
-        return {
-          relative: hasRelative(),
-          localeWeek: hasLocaleWeekInfo()
-        };
-      }
-    };
-    function dayDiff(earlier, later) {
-      const utcDayStart = (dt) => dt.toUTC(0, {
-        keepLocalTime: true
-      }).startOf("day").valueOf(), ms = utcDayStart(later) - utcDayStart(earlier);
-      return Math.floor(Duration.fromMillis(ms).as("days"));
-    }
-    function highOrderDiffs(cursor, later, units) {
-      const differs = [["years", (a, b) => b.year - a.year], ["quarters", (a, b) => b.quarter - a.quarter + (b.year - a.year) * 4], ["months", (a, b) => b.month - a.month + (b.year - a.year) * 12], ["weeks", (a, b) => {
-        const days = dayDiff(a, b);
-        return (days - days % 7) / 7;
-      }], ["days", dayDiff]];
-      const results = {};
-      const earlier = cursor;
-      let lowestOrder, highWater;
-      for (const [unit, differ] of differs) {
-        if (units.indexOf(unit) >= 0) {
-          lowestOrder = unit;
-          results[unit] = differ(cursor, later);
-          highWater = earlier.plus(results);
-          if (highWater > later) {
-            results[unit]--;
-            cursor = earlier.plus(results);
-            if (cursor > later) {
-              highWater = cursor;
-              results[unit]--;
-              cursor = earlier.plus(results);
-            }
-          } else {
-            cursor = highWater;
-          }
+      addIn(path, value) {
+        if (isEmptyPath(path))
+          this.add(value);
+        else {
+          const [key, ...rest] = path;
+          const node = this.get(key, true);
+          if (identity.isCollection(node))
+            node.addIn(rest, value);
+          else if (node === void 0 && this.schema)
+            this.set(key, collectionFromPath(this.schema, rest, value));
+          else
+            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
         }
       }
-      return [cursor, results, highWater, lowestOrder];
-    }
-    function diff(earlier, later, units, opts) {
-      let [cursor, results, highWater, lowestOrder] = highOrderDiffs(earlier, later, units);
-      const remainingMillis = later - cursor;
-      const lowerOrderUnits = units.filter((u) => ["hours", "minutes", "seconds", "milliseconds"].indexOf(u) >= 0);
-      if (lowerOrderUnits.length === 0) {
-        if (highWater < later) {
-          highWater = cursor.plus({
-            [lowestOrder]: 1
-          });
-        }
-        if (highWater !== cursor) {
-          results[lowestOrder] = (results[lowestOrder] || 0) + remainingMillis / (highWater - cursor);
-        }
+      /**
+       * Removes a value from the collection.
+       * @returns `true` if the item was found and removed.
+       */
+      deleteIn(path) {
+        const [key, ...rest] = path;
+        if (rest.length === 0)
+          return this.delete(key);
+        const node = this.get(key, true);
+        if (identity.isCollection(node))
+          return node.deleteIn(rest);
+        else
+          throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
       }
-      const duration = Duration.fromObject(results, opts);
-      if (lowerOrderUnits.length > 0) {
-        return Duration.fromMillis(remainingMillis, opts).shiftTo(...lowerOrderUnits).plus(duration);
-      } else {
-        return duration;
+      /**
+       * Returns item at `key`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      getIn(path, keepScalar) {
+        const [key, ...rest] = path;
+        const node = this.get(key, true);
+        if (rest.length === 0)
+          return !keepScalar && identity.isScalar(node) ? node.value : node;
+        else
+          return identity.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
       }
-    }
-    var MISSING_FTP = "missing Intl.DateTimeFormat.formatToParts support";
-    function intUnit(regex, post = (i) => i) {
-      return {
-        regex,
-        deser: ([s2]) => post(parseDigits(s2))
-      };
-    }
-    var NBSP = String.fromCharCode(160);
-    var spaceOrNBSP = `[ ${NBSP}]`;
-    var spaceOrNBSPRegExp = new RegExp(spaceOrNBSP, "g");
-    function fixListRegex(s2) {
-      return s2.replace(/\./g, "\\.?").replace(spaceOrNBSPRegExp, spaceOrNBSP);
-    }
-    function stripInsensitivities(s2) {
-      return s2.replace(/\./g, "").replace(spaceOrNBSPRegExp, " ").toLowerCase();
-    }
-    function oneOf(strings, startIndex) {
-      if (strings === null) {
-        return null;
-      } else {
-        return {
-          regex: RegExp(strings.map(fixListRegex).join("|")),
-          deser: ([s2]) => strings.findIndex((i) => stripInsensitivities(s2) === stripInsensitivities(i)) + startIndex
-        };
+      hasAllNullValues(allowScalar) {
+        return this.items.every((node) => {
+          if (!identity.isPair(node))
+            return false;
+          const n = node.value;
+          return n == null || allowScalar && identity.isScalar(n) && n.value == null && !n.commentBefore && !n.comment && !n.tag;
+        });
       }
-    }
-    function offset(regex, groups) {
-      return {
-        regex,
-        deser: ([, h, m]) => signedOffset(h, m),
-        groups
-      };
-    }
-    function simple(regex) {
-      return {
-        regex,
-        deser: ([s2]) => s2
-      };
-    }
-    function escapeToken(value) {
-      return value.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, "\\$&");
-    }
-    function unitForToken(token, loc) {
-      const one = digitRegex(loc), two = digitRegex(loc, "{2}"), three = digitRegex(loc, "{3}"), four = digitRegex(loc, "{4}"), six = digitRegex(loc, "{6}"), oneOrTwo = digitRegex(loc, "{1,2}"), oneToThree = digitRegex(loc, "{1,3}"), oneToSix = digitRegex(loc, "{1,6}"), oneToNine = digitRegex(loc, "{1,9}"), twoToFour = digitRegex(loc, "{2,4}"), fourToSix = digitRegex(loc, "{4,6}"), literal = (t) => ({
-        regex: RegExp(escapeToken(t.val)),
-        deser: ([s2]) => s2,
-        literal: true
-      }), unitate = (t) => {
-        if (token.literal) {
-          return literal(t);
-        }
-        switch (t.val) {
-          // era
-          case "G":
-            return oneOf(loc.eras("short"), 0);
-          case "GG":
-            return oneOf(loc.eras("long"), 0);
-          // years
-          case "y":
-            return intUnit(oneToSix);
-          case "yy":
-            return intUnit(twoToFour, untruncateYear);
-          case "yyyy":
-            return intUnit(four);
-          case "yyyyy":
-            return intUnit(fourToSix);
-          case "yyyyyy":
-            return intUnit(six);
-          // months
-          case "M":
-            return intUnit(oneOrTwo);
-          case "MM":
-            return intUnit(two);
-          case "MMM":
-            return oneOf(loc.months("short", true), 1);
-          case "MMMM":
-            return oneOf(loc.months("long", true), 1);
-          case "L":
-            return intUnit(oneOrTwo);
-          case "LL":
-            return intUnit(two);
-          case "LLL":
-            return oneOf(loc.months("short", false), 1);
-          case "LLLL":
-            return oneOf(loc.months("long", false), 1);
-          // dates
-          case "d":
-            return intUnit(oneOrTwo);
-          case "dd":
-            return intUnit(two);
-          // ordinals
-          case "o":
-            return intUnit(oneToThree);
-          case "ooo":
-            return intUnit(three);
-          // time
-          case "HH":
-            return intUnit(two);
-          case "H":
-            return intUnit(oneOrTwo);
-          case "hh":
-            return intUnit(two);
-          case "h":
-            return intUnit(oneOrTwo);
-          case "mm":
-            return intUnit(two);
-          case "m":
-            return intUnit(oneOrTwo);
-          case "q":
-            return intUnit(oneOrTwo);
-          case "qq":
-            return intUnit(two);
-          case "s":
-            return intUnit(oneOrTwo);
-          case "ss":
-            return intUnit(two);
-          case "S":
-            return intUnit(oneToThree);
-          case "SSS":
-            return intUnit(three);
-          case "u":
-            return simple(oneToNine);
-          case "uu":
-            return simple(oneOrTwo);
-          case "uuu":
-            return intUnit(one);
-          // meridiem
-          case "a":
-            return oneOf(loc.meridiems(), 0);
-          // weekYear (k)
-          case "kkkk":
-            return intUnit(four);
-          case "kk":
-            return intUnit(twoToFour, untruncateYear);
-          // weekNumber (W)
-          case "W":
-            return intUnit(oneOrTwo);
-          case "WW":
-            return intUnit(two);
-          // weekdays
-          case "E":
-          case "c":
-            return intUnit(one);
-          case "EEE":
-            return oneOf(loc.weekdays("short", false), 1);
-          case "EEEE":
-            return oneOf(loc.weekdays("long", false), 1);
-          case "ccc":
-            return oneOf(loc.weekdays("short", true), 1);
-          case "cccc":
-            return oneOf(loc.weekdays("long", true), 1);
-          // offset/zone
-          case "Z":
-          case "ZZ":
-            return offset(new RegExp(`([+-]${oneOrTwo.source})(?::(${two.source}))?`), 2);
-          case "ZZZ":
-            return offset(new RegExp(`([+-]${oneOrTwo.source})(${two.source})?`), 2);
-          // we don't support ZZZZ (PST) or ZZZZZ (Pacific Standard Time) in parsing
-          // because we don't have any way to figure out what they are
-          case "z":
-            return simple(/[a-z_+-/]{1,256}?/i);
-          // this special-case "token" represents a place where a macro-token expanded into a white-space literal
-          // in this case we accept any non-newline white-space
-          case " ":
-            return simple(/[^\S\n\r]/);
-          default:
-            return literal(t);
-        }
-      };
-      const unit = unitate(token) || {
-        invalidReason: MISSING_FTP
-      };
-      unit.token = token;
-      return unit;
-    }
-    var partTypeStyleToTokenVal = {
-      year: {
-        "2-digit": "yy",
-        numeric: "yyyyy"
-      },
-      month: {
-        numeric: "M",
-        "2-digit": "MM",
-        short: "MMM",
-        long: "MMMM"
-      },
-      day: {
-        numeric: "d",
-        "2-digit": "dd"
-      },
-      weekday: {
-        short: "EEE",
-        long: "EEEE"
-      },
-      dayperiod: "a",
-      dayPeriod: "a",
-      hour12: {
-        numeric: "h",
-        "2-digit": "hh"
-      },
-      hour24: {
-        numeric: "H",
-        "2-digit": "HH"
-      },
-      minute: {
-        numeric: "m",
-        "2-digit": "mm"
-      },
-      second: {
-        numeric: "s",
-        "2-digit": "ss"
-      },
-      timeZoneName: {
-        long: "ZZZZZ",
-        short: "ZZZ"
+      /**
+       * Checks if the collection includes a value with the key `key`.
+       */
+      hasIn(path) {
+        const [key, ...rest] = path;
+        if (rest.length === 0)
+          return this.has(key);
+        const node = this.get(key, true);
+        return identity.isCollection(node) ? node.hasIn(rest) : false;
       }
-    };
-    function tokenForPart(part, formatOpts, resolvedOpts) {
-      const {
-        type,
-        value
-      } = part;
-      if (type === "literal") {
-        const isSpace = /^\s+$/.test(value);
-        return {
-          literal: !isSpace,
-          val: isSpace ? " " : value
-        };
-      }
-      const style = formatOpts[type];
-      let actualType = type;
-      if (type === "hour") {
-        if (formatOpts.hour12 != null) {
-          actualType = formatOpts.hour12 ? "hour12" : "hour24";
-        } else if (formatOpts.hourCycle != null) {
-          if (formatOpts.hourCycle === "h11" || formatOpts.hourCycle === "h12") {
-            actualType = "hour12";
-          } else {
-            actualType = "hour24";
-          }
+      /**
+       * Sets a value in this collection. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      setIn(path, value) {
+        const [key, ...rest] = path;
+        if (rest.length === 0) {
+          this.set(key, value);
         } else {
-          actualType = resolvedOpts.hour12 ? "hour12" : "hour24";
+          const node = this.get(key, true);
+          if (identity.isCollection(node))
+            node.setIn(rest, value);
+          else if (node === void 0 && this.schema)
+            this.set(key, collectionFromPath(this.schema, rest, value));
+          else
+            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
         }
       }
-      let val = partTypeStyleToTokenVal[actualType];
-      if (typeof val === "object") {
-        val = val[style];
-      }
-      if (val) {
-        return {
-          literal: false,
-          val
-        };
-      }
-      return void 0;
+    };
+    exports.Collection = Collection;
+    exports.collectionFromPath = collectionFromPath;
+    exports.isEmptyPath = isEmptyPath;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js
+var require_stringifyComment = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+    "use strict";
+    var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
+    function indentComment(comment, indent) {
+      if (/^\n+$/.test(comment))
+        return comment.substring(1);
+      return indent ? comment.replace(/^(?! *$)/gm, indent) : comment;
     }
-    function buildRegex(units) {
-      const re = units.map((u) => u.regex).reduce((f, r) => `${f}(${r.source})`, "");
-      return [`^${re}$`, units];
-    }
-    function match(input, regex, handlers) {
-      const matches = input.match(regex);
-      if (matches) {
-        const all = {};
-        let matchIndex = 1;
-        for (const i in handlers) {
-          if (hasOwnProperty(handlers, i)) {
-            const h = handlers[i], groups = h.groups ? h.groups + 1 : 1;
-            if (!h.literal && h.token) {
-              all[h.token.val[0]] = h.deser(matches.slice(matchIndex, matchIndex + groups));
+    var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
+    exports.indentComment = indentComment;
+    exports.lineComment = lineComment;
+    exports.stringifyComment = stringifyComment;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js
+var require_foldFlowLines = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+    "use strict";
+    var FOLD_FLOW = "flow";
+    var FOLD_BLOCK = "block";
+    var FOLD_QUOTED = "quoted";
+    function foldFlowLines(text, indent, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
+      if (!lineWidth || lineWidth < 0)
+        return text;
+      if (lineWidth < minContentWidth)
+        minContentWidth = 0;
+      const endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent.length);
+      if (text.length <= endStep)
+        return text;
+      const folds = [];
+      const escapedFolds = {};
+      let end = lineWidth - indent.length;
+      if (typeof indentAtStart === "number") {
+        if (indentAtStart > lineWidth - Math.max(2, minContentWidth))
+          folds.push(0);
+        else
+          end = lineWidth - indentAtStart;
+      }
+      let split = void 0;
+      let prev = void 0;
+      let overflow = false;
+      let i = -1;
+      let escStart = -1;
+      let escEnd = -1;
+      if (mode === FOLD_BLOCK) {
+        i = consumeMoreIndentedLines(text, i, indent.length);
+        if (i !== -1)
+          end = i + endStep;
+      }
+      for (let ch; ch = text[i += 1]; ) {
+        if (mode === FOLD_QUOTED && ch === "\\") {
+          escStart = i;
+          switch (text[i + 1]) {
+            case "x":
+              i += 3;
+              break;
+            case "u":
+              i += 5;
+              break;
+            case "U":
+              i += 9;
+              break;
+            default:
+              i += 1;
+          }
+          escEnd = i;
+        }
+        if (ch === "\n") {
+          if (mode === FOLD_BLOCK)
+            i = consumeMoreIndentedLines(text, i, indent.length);
+          end = i + indent.length + endStep;
+          split = void 0;
+        } else {
+          if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
+            const next = text[i + 1];
+            if (next && next !== " " && next !== "\n" && next !== "	")
+              split = i;
+          }
+          if (i >= end) {
+            if (split) {
+              folds.push(split);
+              end = split + endStep;
+              split = void 0;
+            } else if (mode === FOLD_QUOTED) {
+              while (prev === " " || prev === "	") {
+                prev = ch;
+                ch = text[i += 1];
+                overflow = true;
+              }
+              const j = i > escEnd + 1 ? i - 2 : escStart - 1;
+              if (escapedFolds[j])
+                return text;
+              folds.push(j);
+              escapedFolds[j] = true;
+              end = j + endStep;
+              split = void 0;
+            } else {
+              overflow = true;
             }
-            matchIndex += groups;
           }
         }
-        return [matches, all];
-      } else {
-        return [matches, {}];
+        prev = ch;
       }
+      if (overflow && onOverflow)
+        onOverflow();
+      if (folds.length === 0)
+        return text;
+      if (onFold)
+        onFold();
+      let res = text.slice(0, folds[0]);
+      for (let i2 = 0; i2 < folds.length; ++i2) {
+        const fold = folds[i2];
+        const end2 = folds[i2 + 1] || text.length;
+        if (fold === 0)
+          res = `
+${indent}${text.slice(0, end2)}`;
+        else {
+          if (mode === FOLD_QUOTED && escapedFolds[fold])
+            res += `${text[fold]}\\`;
+          res += `
+${indent}${text.slice(fold + 1, end2)}`;
+        }
+      }
+      return res;
     }
-    function dateTimeFromMatches(matches) {
-      const toField = (token) => {
-        switch (token) {
-          case "S":
-            return "millisecond";
-          case "s":
-            return "second";
-          case "m":
-            return "minute";
-          case "h":
-          case "H":
-            return "hour";
-          case "d":
-            return "day";
-          case "o":
-            return "ordinal";
-          case "L":
-          case "M":
-            return "month";
-          case "y":
-            return "year";
-          case "E":
-          case "c":
-            return "weekday";
-          case "W":
-            return "weekNumber";
-          case "k":
-            return "weekYear";
-          case "q":
-            return "quarter";
+    function consumeMoreIndentedLines(text, i, indent) {
+      let end = i;
+      let start = i + 1;
+      let ch = text[start];
+      while (ch === " " || ch === "	") {
+        if (i < start + indent) {
+          ch = text[++i];
+        } else {
+          do {
+            ch = text[++i];
+          } while (ch && ch !== "\n");
+          end = i;
+          start = i + 1;
+          ch = text[start];
+        }
+      }
+      return end;
+    }
+    exports.FOLD_BLOCK = FOLD_BLOCK;
+    exports.FOLD_FLOW = FOLD_FLOW;
+    exports.FOLD_QUOTED = FOLD_QUOTED;
+    exports.foldFlowLines = foldFlowLines;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js
+var require_stringifyString = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var foldFlowLines = require_foldFlowLines();
+    var getFoldOptions = (ctx, isBlock) => ({
+      indentAtStart: isBlock ? ctx.indent.length : ctx.indentAtStart,
+      lineWidth: ctx.options.lineWidth,
+      minContentWidth: ctx.options.minContentWidth
+    });
+    var containsDocumentMarker = (str) => /^(%|---|\.\.\.)/m.test(str);
+    function lineLengthOverLimit(str, lineWidth, indentLength) {
+      if (!lineWidth || lineWidth < 0)
+        return false;
+      const limit = lineWidth - indentLength;
+      const strLen = str.length;
+      if (strLen <= limit)
+        return false;
+      for (let i = 0, start = 0; i < strLen; ++i) {
+        if (str[i] === "\n") {
+          if (i - start > limit)
+            return true;
+          start = i + 1;
+          if (strLen - start <= limit)
+            return false;
+        }
+      }
+      return true;
+    }
+    function doubleQuotedString(value, ctx) {
+      const json = JSON.stringify(value);
+      if (ctx.options.doubleQuotedAsJSON)
+        return json;
+      const { implicitKey } = ctx;
+      const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
+      const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      let str = "";
+      let start = 0;
+      for (let i = 0, ch = json[i]; ch; ch = json[++i]) {
+        if (ch === " " && json[i + 1] === "\\" && json[i + 2] === "n") {
+          str += json.slice(start, i) + "\\ ";
+          i += 1;
+          start = i;
+          ch = "\\";
+        }
+        if (ch === "\\")
+          switch (json[i + 1]) {
+            case "u":
+              {
+                str += json.slice(start, i);
+                const code = json.substr(i + 2, 4);
+                switch (code) {
+                  case "0000":
+                    str += "\\0";
+                    break;
+                  case "0007":
+                    str += "\\a";
+                    break;
+                  case "000b":
+                    str += "\\v";
+                    break;
+                  case "001b":
+                    str += "\\e";
+                    break;
+                  case "0085":
+                    str += "\\N";
+                    break;
+                  case "00a0":
+                    str += "\\_";
+                    break;
+                  case "2028":
+                    str += "\\L";
+                    break;
+                  case "2029":
+                    str += "\\P";
+                    break;
+                  default:
+                    if (code.substr(0, 2) === "00")
+                      str += "\\x" + code.substr(2);
+                    else
+                      str += json.substr(i, 6);
+                }
+                i += 5;
+                start = i + 1;
+              }
+              break;
+            case "n":
+              if (implicitKey || json[i + 2] === '"' || json.length < minMultiLineLength) {
+                i += 1;
+              } else {
+                str += json.slice(start, i) + "\n\n";
+                while (json[i + 2] === "\\" && json[i + 3] === "n" && json[i + 4] !== '"') {
+                  str += "\n";
+                  i += 2;
+                }
+                str += indent;
+                if (json[i + 2] === " ")
+                  str += "\\";
+                i += 1;
+                start = i + 1;
+              }
+              break;
+            default:
+              i += 1;
+          }
+      }
+      str = start ? str + json.slice(start) : json;
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
+    }
+    function singleQuotedString(value, ctx) {
+      if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
+        return doubleQuotedString(value, ctx);
+      const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      const res = "'" + value.replace(/'/g, "''").replace(/\n+/g, `$&
+${indent}`) + "'";
+      return ctx.implicitKey ? res : foldFlowLines.foldFlowLines(res, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+    }
+    function quotedString(value, ctx) {
+      const { singleQuote } = ctx.options;
+      let qs;
+      if (singleQuote === false)
+        qs = doubleQuotedString;
+      else {
+        const hasDouble = value.includes('"');
+        const hasSingle = value.includes("'");
+        if (hasDouble && !hasSingle)
+          qs = singleQuotedString;
+        else if (hasSingle && !hasDouble)
+          qs = doubleQuotedString;
+        else
+          qs = singleQuote ? singleQuotedString : doubleQuotedString;
+      }
+      return qs(value, ctx);
+    }
+    var blockEndNewlines;
+    try {
+      blockEndNewlines = new RegExp("(^|(?<!\n))\n+(?!\n|$)", "g");
+    } catch {
+      blockEndNewlines = /\n+(?!\n|$)/g;
+    }
+    function blockString({ comment, type, value }, ctx, onComment, onChompKeep) {
+      const { blockQuote, commentString, lineWidth } = ctx.options;
+      if (!blockQuote || /\n[\t ]+$/.test(value)) {
+        return quotedString(value, ctx);
+      }
+      const indent = ctx.indent || (ctx.forceBlockIndent || containsDocumentMarker(value) ? "  " : "");
+      const literal = blockQuote === "literal" ? true : blockQuote === "folded" || type === Scalar.Scalar.BLOCK_FOLDED ? false : type === Scalar.Scalar.BLOCK_LITERAL ? true : !lineLengthOverLimit(value, lineWidth, indent.length);
+      if (!value)
+        return literal ? "|\n" : ">\n";
+      let chomp;
+      let endStart;
+      for (endStart = value.length; endStart > 0; --endStart) {
+        const ch = value[endStart - 1];
+        if (ch !== "\n" && ch !== "	" && ch !== " ")
+          break;
+      }
+      let end = value.substring(endStart);
+      const endNlPos = end.indexOf("\n");
+      if (endNlPos === -1) {
+        chomp = "-";
+      } else if (value === end || endNlPos !== end.length - 1) {
+        chomp = "+";
+        if (onChompKeep)
+          onChompKeep();
+      } else {
+        chomp = "";
+      }
+      if (end) {
+        value = value.slice(0, -end.length);
+        if (end[end.length - 1] === "\n")
+          end = end.slice(0, -1);
+        end = end.replace(blockEndNewlines, `$&${indent}`);
+      }
+      let startWithSpace = false;
+      let startEnd;
+      let startNlPos = -1;
+      for (startEnd = 0; startEnd < value.length; ++startEnd) {
+        const ch = value[startEnd];
+        if (ch === " ")
+          startWithSpace = true;
+        else if (ch === "\n")
+          startNlPos = startEnd;
+        else
+          break;
+      }
+      let start = value.substring(0, startNlPos < startEnd ? startNlPos + 1 : startEnd);
+      if (start) {
+        value = value.substring(start.length);
+        start = start.replace(/\n+/g, `$&${indent}`);
+      }
+      const indentSize = indent ? "2" : "1";
+      let header = (startWithSpace ? indentSize : "") + chomp;
+      if (comment) {
+        header += " " + commentString(comment.replace(/ ?[\r\n]+/g, " "));
+        if (onComment)
+          onComment();
+      }
+      if (!literal) {
+        const foldedValue = value.replace(/\n+/g, "\n$&").replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, "$1$2").replace(/\n+/g, `$&${indent}`);
+        let literalFallback = false;
+        const foldOptions = getFoldOptions(ctx, true);
+        if (blockQuote !== "folded" && type !== Scalar.Scalar.BLOCK_FOLDED) {
+          foldOptions.onOverflow = () => {
+            literalFallback = true;
+          };
+        }
+        const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent, foldFlowLines.FOLD_BLOCK, foldOptions);
+        if (!literalFallback)
+          return `>${header}
+${indent}${body}`;
+      }
+      value = value.replace(/\n+/g, `$&${indent}`);
+      return `|${header}
+${indent}${start}${value}${end}`;
+    }
+    function plainString(item, ctx, onComment, onChompKeep) {
+      const { type, value } = item;
+      const { actualString, implicitKey, indent, indentStep, inFlow } = ctx;
+      if (implicitKey && value.includes("\n") || inFlow && /[[\]{},]/.test(value)) {
+        return quotedString(value, ctx);
+      }
+      if (/^[\n\t ,[\]{}#&*!|>'"%@`]|^[?-]$|^[?-][ \t]|[\n:][ \t]|[ \t]\n|[\n\t ]#|[\n\t :]$/.test(value)) {
+        return implicitKey || inFlow || !value.includes("\n") ? quotedString(value, ctx) : blockString(item, ctx, onComment, onChompKeep);
+      }
+      if (!implicitKey && !inFlow && type !== Scalar.Scalar.PLAIN && value.includes("\n")) {
+        return blockString(item, ctx, onComment, onChompKeep);
+      }
+      if (containsDocumentMarker(value)) {
+        if (indent === "") {
+          ctx.forceBlockIndent = true;
+          return blockString(item, ctx, onComment, onChompKeep);
+        } else if (implicitKey && indent === indentStep) {
+          return quotedString(value, ctx);
+        }
+      }
+      const str = value.replace(/\n+/g, `$&
+${indent}`);
+      if (actualString) {
+        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
+        const { compat, tags } = ctx.doc.schema;
+        if (tags.some(test) || compat?.some(test))
+          return quotedString(value, ctx);
+      }
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+    }
+    function stringifyString(item, ctx, onComment, onChompKeep) {
+      const { implicitKey, inFlow } = ctx;
+      const ss = typeof item.value === "string" ? item : Object.assign({}, item, { value: String(item.value) });
+      let { type } = item;
+      if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
+        if (/[\x00-\x08\x0b-\x1f\x7f-\x9f\u{D800}-\u{DFFF}]/u.test(ss.value))
+          type = Scalar.Scalar.QUOTE_DOUBLE;
+      }
+      const _stringify = (_type) => {
+        switch (_type) {
+          case Scalar.Scalar.BLOCK_FOLDED:
+          case Scalar.Scalar.BLOCK_LITERAL:
+            return implicitKey || inFlow ? quotedString(ss.value, ctx) : blockString(ss, ctx, onComment, onChompKeep);
+          case Scalar.Scalar.QUOTE_DOUBLE:
+            return doubleQuotedString(ss.value, ctx);
+          case Scalar.Scalar.QUOTE_SINGLE:
+            return singleQuotedString(ss.value, ctx);
+          case Scalar.Scalar.PLAIN:
+            return plainString(ss, ctx, onComment, onChompKeep);
           default:
             return null;
         }
       };
-      let zone = null;
-      let specificOffset;
-      if (!isUndefined(matches.z)) {
-        zone = IANAZone.create(matches.z);
+      let res = _stringify(type);
+      if (res === null) {
+        const { defaultKeyType, defaultStringType } = ctx.options;
+        const t = implicitKey && defaultKeyType || defaultStringType;
+        res = _stringify(t);
+        if (res === null)
+          throw new Error(`Unsupported default string type ${t}`);
       }
-      if (!isUndefined(matches.Z)) {
-        if (!zone) {
-          zone = new FixedOffsetZone(matches.Z);
-        }
-        specificOffset = matches.Z;
-      }
-      if (!isUndefined(matches.q)) {
-        matches.M = (matches.q - 1) * 3 + 1;
-      }
-      if (!isUndefined(matches.h)) {
-        if (matches.h < 12 && matches.a === 1) {
-          matches.h += 12;
-        } else if (matches.h === 12 && matches.a === 0) {
-          matches.h = 0;
-        }
-      }
-      if (matches.G === 0 && matches.y) {
-        matches.y = -matches.y;
-      }
-      if (!isUndefined(matches.u)) {
-        matches.S = parseMillis(matches.u);
-      }
-      const vals = Object.keys(matches).reduce((r, k) => {
-        const f = toField(k);
-        if (f) {
-          r[f] = matches[k];
-        }
-        return r;
-      }, {});
-      return [vals, zone, specificOffset];
+      return res;
     }
-    var dummyDateTimeCache = null;
-    function getDummyDateTime() {
-      if (!dummyDateTimeCache) {
-        dummyDateTimeCache = DateTime.fromMillis(1555555555555);
-      }
-      return dummyDateTimeCache;
-    }
-    function maybeExpandMacroToken(token, locale) {
-      if (token.literal) {
-        return token;
-      }
-      const formatOpts = Formatter.macroTokenToFormatOpts(token.val);
-      const tokens = formatOptsToTokens(formatOpts, locale);
-      if (tokens == null || tokens.includes(void 0)) {
-        return token;
-      }
-      return tokens;
-    }
-    function expandMacroTokens(tokens, locale) {
-      return Array.prototype.concat(...tokens.map((t) => maybeExpandMacroToken(t, locale)));
-    }
-    var TokenParser = class {
-      constructor(locale, format) {
-        this.locale = locale;
-        this.format = format;
-        this.tokens = expandMacroTokens(Formatter.parseFormat(format), locale);
-        this.units = this.tokens.map((t) => unitForToken(t, locale));
-        this.disqualifyingUnit = this.units.find((t) => t.invalidReason);
-        if (!this.disqualifyingUnit) {
-          const [regexString, handlers] = buildRegex(this.units);
-          this.regex = RegExp(regexString, "i");
-          this.handlers = handlers;
-        }
-      }
-      explainFromTokens(input) {
-        if (!this.isValid) {
-          return {
-            input,
-            tokens: this.tokens,
-            invalidReason: this.invalidReason
-          };
-        } else {
-          const [rawMatches, matches] = match(input, this.regex, this.handlers), [result, zone, specificOffset] = matches ? dateTimeFromMatches(matches) : [null, null, void 0];
-          if (hasOwnProperty(matches, "a") && hasOwnProperty(matches, "H")) {
-            throw new ConflictingSpecificationError("Can't include meridiem when specifying 24-hour format");
-          }
-          return {
-            input,
-            tokens: this.tokens,
-            regex: this.regex,
-            rawMatches,
-            matches,
-            result,
-            zone,
-            specificOffset
-          };
-        }
-      }
-      get isValid() {
-        return !this.disqualifyingUnit;
-      }
-      get invalidReason() {
-        return this.disqualifyingUnit ? this.disqualifyingUnit.invalidReason : null;
-      }
-    };
-    function explainFromTokens(locale, input, format) {
-      const parser = new TokenParser(locale, format);
-      return parser.explainFromTokens(input);
-    }
-    function parseFromTokens(locale, input, format) {
-      const {
-        result,
-        zone,
-        specificOffset,
-        invalidReason
-      } = explainFromTokens(locale, input, format);
-      return [result, zone, specificOffset, invalidReason];
-    }
-    function formatOptsToTokens(formatOpts, locale) {
-      if (!formatOpts) {
-        return null;
-      }
-      const formatter = Formatter.create(locale, formatOpts);
-      const df = formatter.dtFormatter(getDummyDateTime());
-      const parts = df.formatToParts();
-      const resolvedOpts = df.resolvedOptions();
-      return parts.map((p) => tokenForPart(p, formatOpts, resolvedOpts));
-    }
-    var INVALID = "Invalid DateTime";
-    var MAX_DATE = 864e13;
-    function unsupportedZone(zone) {
-      return new Invalid("unsupported zone", `the zone "${zone.name}" is not supported`);
-    }
-    function possiblyCachedWeekData(dt) {
-      if (dt.weekData === null) {
-        dt.weekData = gregorianToWeek(dt.c);
-      }
-      return dt.weekData;
-    }
-    function possiblyCachedLocalWeekData(dt) {
-      if (dt.localWeekData === null) {
-        dt.localWeekData = gregorianToWeek(dt.c, dt.loc.getMinDaysInFirstWeek(), dt.loc.getStartOfWeek());
-      }
-      return dt.localWeekData;
-    }
-    function clone(inst, alts) {
-      const current = {
-        ts: inst.ts,
-        zone: inst.zone,
-        c: inst.c,
-        o: inst.o,
-        loc: inst.loc,
-        invalid: inst.invalid
-      };
-      return new DateTime({
-        ...current,
-        ...alts,
-        old: current
-      });
-    }
-    function fixOffset(localTS, o, tz) {
-      let utcGuess = localTS - o * 60 * 1e3;
-      const o2 = tz.offset(utcGuess);
-      if (o === o2) {
-        return [utcGuess, o];
-      }
-      utcGuess -= (o2 - o) * 60 * 1e3;
-      const o3 = tz.offset(utcGuess);
-      if (o2 === o3) {
-        return [utcGuess, o2];
-      }
-      return [localTS - Math.min(o2, o3) * 60 * 1e3, Math.max(o2, o3)];
-    }
-    function tsToObj(ts, offset2) {
-      ts += offset2 * 60 * 1e3;
-      const d = new Date(ts);
-      return {
-        year: d.getUTCFullYear(),
-        month: d.getUTCMonth() + 1,
-        day: d.getUTCDate(),
-        hour: d.getUTCHours(),
-        minute: d.getUTCMinutes(),
-        second: d.getUTCSeconds(),
-        millisecond: d.getUTCMilliseconds()
-      };
-    }
-    function objToTS(obj, offset2, zone) {
-      return fixOffset(objToLocalTS(obj), offset2, zone);
-    }
-    function adjustTime(inst, dur) {
-      const oPre = inst.o, year = inst.c.year + Math.trunc(dur.years), month = inst.c.month + Math.trunc(dur.months) + Math.trunc(dur.quarters) * 3, c = {
-        ...inst.c,
-        year,
-        month,
-        day: Math.min(inst.c.day, daysInMonth(year, month)) + Math.trunc(dur.days) + Math.trunc(dur.weeks) * 7
-      }, millisToAdd = Duration.fromObject({
-        years: dur.years - Math.trunc(dur.years),
-        quarters: dur.quarters - Math.trunc(dur.quarters),
-        months: dur.months - Math.trunc(dur.months),
-        weeks: dur.weeks - Math.trunc(dur.weeks),
-        days: dur.days - Math.trunc(dur.days),
-        hours: dur.hours,
-        minutes: dur.minutes,
-        seconds: dur.seconds,
-        milliseconds: dur.milliseconds
-      }).as("milliseconds"), localTS = objToLocalTS(c);
-      let [ts, o] = fixOffset(localTS, oPre, inst.zone);
-      if (millisToAdd !== 0) {
-        ts += millisToAdd;
-        o = inst.zone.offset(ts);
-      }
-      return {
-        ts,
-        o
-      };
-    }
-    function parseDataToDateTime(parsed, parsedZone, opts, format, text, specificOffset) {
-      const {
-        setZone,
-        zone
-      } = opts;
-      if (parsed && Object.keys(parsed).length !== 0 || parsedZone) {
-        const interpretationZone = parsedZone || zone, inst = DateTime.fromObject(parsed, {
-          ...opts,
-          zone: interpretationZone,
-          specificOffset
-        });
-        return setZone ? inst : inst.setZone(zone);
-      } else {
-        return DateTime.invalid(new Invalid("unparsable", `the input "${text}" can't be parsed as ${format}`));
-      }
-    }
-    function toTechFormat(dt, format, allowZ = true) {
-      return dt.isValid ? Formatter.create(Locale.create("en-US"), {
-        allowZ,
-        forceSimple: true
-      }).formatDateTimeFromString(dt, format) : null;
-    }
-    function toISODate(o, extended, precision) {
-      const longFormat = o.c.year > 9999 || o.c.year < 0;
-      let c = "";
-      if (longFormat && o.c.year >= 0) c += "+";
-      c += padStart(o.c.year, longFormat ? 6 : 4);
-      if (precision === "year") return c;
-      if (extended) {
-        c += "-";
-        c += padStart(o.c.month);
-        if (precision === "month") return c;
-        c += "-";
-      } else {
-        c += padStart(o.c.month);
-        if (precision === "month") return c;
-      }
-      c += padStart(o.c.day);
-      return c;
-    }
-    function toISOTime(o, extended, suppressSeconds, suppressMilliseconds, includeOffset, extendedZone, precision) {
-      let showSeconds = !suppressSeconds || o.c.millisecond !== 0 || o.c.second !== 0, c = "";
-      switch (precision) {
-        case "day":
-        case "month":
-        case "year":
+    exports.stringifyString = stringifyString;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js
+var require_stringify = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js"(exports) {
+    "use strict";
+    var anchors = require_anchors();
+    var identity = require_identity();
+    var stringifyComment = require_stringifyComment();
+    var stringifyString = require_stringifyString();
+    function createStringifyContext(doc, options) {
+      const opt = Object.assign({
+        blockQuote: true,
+        commentString: stringifyComment.stringifyComment,
+        defaultKeyType: null,
+        defaultStringType: "PLAIN",
+        directives: null,
+        doubleQuotedAsJSON: false,
+        doubleQuotedMinMultiLineLength: 40,
+        falseStr: "false",
+        flowCollectionPadding: true,
+        indentSeq: true,
+        lineWidth: 80,
+        minContentWidth: 20,
+        nullStr: "null",
+        simpleKeys: false,
+        singleQuote: null,
+        trailingComma: false,
+        trueStr: "true",
+        verifyAliasOrder: true
+      }, doc.schema.toStringOptions, options);
+      let inFlow;
+      switch (opt.collectionStyle) {
+        case "block":
+          inFlow = false;
+          break;
+        case "flow":
+          inFlow = true;
           break;
         default:
-          c += padStart(o.c.hour);
-          if (precision === "hour") break;
-          if (extended) {
-            c += ":";
-            c += padStart(o.c.minute);
-            if (precision === "minute") break;
-            if (showSeconds) {
-              c += ":";
-              c += padStart(o.c.second);
-            }
-          } else {
-            c += padStart(o.c.minute);
-            if (precision === "minute") break;
-            if (showSeconds) {
-              c += padStart(o.c.second);
-            }
-          }
-          if (precision === "second") break;
-          if (showSeconds && (!suppressMilliseconds || o.c.millisecond !== 0)) {
-            c += ".";
-            c += padStart(o.c.millisecond, 3);
-          }
+          inFlow = null;
       }
-      if (includeOffset) {
-        if (o.isOffsetFixed && o.offset === 0 && !extendedZone) {
-          c += "Z";
-        } else if (o.o < 0) {
-          c += "-";
-          c += padStart(Math.trunc(-o.o / 60));
-          c += ":";
-          c += padStart(Math.trunc(-o.o % 60));
-        } else {
-          c += "+";
-          c += padStart(Math.trunc(o.o / 60));
-          c += ":";
-          c += padStart(Math.trunc(o.o % 60));
-        }
-      }
-      if (extendedZone) {
-        c += "[" + o.zone.ianaName + "]";
-      }
-      return c;
-    }
-    var defaultUnitValues = {
-      month: 1,
-      day: 1,
-      hour: 0,
-      minute: 0,
-      second: 0,
-      millisecond: 0
-    };
-    var defaultWeekUnitValues = {
-      weekNumber: 1,
-      weekday: 1,
-      hour: 0,
-      minute: 0,
-      second: 0,
-      millisecond: 0
-    };
-    var defaultOrdinalUnitValues = {
-      ordinal: 1,
-      hour: 0,
-      minute: 0,
-      second: 0,
-      millisecond: 0
-    };
-    var orderedUnits = ["year", "month", "day", "hour", "minute", "second", "millisecond"];
-    var orderedWeekUnits = ["weekYear", "weekNumber", "weekday", "hour", "minute", "second", "millisecond"];
-    var orderedOrdinalUnits = ["year", "ordinal", "hour", "minute", "second", "millisecond"];
-    function normalizeUnit(unit) {
-      const normalized = {
-        year: "year",
-        years: "year",
-        month: "month",
-        months: "month",
-        day: "day",
-        days: "day",
-        hour: "hour",
-        hours: "hour",
-        minute: "minute",
-        minutes: "minute",
-        quarter: "quarter",
-        quarters: "quarter",
-        second: "second",
-        seconds: "second",
-        millisecond: "millisecond",
-        milliseconds: "millisecond",
-        weekday: "weekday",
-        weekdays: "weekday",
-        weeknumber: "weekNumber",
-        weeksnumber: "weekNumber",
-        weeknumbers: "weekNumber",
-        weekyear: "weekYear",
-        weekyears: "weekYear",
-        ordinal: "ordinal"
-      }[unit.toLowerCase()];
-      if (!normalized) throw new InvalidUnitError(unit);
-      return normalized;
-    }
-    function normalizeUnitWithLocalWeeks(unit) {
-      switch (unit.toLowerCase()) {
-        case "localweekday":
-        case "localweekdays":
-          return "localWeekday";
-        case "localweeknumber":
-        case "localweeknumbers":
-          return "localWeekNumber";
-        case "localweekyear":
-        case "localweekyears":
-          return "localWeekYear";
-        default:
-          return normalizeUnit(unit);
-      }
-    }
-    function guessOffsetForZone(zone) {
-      if (zoneOffsetTs === void 0) {
-        zoneOffsetTs = Settings.now();
-      }
-      if (zone.type !== "iana") {
-        return zone.offset(zoneOffsetTs);
-      }
-      const zoneName = zone.name;
-      let offsetGuess = zoneOffsetGuessCache.get(zoneName);
-      if (offsetGuess === void 0) {
-        offsetGuess = zone.offset(zoneOffsetTs);
-        zoneOffsetGuessCache.set(zoneName, offsetGuess);
-      }
-      return offsetGuess;
-    }
-    function quickDT(obj, opts) {
-      const zone = normalizeZone(opts.zone, Settings.defaultZone);
-      if (!zone.isValid) {
-        return DateTime.invalid(unsupportedZone(zone));
-      }
-      const loc = Locale.fromObject(opts);
-      let ts, o;
-      if (!isUndefined(obj.year)) {
-        for (const u of orderedUnits) {
-          if (isUndefined(obj[u])) {
-            obj[u] = defaultUnitValues[u];
-          }
-        }
-        const invalid = hasInvalidGregorianData(obj) || hasInvalidTimeData(obj);
-        if (invalid) {
-          return DateTime.invalid(invalid);
-        }
-        const offsetProvis = guessOffsetForZone(zone);
-        [ts, o] = objToTS(obj, offsetProvis, zone);
-      } else {
-        ts = Settings.now();
-      }
-      return new DateTime({
-        ts,
-        zone,
-        loc,
-        o
-      });
-    }
-    function diffRelative(start, end, opts) {
-      const round = isUndefined(opts.round) ? true : opts.round, rounding = isUndefined(opts.rounding) ? "trunc" : opts.rounding, format = (c, unit) => {
-        c = roundTo(c, round || opts.calendary ? 0 : 2, opts.calendary ? "round" : rounding);
-        const formatter = end.loc.clone(opts).relFormatter(opts);
-        return formatter.format(c, unit);
-      }, differ = (unit) => {
-        if (opts.calendary) {
-          if (!end.hasSame(start, unit)) {
-            return end.startOf(unit).diff(start.startOf(unit), unit).get(unit);
-          } else return 0;
-        } else {
-          return end.diff(start, unit).get(unit);
-        }
+      return {
+        anchors: /* @__PURE__ */ new Set(),
+        doc,
+        flowCollectionPadding: opt.flowCollectionPadding ? " " : "",
+        indent: "",
+        indentStep: typeof opt.indent === "number" ? " ".repeat(opt.indent) : "  ",
+        inFlow,
+        options: opt
       };
-      if (opts.unit) {
-        return format(differ(opts.unit), opts.unit);
-      }
-      for (const unit of opts.units) {
-        const count = differ(unit);
-        if (Math.abs(count) >= 1) {
-          return format(count, unit);
-        }
-      }
-      return format(start > end ? -0 : 0, opts.units[opts.units.length - 1]);
     }
-    function lastOpts(argList) {
-      let opts = {}, args;
-      if (argList.length > 0 && typeof argList[argList.length - 1] === "object") {
-        opts = argList[argList.length - 1];
-        args = Array.from(argList).slice(0, argList.length - 1);
+    function getTagObject(tags, item) {
+      if (item.tag) {
+        const match = tags.filter((t) => t.tag === item.tag);
+        if (match.length > 0)
+          return match.find((t) => t.format === item.format) ?? match[0];
+      }
+      let tagObj = void 0;
+      let obj;
+      if (identity.isScalar(item)) {
+        obj = item.value;
+        let match = tags.filter((t) => t.identify?.(obj));
+        if (match.length > 1) {
+          const testMatch = match.filter((t) => t.test);
+          if (testMatch.length > 0)
+            match = testMatch;
+        }
+        tagObj = match.find((t) => t.format === item.format) ?? match.find((t) => !t.format);
       } else {
-        args = Array.from(argList);
+        obj = item;
+        tagObj = tags.find((t) => t.nodeClass && obj instanceof t.nodeClass);
       }
-      return [opts, args];
+      if (!tagObj) {
+        const name = obj?.constructor?.name ?? (obj === null ? "null" : typeof obj);
+        throw new Error(`Tag not resolved for ${name} value`);
+      }
+      return tagObj;
     }
-    var zoneOffsetTs;
-    var zoneOffsetGuessCache = /* @__PURE__ */ new Map();
-    var DateTime = class _DateTime {
-      /**
-       * @access private
-       */
-      constructor(config) {
-        const zone = config.zone || Settings.defaultZone;
-        let invalid = config.invalid || (Number.isNaN(config.ts) ? new Invalid("invalid input") : null) || (!zone.isValid ? unsupportedZone(zone) : null);
-        this.ts = isUndefined(config.ts) ? Settings.now() : config.ts;
-        let c = null, o = null;
-        if (!invalid) {
-          const unchanged = config.old && config.old.ts === this.ts && config.old.zone.equals(zone);
-          if (unchanged) {
-            [c, o] = [config.old.c, config.old.o];
-          } else {
-            const ot = isNumber(config.o) && !config.old ? config.o : zone.offset(this.ts);
-            c = tsToObj(this.ts, ot);
-            invalid = Number.isNaN(c.year) ? new Invalid("invalid input") : null;
-            c = invalid ? null : c;
-            o = invalid ? null : ot;
+    function stringifyProps(node, tagObj, { anchors: anchors$1, doc }) {
+      if (!doc.directives)
+        return "";
+      const props = [];
+      const anchor = (identity.isScalar(node) || identity.isCollection(node)) && node.anchor;
+      if (anchor && anchors.anchorIsValid(anchor)) {
+        anchors$1.add(anchor);
+        props.push(`&${anchor}`);
+      }
+      const tag = node.tag ?? (tagObj.default ? null : tagObj.tag);
+      if (tag)
+        props.push(doc.directives.tagString(tag));
+      return props.join(" ");
+    }
+    function stringify2(item, ctx, onComment, onChompKeep) {
+      if (identity.isPair(item))
+        return item.toString(ctx, onComment, onChompKeep);
+      if (identity.isAlias(item)) {
+        if (ctx.doc.directives)
+          return item.toString(ctx);
+        if (ctx.resolvedAliases?.has(item)) {
+          throw new TypeError(`Cannot stringify circular structure without alias nodes`);
+        } else {
+          if (ctx.resolvedAliases)
+            ctx.resolvedAliases.add(item);
+          else
+            ctx.resolvedAliases = /* @__PURE__ */ new Set([item]);
+          item = item.resolve(ctx.doc);
+        }
+      }
+      let tagObj = void 0;
+      const node = identity.isNode(item) ? item : ctx.doc.createNode(item, { onTagObj: (o) => tagObj = o });
+      tagObj ?? (tagObj = getTagObject(ctx.doc.schema.tags, node));
+      const props = stringifyProps(node, tagObj, ctx);
+      if (props.length > 0)
+        ctx.indentAtStart = (ctx.indentAtStart ?? 0) + props.length + 1;
+      const str = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
+      if (!props)
+        return str;
+      return identity.isScalar(node) || str[0] === "{" || str[0] === "[" ? `${props} ${str}` : `${props}
+${ctx.indent}${str}`;
+    }
+    exports.createStringifyContext = createStringifyContext;
+    exports.stringify = stringify2;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js
+var require_stringifyPair = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var stringify2 = require_stringify();
+    var stringifyComment = require_stringifyComment();
+    function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
+      const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
+      let keyComment = identity.isNode(key) && key.comment || null;
+      if (simpleKeys) {
+        if (keyComment) {
+          throw new Error("With simple keys, key nodes cannot have comments");
+        }
+        if (identity.isCollection(key) || !identity.isNode(key) && typeof key === "object") {
+          const msg = "With simple keys, collection cannot be used as a key value";
+          throw new Error(msg);
+        }
+      }
+      let explicitKey = !simpleKeys && (!key || keyComment && value == null && !ctx.inFlow || identity.isCollection(key) || (identity.isScalar(key) ? key.type === Scalar.Scalar.BLOCK_FOLDED || key.type === Scalar.Scalar.BLOCK_LITERAL : typeof key === "object"));
+      ctx = Object.assign({}, ctx, {
+        allNullValues: false,
+        implicitKey: !explicitKey && (simpleKeys || !allNullValues),
+        indent: indent + indentStep
+      });
+      let keyCommentDone = false;
+      let chompKeep = false;
+      let str = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      if (!explicitKey && !ctx.inFlow && str.length > 1024) {
+        if (simpleKeys)
+          throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
+        explicitKey = true;
+      }
+      if (ctx.inFlow) {
+        if (allNullValues || value == null) {
+          if (keyCommentDone && onComment)
+            onComment();
+          return str === "" ? "?" : explicitKey ? `? ${str}` : str;
+        }
+      } else if (allNullValues && !simpleKeys || value == null && explicitKey) {
+        str = `? ${str}`;
+        if (keyComment && !keyCommentDone) {
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+        } else if (chompKeep && onChompKeep)
+          onChompKeep();
+        return str;
+      }
+      if (keyCommentDone)
+        keyComment = null;
+      if (explicitKey) {
+        if (keyComment)
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+        str = `? ${str}
+${indent}:`;
+      } else {
+        str = `${str}:`;
+        if (keyComment)
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+      }
+      let vsb, vcb, valueComment;
+      if (identity.isNode(value)) {
+        vsb = !!value.spaceBefore;
+        vcb = value.commentBefore;
+        valueComment = value.comment;
+      } else {
+        vsb = false;
+        vcb = null;
+        valueComment = null;
+        if (value && typeof value === "object")
+          value = doc.createNode(value);
+      }
+      ctx.implicitKey = false;
+      if (!explicitKey && !keyComment && identity.isScalar(value))
+        ctx.indentAtStart = str.length + 1;
+      chompKeep = false;
+      if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor) {
+        ctx.indent = ctx.indent.substring(2);
+      }
+      let valueCommentDone = false;
+      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      let ws = " ";
+      if (keyComment || vsb || vcb) {
+        ws = vsb ? "\n" : "";
+        if (vcb) {
+          const cs = commentString(vcb);
+          ws += `
+${stringifyComment.indentComment(cs, ctx.indent)}`;
+        }
+        if (valueStr === "" && !ctx.inFlow) {
+          if (ws === "\n" && valueComment)
+            ws = "\n\n";
+        } else {
+          ws += `
+${ctx.indent}`;
+        }
+      } else if (!explicitKey && identity.isCollection(value)) {
+        const vs0 = valueStr[0];
+        const nl0 = valueStr.indexOf("\n");
+        const hasNewline = nl0 !== -1;
+        const flow = ctx.inFlow ?? value.flow ?? value.items.length === 0;
+        if (hasNewline || !flow) {
+          let hasPropsLine = false;
+          if (hasNewline && (vs0 === "&" || vs0 === "!")) {
+            let sp0 = valueStr.indexOf(" ");
+            if (vs0 === "&" && sp0 !== -1 && sp0 < nl0 && valueStr[sp0 + 1] === "!") {
+              sp0 = valueStr.indexOf(" ", sp0 + 1);
+            }
+            if (sp0 === -1 || nl0 < sp0)
+              hasPropsLine = true;
+          }
+          if (!hasPropsLine)
+            ws = `
+${ctx.indent}`;
+        }
+      } else if (valueStr === "" || valueStr[0] === "\n") {
+        ws = "";
+      }
+      str += ws + valueStr;
+      if (ctx.inFlow) {
+        if (valueCommentDone && onComment)
+          onComment();
+      } else if (valueComment && !valueCommentDone) {
+        str += stringifyComment.lineComment(str, ctx.indent, commentString(valueComment));
+      } else if (chompKeep && onChompKeep) {
+        onChompKeep();
+      }
+      return str;
+    }
+    exports.stringifyPair = stringifyPair;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js
+var require_log = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js"(exports) {
+    "use strict";
+    var node_process = __require("process");
+    function debug(logLevel, ...messages) {
+      if (logLevel === "debug")
+        console.log(...messages);
+    }
+    function warn(logLevel, warning) {
+      if (logLevel === "debug" || logLevel === "warn") {
+        if (typeof node_process.emitWarning === "function")
+          node_process.emitWarning(warning);
+        else
+          console.warn(warning);
+      }
+    }
+    exports.debug = debug;
+    exports.warn = warn;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+var require_merge = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var MERGE_KEY = "<<";
+    var merge = {
+      identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
+      default: "key",
+      tag: "tag:yaml.org,2002:merge",
+      test: /^<<$/,
+      resolve: () => Object.assign(new Scalar.Scalar(Symbol(MERGE_KEY)), {
+        addToJSMap: addMergeToJSMap
+      }),
+      stringify: () => MERGE_KEY
+    };
+    var isMergeKey = (ctx, key) => (merge.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge.tag && tag.default);
+    function addMergeToJSMap(ctx, map, value) {
+      const source = resolveAliasValue(ctx, value);
+      if (identity.isSeq(source))
+        for (const it of source.items)
+          mergeValue(ctx, map, it);
+      else if (Array.isArray(source))
+        for (const it of source)
+          mergeValue(ctx, map, it);
+      else
+        mergeValue(ctx, map, source);
+    }
+    function mergeValue(ctx, map, value) {
+      const source = resolveAliasValue(ctx, value);
+      if (!identity.isMap(source))
+        throw new Error("Merge sources must be maps or map aliases");
+      const srcMap = source.toJSON(null, ctx, Map);
+      for (const [key, value2] of srcMap) {
+        if (map instanceof Map) {
+          if (!map.has(key))
+            map.set(key, value2);
+        } else if (map instanceof Set) {
+          map.add(key);
+        } else if (!Object.prototype.hasOwnProperty.call(map, key)) {
+          Object.defineProperty(map, key, {
+            value: value2,
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+        }
+      }
+      return map;
+    }
+    function resolveAliasValue(ctx, value) {
+      return ctx && identity.isAlias(value) ? value.resolve(ctx.doc, ctx) : value;
+    }
+    exports.addMergeToJSMap = addMergeToJSMap;
+    exports.isMergeKey = isMergeKey;
+    exports.merge = merge;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js
+var require_addPairToJSMap = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+    "use strict";
+    var log = require_log();
+    var merge = require_merge();
+    var stringify2 = require_stringify();
+    var identity = require_identity();
+    var toJS = require_toJS();
+    function addPairToJSMap(ctx, map, { key, value }) {
+      if (identity.isNode(key) && key.addToJSMap)
+        key.addToJSMap(ctx, map, value);
+      else if (merge.isMergeKey(ctx, key))
+        merge.addMergeToJSMap(ctx, map, value);
+      else {
+        const jsKey = toJS.toJS(key, "", ctx);
+        if (map instanceof Map) {
+          map.set(jsKey, toJS.toJS(value, jsKey, ctx));
+        } else if (map instanceof Set) {
+          map.add(jsKey);
+        } else {
+          const stringKey = stringifyKey(key, jsKey, ctx);
+          const jsValue = toJS.toJS(value, stringKey, ctx);
+          if (stringKey in map)
+            Object.defineProperty(map, stringKey, {
+              value: jsValue,
+              writable: true,
+              enumerable: true,
+              configurable: true
+            });
+          else
+            map[stringKey] = jsValue;
+        }
+      }
+      return map;
+    }
+    function stringifyKey(key, jsKey, ctx) {
+      if (jsKey === null)
+        return "";
+      if (typeof jsKey !== "object")
+        return String(jsKey);
+      if (identity.isNode(key) && ctx?.doc) {
+        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
+        strCtx.anchors = /* @__PURE__ */ new Set();
+        for (const node of ctx.anchors.keys())
+          strCtx.anchors.add(node.anchor);
+        strCtx.inFlow = true;
+        strCtx.inStringifyKey = true;
+        const strKey = key.toString(strCtx);
+        if (!ctx.mapKeyWarned) {
+          let jsonStr = JSON.stringify(strKey);
+          if (jsonStr.length > 40)
+            jsonStr = jsonStr.substring(0, 36) + '..."';
+          log.warn(ctx.doc.options.logLevel, `Keys with collection values will be stringified due to JS Object restrictions: ${jsonStr}. Set mapAsMap: true to use object keys.`);
+          ctx.mapKeyWarned = true;
+        }
+        return strKey;
+      }
+      return JSON.stringify(jsKey);
+    }
+    exports.addPairToJSMap = addPairToJSMap;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js
+var require_Pair = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js"(exports) {
+    "use strict";
+    var createNode = require_createNode();
+    var stringifyPair = require_stringifyPair();
+    var addPairToJSMap = require_addPairToJSMap();
+    var identity = require_identity();
+    function createPair(key, value, ctx) {
+      const k = createNode.createNode(key, void 0, ctx);
+      const v = createNode.createNode(value, void 0, ctx);
+      return new Pair(k, v);
+    }
+    var Pair = class _Pair {
+      constructor(key, value = null) {
+        Object.defineProperty(this, identity.NODE_TYPE, { value: identity.PAIR });
+        this.key = key;
+        this.value = value;
+      }
+      clone(schema) {
+        let { key, value } = this;
+        if (identity.isNode(key))
+          key = key.clone(schema);
+        if (identity.isNode(value))
+          value = value.clone(schema);
+        return new _Pair(key, value);
+      }
+      toJSON(_, ctx) {
+        const pair = ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
+        return addPairToJSMap.addPairToJSMap(ctx, pair, this);
+      }
+      toString(ctx, onComment, onChompKeep) {
+        return ctx?.doc ? stringifyPair.stringifyPair(this, ctx, onComment, onChompKeep) : JSON.stringify(this);
+      }
+    };
+    exports.Pair = Pair;
+    exports.createPair = createPair;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js
+var require_stringifyCollection = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var stringify2 = require_stringify();
+    var stringifyComment = require_stringifyComment();
+    function stringifyCollection(collection, ctx, options) {
+      const flow = ctx.inFlow ?? collection.flow;
+      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify3(collection, ctx, options);
+    }
+    function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
+      const { indent, options: { commentString } } = ctx;
+      const itemCtx = Object.assign({}, ctx, { indent: itemIndent, type: null });
+      let chompKeep = false;
+      const lines = [];
+      for (let i = 0; i < items.length; ++i) {
+        const item = items[i];
+        let comment2 = null;
+        if (identity.isNode(item)) {
+          if (!chompKeep && item.spaceBefore)
+            lines.push("");
+          addCommentBefore(ctx, lines, item.commentBefore, chompKeep);
+          if (item.comment)
+            comment2 = item.comment;
+        } else if (identity.isPair(item)) {
+          const ik = identity.isNode(item.key) ? item.key : null;
+          if (ik) {
+            if (!chompKeep && ik.spaceBefore)
+              lines.push("");
+            addCommentBefore(ctx, lines, ik.commentBefore, chompKeep);
           }
         }
-        this._zone = zone;
-        this.loc = config.loc || Locale.create();
-        this.invalid = invalid;
-        this.weekData = null;
-        this.localWeekData = null;
-        this.c = c;
-        this.o = o;
-        this.isLuxonDateTime = true;
+        chompKeep = false;
+        let str2 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        if (comment2)
+          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
+        if (chompKeep && comment2)
+          chompKeep = false;
+        lines.push(blockItemPrefix + str2);
       }
-      // CONSTRUCT
-      /**
-       * Create a DateTime for the current instant, in the system's time zone.
-       *
-       * Use Settings to override these default values if needed.
-       * @example DateTime.now().toISO() //~> now in the ISO format
-       * @return {DateTime}
-       */
-      static now() {
-        return new _DateTime({});
-      }
-      /**
-       * Create a local DateTime
-       * @param {number} [year] - The calendar year. If omitted (as in, call `local()` with no arguments), the current time will be used
-       * @param {number} [month=1] - The month, 1-indexed
-       * @param {number} [day=1] - The day of the month, 1-indexed
-       * @param {number} [hour=0] - The hour of the day, in 24-hour time
-       * @param {number} [minute=0] - The minute of the hour, meaning a number between 0 and 59
-       * @param {number} [second=0] - The second of the minute, meaning a number between 0 and 59
-       * @param {number} [millisecond=0] - The millisecond of the second, meaning a number between 0 and 999
-       * @example DateTime.local()                                  //~> now
-       * @example DateTime.local({ zone: "America/New_York" })      //~> now, in US east coast time
-       * @example DateTime.local(2017)                              //~> 2017-01-01T00:00:00
-       * @example DateTime.local(2017, 3)                           //~> 2017-03-01T00:00:00
-       * @example DateTime.local(2017, 3, 12, { locale: "fr" })     //~> 2017-03-12T00:00:00, with a French locale
-       * @example DateTime.local(2017, 3, 12, 5)                    //~> 2017-03-12T05:00:00
-       * @example DateTime.local(2017, 3, 12, 5, { zone: "utc" })   //~> 2017-03-12T05:00:00, in UTC
-       * @example DateTime.local(2017, 3, 12, 5, 45)                //~> 2017-03-12T05:45:00
-       * @example DateTime.local(2017, 3, 12, 5, 45, 10)            //~> 2017-03-12T05:45:10
-       * @example DateTime.local(2017, 3, 12, 5, 45, 10, 765)       //~> 2017-03-12T05:45:10.765
-       * @return {DateTime}
-       */
-      static local() {
-        const [opts, args] = lastOpts(arguments), [year, month, day, hour, minute, second, millisecond] = args;
-        return quickDT({
-          year,
-          month,
-          day,
-          hour,
-          minute,
-          second,
-          millisecond
-        }, opts);
-      }
-      /**
-       * Create a DateTime in UTC
-       * @param {number} [year] - The calendar year. If omitted (as in, call `utc()` with no arguments), the current time will be used
-       * @param {number} [month=1] - The month, 1-indexed
-       * @param {number} [day=1] - The day of the month
-       * @param {number} [hour=0] - The hour of the day, in 24-hour time
-       * @param {number} [minute=0] - The minute of the hour, meaning a number between 0 and 59
-       * @param {number} [second=0] - The second of the minute, meaning a number between 0 and 59
-       * @param {number} [millisecond=0] - The millisecond of the second, meaning a number between 0 and 999
-       * @param {Object} options - configuration options for the DateTime
-       * @param {string} [options.locale] - a locale to set on the resulting DateTime instance
-       * @param {string} [options.outputCalendar] - the output calendar to set on the resulting DateTime instance
-       * @param {string} [options.numberingSystem] - the numbering system to set on the resulting DateTime instance
-       * @param {string} [options.weekSettings] - the week settings to set on the resulting DateTime instance
-       * @example DateTime.utc()                                              //~> now
-       * @example DateTime.utc(2017)                                          //~> 2017-01-01T00:00:00Z
-       * @example DateTime.utc(2017, 3)                                       //~> 2017-03-01T00:00:00Z
-       * @example DateTime.utc(2017, 3, 12)                                   //~> 2017-03-12T00:00:00Z
-       * @example DateTime.utc(2017, 3, 12, 5)                                //~> 2017-03-12T05:00:00Z
-       * @example DateTime.utc(2017, 3, 12, 5, 45)                            //~> 2017-03-12T05:45:00Z
-       * @example DateTime.utc(2017, 3, 12, 5, 45, { locale: "fr" })          //~> 2017-03-12T05:45:00Z with a French locale
-       * @example DateTime.utc(2017, 3, 12, 5, 45, 10)                        //~> 2017-03-12T05:45:10Z
-       * @example DateTime.utc(2017, 3, 12, 5, 45, 10, 765, { locale: "fr" }) //~> 2017-03-12T05:45:10.765Z with a French locale
-       * @return {DateTime}
-       */
-      static utc() {
-        const [opts, args] = lastOpts(arguments), [year, month, day, hour, minute, second, millisecond] = args;
-        opts.zone = FixedOffsetZone.utcInstance;
-        return quickDT({
-          year,
-          month,
-          day,
-          hour,
-          minute,
-          second,
-          millisecond
-        }, opts);
-      }
-      /**
-       * Create a DateTime from a JavaScript Date object. Uses the default zone.
-       * @param {Date} date - a JavaScript Date object
-       * @param {Object} options - configuration options for the DateTime
-       * @param {string|Zone} [options.zone='local'] - the zone to place the DateTime into
-       * @return {DateTime}
-       */
-      static fromJSDate(date, options = {}) {
-        const ts = isDate(date) ? date.valueOf() : NaN;
-        if (Number.isNaN(ts)) {
-          return _DateTime.invalid("invalid input");
-        }
-        const zoneToUse = normalizeZone(options.zone, Settings.defaultZone);
-        if (!zoneToUse.isValid) {
-          return _DateTime.invalid(unsupportedZone(zoneToUse));
-        }
-        return new _DateTime({
-          ts,
-          zone: zoneToUse,
-          loc: Locale.fromObject(options)
-        });
-      }
-      /**
-       * Create a DateTime from a number of milliseconds since the epoch (meaning since 1 January 1970 00:00:00 UTC). Uses the default zone.
-       * @param {number} milliseconds - a number of milliseconds since 1970 UTC
-       * @param {Object} options - configuration options for the DateTime
-       * @param {string|Zone} [options.zone='local'] - the zone to place the DateTime into
-       * @param {string} [options.locale] - a locale to set on the resulting DateTime instance
-       * @param {string} options.outputCalendar - the output calendar to set on the resulting DateTime instance
-       * @param {string} options.numberingSystem - the numbering system to set on the resulting DateTime instance
-       * @param {string} options.weekSettings - the week settings to set on the resulting DateTime instance
-       * @return {DateTime}
-       */
-      static fromMillis(milliseconds, options = {}) {
-        if (!isNumber(milliseconds)) {
-          throw new InvalidArgumentError(`fromMillis requires a numerical input, but received a ${typeof milliseconds} with value ${milliseconds}`);
-        } else if (milliseconds < -MAX_DATE || milliseconds > MAX_DATE) {
-          return _DateTime.invalid("Timestamp out of range");
-        } else {
-          return new _DateTime({
-            ts: milliseconds,
-            zone: normalizeZone(options.zone, Settings.defaultZone),
-            loc: Locale.fromObject(options)
-          });
+      let str;
+      if (lines.length === 0) {
+        str = flowChars.start + flowChars.end;
+      } else {
+        str = lines[0];
+        for (let i = 1; i < lines.length; ++i) {
+          const line = lines[i];
+          str += line ? `
+${indent}${line}` : "\n";
         }
       }
-      /**
-       * Create a DateTime from a number of seconds since the epoch (meaning since 1 January 1970 00:00:00 UTC). Uses the default zone.
-       * @param {number} seconds - a number of seconds since 1970 UTC
-       * @param {Object} options - configuration options for the DateTime
-       * @param {string|Zone} [options.zone='local'] - the zone to place the DateTime into
-       * @param {string} [options.locale] - a locale to set on the resulting DateTime instance
-       * @param {string} options.outputCalendar - the output calendar to set on the resulting DateTime instance
-       * @param {string} options.numberingSystem - the numbering system to set on the resulting DateTime instance
-       * @param {string} options.weekSettings - the week settings to set on the resulting DateTime instance
-       * @return {DateTime}
-       */
-      static fromSeconds(seconds, options = {}) {
-        if (!isNumber(seconds)) {
-          throw new InvalidArgumentError("fromSeconds requires a numerical input");
-        } else {
-          return new _DateTime({
-            ts: seconds * 1e3,
-            zone: normalizeZone(options.zone, Settings.defaultZone),
-            loc: Locale.fromObject(options)
-          });
-        }
-      }
-      /**
-       * Create a DateTime from a JavaScript object with keys like 'year' and 'hour' with reasonable defaults.
-       * @param {Object} obj - the object to create the DateTime from
-       * @param {number} obj.year - a year, such as 1987
-       * @param {number} obj.month - a month, 1-12
-       * @param {number} obj.day - a day of the month, 1-31, depending on the month
-       * @param {number} obj.ordinal - day of the year, 1-365 or 366
-       * @param {number} obj.weekYear - an ISO week year
-       * @param {number} obj.weekNumber - an ISO week number, between 1 and 52 or 53, depending on the year
-       * @param {number} obj.weekday - an ISO weekday, 1-7, where 1 is Monday and 7 is Sunday
-       * @param {number} obj.localWeekYear - a week year, according to the locale
-       * @param {number} obj.localWeekNumber - a week number, between 1 and 52 or 53, depending on the year, according to the locale
-       * @param {number} obj.localWeekday - a weekday, 1-7, where 1 is the first and 7 is the last day of the week, according to the locale
-       * @param {number} obj.hour - hour of the day, 0-23
-       * @param {number} obj.minute - minute of the hour, 0-59
-       * @param {number} obj.second - second of the minute, 0-59
-       * @param {number} obj.millisecond - millisecond of the second, 0-999
-       * @param {Object} opts - options for creating this DateTime
-       * @param {string|Zone} [opts.zone='local'] - interpret the numbers in the context of a particular zone. Can take any value taken as the first argument to setZone()
-       * @param {string} [opts.locale='system\'s locale'] - a locale to set on the resulting DateTime instance
-       * @param {string} opts.outputCalendar - the output calendar to set on the resulting DateTime instance
-       * @param {string} opts.numberingSystem - the numbering system to set on the resulting DateTime instance
-       * @param {string} opts.weekSettings - the week settings to set on the resulting DateTime instance
-       * @example DateTime.fromObject({ year: 1982, month: 5, day: 25}).toISODate() //=> '1982-05-25'
-       * @example DateTime.fromObject({ year: 1982 }).toISODate() //=> '1982-01-01'
-       * @example DateTime.fromObject({ hour: 10, minute: 26, second: 6 }) //~> today at 10:26:06
-       * @example DateTime.fromObject({ hour: 10, minute: 26, second: 6 }, { zone: 'utc' }),
-       * @example DateTime.fromObject({ hour: 10, minute: 26, second: 6 }, { zone: 'local' })
-       * @example DateTime.fromObject({ hour: 10, minute: 26, second: 6 }, { zone: 'America/New_York' })
-       * @example DateTime.fromObject({ weekYear: 2016, weekNumber: 2, weekday: 3 }).toISODate() //=> '2016-01-13'
-       * @example DateTime.fromObject({ localWeekYear: 2022, localWeekNumber: 1, localWeekday: 1 }, { locale: "en-US" }).toISODate() //=> '2021-12-26'
-       * @return {DateTime}
-       */
-      static fromObject(obj, opts = {}) {
-        obj = obj || {};
-        const zoneToUse = normalizeZone(opts.zone, Settings.defaultZone);
-        if (!zoneToUse.isValid) {
-          return _DateTime.invalid(unsupportedZone(zoneToUse));
-        }
-        const loc = Locale.fromObject(opts);
-        const normalized = normalizeObject(obj, normalizeUnitWithLocalWeeks);
-        const {
-          minDaysInFirstWeek,
-          startOfWeek
-        } = usesLocalWeekValues(normalized, loc);
-        const tsNow = Settings.now(), offsetProvis = !isUndefined(opts.specificOffset) ? opts.specificOffset : zoneToUse.offset(tsNow), containsOrdinal = !isUndefined(normalized.ordinal), containsGregorYear = !isUndefined(normalized.year), containsGregorMD = !isUndefined(normalized.month) || !isUndefined(normalized.day), containsGregor = containsGregorYear || containsGregorMD, definiteWeekDef = normalized.weekYear || normalized.weekNumber;
-        if ((containsGregor || containsOrdinal) && definiteWeekDef) {
-          throw new ConflictingSpecificationError("Can't mix weekYear/weekNumber units with year/month/day or ordinals");
-        }
-        if (containsGregorMD && containsOrdinal) {
-          throw new ConflictingSpecificationError("Can't mix ordinal dates with month/day");
-        }
-        const useWeekData = definiteWeekDef || normalized.weekday && !containsGregor;
-        let units, defaultValues, objNow = tsToObj(tsNow, offsetProvis);
-        if (useWeekData) {
-          units = orderedWeekUnits;
-          defaultValues = defaultWeekUnitValues;
-          objNow = gregorianToWeek(objNow, minDaysInFirstWeek, startOfWeek);
-        } else if (containsOrdinal) {
-          units = orderedOrdinalUnits;
-          defaultValues = defaultOrdinalUnitValues;
-          objNow = gregorianToOrdinal(objNow);
-        } else {
-          units = orderedUnits;
-          defaultValues = defaultUnitValues;
-        }
-        let foundFirst = false;
-        for (const u of units) {
-          const v = normalized[u];
-          if (!isUndefined(v)) {
-            foundFirst = true;
-          } else if (foundFirst) {
-            normalized[u] = defaultValues[u];
-          } else {
-            normalized[u] = objNow[u];
+      if (comment) {
+        str += "\n" + stringifyComment.indentComment(commentString(comment), indent);
+        if (onComment)
+          onComment();
+      } else if (chompKeep && onChompKeep)
+        onChompKeep();
+      return str;
+    }
+    function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
+      const { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
+      itemIndent += indentStep;
+      const itemCtx = Object.assign({}, ctx, {
+        indent: itemIndent,
+        inFlow: true,
+        type: null
+      });
+      let reqNewline = false;
+      let linesAtValue = 0;
+      const lines = [];
+      for (let i = 0; i < items.length; ++i) {
+        const item = items[i];
+        let comment = null;
+        if (identity.isNode(item)) {
+          if (item.spaceBefore)
+            lines.push("");
+          addCommentBefore(ctx, lines, item.commentBefore, false);
+          if (item.comment)
+            comment = item.comment;
+        } else if (identity.isPair(item)) {
+          const ik = identity.isNode(item.key) ? item.key : null;
+          if (ik) {
+            if (ik.spaceBefore)
+              lines.push("");
+            addCommentBefore(ctx, lines, ik.commentBefore, false);
+            if (ik.comment)
+              reqNewline = true;
+          }
+          const iv = identity.isNode(item.value) ? item.value : null;
+          if (iv) {
+            if (iv.comment)
+              comment = iv.comment;
+            if (iv.commentBefore)
+              reqNewline = true;
+          } else if (item.value == null && ik?.comment) {
+            comment = ik.comment;
           }
         }
-        const higherOrderInvalid = useWeekData ? hasInvalidWeekData(normalized, minDaysInFirstWeek, startOfWeek) : containsOrdinal ? hasInvalidOrdinalData(normalized) : hasInvalidGregorianData(normalized), invalid = higherOrderInvalid || hasInvalidTimeData(normalized);
-        if (invalid) {
-          return _DateTime.invalid(invalid);
+        if (comment)
+          reqNewline = true;
+        let str = stringify2.stringify(item, itemCtx, () => comment = null);
+        reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
+        if (i < items.length - 1) {
+          str += ",";
+        } else if (ctx.options.trailingComma) {
+          if (ctx.options.lineWidth > 0) {
+            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+          }
+          if (reqNewline) {
+            str += ",";
+          }
         }
-        const gregorian = useWeekData ? weekToGregorian(normalized, minDaysInFirstWeek, startOfWeek) : containsOrdinal ? ordinalToGregorian(normalized) : normalized, [tsFinal, offsetFinal] = objToTS(gregorian, offsetProvis, zoneToUse), inst = new _DateTime({
-          ts: tsFinal,
-          zone: zoneToUse,
-          o: offsetFinal,
-          loc
-        });
-        if (normalized.weekday && containsGregor && obj.weekday !== inst.weekday) {
-          return _DateTime.invalid("mismatched weekday", `you can't specify both a weekday of ${normalized.weekday} and a date of ${inst.toISO()}`);
+        if (comment)
+          str += stringifyComment.lineComment(str, itemIndent, commentString(comment));
+        lines.push(str);
+        linesAtValue = lines.length;
+      }
+      const { start, end } = flowChars;
+      if (lines.length === 0) {
+        return start + end;
+      } else {
+        if (!reqNewline) {
+          const len = lines.reduce((sum, line) => sum + line.length + 2, 2);
+          reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
-        if (!inst.isValid) {
-          return _DateTime.invalid(inst.invalid);
-        }
-        return inst;
-      }
-      /**
-       * Create a DateTime from an ISO 8601 string
-       * @param {string} text - the ISO string
-       * @param {Object} opts - options to affect the creation
-       * @param {string|Zone} [opts.zone='local'] - use this zone if no offset is specified in the input string itself. Will also convert the time to this zone
-       * @param {boolean} [opts.setZone=false] - override the zone with a fixed-offset zone specified in the string itself, if it specifies one
-       * @param {string} [opts.locale='system's locale'] - a locale to set on the resulting DateTime instance
-       * @param {string} [opts.outputCalendar] - the output calendar to set on the resulting DateTime instance
-       * @param {string} [opts.numberingSystem] - the numbering system to set on the resulting DateTime instance
-       * @param {string} [opts.weekSettings] - the week settings to set on the resulting DateTime instance
-       * @example DateTime.fromISO('2016-05-25T09:08:34.123')
-       * @example DateTime.fromISO('2016-05-25T09:08:34.123+06:00')
-       * @example DateTime.fromISO('2016-05-25T09:08:34.123+06:00', {setZone: true})
-       * @example DateTime.fromISO('2016-05-25T09:08:34.123', {zone: 'utc'})
-       * @example DateTime.fromISO('2016-W05-4')
-       * @return {DateTime}
-       */
-      static fromISO(text, opts = {}) {
-        const [vals, parsedZone] = parseISODate(text);
-        return parseDataToDateTime(vals, parsedZone, opts, "ISO 8601", text);
-      }
-      /**
-       * Create a DateTime from an RFC 2822 string
-       * @param {string} text - the RFC 2822 string
-       * @param {Object} opts - options to affect the creation
-       * @param {string|Zone} [opts.zone='local'] - convert the time to this zone. Since the offset is always specified in the string itself, this has no effect on the interpretation of string, merely the zone the resulting DateTime is expressed in.
-       * @param {boolean} [opts.setZone=false] - override the zone with a fixed-offset zone specified in the string itself, if it specifies one
-       * @param {string} [opts.locale='system's locale'] - a locale to set on the resulting DateTime instance
-       * @param {string} opts.outputCalendar - the output calendar to set on the resulting DateTime instance
-       * @param {string} opts.numberingSystem - the numbering system to set on the resulting DateTime instance
-       * @param {string} opts.weekSettings - the week settings to set on the resulting DateTime instance
-       * @example DateTime.fromRFC2822('25 Nov 2016 13:23:12 GMT')
-       * @example DateTime.fromRFC2822('Fri, 25 Nov 2016 13:23:12 +0600')
-       * @example DateTime.fromRFC2822('25 Nov 2016 13:23 Z')
-       * @return {DateTime}
-       */
-      static fromRFC2822(text, opts = {}) {
-        const [vals, parsedZone] = parseRFC2822Date(text);
-        return parseDataToDateTime(vals, parsedZone, opts, "RFC 2822", text);
-      }
-      /**
-       * Create a DateTime from an HTTP header date
-       * @see https://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3.1
-       * @param {string} text - the HTTP header date
-       * @param {Object} opts - options to affect the creation
-       * @param {string|Zone} [opts.zone='local'] - convert the time to this zone. Since HTTP dates are always in UTC, this has no effect on the interpretation of string, merely the zone the resulting DateTime is expressed in.
-       * @param {boolean} [opts.setZone=false] - override the zone with the fixed-offset zone specified in the string. For HTTP dates, this is always UTC, so this option is equivalent to setting the `zone` option to 'utc', but this option is included for consistency with similar methods.
-       * @param {string} [opts.locale='system's locale'] - a locale to set on the resulting DateTime instance
-       * @param {string} opts.outputCalendar - the output calendar to set on the resulting DateTime instance
-       * @param {string} opts.numberingSystem - the numbering system to set on the resulting DateTime instance
-       * @param {string} opts.weekSettings - the week settings to set on the resulting DateTime instance
-       * @example DateTime.fromHTTP('Sun, 06 Nov 1994 08:49:37 GMT')
-       * @example DateTime.fromHTTP('Sunday, 06-Nov-94 08:49:37 GMT')
-       * @example DateTime.fromHTTP('Sun Nov  6 08:49:37 1994')
-       * @return {DateTime}
-       */
-      static fromHTTP(text, opts = {}) {
-        const [vals, parsedZone] = parseHTTPDate(text);
-        return parseDataToDateTime(vals, parsedZone, opts, "HTTP", opts);
-      }
-      /**
-       * Create a DateTime from an input string and format string.
-       * Defaults to en-US if no locale has been specified, regardless of the system's locale. For a table of tokens and their interpretations, see [here](https://moment.github.io/luxon/#/parsing?id=table-of-tokens).
-       * @param {string} text - the string to parse
-       * @param {string} fmt - the format the string is expected to be in (see the link below for the formats)
-       * @param {Object} opts - options to affect the creation
-       * @param {string|Zone} [opts.zone='local'] - use this zone if no offset is specified in the input string itself. Will also convert the DateTime to this zone
-       * @param {boolean} [opts.setZone=false] - override the zone with a zone specified in the string itself, if it specifies one
-       * @param {string} [opts.locale='en-US'] - a locale string to use when parsing. Will also set the DateTime to this locale
-       * @param {string} opts.numberingSystem - the numbering system to use when parsing. Will also set the resulting DateTime to this numbering system
-       * @param {string} opts.weekSettings - the week settings to set on the resulting DateTime instance
-       * @param {string} opts.outputCalendar - the output calendar to set on the resulting DateTime instance
-       * @return {DateTime}
-       */
-      static fromFormat(text, fmt, opts = {}) {
-        if (isUndefined(text) || isUndefined(fmt)) {
-          throw new InvalidArgumentError("fromFormat requires an input string and a format");
-        }
-        const {
-          locale = null,
-          numberingSystem = null
-        } = opts, localeToUse = Locale.fromOpts({
-          locale,
-          numberingSystem,
-          defaultToEN: true
-        }), [vals, parsedZone, specificOffset, invalid] = parseFromTokens(localeToUse, text, fmt);
-        if (invalid) {
-          return _DateTime.invalid(invalid);
+        if (reqNewline) {
+          let str = start;
+          for (const line of lines)
+            str += line ? `
+${indentStep}${indent}${line}` : "\n";
+          return `${str}
+${indent}${end}`;
         } else {
-          return parseDataToDateTime(vals, parsedZone, opts, `format ${fmt}`, text, specificOffset);
+          return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
         }
       }
-      /**
-       * @deprecated use fromFormat instead
-       */
-      static fromString(text, fmt, opts = {}) {
-        return _DateTime.fromFormat(text, fmt, opts);
+    }
+    function addCommentBefore({ indent, options: { commentString } }, lines, comment, chompKeep) {
+      if (comment && chompKeep)
+        comment = comment.replace(/^\n+/, "");
+      if (comment) {
+        const ic = stringifyComment.indentComment(commentString(comment), indent);
+        lines.push(ic.trimStart());
       }
-      /**
-       * Create a DateTime from a SQL date, time, or datetime
-       * Defaults to en-US if no locale has been specified, regardless of the system's locale
-       * @param {string} text - the string to parse
-       * @param {Object} opts - options to affect the creation
-       * @param {string|Zone} [opts.zone='local'] - use this zone if no offset is specified in the input string itself. Will also convert the DateTime to this zone
-       * @param {boolean} [opts.setZone=false] - override the zone with a zone specified in the string itself, if it specifies one
-       * @param {string} [opts.locale='en-US'] - a locale string to use when parsing. Will also set the DateTime to this locale
-       * @param {string} opts.numberingSystem - the numbering system to use when parsing. Will also set the resulting DateTime to this numbering system
-       * @param {string} opts.weekSettings - the week settings to set on the resulting DateTime instance
-       * @param {string} opts.outputCalendar - the output calendar to set on the resulting DateTime instance
-       * @example DateTime.fromSQL('2017-05-15')
-       * @example DateTime.fromSQL('2017-05-15 09:12:34')
-       * @example DateTime.fromSQL('2017-05-15 09:12:34.342')
-       * @example DateTime.fromSQL('2017-05-15 09:12:34.342+06:00')
-       * @example DateTime.fromSQL('2017-05-15 09:12:34.342 America/Los_Angeles')
-       * @example DateTime.fromSQL('2017-05-15 09:12:34.342 America/Los_Angeles', { setZone: true })
-       * @example DateTime.fromSQL('2017-05-15 09:12:34.342', { zone: 'America/Los_Angeles' })
-       * @example DateTime.fromSQL('09:12:34.342')
-       * @return {DateTime}
-       */
-      static fromSQL(text, opts = {}) {
-        const [vals, parsedZone] = parseSQL(text);
-        return parseDataToDateTime(vals, parsedZone, opts, "SQL", text);
-      }
-      /**
-       * Create an invalid DateTime.
-       * @param {string} reason - simple string of why this DateTime is invalid. Should not contain parameters or anything else data-dependent.
-       * @param {string} [explanation=null] - longer explanation, may include parameters and other useful debugging information
-       * @return {DateTime}
-       */
-      static invalid(reason, explanation = null) {
-        if (!reason) {
-          throw new InvalidArgumentError("need to specify a reason the DateTime is invalid");
-        }
-        const invalid = reason instanceof Invalid ? reason : new Invalid(reason, explanation);
-        if (Settings.throwOnInvalid) {
-          throw new InvalidDateTimeError(invalid);
-        } else {
-          return new _DateTime({
-            invalid
-          });
+    }
+    exports.stringifyCollection = stringifyCollection;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js
+var require_YAMLMap = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+    "use strict";
+    var stringifyCollection = require_stringifyCollection();
+    var addPairToJSMap = require_addPairToJSMap();
+    var Collection = require_Collection();
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var Scalar = require_Scalar();
+    function findPair(items, key) {
+      const k = identity.isScalar(key) ? key.value : key;
+      for (const it of items) {
+        if (identity.isPair(it)) {
+          if (it.key === key || it.key === k)
+            return it;
+          if (identity.isScalar(it.key) && it.key.value === k)
+            return it;
         }
       }
-      /**
-       * Check if an object is an instance of DateTime. Works across context boundaries
-       * @param {object} o
-       * @return {boolean}
-       */
-      static isDateTime(o) {
-        return o && o.isLuxonDateTime || false;
+      return void 0;
+    }
+    var YAMLMap = class extends Collection.Collection {
+      static get tagName() {
+        return "tag:yaml.org,2002:map";
+      }
+      constructor(schema) {
+        super(identity.MAP, schema);
+        this.items = [];
       }
       /**
-       * Produce the format string for a set of options
-       * @param formatOpts
-       * @param localeOpts
-       * @returns {string}
+       * A generic collection parsing method that can be extended
+       * to other node classes that inherit from YAMLMap
        */
-      static parseFormatForOpts(formatOpts, localeOpts = {}) {
-        const tokenList = formatOptsToTokens(formatOpts, Locale.fromObject(localeOpts));
-        return !tokenList ? null : tokenList.map((t) => t ? t.val : null).join("");
-      }
-      /**
-       * Produce the the fully expanded format token for the locale
-       * Does NOT quote characters, so quoted tokens will not round trip correctly
-       * @param fmt
-       * @param localeOpts
-       * @returns {string}
-       */
-      static expandFormat(fmt, localeOpts = {}) {
-        const expanded = expandMacroTokens(Formatter.parseFormat(fmt), Locale.fromObject(localeOpts));
-        return expanded.map((t) => t.val).join("");
-      }
-      static resetCache() {
-        zoneOffsetTs = void 0;
-        zoneOffsetGuessCache.clear();
-      }
-      // INFO
-      /**
-       * Get the value of unit.
-       * @param {string} unit - a unit such as 'minute' or 'day'
-       * @example DateTime.local(2017, 7, 4).get('month'); //=> 7
-       * @example DateTime.local(2017, 7, 4).get('day'); //=> 4
-       * @return {number}
-       */
-      get(unit) {
-        return this[unit];
-      }
-      /**
-       * Returns whether the DateTime is valid. Invalid DateTimes occur when:
-       * * The DateTime was created from invalid calendar information, such as the 13th month or February 30
-       * * The DateTime was created by an operation on another invalid date
-       * @type {boolean}
-       */
-      get isValid() {
-        return this.invalid === null;
-      }
-      /**
-       * Returns an error code if this DateTime is invalid, or null if the DateTime is valid
-       * @type {string}
-       */
-      get invalidReason() {
-        return this.invalid ? this.invalid.reason : null;
-      }
-      /**
-       * Returns an explanation of why this DateTime became invalid, or null if the DateTime is valid
-       * @type {string}
-       */
-      get invalidExplanation() {
-        return this.invalid ? this.invalid.explanation : null;
-      }
-      /**
-       * Get the locale of a DateTime, such 'en-GB'. The locale is used when formatting the DateTime
-       *
-       * @type {string}
-       */
-      get locale() {
-        return this.isValid ? this.loc.locale : null;
-      }
-      /**
-       * Get the numbering system of a DateTime, such 'beng'. The numbering system is used when formatting the DateTime
-       *
-       * @type {string}
-       */
-      get numberingSystem() {
-        return this.isValid ? this.loc.numberingSystem : null;
-      }
-      /**
-       * Get the output calendar of a DateTime, such 'islamic'. The output calendar is used when formatting the DateTime
-       *
-       * @type {string}
-       */
-      get outputCalendar() {
-        return this.isValid ? this.loc.outputCalendar : null;
-      }
-      /**
-       * Get the time zone associated with this DateTime.
-       * @type {Zone}
-       */
-      get zone() {
-        return this._zone;
-      }
-      /**
-       * Get the name of the time zone.
-       * @type {string}
-       */
-      get zoneName() {
-        return this.isValid ? this.zone.name : null;
-      }
-      /**
-       * Get the year
-       * @example DateTime.local(2017, 5, 25).year //=> 2017
-       * @type {number}
-       */
-      get year() {
-        return this.isValid ? this.c.year : NaN;
-      }
-      /**
-       * Get the quarter
-       * @example DateTime.local(2017, 5, 25).quarter //=> 2
-       * @type {number}
-       */
-      get quarter() {
-        return this.isValid ? Math.ceil(this.c.month / 3) : NaN;
-      }
-      /**
-       * Get the month (1-12).
-       * @example DateTime.local(2017, 5, 25).month //=> 5
-       * @type {number}
-       */
-      get month() {
-        return this.isValid ? this.c.month : NaN;
-      }
-      /**
-       * Get the day of the month (1-30ish).
-       * @example DateTime.local(2017, 5, 25).day //=> 25
-       * @type {number}
-       */
-      get day() {
-        return this.isValid ? this.c.day : NaN;
-      }
-      /**
-       * Get the hour of the day (0-23).
-       * @example DateTime.local(2017, 5, 25, 9).hour //=> 9
-       * @type {number}
-       */
-      get hour() {
-        return this.isValid ? this.c.hour : NaN;
-      }
-      /**
-       * Get the minute of the hour (0-59).
-       * @example DateTime.local(2017, 5, 25, 9, 30).minute //=> 30
-       * @type {number}
-       */
-      get minute() {
-        return this.isValid ? this.c.minute : NaN;
-      }
-      /**
-       * Get the second of the minute (0-59).
-       * @example DateTime.local(2017, 5, 25, 9, 30, 52).second //=> 52
-       * @type {number}
-       */
-      get second() {
-        return this.isValid ? this.c.second : NaN;
-      }
-      /**
-       * Get the millisecond of the second (0-999).
-       * @example DateTime.local(2017, 5, 25, 9, 30, 52, 654).millisecond //=> 654
-       * @type {number}
-       */
-      get millisecond() {
-        return this.isValid ? this.c.millisecond : NaN;
-      }
-      /**
-       * Get the week year
-       * @see https://en.wikipedia.org/wiki/ISO_week_date
-       * @example DateTime.local(2014, 12, 31).weekYear //=> 2015
-       * @type {number}
-       */
-      get weekYear() {
-        return this.isValid ? possiblyCachedWeekData(this).weekYear : NaN;
-      }
-      /**
-       * Get the week number of the week year (1-52ish).
-       * @see https://en.wikipedia.org/wiki/ISO_week_date
-       * @example DateTime.local(2017, 5, 25).weekNumber //=> 21
-       * @type {number}
-       */
-      get weekNumber() {
-        return this.isValid ? possiblyCachedWeekData(this).weekNumber : NaN;
-      }
-      /**
-       * Get the day of the week.
-       * 1 is Monday and 7 is Sunday
-       * @see https://en.wikipedia.org/wiki/ISO_week_date
-       * @example DateTime.local(2014, 11, 31).weekday //=> 4
-       * @type {number}
-       */
-      get weekday() {
-        return this.isValid ? possiblyCachedWeekData(this).weekday : NaN;
-      }
-      /**
-       * Returns true if this date is on a weekend according to the locale, false otherwise
-       * @returns {boolean}
-       */
-      get isWeekend() {
-        return this.isValid && this.loc.getWeekendDays().includes(this.weekday);
-      }
-      /**
-       * Get the day of the week according to the locale.
-       * 1 is the first day of the week and 7 is the last day of the week.
-       * If the locale assigns Sunday as the first day of the week, then a date which is a Sunday will return 1,
-       * @returns {number}
-       */
-      get localWeekday() {
-        return this.isValid ? possiblyCachedLocalWeekData(this).weekday : NaN;
-      }
-      /**
-       * Get the week number of the week year according to the locale. Different locales assign week numbers differently,
-       * because the week can start on different days of the week (see localWeekday) and because a different number of days
-       * is required for a week to count as the first week of a year.
-       * @returns {number}
-       */
-      get localWeekNumber() {
-        return this.isValid ? possiblyCachedLocalWeekData(this).weekNumber : NaN;
-      }
-      /**
-       * Get the week year according to the locale. Different locales assign week numbers (and therefor week years)
-       * differently, see localWeekNumber.
-       * @returns {number}
-       */
-      get localWeekYear() {
-        return this.isValid ? possiblyCachedLocalWeekData(this).weekYear : NaN;
-      }
-      /**
-       * Get the ordinal (meaning the day of the year)
-       * @example DateTime.local(2017, 5, 25).ordinal //=> 145
-       * @type {number|DateTime}
-       */
-      get ordinal() {
-        return this.isValid ? gregorianToOrdinal(this.c).ordinal : NaN;
-      }
-      /**
-       * Get the human readable short month name, such as 'Oct'.
-       * Defaults to the system's locale if no locale has been specified
-       * @example DateTime.local(2017, 10, 30).monthShort //=> Oct
-       * @type {string}
-       */
-      get monthShort() {
-        return this.isValid ? Info.months("short", {
-          locObj: this.loc
-        })[this.month - 1] : null;
-      }
-      /**
-       * Get the human readable long month name, such as 'October'.
-       * Defaults to the system's locale if no locale has been specified
-       * @example DateTime.local(2017, 10, 30).monthLong //=> October
-       * @type {string}
-       */
-      get monthLong() {
-        return this.isValid ? Info.months("long", {
-          locObj: this.loc
-        })[this.month - 1] : null;
-      }
-      /**
-       * Get the human readable short weekday, such as 'Mon'.
-       * Defaults to the system's locale if no locale has been specified
-       * @example DateTime.local(2017, 10, 30).weekdayShort //=> Mon
-       * @type {string}
-       */
-      get weekdayShort() {
-        return this.isValid ? Info.weekdays("short", {
-          locObj: this.loc
-        })[this.weekday - 1] : null;
-      }
-      /**
-       * Get the human readable long weekday, such as 'Monday'.
-       * Defaults to the system's locale if no locale has been specified
-       * @example DateTime.local(2017, 10, 30).weekdayLong //=> Monday
-       * @type {string}
-       */
-      get weekdayLong() {
-        return this.isValid ? Info.weekdays("long", {
-          locObj: this.loc
-        })[this.weekday - 1] : null;
-      }
-      /**
-       * Get the UTC offset of this DateTime in minutes
-       * @example DateTime.now().offset //=> -240
-       * @example DateTime.utc().offset //=> 0
-       * @type {number}
-       */
-      get offset() {
-        return this.isValid ? +this.o : NaN;
-      }
-      /**
-       * Get the short human name for the zone's current offset, for example "EST" or "EDT".
-       * Defaults to the system's locale if no locale has been specified
-       * @type {string}
-       */
-      get offsetNameShort() {
-        if (this.isValid) {
-          return this.zone.offsetName(this.ts, {
-            format: "short",
-            locale: this.locale
-          });
-        } else {
-          return null;
-        }
-      }
-      /**
-       * Get the long human name for the zone's current offset, for example "Eastern Standard Time" or "Eastern Daylight Time".
-       * Defaults to the system's locale if no locale has been specified
-       * @type {string}
-       */
-      get offsetNameLong() {
-        if (this.isValid) {
-          return this.zone.offsetName(this.ts, {
-            format: "long",
-            locale: this.locale
-          });
-        } else {
-          return null;
-        }
-      }
-      /**
-       * Get whether this zone's offset ever changes, as in a DST.
-       * @type {boolean}
-       */
-      get isOffsetFixed() {
-        return this.isValid ? this.zone.isUniversal : null;
-      }
-      /**
-       * Get whether the DateTime is in a DST.
-       * @type {boolean}
-       */
-      get isInDST() {
-        if (this.isOffsetFixed) {
-          return false;
-        } else {
-          return this.offset > this.set({
-            month: 1,
-            day: 1
-          }).offset || this.offset > this.set({
-            month: 5
-          }).offset;
-        }
-      }
-      /**
-       * Get those DateTimes which have the same local time as this DateTime, but a different offset from UTC
-       * in this DateTime's zone. During DST changes local time can be ambiguous, for example
-       * `2023-10-29T02:30:00` in `Europe/Berlin` can have offset `+01:00` or `+02:00`.
-       * This method will return both possible DateTimes if this DateTime's local time is ambiguous.
-       * @returns {DateTime[]}
-       */
-      getPossibleOffsets() {
-        if (!this.isValid || this.isOffsetFixed) {
-          return [this];
-        }
-        const dayMs = 864e5;
-        const minuteMs = 6e4;
-        const localTS = objToLocalTS(this.c);
-        const oEarlier = this.zone.offset(localTS - dayMs);
-        const oLater = this.zone.offset(localTS + dayMs);
-        const o1 = this.zone.offset(localTS - oEarlier * minuteMs);
-        const o2 = this.zone.offset(localTS - oLater * minuteMs);
-        if (o1 === o2) {
-          return [this];
-        }
-        const ts1 = localTS - o1 * minuteMs;
-        const ts2 = localTS - o2 * minuteMs;
-        const c1 = tsToObj(ts1, o1);
-        const c2 = tsToObj(ts2, o2);
-        if (c1.hour === c2.hour && c1.minute === c2.minute && c1.second === c2.second && c1.millisecond === c2.millisecond) {
-          return [clone(this, {
-            ts: ts1
-          }), clone(this, {
-            ts: ts2
-          })];
-        }
-        return [this];
-      }
-      /**
-       * Returns true if this DateTime is in a leap year, false otherwise
-       * @example DateTime.local(2016).isInLeapYear //=> true
-       * @example DateTime.local(2013).isInLeapYear //=> false
-       * @type {boolean}
-       */
-      get isInLeapYear() {
-        return isLeapYear(this.year);
-      }
-      /**
-       * Returns the number of days in this DateTime's month
-       * @example DateTime.local(2016, 2).daysInMonth //=> 29
-       * @example DateTime.local(2016, 3).daysInMonth //=> 31
-       * @type {number}
-       */
-      get daysInMonth() {
-        return daysInMonth(this.year, this.month);
-      }
-      /**
-       * Returns the number of days in this DateTime's year
-       * @example DateTime.local(2016).daysInYear //=> 366
-       * @example DateTime.local(2013).daysInYear //=> 365
-       * @type {number}
-       */
-      get daysInYear() {
-        return this.isValid ? daysInYear(this.year) : NaN;
-      }
-      /**
-       * Returns the number of weeks in this DateTime's year
-       * @see https://en.wikipedia.org/wiki/ISO_week_date
-       * @example DateTime.local(2004).weeksInWeekYear //=> 53
-       * @example DateTime.local(2013).weeksInWeekYear //=> 52
-       * @type {number}
-       */
-      get weeksInWeekYear() {
-        return this.isValid ? weeksInWeekYear(this.weekYear) : NaN;
-      }
-      /**
-       * Returns the number of weeks in this DateTime's local week year
-       * @example DateTime.local(2020, 6, {locale: 'en-US'}).weeksInLocalWeekYear //=> 52
-       * @example DateTime.local(2020, 6, {locale: 'de-DE'}).weeksInLocalWeekYear //=> 53
-       * @type {number}
-       */
-      get weeksInLocalWeekYear() {
-        return this.isValid ? weeksInWeekYear(this.localWeekYear, this.loc.getMinDaysInFirstWeek(), this.loc.getStartOfWeek()) : NaN;
-      }
-      /**
-       * Returns the resolved Intl options for this DateTime.
-       * This is useful in understanding the behavior of formatting methods
-       * @param {Object} opts - the same options as toLocaleString
-       * @return {Object}
-       */
-      resolvedLocaleOptions(opts = {}) {
-        const {
-          locale,
-          numberingSystem,
-          calendar
-        } = Formatter.create(this.loc.clone(opts), opts).resolvedOptions(this);
-        return {
-          locale,
-          numberingSystem,
-          outputCalendar: calendar
+      static from(schema, obj, ctx) {
+        const { keepUndefined, replacer } = ctx;
+        const map = new this(schema);
+        const add = (key, value) => {
+          if (typeof replacer === "function")
+            value = replacer.call(obj, key, value);
+          else if (Array.isArray(replacer) && !replacer.includes(key))
+            return;
+          if (value !== void 0 || keepUndefined)
+            map.items.push(Pair.createPair(key, value, ctx));
         };
-      }
-      // TRANSFORM
-      /**
-       * "Set" the DateTime's zone to UTC. Returns a newly-constructed DateTime.
-       *
-       * Equivalent to {@link DateTime#setZone}('utc')
-       * @param {number} [offset=0] - optionally, an offset from UTC in minutes
-       * @param {Object} [opts={}] - options to pass to `setZone()`
-       * @return {DateTime}
-       */
-      toUTC(offset2 = 0, opts = {}) {
-        return this.setZone(FixedOffsetZone.instance(offset2), opts);
-      }
-      /**
-       * "Set" the DateTime's zone to the host's local zone. Returns a newly-constructed DateTime.
-       *
-       * Equivalent to `setZone('local')`
-       * @return {DateTime}
-       */
-      toLocal() {
-        return this.setZone(Settings.defaultZone);
+        if (obj instanceof Map) {
+          for (const [key, value] of obj)
+            add(key, value);
+        } else if (obj && typeof obj === "object") {
+          for (const key of Object.keys(obj))
+            add(key, obj[key]);
+        }
+        if (typeof schema.sortMapEntries === "function") {
+          map.items.sort(schema.sortMapEntries);
+        }
+        return map;
       }
       /**
-       * "Set" the DateTime's zone to specified zone. Returns a newly-constructed DateTime.
+       * Adds a value to the collection.
        *
-       * By default, the setter keeps the underlying time the same (as in, the same timestamp), but the new instance will report different local times and consider DSTs when making computations, as with {@link DateTime#plus}. You may wish to use {@link DateTime#toLocal} and {@link DateTime#toUTC} which provide simple convenience wrappers for commonly used zones.
-       * @param {string|Zone} [zone='local'] - a zone identifier. As a string, that can be any IANA zone supported by the host environment, or a fixed-offset name of the form 'UTC+3', or the strings 'local' or 'utc'. You may also supply an instance of a {@link DateTime#Zone} class.
-       * @param {Object} opts - options
-       * @param {boolean} [opts.keepLocalTime=false] - If true, adjust the underlying time so that the local time stays the same, but in the target zone. You should rarely need this.
-       * @return {DateTime}
+       * @param overwrite - If not set `true`, using a key that is already in the
+       *   collection will throw. Otherwise, overwrites the previous value.
        */
-      setZone(zone, {
-        keepLocalTime = false,
-        keepCalendarTime = false
-      } = {}) {
-        zone = normalizeZone(zone, Settings.defaultZone);
-        if (zone.equals(this.zone)) {
-          return this;
-        } else if (!zone.isValid) {
-          return _DateTime.invalid(unsupportedZone(zone));
+      add(pair, overwrite) {
+        let _pair;
+        if (identity.isPair(pair))
+          _pair = pair;
+        else if (!pair || typeof pair !== "object" || !("key" in pair)) {
+          _pair = new Pair.Pair(pair, pair?.value);
+        } else
+          _pair = new Pair.Pair(pair.key, pair.value);
+        const prev = findPair(this.items, _pair.key);
+        const sortEntries = this.schema?.sortMapEntries;
+        if (prev) {
+          if (!overwrite)
+            throw new Error(`Key ${_pair.key} already set`);
+          if (identity.isScalar(prev.value) && Scalar.isScalarValue(_pair.value))
+            prev.value.value = _pair.value;
+          else
+            prev.value = _pair.value;
+        } else if (sortEntries) {
+          const i = this.items.findIndex((item) => sortEntries(_pair, item) < 0);
+          if (i === -1)
+            this.items.push(_pair);
+          else
+            this.items.splice(i, 0, _pair);
         } else {
-          let newTS = this.ts;
-          if (keepLocalTime || keepCalendarTime) {
-            const offsetGuess = zone.offset(this.ts);
-            const asObj = this.toObject();
-            [newTS] = objToTS(asObj, offsetGuess, zone);
-          }
-          return clone(this, {
-            ts: newTS,
-            zone
-          });
+          this.items.push(_pair);
         }
       }
-      /**
-       * "Set" the locale, numberingSystem, or outputCalendar. Returns a newly-constructed DateTime.
-       * @param {Object} properties - the properties to set
-       * @example DateTime.local(2017, 5, 25).reconfigure({ locale: 'en-GB' })
-       * @return {DateTime}
-       */
-      reconfigure({
-        locale,
-        numberingSystem,
-        outputCalendar
-      } = {}) {
-        const loc = this.loc.clone({
-          locale,
-          numberingSystem,
-          outputCalendar
-        });
-        return clone(this, {
-          loc
-        });
+      delete(key) {
+        const it = findPair(this.items, key);
+        if (!it)
+          return false;
+        const del = this.items.splice(this.items.indexOf(it), 1);
+        return del.length > 0;
+      }
+      get(key, keepScalar) {
+        const it = findPair(this.items, key);
+        const node = it?.value;
+        return (!keepScalar && identity.isScalar(node) ? node.value : node) ?? void 0;
+      }
+      has(key) {
+        return !!findPair(this.items, key);
+      }
+      set(key, value) {
+        this.add(new Pair.Pair(key, value), true);
       }
       /**
-       * "Set" the locale. Returns a newly-constructed DateTime.
-       * Just a convenient alias for reconfigure({ locale })
-       * @example DateTime.local(2017, 5, 25).setLocale('en-GB')
-       * @return {DateTime}
+       * @param ctx - Conversion context, originally set in Document#toJS()
+       * @param {Class} Type - If set, forces the returned collection type
+       * @returns Instance of Type, Map, or Object
        */
-      setLocale(locale) {
-        return this.reconfigure({
-          locale
+      toJSON(_, ctx, Type) {
+        const map = Type ? new Type() : ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
+        if (ctx?.onCreate)
+          ctx.onCreate(map);
+        for (const item of this.items)
+          addPairToJSMap.addPairToJSMap(ctx, map, item);
+        return map;
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        for (const item of this.items) {
+          if (!identity.isPair(item))
+            throw new Error(`Map items must all be pairs; found ${JSON.stringify(item)} instead`);
+        }
+        if (!ctx.allNullValues && this.hasAllNullValues(false))
+          ctx = Object.assign({}, ctx, { allNullValues: true });
+        return stringifyCollection.stringifyCollection(this, ctx, {
+          blockItemPrefix: "",
+          flowChars: { start: "{", end: "}" },
+          itemIndent: ctx.indent || "",
+          onChompKeep,
+          onComment
         });
       }
+    };
+    exports.YAMLMap = YAMLMap;
+    exports.findPair = findPair;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js
+var require_map = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var YAMLMap = require_YAMLMap();
+    var map = {
+      collection: "map",
+      default: true,
+      nodeClass: YAMLMap.YAMLMap,
+      tag: "tag:yaml.org,2002:map",
+      resolve(map2, onError) {
+        if (!identity.isMap(map2))
+          onError("Expected a mapping for this tag");
+        return map2;
+      },
+      createNode: (schema, obj, ctx) => YAMLMap.YAMLMap.from(schema, obj, ctx)
+    };
+    exports.map = map;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js
+var require_YAMLSeq = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+    "use strict";
+    var createNode = require_createNode();
+    var stringifyCollection = require_stringifyCollection();
+    var Collection = require_Collection();
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var toJS = require_toJS();
+    var YAMLSeq = class extends Collection.Collection {
+      static get tagName() {
+        return "tag:yaml.org,2002:seq";
+      }
+      constructor(schema) {
+        super(identity.SEQ, schema);
+        this.items = [];
+      }
+      add(value) {
+        this.items.push(value);
+      }
       /**
-       * "Set" the values of specified units. Returns a newly-constructed DateTime.
-       * You can only set units with this method; for "setting" metadata, see {@link DateTime#reconfigure} and {@link DateTime#setZone}.
+       * Removes a value from the collection.
        *
-       * This method also supports setting locale-based week units, i.e. `localWeekday`, `localWeekNumber` and `localWeekYear`.
-       * They cannot be mixed with ISO-week units like `weekday`.
-       * @param {Object} values - a mapping of units to numbers
-       * @example dt.set({ year: 2017 })
-       * @example dt.set({ hour: 8, minute: 30 })
-       * @example dt.set({ weekday: 5 })
-       * @example dt.set({ year: 2005, ordinal: 234 })
-       * @return {DateTime}
+       * `key` must contain a representation of an integer for this to succeed.
+       * It may be wrapped in a `Scalar`.
+       *
+       * @returns `true` if the item was found and removed.
        */
-      set(values) {
-        if (!this.isValid) return this;
-        const normalized = normalizeObject(values, normalizeUnitWithLocalWeeks);
-        const {
-          minDaysInFirstWeek,
-          startOfWeek
-        } = usesLocalWeekValues(normalized, this.loc);
-        const settingWeekStuff = !isUndefined(normalized.weekYear) || !isUndefined(normalized.weekNumber) || !isUndefined(normalized.weekday), containsOrdinal = !isUndefined(normalized.ordinal), containsGregorYear = !isUndefined(normalized.year), containsGregorMD = !isUndefined(normalized.month) || !isUndefined(normalized.day), containsGregor = containsGregorYear || containsGregorMD, definiteWeekDef = normalized.weekYear || normalized.weekNumber;
-        if ((containsGregor || containsOrdinal) && definiteWeekDef) {
-          throw new ConflictingSpecificationError("Can't mix weekYear/weekNumber units with year/month/day or ordinals");
+      delete(key) {
+        const idx = asItemIndex(key);
+        if (typeof idx !== "number")
+          return false;
+        const del = this.items.splice(idx, 1);
+        return del.length > 0;
+      }
+      get(key, keepScalar) {
+        const idx = asItemIndex(key);
+        if (typeof idx !== "number")
+          return void 0;
+        const it = this.items[idx];
+        return !keepScalar && identity.isScalar(it) ? it.value : it;
+      }
+      /**
+       * Checks if the collection includes a value with the key `key`.
+       *
+       * `key` must contain a representation of an integer for this to succeed.
+       * It may be wrapped in a `Scalar`.
+       */
+      has(key) {
+        const idx = asItemIndex(key);
+        return typeof idx === "number" && idx < this.items.length;
+      }
+      /**
+       * Sets a value in this collection. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       *
+       * If `key` does not contain a representation of an integer, this will throw.
+       * It may be wrapped in a `Scalar`.
+       */
+      set(key, value) {
+        const idx = asItemIndex(key);
+        if (typeof idx !== "number")
+          throw new Error(`Expected a valid index, not ${key}.`);
+        const prev = this.items[idx];
+        if (identity.isScalar(prev) && Scalar.isScalarValue(value))
+          prev.value = value;
+        else
+          this.items[idx] = value;
+      }
+      toJSON(_, ctx) {
+        const seq = [];
+        if (ctx?.onCreate)
+          ctx.onCreate(seq);
+        let i = 0;
+        for (const item of this.items)
+          seq.push(toJS.toJS(item, String(i++), ctx));
+        return seq;
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        return stringifyCollection.stringifyCollection(this, ctx, {
+          blockItemPrefix: "- ",
+          flowChars: { start: "[", end: "]" },
+          itemIndent: (ctx.indent || "") + "  ",
+          onChompKeep,
+          onComment
+        });
+      }
+      static from(schema, obj, ctx) {
+        const { replacer } = ctx;
+        const seq = new this(schema);
+        if (obj && Symbol.iterator in Object(obj)) {
+          let i = 0;
+          for (let it of obj) {
+            if (typeof replacer === "function") {
+              const key = obj instanceof Set ? it : String(i++);
+              it = replacer.call(obj, key, it);
+            }
+            seq.items.push(createNode.createNode(it, void 0, ctx));
+          }
         }
-        if (containsGregorMD && containsOrdinal) {
-          throw new ConflictingSpecificationError("Can't mix ordinal dates with month/day");
+        return seq;
+      }
+    };
+    function asItemIndex(key) {
+      let idx = identity.isScalar(key) ? key.value : key;
+      if (idx && typeof idx === "string")
+        idx = Number(idx);
+      return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
+    }
+    exports.YAMLSeq = YAMLSeq;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js
+var require_seq = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var YAMLSeq = require_YAMLSeq();
+    var seq = {
+      collection: "seq",
+      default: true,
+      nodeClass: YAMLSeq.YAMLSeq,
+      tag: "tag:yaml.org,2002:seq",
+      resolve(seq2, onError) {
+        if (!identity.isSeq(seq2))
+          onError("Expected a sequence for this tag");
+        return seq2;
+      },
+      createNode: (schema, obj, ctx) => YAMLSeq.YAMLSeq.from(schema, obj, ctx)
+    };
+    exports.seq = seq;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js
+var require_string = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js"(exports) {
+    "use strict";
+    var stringifyString = require_stringifyString();
+    var string = {
+      identify: (value) => typeof value === "string",
+      default: true,
+      tag: "tag:yaml.org,2002:str",
+      resolve: (str) => str,
+      stringify(item, ctx, onComment, onChompKeep) {
+        ctx = Object.assign({ actualString: true }, ctx);
+        return stringifyString.stringifyString(item, ctx, onComment, onChompKeep);
+      }
+    };
+    exports.string = string;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js
+var require_null = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var nullTag = {
+      identify: (value) => value == null,
+      createNode: () => new Scalar.Scalar(null),
+      default: true,
+      tag: "tag:yaml.org,2002:null",
+      test: /^(?:~|[Nn]ull|NULL)?$/,
+      resolve: () => new Scalar.Scalar(null),
+      stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
+    };
+    exports.nullTag = nullTag;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js
+var require_bool = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var boolTag = {
+      identify: (value) => typeof value === "boolean",
+      default: true,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$/,
+      resolve: (str) => new Scalar.Scalar(str[0] === "t" || str[0] === "T"),
+      stringify({ source, value }, ctx) {
+        if (source && boolTag.test.test(source)) {
+          const sv = source[0] === "t" || source[0] === "T";
+          if (value === sv)
+            return source;
         }
-        let mixed;
-        if (settingWeekStuff) {
-          mixed = weekToGregorian({
-            ...gregorianToWeek(this.c, minDaysInFirstWeek, startOfWeek),
-            ...normalized
-          }, minDaysInFirstWeek, startOfWeek);
-        } else if (!isUndefined(normalized.ordinal)) {
-          mixed = ordinalToGregorian({
-            ...gregorianToOrdinal(this.c),
-            ...normalized
-          });
+        return value ? ctx.options.trueStr : ctx.options.falseStr;
+      }
+    };
+    exports.boolTag = boolTag;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js
+var require_stringifyNumber = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+    "use strict";
+    function stringifyNumber({ format, minFractionDigits, tag, value }) {
+      if (typeof value === "bigint")
+        return String(value);
+      const num = typeof value === "number" ? value : Number(value);
+      if (!isFinite(num))
+        return isNaN(num) ? ".nan" : num < 0 ? "-.inf" : ".inf";
+      let n = Object.is(value, -0) ? "-0" : JSON.stringify(value);
+      if (!format && minFractionDigits && (!tag || tag === "tag:yaml.org,2002:float") && /^-?\d/.test(n) && !n.includes("e")) {
+        let i = n.indexOf(".");
+        if (i < 0) {
+          i = n.length;
+          n += ".";
+        }
+        let d = minFractionDigits - (n.length - i - 1);
+        while (d-- > 0)
+          n += "0";
+      }
+      return n;
+    }
+    exports.stringifyNumber = stringifyNumber;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js
+var require_float = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var stringifyNumber = require_stringifyNumber();
+    var floatNaN = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var floatExp = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      format: "EXP",
+      test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
+      resolve: (str) => parseFloat(str),
+      stringify(node) {
+        const num = Number(node.value);
+        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
+      }
+    };
+    var float = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/,
+      resolve(str) {
+        const node = new Scalar.Scalar(parseFloat(str));
+        const dot = str.indexOf(".");
+        if (dot !== -1 && str[str.length - 1] === "0")
+          node.minFractionDigits = str.length - dot - 1;
+        return node;
+      },
+      stringify: stringifyNumber.stringifyNumber
+    };
+    exports.float = float;
+    exports.floatExp = floatExp;
+    exports.floatNaN = floatNaN;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js
+var require_int = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
+    var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
+    function intStringify(node, radix, prefix) {
+      const { value } = node;
+      if (intIdentify(value) && value >= 0)
+        return prefix + value.toString(radix);
+      return stringifyNumber.stringifyNumber(node);
+    }
+    var intOct = {
+      identify: (value) => intIdentify(value) && value >= 0,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "OCT",
+      test: /^0o[0-7]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 8, opt),
+      stringify: (node) => intStringify(node, 8, "0o")
+    };
+    var int = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      test: /^[-+]?[0-9]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var intHex = {
+      identify: (value) => intIdentify(value) && value >= 0,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "HEX",
+      test: /^0x[0-9a-fA-F]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      stringify: (node) => intStringify(node, 16, "0x")
+    };
+    exports.int = int;
+    exports.intHex = intHex;
+    exports.intOct = intOct;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js
+var require_schema = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js"(exports) {
+    "use strict";
+    var map = require_map();
+    var _null = require_null();
+    var seq = require_seq();
+    var string = require_string();
+    var bool = require_bool();
+    var float = require_float();
+    var int = require_int();
+    var schema = [
+      map.map,
+      seq.seq,
+      string.string,
+      _null.nullTag,
+      bool.boolTag,
+      int.intOct,
+      int.int,
+      int.intHex,
+      float.floatNaN,
+      float.floatExp,
+      float.float
+    ];
+    exports.schema = schema;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js
+var require_schema2 = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var map = require_map();
+    var seq = require_seq();
+    function intIdentify(value) {
+      return typeof value === "bigint" || Number.isInteger(value);
+    }
+    var stringifyJSON = ({ value }) => JSON.stringify(value);
+    var jsonScalars = [
+      {
+        identify: (value) => typeof value === "string",
+        default: true,
+        tag: "tag:yaml.org,2002:str",
+        resolve: (str) => str,
+        stringify: stringifyJSON
+      },
+      {
+        identify: (value) => value == null,
+        createNode: () => new Scalar.Scalar(null),
+        default: true,
+        tag: "tag:yaml.org,2002:null",
+        test: /^null$/,
+        resolve: () => null,
+        stringify: stringifyJSON
+      },
+      {
+        identify: (value) => typeof value === "boolean",
+        default: true,
+        tag: "tag:yaml.org,2002:bool",
+        test: /^true$|^false$/,
+        resolve: (str) => str === "true",
+        stringify: stringifyJSON
+      },
+      {
+        identify: intIdentify,
+        default: true,
+        tag: "tag:yaml.org,2002:int",
+        test: /^-?(?:0|[1-9][0-9]*)$/,
+        resolve: (str, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str, 10),
+        stringify: ({ value }) => intIdentify(value) ? value.toString() : JSON.stringify(value)
+      },
+      {
+        identify: (value) => typeof value === "number",
+        default: true,
+        tag: "tag:yaml.org,2002:float",
+        test: /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?$/,
+        resolve: (str) => parseFloat(str),
+        stringify: stringifyJSON
+      }
+    ];
+    var jsonError = {
+      default: true,
+      tag: "",
+      test: /^/,
+      resolve(str, onError) {
+        onError(`Unresolved plain scalar ${JSON.stringify(str)}`);
+        return str;
+      }
+    };
+    var schema = [map.map, seq.seq].concat(jsonScalars, jsonError);
+    exports.schema = schema;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+var require_binary = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+    "use strict";
+    var node_buffer = __require("buffer");
+    var Scalar = require_Scalar();
+    var stringifyString = require_stringifyString();
+    var binary = {
+      identify: (value) => value instanceof Uint8Array,
+      // Buffer inherits from Uint8Array
+      default: false,
+      tag: "tag:yaml.org,2002:binary",
+      /**
+       * Returns a Buffer in node and an Uint8Array in browsers
+       *
+       * To use the resulting buffer as an image, you'll want to do something like:
+       *
+       *   const blob = new Blob([buffer], { type: 'image/jpeg' })
+       *   document.querySelector('#photo').src = URL.createObjectURL(blob)
+       */
+      resolve(src, onError) {
+        if (typeof node_buffer.Buffer === "function") {
+          return node_buffer.Buffer.from(src, "base64");
+        } else if (typeof atob === "function") {
+          const str = atob(src.replace(/[\n\r]/g, ""));
+          const buffer = new Uint8Array(str.length);
+          for (let i = 0; i < str.length; ++i)
+            buffer[i] = str.charCodeAt(i);
+          return buffer;
         } else {
-          mixed = {
-            ...this.toObject(),
-            ...normalized
-          };
-          if (isUndefined(normalized.day)) {
-            mixed.day = Math.min(daysInMonth(mixed.year, mixed.month), mixed.day);
+          onError("This environment does not support reading binary tags; either Buffer or atob is required");
+          return src;
+        }
+      },
+      stringify({ comment, type, value }, ctx, onComment, onChompKeep) {
+        if (!value)
+          return "";
+        const buf = value;
+        let str;
+        if (typeof node_buffer.Buffer === "function") {
+          str = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
+        } else if (typeof btoa === "function") {
+          let s = "";
+          for (let i = 0; i < buf.length; ++i)
+            s += String.fromCharCode(buf[i]);
+          str = btoa(s);
+        } else {
+          throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
+        }
+        type ?? (type = Scalar.Scalar.BLOCK_LITERAL);
+        if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
+          const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
+          const n = Math.ceil(str.length / lineWidth);
+          const lines = new Array(n);
+          for (let i = 0, o = 0; i < n; ++i, o += lineWidth) {
+            lines[i] = str.substr(o, lineWidth);
+          }
+          str = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
+        }
+        return stringifyString.stringifyString({ comment, type, value: str }, ctx, onComment, onChompKeep);
+      }
+    };
+    exports.binary = binary;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+var require_pairs = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var Scalar = require_Scalar();
+    var YAMLSeq = require_YAMLSeq();
+    function resolvePairs(seq, onError) {
+      if (identity.isSeq(seq)) {
+        for (let i = 0; i < seq.items.length; ++i) {
+          let item = seq.items[i];
+          if (identity.isPair(item))
+            continue;
+          else if (identity.isMap(item)) {
+            if (item.items.length > 1)
+              onError("Each pair must have its own sequence indicator");
+            const pair = item.items[0] || new Pair.Pair(new Scalar.Scalar(null));
+            if (item.commentBefore)
+              pair.key.commentBefore = pair.key.commentBefore ? `${item.commentBefore}
+${pair.key.commentBefore}` : item.commentBefore;
+            if (item.comment) {
+              const cn = pair.value ?? pair.key;
+              cn.comment = cn.comment ? `${item.comment}
+${cn.comment}` : item.comment;
+            }
+            item = pair;
+          }
+          seq.items[i] = identity.isPair(item) ? item : new Pair.Pair(item);
+        }
+      } else
+        onError("Expected a sequence for this tag");
+      return seq;
+    }
+    function createPairs(schema, iterable, ctx) {
+      const { replacer } = ctx;
+      const pairs2 = new YAMLSeq.YAMLSeq(schema);
+      pairs2.tag = "tag:yaml.org,2002:pairs";
+      let i = 0;
+      if (iterable && Symbol.iterator in Object(iterable))
+        for (let it of iterable) {
+          if (typeof replacer === "function")
+            it = replacer.call(iterable, String(i++), it);
+          let key, value;
+          if (Array.isArray(it)) {
+            if (it.length === 2) {
+              key = it[0];
+              value = it[1];
+            } else
+              throw new TypeError(`Expected [key, value] tuple: ${it}`);
+          } else if (it && it instanceof Object) {
+            const keys = Object.keys(it);
+            if (keys.length === 1) {
+              key = keys[0];
+              value = it[key];
+            } else {
+              throw new TypeError(`Expected tuple with one key, not ${keys.length} keys`);
+            }
+          } else {
+            key = it;
+          }
+          pairs2.items.push(Pair.createPair(key, value, ctx));
+        }
+      return pairs2;
+    }
+    var pairs = {
+      collection: "seq",
+      default: false,
+      tag: "tag:yaml.org,2002:pairs",
+      resolve: resolvePairs,
+      createNode: createPairs
+    };
+    exports.createPairs = createPairs;
+    exports.pairs = pairs;
+    exports.resolvePairs = resolvePairs;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+var require_omap = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var toJS = require_toJS();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var pairs = require_pairs();
+    var YAMLOMap = class _YAMLOMap extends YAMLSeq.YAMLSeq {
+      constructor() {
+        super();
+        this.add = YAMLMap.YAMLMap.prototype.add.bind(this);
+        this.delete = YAMLMap.YAMLMap.prototype.delete.bind(this);
+        this.get = YAMLMap.YAMLMap.prototype.get.bind(this);
+        this.has = YAMLMap.YAMLMap.prototype.has.bind(this);
+        this.set = YAMLMap.YAMLMap.prototype.set.bind(this);
+        this.tag = _YAMLOMap.tag;
+      }
+      /**
+       * If `ctx` is given, the return type is actually `Map<unknown, unknown>`,
+       * but TypeScript won't allow widening the signature of a child method.
+       */
+      toJSON(_, ctx) {
+        if (!ctx)
+          return super.toJSON(_);
+        const map = /* @__PURE__ */ new Map();
+        if (ctx?.onCreate)
+          ctx.onCreate(map);
+        for (const pair of this.items) {
+          let key, value;
+          if (identity.isPair(pair)) {
+            key = toJS.toJS(pair.key, "", ctx);
+            value = toJS.toJS(pair.value, key, ctx);
+          } else {
+            key = toJS.toJS(pair, "", ctx);
+          }
+          if (map.has(key))
+            throw new Error("Ordered maps must not include duplicate keys");
+          map.set(key, value);
+        }
+        return map;
+      }
+      static from(schema, iterable, ctx) {
+        const pairs$1 = pairs.createPairs(schema, iterable, ctx);
+        const omap2 = new this();
+        omap2.items = pairs$1.items;
+        return omap2;
+      }
+    };
+    YAMLOMap.tag = "tag:yaml.org,2002:omap";
+    var omap = {
+      collection: "seq",
+      identify: (value) => value instanceof Map,
+      nodeClass: YAMLOMap,
+      default: false,
+      tag: "tag:yaml.org,2002:omap",
+      resolve(seq, onError) {
+        const pairs$1 = pairs.resolvePairs(seq, onError);
+        const seenKeys = [];
+        for (const { key } of pairs$1.items) {
+          if (identity.isScalar(key)) {
+            if (seenKeys.includes(key.value)) {
+              onError(`Ordered maps must not include duplicate keys: ${key.value}`);
+            } else {
+              seenKeys.push(key.value);
+            }
           }
         }
-        const [ts, o] = objToTS(mixed, this.o, this.zone);
-        return clone(this, {
-          ts,
-          o
-        });
+        return Object.assign(new YAMLOMap(), pairs$1);
+      },
+      createNode: (schema, iterable, ctx) => YAMLOMap.from(schema, iterable, ctx)
+    };
+    exports.YAMLOMap = YAMLOMap;
+    exports.omap = omap;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+var require_bool2 = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    function boolStringify({ value, source }, ctx) {
+      const boolObj = value ? trueTag : falseTag;
+      if (source && boolObj.test.test(source))
+        return source;
+      return value ? ctx.options.trueStr : ctx.options.falseStr;
+    }
+    var trueTag = {
+      identify: (value) => value === true,
+      default: true,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:Y|y|[Yy]es|YES|[Tt]rue|TRUE|[Oo]n|ON)$/,
+      resolve: () => new Scalar.Scalar(true),
+      stringify: boolStringify
+    };
+    var falseTag = {
+      identify: (value) => value === false,
+      default: true,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:N|n|[Nn]o|NO|[Ff]alse|FALSE|[Oo]ff|OFF)$/,
+      resolve: () => new Scalar.Scalar(false),
+      stringify: boolStringify
+    };
+    exports.falseTag = falseTag;
+    exports.trueTag = trueTag;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js
+var require_float2 = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var stringifyNumber = require_stringifyNumber();
+    var floatNaN = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var floatExp = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      format: "EXP",
+      test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
+      resolve: (str) => parseFloat(str.replace(/_/g, "")),
+      stringify(node) {
+        const num = Number(node.value);
+        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
       }
-      /**
-       * Add a period of time to this DateTime and return the resulting DateTime
-       *
-       * Adding hours, minutes, seconds, or milliseconds increases the timestamp by the right number of milliseconds. Adding days, months, or years shifts the calendar, accounting for DSTs and leap years along the way. Thus, `dt.plus({ hours: 24 })` may result in a different time than `dt.plus({ days: 1 })` if there's a DST shift in between.
-       * @param {Duration|Object|number} duration - The amount to add. Either a Luxon Duration, a number of milliseconds, the object argument to Duration.fromObject()
-       * @example DateTime.now().plus(123) //~> in 123 milliseconds
-       * @example DateTime.now().plus({ minutes: 15 }) //~> in 15 minutes
-       * @example DateTime.now().plus({ days: 1 }) //~> this time tomorrow
-       * @example DateTime.now().plus({ days: -1 }) //~> this time yesterday
-       * @example DateTime.now().plus({ hours: 3, minutes: 13 }) //~> in 3 hr, 13 min
-       * @example DateTime.now().plus(Duration.fromObject({ hours: 3, minutes: 13 })) //~> in 3 hr, 13 min
-       * @return {DateTime}
-       */
-      plus(duration) {
-        if (!this.isValid) return this;
-        const dur = Duration.fromDurationLike(duration);
-        return clone(this, adjustTime(this, dur));
-      }
-      /**
-       * Subtract a period of time to this DateTime and return the resulting DateTime
-       * See {@link DateTime#plus}
-       * @param {Duration|Object|number} duration - The amount to subtract. Either a Luxon Duration, a number of milliseconds, the object argument to Duration.fromObject()
-       @return {DateTime}
-       */
-      minus(duration) {
-        if (!this.isValid) return this;
-        const dur = Duration.fromDurationLike(duration).negate();
-        return clone(this, adjustTime(this, dur));
-      }
-      /**
-       * "Set" this DateTime to the beginning of a unit of time.
-       * @param {string} unit - The unit to go to the beginning of. Can be 'year', 'quarter', 'month', 'week', 'day', 'hour', 'minute', 'second', or 'millisecond'.
-       * @param {Object} opts - options
-       * @param {boolean} [opts.useLocaleWeeks=false] - If true, use weeks based on the locale, i.e. use the locale-dependent start of the week
-       * @example DateTime.local(2014, 3, 3).startOf('month').toISODate(); //=> '2014-03-01'
-       * @example DateTime.local(2014, 3, 3).startOf('year').toISODate(); //=> '2014-01-01'
-       * @example DateTime.local(2014, 3, 3).startOf('week').toISODate(); //=> '2014-03-03', weeks always start on Mondays
-       * @example DateTime.local(2014, 3, 3, 5, 30).startOf('day').toISOTime(); //=> '00:00.000-05:00'
-       * @example DateTime.local(2014, 3, 3, 5, 30).startOf('hour').toISOTime(); //=> '05:00:00.000-05:00'
-       * @return {DateTime}
-       */
-      startOf(unit, {
-        useLocaleWeeks = false
-      } = {}) {
-        if (!this.isValid) return this;
-        const o = {}, normalizedUnit = Duration.normalizeUnit(unit);
-        switch (normalizedUnit) {
-          case "years":
-            o.month = 1;
-          // falls through
-          case "quarters":
-          case "months":
-            o.day = 1;
-          // falls through
-          case "weeks":
-          case "days":
-            o.hour = 0;
-          // falls through
-          case "hours":
-            o.minute = 0;
-          // falls through
-          case "minutes":
-            o.second = 0;
-          // falls through
-          case "seconds":
-            o.millisecond = 0;
+    };
+    var float = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*$/,
+      resolve(str) {
+        const node = new Scalar.Scalar(parseFloat(str.replace(/_/g, "")));
+        const dot = str.indexOf(".");
+        if (dot !== -1) {
+          const f = str.substring(dot + 1).replace(/_/g, "");
+          if (f[f.length - 1] === "0")
+            node.minFractionDigits = f.length;
+        }
+        return node;
+      },
+      stringify: stringifyNumber.stringifyNumber
+    };
+    exports.float = float;
+    exports.floatExp = floatExp;
+    exports.floatNaN = floatNaN;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js
+var require_int2 = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
+    function intResolve(str, offset, radix, { intAsBigInt }) {
+      const sign = str[0];
+      if (sign === "-" || sign === "+")
+        offset += 1;
+      str = str.substring(offset).replace(/_/g, "");
+      if (intAsBigInt) {
+        switch (radix) {
+          case 2:
+            str = `0b${str}`;
+            break;
+          case 8:
+            str = `0o${str}`;
+            break;
+          case 16:
+            str = `0x${str}`;
             break;
         }
-        if (normalizedUnit === "weeks") {
-          if (useLocaleWeeks) {
-            const startOfWeek = this.loc.getStartOfWeek();
-            const {
-              weekday
-            } = this;
-            if (weekday < startOfWeek) {
-              o.weekNumber = this.weekNumber - 1;
-            }
-            o.weekday = startOfWeek;
-          } else {
-            o.weekday = 1;
+        const n2 = BigInt(str);
+        return sign === "-" ? BigInt(-1) * n2 : n2;
+      }
+      const n = parseInt(str, radix);
+      return sign === "-" ? -1 * n : n;
+    }
+    function intStringify(node, radix, prefix) {
+      const { value } = node;
+      if (intIdentify(value)) {
+        const str = value.toString(radix);
+        return value < 0 ? "-" + prefix + str.substr(1) : prefix + str;
+      }
+      return stringifyNumber.stringifyNumber(node);
+    }
+    var intBin = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "BIN",
+      test: /^[-+]?0b[0-1_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 2, opt),
+      stringify: (node) => intStringify(node, 2, "0b")
+    };
+    var intOct = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "OCT",
+      test: /^[-+]?0[0-7_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 1, 8, opt),
+      stringify: (node) => intStringify(node, 8, "0")
+    };
+    var int = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      test: /^[-+]?[0-9][0-9_]*$/,
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var intHex = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "HEX",
+      test: /^[-+]?0x[0-9a-fA-F_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      stringify: (node) => intStringify(node, 16, "0x")
+    };
+    exports.int = int;
+    exports.intBin = intBin;
+    exports.intHex = intHex;
+    exports.intOct = intOct;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js
+var require_set = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSet = class _YAMLSet extends YAMLMap.YAMLMap {
+      constructor(schema) {
+        super(schema);
+        this.tag = _YAMLSet.tag;
+      }
+      add(key) {
+        let pair;
+        if (identity.isPair(key))
+          pair = key;
+        else if (key && typeof key === "object" && "key" in key && "value" in key && key.value === null)
+          pair = new Pair.Pair(key.key, null);
+        else
+          pair = new Pair.Pair(key, null);
+        const prev = YAMLMap.findPair(this.items, pair.key);
+        if (!prev)
+          this.items.push(pair);
+      }
+      /**
+       * If `keepPair` is `true`, returns the Pair matching `key`.
+       * Otherwise, returns the value of that Pair's key.
+       */
+      get(key, keepPair) {
+        const pair = YAMLMap.findPair(this.items, key);
+        return !keepPair && identity.isPair(pair) ? identity.isScalar(pair.key) ? pair.key.value : pair.key : pair;
+      }
+      set(key, value) {
+        if (typeof value !== "boolean")
+          throw new Error(`Expected boolean value for set(key, value) in a YAML set, not ${typeof value}`);
+        const prev = YAMLMap.findPair(this.items, key);
+        if (prev && !value) {
+          this.items.splice(this.items.indexOf(prev), 1);
+        } else if (!prev && value) {
+          this.items.push(new Pair.Pair(key));
+        }
+      }
+      toJSON(_, ctx) {
+        return super.toJSON(_, ctx, Set);
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        if (this.hasAllNullValues(true))
+          return super.toString(Object.assign({}, ctx, { allNullValues: true }), onComment, onChompKeep);
+        else
+          throw new Error("Set items must all have null values");
+      }
+      static from(schema, iterable, ctx) {
+        const { replacer } = ctx;
+        const set2 = new this(schema);
+        if (iterable && Symbol.iterator in Object(iterable))
+          for (let value of iterable) {
+            if (typeof replacer === "function")
+              value = replacer.call(iterable, value, value);
+            set2.items.push(Pair.createPair(value, null, ctx));
           }
-        }
-        if (normalizedUnit === "quarters") {
-          const q = Math.ceil(this.month / 3);
-          o.month = (q - 1) * 3 + 1;
-        }
-        return this.set(o);
-      }
-      /**
-       * "Set" this DateTime to the end (meaning the last millisecond) of a unit of time
-       * @param {string} unit - The unit to go to the end of. Can be 'year', 'quarter', 'month', 'week', 'day', 'hour', 'minute', 'second', or 'millisecond'.
-       * @param {Object} opts - options
-       * @param {boolean} [opts.useLocaleWeeks=false] - If true, use weeks based on the locale, i.e. use the locale-dependent start of the week
-       * @example DateTime.local(2014, 3, 3).endOf('month').toISO(); //=> '2014-03-31T23:59:59.999-05:00'
-       * @example DateTime.local(2014, 3, 3).endOf('year').toISO(); //=> '2014-12-31T23:59:59.999-05:00'
-       * @example DateTime.local(2014, 3, 3).endOf('week').toISO(); // => '2014-03-09T23:59:59.999-05:00', weeks start on Mondays
-       * @example DateTime.local(2014, 3, 3, 5, 30).endOf('day').toISO(); //=> '2014-03-03T23:59:59.999-05:00'
-       * @example DateTime.local(2014, 3, 3, 5, 30).endOf('hour').toISO(); //=> '2014-03-03T05:59:59.999-05:00'
-       * @return {DateTime}
-       */
-      endOf(unit, opts) {
-        return this.isValid ? this.plus({
-          [unit]: 1
-        }).startOf(unit, opts).minus(1) : this;
-      }
-      // OUTPUT
-      /**
-       * Returns a string representation of this DateTime formatted according to the specified format string.
-       * **You may not want this.** See {@link DateTime#toLocaleString} for a more flexible formatting tool. For a table of tokens and their interpretations, see [here](https://moment.github.io/luxon/#/formatting?id=table-of-tokens).
-       * Defaults to en-US if no locale has been specified, regardless of the system's locale.
-       * @param {string} fmt - the format string
-       * @param {Object} opts - opts to override the configuration options on this DateTime
-       * @example DateTime.now().toFormat('yyyy LLL dd') //=> '2017 Apr 22'
-       * @example DateTime.now().setLocale('fr').toFormat('yyyy LLL dd') //=> '2017 avr. 22'
-       * @example DateTime.now().toFormat('yyyy LLL dd', { locale: "fr" }) //=> '2017 avr. 22'
-       * @example DateTime.now().toFormat("HH 'hours and' mm 'minutes'") //=> '20 hours and 55 minutes'
-       * @return {string}
-       */
-      toFormat(fmt, opts = {}) {
-        return this.isValid ? Formatter.create(this.loc.redefaultToEN(opts)).formatDateTimeFromString(this, fmt) : INVALID;
-      }
-      /**
-       * Returns a localized string representing this date. Accepts the same options as the Intl.DateTimeFormat constructor and any presets defined by Luxon, such as `DateTime.DATE_FULL` or `DateTime.TIME_SIMPLE`.
-       * The exact behavior of this method is browser-specific, but in general it will return an appropriate representation
-       * of the DateTime in the assigned locale.
-       * Defaults to the system's locale if no locale has been specified
-       * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DateTimeFormat
-       * @param formatOpts {Object} - Intl.DateTimeFormat constructor options and configuration options
-       * @param {Object} opts - opts to override the configuration options on this DateTime
-       * @example DateTime.now().toLocaleString(); //=> 4/20/2017
-       * @example DateTime.now().setLocale('en-gb').toLocaleString(); //=> '20/04/2017'
-       * @example DateTime.now().toLocaleString(DateTime.DATE_FULL); //=> 'April 20, 2017'
-       * @example DateTime.now().toLocaleString(DateTime.DATE_FULL, { locale: 'fr' }); //=> '28 août 2022'
-       * @example DateTime.now().toLocaleString(DateTime.TIME_SIMPLE); //=> '11:32 AM'
-       * @example DateTime.now().toLocaleString(DateTime.DATETIME_SHORT); //=> '4/20/2017, 11:32 AM'
-       * @example DateTime.now().toLocaleString({ weekday: 'long', month: 'long', day: '2-digit' }); //=> 'Thursday, April 20'
-       * @example DateTime.now().toLocaleString({ weekday: 'short', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }); //=> 'Thu, Apr 20, 11:27 AM'
-       * @example DateTime.now().toLocaleString({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }); //=> '11:32'
-       * @return {string}
-       */
-      toLocaleString(formatOpts = DATE_SHORT, opts = {}) {
-        return this.isValid ? Formatter.create(this.loc.clone(opts), formatOpts).formatDateTime(this) : INVALID;
-      }
-      /**
-       * Returns an array of format "parts", meaning individual tokens along with metadata. This is allows callers to post-process individual sections of the formatted output.
-       * Defaults to the system's locale if no locale has been specified
-       * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DateTimeFormat/formatToParts
-       * @param opts {Object} - Intl.DateTimeFormat constructor options, same as `toLocaleString`.
-       * @example DateTime.now().toLocaleParts(); //=> [
-       *                                   //=>   { type: 'day', value: '25' },
-       *                                   //=>   { type: 'literal', value: '/' },
-       *                                   //=>   { type: 'month', value: '05' },
-       *                                   //=>   { type: 'literal', value: '/' },
-       *                                   //=>   { type: 'year', value: '1982' }
-       *                                   //=> ]
-       */
-      toLocaleParts(opts = {}) {
-        return this.isValid ? Formatter.create(this.loc.clone(opts), opts).formatDateTimeParts(this) : [];
-      }
-      /**
-       * Returns an ISO 8601-compliant string representation of this DateTime
-       * @param {Object} opts - options
-       * @param {boolean} [opts.suppressMilliseconds=false] - exclude milliseconds from the format if they're 0
-       * @param {boolean} [opts.suppressSeconds=false] - exclude seconds from the format if they're 0
-       * @param {boolean} [opts.includeOffset=true] - include the offset, such as 'Z' or '-04:00'
-       * @param {boolean} [opts.extendedZone=false] - add the time zone format extension
-       * @param {string} [opts.format='extended'] - choose between the basic and extended format
-       * @param {string} [opts.precision='milliseconds'] - truncate output to desired presicion: 'years', 'months', 'days', 'hours', 'minutes', 'seconds' or 'milliseconds'. When precision and suppressSeconds or suppressMilliseconds are used together, precision sets the maximum unit shown in the output, however seconds or milliseconds will still be suppressed if they are 0.
-       * @example DateTime.utc(1983, 5, 25).toISO() //=> '1982-05-25T00:00:00.000Z'
-       * @example DateTime.now().toISO() //=> '2017-04-22T20:47:05.335-04:00'
-       * @example DateTime.now().toISO({ includeOffset: false }) //=> '2017-04-22T20:47:05.335'
-       * @example DateTime.now().toISO({ format: 'basic' }) //=> '20170422T204705.335-0400'
-       * @example DateTime.now().toISO({ precision: 'day' }) //=> '2017-04-22Z'
-       * @example DateTime.now().toISO({ precision: 'minute' }) //=> '2017-04-22T20:47Z'
-       * @return {string|null}
-       */
-      toISO({
-        format = "extended",
-        suppressSeconds = false,
-        suppressMilliseconds = false,
-        includeOffset = true,
-        extendedZone = false,
-        precision = "milliseconds"
-      } = {}) {
-        if (!this.isValid) {
-          return null;
-        }
-        precision = normalizeUnit(precision);
-        const ext = format === "extended";
-        let c = toISODate(this, ext, precision);
-        if (orderedUnits.indexOf(precision) >= 3) c += "T";
-        c += toISOTime(this, ext, suppressSeconds, suppressMilliseconds, includeOffset, extendedZone, precision);
-        return c;
-      }
-      /**
-       * Returns an ISO 8601-compliant string representation of this DateTime's date component
-       * @param {Object} opts - options
-       * @param {string} [opts.format='extended'] - choose between the basic and extended format
-       * @param {string} [opts.precision='day'] - truncate output to desired precision: 'years', 'months', or 'days'.
-       * @example DateTime.utc(1982, 5, 25).toISODate() //=> '1982-05-25'
-       * @example DateTime.utc(1982, 5, 25).toISODate({ format: 'basic' }) //=> '19820525'
-       * @example DateTime.utc(1982, 5, 25).toISODate({ precision: 'month' }) //=> '1982-05'
-       * @return {string|null}
-       */
-      toISODate({
-        format = "extended",
-        precision = "day"
-      } = {}) {
-        if (!this.isValid) {
-          return null;
-        }
-        return toISODate(this, format === "extended", normalizeUnit(precision));
-      }
-      /**
-       * Returns an ISO 8601-compliant string representation of this DateTime's week date
-       * @example DateTime.utc(1982, 5, 25).toISOWeekDate() //=> '1982-W21-2'
-       * @return {string}
-       */
-      toISOWeekDate() {
-        return toTechFormat(this, "kkkk-'W'WW-c");
-      }
-      /**
-       * Returns an ISO 8601-compliant string representation of this DateTime's time component
-       * @param {Object} opts - options
-       * @param {boolean} [opts.suppressMilliseconds=false] - exclude milliseconds from the format if they're 0
-       * @param {boolean} [opts.suppressSeconds=false] - exclude seconds from the format if they're 0
-       * @param {boolean} [opts.includeOffset=true] - include the offset, such as 'Z' or '-04:00'
-       * @param {boolean} [opts.extendedZone=true] - add the time zone format extension
-       * @param {boolean} [opts.includePrefix=false] - include the `T` prefix
-       * @param {string} [opts.format='extended'] - choose between the basic and extended format
-       * @param {string} [opts.precision='milliseconds'] - truncate output to desired presicion: 'hours', 'minutes', 'seconds' or 'milliseconds'. When precision and suppressSeconds or suppressMilliseconds are used together, precision sets the maximum unit shown in the output, however seconds or milliseconds will still be suppressed if they are 0.
-       * @example DateTime.utc().set({ hour: 7, minute: 34 }).toISOTime() //=> '07:34:19.361Z'
-       * @example DateTime.utc().set({ hour: 7, minute: 34, seconds: 0, milliseconds: 0 }).toISOTime({ suppressSeconds: true }) //=> '07:34Z'
-       * @example DateTime.utc().set({ hour: 7, minute: 34 }).toISOTime({ format: 'basic' }) //=> '073419.361Z'
-       * @example DateTime.utc().set({ hour: 7, minute: 34 }).toISOTime({ includePrefix: true }) //=> 'T07:34:19.361Z'
-       * @example DateTime.utc().set({ hour: 7, minute: 34, second: 56 }).toISOTime({ precision: 'minute' }) //=> '07:34Z'
-       * @return {string}
-       */
-      toISOTime({
-        suppressMilliseconds = false,
-        suppressSeconds = false,
-        includeOffset = true,
-        includePrefix = false,
-        extendedZone = false,
-        format = "extended",
-        precision = "milliseconds"
-      } = {}) {
-        if (!this.isValid) {
-          return null;
-        }
-        precision = normalizeUnit(precision);
-        let c = includePrefix && orderedUnits.indexOf(precision) >= 3 ? "T" : "";
-        return c + toISOTime(this, format === "extended", suppressSeconds, suppressMilliseconds, includeOffset, extendedZone, precision);
-      }
-      /**
-       * Returns an RFC 2822-compatible string representation of this DateTime
-       * @example DateTime.utc(2014, 7, 13).toRFC2822() //=> 'Sun, 13 Jul 2014 00:00:00 +0000'
-       * @example DateTime.local(2014, 7, 13).toRFC2822() //=> 'Sun, 13 Jul 2014 00:00:00 -0400'
-       * @return {string}
-       */
-      toRFC2822() {
-        return toTechFormat(this, "EEE, dd LLL yyyy HH:mm:ss ZZZ", false);
-      }
-      /**
-       * Returns a string representation of this DateTime appropriate for use in HTTP headers. The output is always expressed in GMT.
-       * Specifically, the string conforms to RFC 1123.
-       * @see https://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3.1
-       * @example DateTime.utc(2014, 7, 13).toHTTP() //=> 'Sun, 13 Jul 2014 00:00:00 GMT'
-       * @example DateTime.utc(2014, 7, 13, 19).toHTTP() //=> 'Sun, 13 Jul 2014 19:00:00 GMT'
-       * @return {string}
-       */
-      toHTTP() {
-        return toTechFormat(this.toUTC(), "EEE, dd LLL yyyy HH:mm:ss 'GMT'");
-      }
-      /**
-       * Returns a string representation of this DateTime appropriate for use in SQL Date
-       * @example DateTime.utc(2014, 7, 13).toSQLDate() //=> '2014-07-13'
-       * @return {string|null}
-       */
-      toSQLDate() {
-        if (!this.isValid) {
-          return null;
-        }
-        return toISODate(this, true);
-      }
-      /**
-       * Returns a string representation of this DateTime appropriate for use in SQL Time
-       * @param {Object} opts - options
-       * @param {boolean} [opts.includeZone=false] - include the zone, such as 'America/New_York'. Overrides includeOffset.
-       * @param {boolean} [opts.includeOffset=true] - include the offset, such as 'Z' or '-04:00'
-       * @param {boolean} [opts.includeOffsetSpace=true] - include the space between the time and the offset, such as '05:15:16.345 -04:00'
-       * @example DateTime.utc().toSQL() //=> '05:15:16.345'
-       * @example DateTime.now().toSQL() //=> '05:15:16.345 -04:00'
-       * @example DateTime.now().toSQL({ includeOffset: false }) //=> '05:15:16.345'
-       * @example DateTime.now().toSQL({ includeZone: false }) //=> '05:15:16.345 America/New_York'
-       * @return {string}
-       */
-      toSQLTime({
-        includeOffset = true,
-        includeZone = false,
-        includeOffsetSpace = true
-      } = {}) {
-        let fmt = "HH:mm:ss.SSS";
-        if (includeZone || includeOffset) {
-          if (includeOffsetSpace) {
-            fmt += " ";
-          }
-          if (includeZone) {
-            fmt += "z";
-          } else if (includeOffset) {
-            fmt += "ZZ";
-          }
-        }
-        return toTechFormat(this, fmt, true);
-      }
-      /**
-       * Returns a string representation of this DateTime appropriate for use in SQL DateTime
-       * @param {Object} opts - options
-       * @param {boolean} [opts.includeZone=false] - include the zone, such as 'America/New_York'. Overrides includeOffset.
-       * @param {boolean} [opts.includeOffset=true] - include the offset, such as 'Z' or '-04:00'
-       * @param {boolean} [opts.includeOffsetSpace=true] - include the space between the time and the offset, such as '05:15:16.345 -04:00'
-       * @example DateTime.utc(2014, 7, 13).toSQL() //=> '2014-07-13 00:00:00.000 Z'
-       * @example DateTime.local(2014, 7, 13).toSQL() //=> '2014-07-13 00:00:00.000 -04:00'
-       * @example DateTime.local(2014, 7, 13).toSQL({ includeOffset: false }) //=> '2014-07-13 00:00:00.000'
-       * @example DateTime.local(2014, 7, 13).toSQL({ includeZone: true }) //=> '2014-07-13 00:00:00.000 America/New_York'
-       * @return {string}
-       */
-      toSQL(opts = {}) {
-        if (!this.isValid) {
-          return null;
-        }
-        return `${this.toSQLDate()} ${this.toSQLTime(opts)}`;
-      }
-      /**
-       * Returns a string representation of this DateTime appropriate for debugging
-       * @return {string}
-       */
-      toString() {
-        return this.isValid ? this.toISO() : INVALID;
-      }
-      /**
-       * Returns a string representation of this DateTime appropriate for the REPL.
-       * @return {string}
-       */
-      [/* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom")]() {
-        if (this.isValid) {
-          return `DateTime { ts: ${this.toISO()}, zone: ${this.zone.name}, locale: ${this.locale} }`;
-        } else {
-          return `DateTime { Invalid, reason: ${this.invalidReason} }`;
-        }
-      }
-      /**
-       * Returns the epoch milliseconds of this DateTime. Alias of {@link DateTime#toMillis}
-       * @return {number}
-       */
-      valueOf() {
-        return this.toMillis();
-      }
-      /**
-       * Returns the epoch milliseconds of this DateTime.
-       * @return {number}
-       */
-      toMillis() {
-        return this.isValid ? this.ts : NaN;
-      }
-      /**
-       * Returns the epoch seconds (including milliseconds in the fractional part) of this DateTime.
-       * @return {number}
-       */
-      toSeconds() {
-        return this.isValid ? this.ts / 1e3 : NaN;
-      }
-      /**
-       * Returns the epoch seconds (as a whole number) of this DateTime.
-       * @return {number}
-       */
-      toUnixInteger() {
-        return this.isValid ? Math.floor(this.ts / 1e3) : NaN;
-      }
-      /**
-       * Returns an ISO 8601 representation of this DateTime appropriate for use in JSON.
-       * @return {string}
-       */
-      toJSON() {
-        return this.toISO();
-      }
-      /**
-       * Returns a BSON serializable equivalent to this DateTime.
-       * @return {Date}
-       */
-      toBSON() {
-        return this.toJSDate();
-      }
-      /**
-       * Returns a JavaScript object with this DateTime's year, month, day, and so on.
-       * @param opts - options for generating the object
-       * @param {boolean} [opts.includeConfig=false] - include configuration attributes in the output
-       * @example DateTime.now().toObject() //=> { year: 2017, month: 4, day: 22, hour: 20, minute: 49, second: 42, millisecond: 268 }
-       * @return {Object}
-       */
-      toObject(opts = {}) {
-        if (!this.isValid) return {};
-        const base = {
-          ...this.c
-        };
-        if (opts.includeConfig) {
-          base.outputCalendar = this.outputCalendar;
-          base.numberingSystem = this.loc.numberingSystem;
-          base.locale = this.loc.locale;
-        }
-        return base;
-      }
-      /**
-       * Returns a JavaScript Date equivalent to this DateTime.
-       * @return {Date}
-       */
-      toJSDate() {
-        return new Date(this.isValid ? this.ts : NaN);
-      }
-      // COMPARE
-      /**
-       * Return the difference between two DateTimes as a Duration.
-       * @param {DateTime} otherDateTime - the DateTime to compare this one to
-       * @param {string|string[]} [unit=['milliseconds']] - the unit or array of units (such as 'hours' or 'days') to include in the duration.
-       * @param {Object} opts - options that affect the creation of the Duration
-       * @param {string} [opts.conversionAccuracy='casual'] - the conversion system to use
-       * @example
-       * var i1 = DateTime.fromISO('1982-05-25T09:45'),
-       *     i2 = DateTime.fromISO('1983-10-14T10:30');
-       * i2.diff(i1).toObject() //=> { milliseconds: 43807500000 }
-       * i2.diff(i1, 'hours').toObject() //=> { hours: 12168.75 }
-       * i2.diff(i1, ['months', 'days']).toObject() //=> { months: 16, days: 19.03125 }
-       * i2.diff(i1, ['months', 'days', 'hours']).toObject() //=> { months: 16, days: 19, hours: 0.75 }
-       * @return {Duration}
-       */
-      diff(otherDateTime, unit = "milliseconds", opts = {}) {
-        if (!this.isValid || !otherDateTime.isValid) {
-          return Duration.invalid("created by diffing an invalid DateTime");
-        }
-        const durOpts = {
-          locale: this.locale,
-          numberingSystem: this.numberingSystem,
-          ...opts
-        };
-        const units = maybeArray(unit).map(Duration.normalizeUnit), otherIsLater = otherDateTime.valueOf() > this.valueOf(), earlier = otherIsLater ? this : otherDateTime, later = otherIsLater ? otherDateTime : this, diffed = diff(earlier, later, units, durOpts);
-        return otherIsLater ? diffed.negate() : diffed;
-      }
-      /**
-       * Return the difference between this DateTime and right now.
-       * See {@link DateTime#diff}
-       * @param {string|string[]} [unit=['milliseconds']] - the unit or units units (such as 'hours' or 'days') to include in the duration
-       * @param {Object} opts - options that affect the creation of the Duration
-       * @param {string} [opts.conversionAccuracy='casual'] - the conversion system to use
-       * @return {Duration}
-       */
-      diffNow(unit = "milliseconds", opts = {}) {
-        return this.diff(_DateTime.now(), unit, opts);
-      }
-      /**
-       * Return an Interval spanning between this DateTime and another DateTime
-       * @param {DateTime} otherDateTime - the other end point of the Interval
-       * @return {Interval|DateTime}
-       */
-      until(otherDateTime) {
-        return this.isValid ? Interval.fromDateTimes(this, otherDateTime) : this;
-      }
-      /**
-       * Return whether this DateTime is in the same unit of time as another DateTime.
-       * Higher-order units must also be identical for this function to return `true`.
-       * Note that time zones are **ignored** in this comparison, which compares the **local** calendar time. Use {@link DateTime#setZone} to convert one of the dates if needed.
-       * @param {DateTime} otherDateTime - the other DateTime
-       * @param {string} unit - the unit of time to check sameness on
-       * @param {Object} opts - options
-       * @param {boolean} [opts.useLocaleWeeks=false] - If true, use weeks based on the locale, i.e. use the locale-dependent start of the week; only the locale of this DateTime is used
-       * @example DateTime.now().hasSame(otherDT, 'day'); //~> true if otherDT is in the same current calendar day
-       * @return {boolean}
-       */
-      hasSame(otherDateTime, unit, opts) {
-        if (!this.isValid) return false;
-        const inputMs = otherDateTime.valueOf();
-        const adjustedToZone = this.setZone(otherDateTime.zone, {
-          keepLocalTime: true
-        });
-        return adjustedToZone.startOf(unit, opts) <= inputMs && inputMs <= adjustedToZone.endOf(unit, opts);
-      }
-      /**
-       * Equality check
-       * Two DateTimes are equal if and only if they represent the same millisecond, have the same zone and location, and are both valid.
-       * To compare just the millisecond values, use `+dt1 === +dt2`.
-       * @param {DateTime} other - the other DateTime
-       * @return {boolean}
-       */
-      equals(other) {
-        return this.isValid && other.isValid && this.valueOf() === other.valueOf() && this.zone.equals(other.zone) && this.loc.equals(other.loc);
-      }
-      /**
-       * Returns a string representation of a this time relative to now, such as "in two days". Can only internationalize if your
-       * platform supports Intl.RelativeTimeFormat. Rounds towards zero by default.
-       * @param {Object} options - options that affect the output
-       * @param {DateTime} [options.base=DateTime.now()] - the DateTime to use as the basis to which this time is compared. Defaults to now.
-       * @param {string} [options.style="long"] - the style of units, must be "long", "short", or "narrow"
-       * @param {string|string[]} options.unit - use a specific unit or array of units; if omitted, or an array, the method will pick the best unit. Use an array or one of "years", "quarters", "months", "weeks", "days", "hours", "minutes", or "seconds"
-       * @param {boolean} [options.round=true] - whether to round the numbers in the output.
-       * @param {string} [options.rounding="trunc"] - rounding method to use when rounding the numbers in the output. Can be "trunc" (toward zero), "expand" (away from zero), "round", "floor", or "ceil".
-       * @param {number} [options.padding=0] - padding in milliseconds. This allows you to round up the result if it fits inside the threshold. Don't use in combination with {round: false} because the decimal output will include the padding.
-       * @param {string} options.locale - override the locale of this DateTime
-       * @param {string} options.numberingSystem - override the numberingSystem of this DateTime. The Intl system may choose not to honor this
-       * @example DateTime.now().plus({ days: 1 }).toRelative() //=> "in 1 day"
-       * @example DateTime.now().setLocale("es").toRelative({ days: 1 }) //=> "dentro de 1 día"
-       * @example DateTime.now().plus({ days: 1 }).toRelative({ locale: "fr" }) //=> "dans 23 heures"
-       * @example DateTime.now().minus({ days: 2 }).toRelative() //=> "2 days ago"
-       * @example DateTime.now().minus({ days: 2 }).toRelative({ unit: "hours" }) //=> "48 hours ago"
-       * @example DateTime.now().minus({ hours: 36 }).toRelative({ round: false }) //=> "1.5 days ago"
-       */
-      toRelative(options = {}) {
-        if (!this.isValid) return null;
-        const base = options.base || _DateTime.fromObject({}, {
-          zone: this.zone
-        }), padding = options.padding ? this < base ? -options.padding : options.padding : 0;
-        let units = ["years", "months", "days", "hours", "minutes", "seconds"];
-        let unit = options.unit;
-        if (Array.isArray(options.unit)) {
-          units = options.unit;
-          unit = void 0;
-        }
-        return diffRelative(base, this.plus(padding), {
-          ...options,
-          numeric: "always",
-          units,
-          unit
-        });
-      }
-      /**
-       * Returns a string representation of this date relative to today, such as "yesterday" or "next month".
-       * Only internationalizes on platforms that supports Intl.RelativeTimeFormat.
-       * @param {Object} options - options that affect the output
-       * @param {DateTime} [options.base=DateTime.now()] - the DateTime to use as the basis to which this time is compared. Defaults to now.
-       * @param {string} options.locale - override the locale of this DateTime
-       * @param {string} options.unit - use a specific unit; if omitted, the method will pick the unit. Use one of "years", "quarters", "months", "weeks", or "days"
-       * @param {string} options.numberingSystem - override the numberingSystem of this DateTime. The Intl system may choose not to honor this
-       * @example DateTime.now().plus({ days: 1 }).toRelativeCalendar() //=> "tomorrow"
-       * @example DateTime.now().setLocale("es").plus({ days: 1 }).toRelative() //=> ""mañana"
-       * @example DateTime.now().plus({ days: 1 }).toRelativeCalendar({ locale: "fr" }) //=> "demain"
-       * @example DateTime.now().minus({ days: 2 }).toRelativeCalendar() //=> "2 days ago"
-       */
-      toRelativeCalendar(options = {}) {
-        if (!this.isValid) return null;
-        return diffRelative(options.base || _DateTime.fromObject({}, {
-          zone: this.zone
-        }), this, {
-          ...options,
-          numeric: "auto",
-          units: ["years", "months", "days"],
-          calendary: true
-        });
-      }
-      /**
-       * Return the min of several date times
-       * @param {...DateTime} dateTimes - the DateTimes from which to choose the minimum
-       * @return {DateTime} the min DateTime, or undefined if called with no argument
-       */
-      static min(...dateTimes) {
-        if (!dateTimes.every(_DateTime.isDateTime)) {
-          throw new InvalidArgumentError("min requires all arguments be DateTimes");
-        }
-        return bestBy(dateTimes, (i) => i.valueOf(), Math.min);
-      }
-      /**
-       * Return the max of several date times
-       * @param {...DateTime} dateTimes - the DateTimes from which to choose the maximum
-       * @return {DateTime} the max DateTime, or undefined if called with no argument
-       */
-      static max(...dateTimes) {
-        if (!dateTimes.every(_DateTime.isDateTime)) {
-          throw new InvalidArgumentError("max requires all arguments be DateTimes");
-        }
-        return bestBy(dateTimes, (i) => i.valueOf(), Math.max);
-      }
-      // MISC
-      /**
-       * Explain how a string would be parsed by fromFormat()
-       * @param {string} text - the string to parse
-       * @param {string} fmt - the format the string is expected to be in (see description)
-       * @param {Object} options - options taken by fromFormat()
-       * @return {Object}
-       */
-      static fromFormatExplain(text, fmt, options = {}) {
-        const {
-          locale = null,
-          numberingSystem = null
-        } = options, localeToUse = Locale.fromOpts({
-          locale,
-          numberingSystem,
-          defaultToEN: true
-        });
-        return explainFromTokens(localeToUse, text, fmt);
-      }
-      /**
-       * @deprecated use fromFormatExplain instead
-       */
-      static fromStringExplain(text, fmt, options = {}) {
-        return _DateTime.fromFormatExplain(text, fmt, options);
-      }
-      /**
-       * Build a parser for `fmt` using the given locale. This parser can be passed
-       * to {@link DateTime.fromFormatParser} to a parse a date in this format. This
-       * can be used to optimize cases where many dates need to be parsed in a
-       * specific format.
-       *
-       * @param {String} fmt - the format the string is expected to be in (see
-       * description)
-       * @param {Object} options - options used to set locale and numberingSystem
-       * for parser
-       * @returns {TokenParser} - opaque object to be used
-       */
-      static buildFormatParser(fmt, options = {}) {
-        const {
-          locale = null,
-          numberingSystem = null
-        } = options, localeToUse = Locale.fromOpts({
-          locale,
-          numberingSystem,
-          defaultToEN: true
-        });
-        return new TokenParser(localeToUse, fmt);
-      }
-      /**
-       * Create a DateTime from an input string and format parser.
-       *
-       * The format parser must have been created with the same locale as this call.
-       *
-       * @param {String} text - the string to parse
-       * @param {TokenParser} formatParser - parser from {@link DateTime.buildFormatParser}
-       * @param {Object} opts - options taken by fromFormat()
-       * @returns {DateTime}
-       */
-      static fromFormatParser(text, formatParser, opts = {}) {
-        if (isUndefined(text) || isUndefined(formatParser)) {
-          throw new InvalidArgumentError("fromFormatParser requires an input string and a format parser");
-        }
-        const {
-          locale = null,
-          numberingSystem = null
-        } = opts, localeToUse = Locale.fromOpts({
-          locale,
-          numberingSystem,
-          defaultToEN: true
-        });
-        if (!localeToUse.equals(formatParser.locale)) {
-          throw new InvalidArgumentError(`fromFormatParser called with a locale of ${localeToUse}, but the format parser was created for ${formatParser.locale}`);
-        }
-        const {
-          result,
-          zone,
-          specificOffset,
-          invalidReason
-        } = formatParser.explainFromTokens(text);
-        if (invalidReason) {
-          return _DateTime.invalid(invalidReason);
-        } else {
-          return parseDataToDateTime(result, zone, opts, `format ${formatParser.format}`, text, specificOffset);
-        }
-      }
-      // FORMAT PRESETS
-      /**
-       * {@link DateTime#toLocaleString} format like 10/14/1983
-       * @type {Object}
-       */
-      static get DATE_SHORT() {
-        return DATE_SHORT;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'Oct 14, 1983'
-       * @type {Object}
-       */
-      static get DATE_MED() {
-        return DATE_MED;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'Fri, Oct 14, 1983'
-       * @type {Object}
-       */
-      static get DATE_MED_WITH_WEEKDAY() {
-        return DATE_MED_WITH_WEEKDAY;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'October 14, 1983'
-       * @type {Object}
-       */
-      static get DATE_FULL() {
-        return DATE_FULL;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'Tuesday, October 14, 1983'
-       * @type {Object}
-       */
-      static get DATE_HUGE() {
-        return DATE_HUGE;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '09:30 AM'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get TIME_SIMPLE() {
-        return TIME_SIMPLE;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '09:30:23 AM'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get TIME_WITH_SECONDS() {
-        return TIME_WITH_SECONDS;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '09:30:23 AM EDT'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get TIME_WITH_SHORT_OFFSET() {
-        return TIME_WITH_SHORT_OFFSET;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '09:30:23 AM Eastern Daylight Time'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get TIME_WITH_LONG_OFFSET() {
-        return TIME_WITH_LONG_OFFSET;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '09:30', always 24-hour.
-       * @type {Object}
-       */
-      static get TIME_24_SIMPLE() {
-        return TIME_24_SIMPLE;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '09:30:23', always 24-hour.
-       * @type {Object}
-       */
-      static get TIME_24_WITH_SECONDS() {
-        return TIME_24_WITH_SECONDS;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '09:30:23 EDT', always 24-hour.
-       * @type {Object}
-       */
-      static get TIME_24_WITH_SHORT_OFFSET() {
-        return TIME_24_WITH_SHORT_OFFSET;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '09:30:23 Eastern Daylight Time', always 24-hour.
-       * @type {Object}
-       */
-      static get TIME_24_WITH_LONG_OFFSET() {
-        return TIME_24_WITH_LONG_OFFSET;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '10/14/1983, 9:30 AM'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get DATETIME_SHORT() {
-        return DATETIME_SHORT;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like '10/14/1983, 9:30:33 AM'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get DATETIME_SHORT_WITH_SECONDS() {
-        return DATETIME_SHORT_WITH_SECONDS;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'Oct 14, 1983, 9:30 AM'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get DATETIME_MED() {
-        return DATETIME_MED;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'Oct 14, 1983, 9:30:33 AM'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get DATETIME_MED_WITH_SECONDS() {
-        return DATETIME_MED_WITH_SECONDS;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'Fri, 14 Oct 1983, 9:30 AM'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get DATETIME_MED_WITH_WEEKDAY() {
-        return DATETIME_MED_WITH_WEEKDAY;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'October 14, 1983, 9:30 AM EDT'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get DATETIME_FULL() {
-        return DATETIME_FULL;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'October 14, 1983, 9:30:33 AM EDT'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get DATETIME_FULL_WITH_SECONDS() {
-        return DATETIME_FULL_WITH_SECONDS;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'Friday, October 14, 1983, 9:30 AM Eastern Daylight Time'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get DATETIME_HUGE() {
-        return DATETIME_HUGE;
-      }
-      /**
-       * {@link DateTime#toLocaleString} format like 'Friday, October 14, 1983, 9:30:33 AM Eastern Daylight Time'. Only 12-hour if the locale is.
-       * @type {Object}
-       */
-      static get DATETIME_HUGE_WITH_SECONDS() {
-        return DATETIME_HUGE_WITH_SECONDS;
+        return set2;
       }
     };
-    function friendlyDateTime(dateTimeish) {
-      if (DateTime.isDateTime(dateTimeish)) {
-        return dateTimeish;
-      } else if (dateTimeish && dateTimeish.valueOf && isNumber(dateTimeish.valueOf())) {
-        return DateTime.fromJSDate(dateTimeish);
-      } else if (dateTimeish && typeof dateTimeish === "object") {
-        return DateTime.fromObject(dateTimeish);
+    YAMLSet.tag = "tag:yaml.org,2002:set";
+    var set = {
+      collection: "map",
+      identify: (value) => value instanceof Set,
+      nodeClass: YAMLSet,
+      default: false,
+      tag: "tag:yaml.org,2002:set",
+      createNode: (schema, iterable, ctx) => YAMLSet.from(schema, iterable, ctx),
+      resolve(map, onError) {
+        if (identity.isMap(map)) {
+          if (map.hasAllNullValues(true))
+            return Object.assign(new YAMLSet(), map);
+          else
+            onError("Set items must all have null values");
+        } else
+          onError("Expected a mapping for this tag");
+        return map;
+      }
+    };
+    exports.YAMLSet = YAMLSet;
+    exports.set = set;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+var require_timestamp = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    function parseSexagesimal(str, asBigInt) {
+      const sign = str[0];
+      const parts = sign === "-" || sign === "+" ? str.substring(1) : str;
+      const num = (n) => asBigInt ? BigInt(n) : Number(n);
+      const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
+      return sign === "-" ? num(-1) * res : res;
+    }
+    function stringifySexagesimal(node) {
+      let { value } = node;
+      let num = (n) => n;
+      if (typeof value === "bigint")
+        num = (n) => BigInt(n);
+      else if (isNaN(value) || !isFinite(value))
+        return stringifyNumber.stringifyNumber(node);
+      let sign = "";
+      if (value < 0) {
+        sign = "-";
+        value *= num(-1);
+      }
+      const _60 = num(60);
+      const parts = [value % _60];
+      if (value < 60) {
+        parts.unshift(0);
       } else {
-        throw new InvalidArgumentError(`Unknown datetime argument: ${dateTimeish}, of type ${typeof dateTimeish}`);
+        value = (value - parts[0]) / _60;
+        parts.unshift(value % _60);
+        if (value >= 60) {
+          value = (value - parts[0]) / _60;
+          parts.unshift(value);
+        }
+      }
+      return sign + parts.map((n) => String(n).padStart(2, "0")).join(":").replace(/000000\d*$/, "");
+    }
+    var intTime = {
+      identify: (value) => typeof value === "bigint" || Number.isInteger(value),
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "TIME",
+      test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+$/,
+      resolve: (str, _onError, { intAsBigInt }) => parseSexagesimal(str, intAsBigInt),
+      stringify: stringifySexagesimal
+    };
+    var floatTime = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      format: "TIME",
+      test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*$/,
+      resolve: (str) => parseSexagesimal(str, false),
+      stringify: stringifySexagesimal
+    };
+    var timestamp = {
+      identify: (value) => value instanceof Date,
+      default: true,
+      tag: "tag:yaml.org,2002:timestamp",
+      // If the time zone is omitted, the timestamp is assumed to be specified in UTC. The time part
+      // may be omitted altogether, resulting in a date format. In such a case, the time part is
+      // assumed to be 00:00:00Z (start of day, UTC).
+      test: RegExp("^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:t|T|[ \\t]+)([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}(\\.[0-9]+)?)(?:[ \\t]*(Z|[-+][012]?[0-9](?::[0-9]{2})?))?)?$"),
+      resolve(str) {
+        const match = str.match(timestamp.test);
+        if (!match)
+          throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
+        const [, year, month, day, hour, minute, second] = match.map(Number);
+        const millisec = match[7] ? Number((match[7] + "00").substr(1, 3)) : 0;
+        let date = Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0, millisec);
+        const tz = match[8];
+        if (tz && tz !== "Z") {
+          let d = parseSexagesimal(tz, false);
+          if (Math.abs(d) < 30)
+            d *= 60;
+          date -= 6e4 * d;
+        }
+        return new Date(date);
+      },
+      stringify: ({ value }) => value?.toISOString().replace(/(T00:00:00)?\.000Z$/, "") ?? ""
+    };
+    exports.floatTime = floatTime;
+    exports.intTime = intTime;
+    exports.timestamp = timestamp;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+var require_schema3 = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+    "use strict";
+    var map = require_map();
+    var _null = require_null();
+    var seq = require_seq();
+    var string = require_string();
+    var binary = require_binary();
+    var bool = require_bool2();
+    var float = require_float2();
+    var int = require_int2();
+    var merge = require_merge();
+    var omap = require_omap();
+    var pairs = require_pairs();
+    var set = require_set();
+    var timestamp = require_timestamp();
+    var schema = [
+      map.map,
+      seq.seq,
+      string.string,
+      _null.nullTag,
+      bool.trueTag,
+      bool.falseTag,
+      int.intBin,
+      int.intOct,
+      int.int,
+      int.intHex,
+      float.floatNaN,
+      float.floatExp,
+      float.float,
+      binary.binary,
+      merge.merge,
+      omap.omap,
+      pairs.pairs,
+      set.set,
+      timestamp.intTime,
+      timestamp.floatTime,
+      timestamp.timestamp
+    ];
+    exports.schema = schema;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js
+var require_tags = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js"(exports) {
+    "use strict";
+    var map = require_map();
+    var _null = require_null();
+    var seq = require_seq();
+    var string = require_string();
+    var bool = require_bool();
+    var float = require_float();
+    var int = require_int();
+    var schema = require_schema();
+    var schema$1 = require_schema2();
+    var binary = require_binary();
+    var merge = require_merge();
+    var omap = require_omap();
+    var pairs = require_pairs();
+    var schema$2 = require_schema3();
+    var set = require_set();
+    var timestamp = require_timestamp();
+    var schemas = /* @__PURE__ */ new Map([
+      ["core", schema.schema],
+      ["failsafe", [map.map, seq.seq, string.string]],
+      ["json", schema$1.schema],
+      ["yaml11", schema$2.schema],
+      ["yaml-1.1", schema$2.schema]
+    ]);
+    var tagsByName = {
+      binary: binary.binary,
+      bool: bool.boolTag,
+      float: float.float,
+      floatExp: float.floatExp,
+      floatNaN: float.floatNaN,
+      floatTime: timestamp.floatTime,
+      int: int.int,
+      intHex: int.intHex,
+      intOct: int.intOct,
+      intTime: timestamp.intTime,
+      map: map.map,
+      merge: merge.merge,
+      null: _null.nullTag,
+      omap: omap.omap,
+      pairs: pairs.pairs,
+      seq: seq.seq,
+      set: set.set,
+      timestamp: timestamp.timestamp
+    };
+    var coreKnownTags = {
+      "tag:yaml.org,2002:binary": binary.binary,
+      "tag:yaml.org,2002:merge": merge.merge,
+      "tag:yaml.org,2002:omap": omap.omap,
+      "tag:yaml.org,2002:pairs": pairs.pairs,
+      "tag:yaml.org,2002:set": set.set,
+      "tag:yaml.org,2002:timestamp": timestamp.timestamp
+    };
+    function getTags(customTags, schemaName, addMergeTag) {
+      const schemaTags = schemas.get(schemaName);
+      if (schemaTags && !customTags) {
+        return addMergeTag && !schemaTags.includes(merge.merge) ? schemaTags.concat(merge.merge) : schemaTags.slice();
+      }
+      let tags = schemaTags;
+      if (!tags) {
+        if (Array.isArray(customTags))
+          tags = [];
+        else {
+          const keys = Array.from(schemas.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
+          throw new Error(`Unknown schema "${schemaName}"; use one of ${keys} or define customTags array`);
+        }
+      }
+      if (Array.isArray(customTags)) {
+        for (const tag of customTags)
+          tags = tags.concat(tag);
+      } else if (typeof customTags === "function") {
+        tags = customTags(tags.slice());
+      }
+      if (addMergeTag)
+        tags = tags.concat(merge.merge);
+      return tags.reduce((tags2, tag) => {
+        const tagObj = typeof tag === "string" ? tagsByName[tag] : tag;
+        if (!tagObj) {
+          const tagName = JSON.stringify(tag);
+          const keys = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
+          throw new Error(`Unknown custom tag ${tagName}; use one of ${keys}`);
+        }
+        if (!tags2.includes(tagObj))
+          tags2.push(tagObj);
+        return tags2;
+      }, []);
+    }
+    exports.coreKnownTags = coreKnownTags;
+    exports.getTags = getTags;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js
+var require_Schema = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var map = require_map();
+    var seq = require_seq();
+    var string = require_string();
+    var tags = require_tags();
+    var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+    var Schema = class _Schema {
+      constructor({ compat, customTags, merge, resolveKnownTags, schema, sortMapEntries, toStringDefaults }) {
+        this.compat = Array.isArray(compat) ? tags.getTags(compat, "compat") : compat ? tags.getTags(null, compat) : null;
+        this.name = typeof schema === "string" && schema || "core";
+        this.knownTags = resolveKnownTags ? tags.coreKnownTags : {};
+        this.tags = tags.getTags(customTags, this.name, merge);
+        this.toStringOptions = toStringDefaults ?? null;
+        Object.defineProperty(this, identity.MAP, { value: map.map });
+        Object.defineProperty(this, identity.SCALAR, { value: string.string });
+        Object.defineProperty(this, identity.SEQ, { value: seq.seq });
+        this.sortMapEntries = typeof sortMapEntries === "function" ? sortMapEntries : sortMapEntries === true ? sortMapEntriesByKey : null;
+      }
+      clone() {
+        const copy = Object.create(_Schema.prototype, Object.getOwnPropertyDescriptors(this));
+        copy.tags = this.tags.slice();
+        return copy;
+      }
+    };
+    exports.Schema = Schema;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js
+var require_stringifyDocument = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var stringify2 = require_stringify();
+    var stringifyComment = require_stringifyComment();
+    function stringifyDocument(doc, options) {
+      const lines = [];
+      let hasDirectives = options.directives === true;
+      if (options.directives !== false && doc.directives) {
+        const dir = doc.directives.toString(doc);
+        if (dir) {
+          lines.push(dir);
+          hasDirectives = true;
+        } else if (doc.directives.docStart)
+          hasDirectives = true;
+      }
+      if (hasDirectives)
+        lines.push("---");
+      const ctx = stringify2.createStringifyContext(doc, options);
+      const { commentString } = ctx.options;
+      if (doc.commentBefore) {
+        if (lines.length !== 1)
+          lines.unshift("");
+        const cs = commentString(doc.commentBefore);
+        lines.unshift(stringifyComment.indentComment(cs, ""));
+      }
+      let chompKeep = false;
+      let contentComment = null;
+      if (doc.contents) {
+        if (identity.isNode(doc.contents)) {
+          if (doc.contents.spaceBefore && hasDirectives)
+            lines.push("");
+          if (doc.contents.commentBefore) {
+            const cs = commentString(doc.contents.commentBefore);
+            lines.push(stringifyComment.indentComment(cs, ""));
+          }
+          ctx.forceBlockIndent = !!doc.comment;
+          contentComment = doc.contents.comment;
+        }
+        const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
+        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        if (contentComment)
+          body += stringifyComment.lineComment(body, "", commentString(contentComment));
+        if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
+          lines[lines.length - 1] = `--- ${body}`;
+        } else
+          lines.push(body);
+      } else {
+        lines.push(stringify2.stringify(doc.contents, ctx));
+      }
+      if (doc.directives?.docEnd) {
+        if (doc.comment) {
+          const cs = commentString(doc.comment);
+          if (cs.includes("\n")) {
+            lines.push("...");
+            lines.push(stringifyComment.indentComment(cs, ""));
+          } else {
+            lines.push(`... ${cs}`);
+          }
+        } else {
+          lines.push("...");
+        }
+      } else {
+        let dc = doc.comment;
+        if (dc && chompKeep)
+          dc = dc.replace(/^\n+/, "");
+        if (dc) {
+          if ((!chompKeep || contentComment) && lines[lines.length - 1] !== "")
+            lines.push("");
+          lines.push(stringifyComment.indentComment(commentString(dc), ""));
+        }
+      }
+      return lines.join("\n") + "\n";
+    }
+    exports.stringifyDocument = stringifyDocument;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js
+var require_Document = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js"(exports) {
+    "use strict";
+    var Alias = require_Alias();
+    var Collection = require_Collection();
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var toJS = require_toJS();
+    var Schema = require_Schema();
+    var stringifyDocument = require_stringifyDocument();
+    var anchors = require_anchors();
+    var applyReviver = require_applyReviver();
+    var createNode = require_createNode();
+    var directives = require_directives();
+    var Document = class _Document {
+      constructor(value, replacer, options) {
+        this.commentBefore = null;
+        this.comment = null;
+        this.errors = [];
+        this.warnings = [];
+        Object.defineProperty(this, identity.NODE_TYPE, { value: identity.DOC });
+        let _replacer = null;
+        if (typeof replacer === "function" || Array.isArray(replacer)) {
+          _replacer = replacer;
+        } else if (options === void 0 && replacer) {
+          options = replacer;
+          replacer = void 0;
+        }
+        const opt = Object.assign({
+          intAsBigInt: false,
+          keepSourceTokens: false,
+          logLevel: "warn",
+          prettyErrors: true,
+          strict: true,
+          stringKeys: false,
+          uniqueKeys: true,
+          version: "1.2"
+        }, options);
+        this.options = opt;
+        let { version } = opt;
+        if (options?._directives) {
+          this.directives = options._directives.atDocument();
+          if (this.directives.yaml.explicit)
+            version = this.directives.yaml.version;
+        } else
+          this.directives = new directives.Directives({ version });
+        this.setSchema(version, options);
+        this.contents = value === void 0 ? null : this.createNode(value, _replacer, options);
+      }
+      /**
+       * Create a deep copy of this Document and its contents.
+       *
+       * Custom Node values that inherit from `Object` still refer to their original instances.
+       */
+      clone() {
+        const copy = Object.create(_Document.prototype, {
+          [identity.NODE_TYPE]: { value: identity.DOC }
+        });
+        copy.commentBefore = this.commentBefore;
+        copy.comment = this.comment;
+        copy.errors = this.errors.slice();
+        copy.warnings = this.warnings.slice();
+        copy.options = Object.assign({}, this.options);
+        if (this.directives)
+          copy.directives = this.directives.clone();
+        copy.schema = this.schema.clone();
+        copy.contents = identity.isNode(this.contents) ? this.contents.clone(copy.schema) : this.contents;
+        if (this.range)
+          copy.range = this.range.slice();
+        return copy;
+      }
+      /** Adds a value to the document. */
+      add(value) {
+        if (assertCollection(this.contents))
+          this.contents.add(value);
+      }
+      /** Adds a value to the document. */
+      addIn(path, value) {
+        if (assertCollection(this.contents))
+          this.contents.addIn(path, value);
+      }
+      /**
+       * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
+       *
+       * If `node` already has an anchor, `name` is ignored.
+       * Otherwise, the `node.anchor` value will be set to `name`,
+       * or if an anchor with that name is already present in the document,
+       * `name` will be used as a prefix for a new unique anchor.
+       * If `name` is undefined, the generated anchor will use 'a' as a prefix.
+       */
+      createAlias(node, name) {
+        if (!node.anchor) {
+          const prev = anchors.anchorNames(this);
+          node.anchor = // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+          !name || prev.has(name) ? anchors.findNewAnchor(name || "a", prev) : name;
+        }
+        return new Alias.Alias(node.anchor);
+      }
+      createNode(value, replacer, options) {
+        let _replacer = void 0;
+        if (typeof replacer === "function") {
+          value = replacer.call({ "": value }, "", value);
+          _replacer = replacer;
+        } else if (Array.isArray(replacer)) {
+          const keyToStr = (v) => typeof v === "number" || v instanceof String || v instanceof Number;
+          const asStr = replacer.filter(keyToStr).map(String);
+          if (asStr.length > 0)
+            replacer = replacer.concat(asStr);
+          _replacer = replacer;
+        } else if (options === void 0 && replacer) {
+          options = replacer;
+          replacer = void 0;
+        }
+        const { aliasDuplicateObjects, anchorPrefix, flow, keepUndefined, onTagObj, tag } = options ?? {};
+        const { onAnchor, setAnchors, sourceObjects } = anchors.createNodeAnchors(
+          this,
+          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+          anchorPrefix || "a"
+        );
+        const ctx = {
+          aliasDuplicateObjects: aliasDuplicateObjects ?? true,
+          keepUndefined: keepUndefined ?? false,
+          onAnchor,
+          onTagObj,
+          replacer: _replacer,
+          schema: this.schema,
+          sourceObjects
+        };
+        const node = createNode.createNode(value, tag, ctx);
+        if (flow && identity.isCollection(node))
+          node.flow = true;
+        setAnchors();
+        return node;
+      }
+      /**
+       * Convert a key and a value into a `Pair` using the current schema,
+       * recursively wrapping all values as `Scalar` or `Collection` nodes.
+       */
+      createPair(key, value, options = {}) {
+        const k = this.createNode(key, null, options);
+        const v = this.createNode(value, null, options);
+        return new Pair.Pair(k, v);
+      }
+      /**
+       * Removes a value from the document.
+       * @returns `true` if the item was found and removed.
+       */
+      delete(key) {
+        return assertCollection(this.contents) ? this.contents.delete(key) : false;
+      }
+      /**
+       * Removes a value from the document.
+       * @returns `true` if the item was found and removed.
+       */
+      deleteIn(path) {
+        if (Collection.isEmptyPath(path)) {
+          if (this.contents == null)
+            return false;
+          this.contents = null;
+          return true;
+        }
+        return assertCollection(this.contents) ? this.contents.deleteIn(path) : false;
+      }
+      /**
+       * Returns item at `key`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      get(key, keepScalar) {
+        return identity.isCollection(this.contents) ? this.contents.get(key, keepScalar) : void 0;
+      }
+      /**
+       * Returns item at `path`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      getIn(path, keepScalar) {
+        if (Collection.isEmptyPath(path))
+          return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path, keepScalar) : void 0;
+      }
+      /**
+       * Checks if the document includes a value with the key `key`.
+       */
+      has(key) {
+        return identity.isCollection(this.contents) ? this.contents.has(key) : false;
+      }
+      /**
+       * Checks if the document includes a value at `path`.
+       */
+      hasIn(path) {
+        if (Collection.isEmptyPath(path))
+          return this.contents !== void 0;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path) : false;
+      }
+      /**
+       * Sets a value in this document. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      set(key, value) {
+        if (this.contents == null) {
+          this.contents = Collection.collectionFromPath(this.schema, [key], value);
+        } else if (assertCollection(this.contents)) {
+          this.contents.set(key, value);
+        }
+      }
+      /**
+       * Sets a value in this document. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      setIn(path, value) {
+        if (Collection.isEmptyPath(path)) {
+          this.contents = value;
+        } else if (this.contents == null) {
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path), value);
+        } else if (assertCollection(this.contents)) {
+          this.contents.setIn(path, value);
+        }
+      }
+      /**
+       * Change the YAML version and schema used by the document.
+       * A `null` version disables support for directives, explicit tags, anchors, and aliases.
+       * It also requires the `schema` option to be given as a `Schema` instance value.
+       *
+       * Overrides all previously set schema options.
+       */
+      setSchema(version, options = {}) {
+        if (typeof version === "number")
+          version = String(version);
+        let opt;
+        switch (version) {
+          case "1.1":
+            if (this.directives)
+              this.directives.yaml.version = "1.1";
+            else
+              this.directives = new directives.Directives({ version: "1.1" });
+            opt = { resolveKnownTags: false, schema: "yaml-1.1" };
+            break;
+          case "1.2":
+          case "next":
+            if (this.directives)
+              this.directives.yaml.version = version;
+            else
+              this.directives = new directives.Directives({ version });
+            opt = { resolveKnownTags: true, schema: "core" };
+            break;
+          case null:
+            if (this.directives)
+              delete this.directives;
+            opt = null;
+            break;
+          default: {
+            const sv = JSON.stringify(version);
+            throw new Error(`Expected '1.1', '1.2' or null as first argument, but found: ${sv}`);
+          }
+        }
+        if (options.schema instanceof Object)
+          this.schema = options.schema;
+        else if (opt)
+          this.schema = new Schema.Schema(Object.assign(opt, options));
+        else
+          throw new Error(`With a null YAML version, the { schema: Schema } option is required`);
+      }
+      // json & jsonArg are only used from toJSON()
+      toJS({ json, jsonArg, mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+        const ctx = {
+          anchors: /* @__PURE__ */ new Map(),
+          doc: this,
+          keep: !json,
+          mapAsMap: mapAsMap === true,
+          mapKeyWarned: false,
+          maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
+        };
+        const res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
+        if (typeof onAnchor === "function")
+          for (const { count, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count);
+        return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
+      }
+      /**
+       * A JSON representation of the document `contents`.
+       *
+       * @param jsonArg Used by `JSON.stringify` to indicate the array index or
+       *   property name.
+       */
+      toJSON(jsonArg, onAnchor) {
+        return this.toJS({ json: true, jsonArg, mapAsMap: false, onAnchor });
+      }
+      /** A YAML representation of the document. */
+      toString(options = {}) {
+        if (this.errors.length > 0)
+          throw new Error("Document with errors cannot be stringified");
+        if ("indent" in options && (!Number.isInteger(options.indent) || Number(options.indent) <= 0)) {
+          const s = JSON.stringify(options.indent);
+          throw new Error(`"indent" option must be a positive integer, not ${s}`);
+        }
+        return stringifyDocument.stringifyDocument(this, options);
+      }
+    };
+    function assertCollection(contents) {
+      if (identity.isCollection(contents))
+        return true;
+      throw new Error("Expected a YAML collection as document contents");
+    }
+    exports.Document = Document;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js
+var require_errors = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js"(exports) {
+    "use strict";
+    var YAMLError = class extends Error {
+      constructor(name, pos, code, message) {
+        super();
+        this.name = name;
+        this.code = code;
+        this.message = message;
+        this.pos = pos;
+      }
+    };
+    var YAMLParseError = class extends YAMLError {
+      constructor(pos, code, message) {
+        super("YAMLParseError", pos, code, message);
+      }
+    };
+    var YAMLWarning = class extends YAMLError {
+      constructor(pos, code, message) {
+        super("YAMLWarning", pos, code, message);
+      }
+    };
+    var prettifyError = (src, lc) => (error) => {
+      if (error.pos[0] === -1)
+        return;
+      error.linePos = error.pos.map((pos) => lc.linePos(pos));
+      const { line, col } = error.linePos[0];
+      error.message += ` at line ${line}, column ${col}`;
+      let ci = col - 1;
+      let lineStr = src.substring(lc.lineStarts[line - 1], lc.lineStarts[line]).replace(/[\n\r]+$/, "");
+      if (ci >= 60 && lineStr.length > 80) {
+        const trimStart = Math.min(ci - 39, lineStr.length - 79);
+        lineStr = "\u2026" + lineStr.substring(trimStart);
+        ci -= trimStart - 1;
+      }
+      if (lineStr.length > 80)
+        lineStr = lineStr.substring(0, 79) + "\u2026";
+      if (line > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
+        let prev = src.substring(lc.lineStarts[line - 2], lc.lineStarts[line - 1]);
+        if (prev.length > 80)
+          prev = prev.substring(0, 79) + "\u2026\n";
+        lineStr = prev + lineStr;
+      }
+      if (/[^ ]/.test(lineStr)) {
+        let count = 1;
+        const end = error.linePos[1];
+        if (end?.line === line && end.col > col) {
+          count = Math.max(1, Math.min(end.col - col, 80 - ci));
+        }
+        const pointer = " ".repeat(ci) + "^".repeat(count);
+        error.message += `:
+
+${lineStr}
+${pointer}
+`;
+      }
+    };
+    exports.YAMLError = YAMLError;
+    exports.YAMLParseError = YAMLParseError;
+    exports.YAMLWarning = YAMLWarning;
+    exports.prettifyError = prettifyError;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js
+var require_resolve_props = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+    "use strict";
+    function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
+      let spaceBefore = false;
+      let atNewline = startOnNewline;
+      let hasSpace = startOnNewline;
+      let comment = "";
+      let commentSep = "";
+      let hasNewline = false;
+      let reqSpace = false;
+      let tab = null;
+      let anchor = null;
+      let tag = null;
+      let newlineAfterProp = null;
+      let comma = null;
+      let found = null;
+      let start = null;
+      for (const token of tokens) {
+        if (reqSpace) {
+          if (token.type !== "space" && token.type !== "newline" && token.type !== "comma")
+            onError(token.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
+          reqSpace = false;
+        }
+        if (tab) {
+          if (atNewline && token.type !== "comment" && token.type !== "newline") {
+            onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation");
+          }
+          tab = null;
+        }
+        switch (token.type) {
+          case "space":
+            if (!flow && (indicator !== "doc-start" || next?.type !== "flow-collection") && token.source.includes("	")) {
+              tab = token;
+            }
+            hasSpace = true;
+            break;
+          case "comment": {
+            if (!hasSpace)
+              onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+            const cb = token.source.substring(1) || " ";
+            if (!comment)
+              comment = cb;
+            else
+              comment += commentSep + cb;
+            commentSep = "";
+            atNewline = false;
+            break;
+          }
+          case "newline":
+            if (atNewline) {
+              if (comment)
+                comment += token.source;
+              else if (!found || indicator !== "seq-item-ind")
+                spaceBefore = true;
+            } else
+              commentSep += token.source;
+            atNewline = true;
+            hasNewline = true;
+            if (anchor || tag)
+              newlineAfterProp = token;
+            hasSpace = true;
+            break;
+          case "anchor":
+            if (anchor)
+              onError(token, "MULTIPLE_ANCHORS", "A node can have at most one anchor");
+            if (token.source.endsWith(":"))
+              onError(token.offset + token.source.length - 1, "BAD_ALIAS", "Anchor ending in : is ambiguous", true);
+            anchor = token;
+            start ?? (start = token.offset);
+            atNewline = false;
+            hasSpace = false;
+            reqSpace = true;
+            break;
+          case "tag": {
+            if (tag)
+              onError(token, "MULTIPLE_TAGS", "A node can have at most one tag");
+            tag = token;
+            start ?? (start = token.offset);
+            atNewline = false;
+            hasSpace = false;
+            reqSpace = true;
+            break;
+          }
+          case indicator:
+            if (anchor || tag)
+              onError(token, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token.source} indicator`);
+            if (found)
+              onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.source} in ${flow ?? "collection"}`);
+            found = token;
+            atNewline = indicator === "seq-item-ind" || indicator === "explicit-key-ind";
+            hasSpace = false;
+            break;
+          case "comma":
+            if (flow) {
+              if (comma)
+                onError(token, "UNEXPECTED_TOKEN", `Unexpected , in ${flow}`);
+              comma = token;
+              atNewline = false;
+              hasSpace = false;
+              break;
+            }
+          // else fallthrough
+          default:
+            onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.type} token`);
+            atNewline = false;
+            hasSpace = false;
+        }
+      }
+      const last = tokens[tokens.length - 1];
+      const end = last ? last.offset + last.source.length : offset;
+      if (reqSpace && next && next.type !== "space" && next.type !== "newline" && next.type !== "comma" && (next.type !== "scalar" || next.source !== "")) {
+        onError(next.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
+      }
+      if (tab && (atNewline && tab.indent <= parentIndent || next?.type === "block-map" || next?.type === "block-seq"))
+        onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation");
+      return {
+        comma,
+        found,
+        spaceBefore,
+        comment,
+        hasNewline,
+        anchor,
+        tag,
+        newlineAfterProp,
+        end,
+        start: start ?? end
+      };
+    }
+    exports.resolveProps = resolveProps;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js
+var require_util_contains_newline = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+    "use strict";
+    function containsNewline(key) {
+      if (!key)
+        return null;
+      switch (key.type) {
+        case "alias":
+        case "scalar":
+        case "double-quoted-scalar":
+        case "single-quoted-scalar":
+          if (key.source.includes("\n"))
+            return true;
+          if (key.end) {
+            for (const st of key.end)
+              if (st.type === "newline")
+                return true;
+          }
+          return false;
+        case "flow-collection":
+          for (const it of key.items) {
+            for (const st of it.start)
+              if (st.type === "newline")
+                return true;
+            if (it.sep) {
+              for (const st of it.sep)
+                if (st.type === "newline")
+                  return true;
+            }
+            if (containsNewline(it.key) || containsNewline(it.value))
+              return true;
+          }
+          return false;
+        default:
+          return true;
       }
     }
-    var VERSION = "3.7.2";
-    exports.DateTime = DateTime;
-    exports.Duration = Duration;
-    exports.FixedOffsetZone = FixedOffsetZone;
-    exports.IANAZone = IANAZone;
-    exports.Info = Info;
-    exports.Interval = Interval;
-    exports.InvalidZone = InvalidZone;
-    exports.Settings = Settings;
-    exports.SystemZone = SystemZone;
-    exports.VERSION = VERSION;
-    exports.Zone = Zone;
+    exports.containsNewline = containsNewline;
   }
 });
 
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronDate.js
-var require_CronDate = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronDate.js"(exports) {
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js
+var require_util_flow_indent_check = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
     "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronDate = exports.DAYS_IN_MONTH = exports.DateMathOp = exports.TimeUnit = void 0;
-    var luxon_1 = require_luxon();
-    var TimeUnit;
-    (function(TimeUnit2) {
-      TimeUnit2["Second"] = "Second";
-      TimeUnit2["Minute"] = "Minute";
-      TimeUnit2["Hour"] = "Hour";
-      TimeUnit2["Day"] = "Day";
-      TimeUnit2["Month"] = "Month";
-      TimeUnit2["Year"] = "Year";
-    })(TimeUnit || (exports.TimeUnit = TimeUnit = {}));
-    var DateMathOp;
-    (function(DateMathOp2) {
-      DateMathOp2["Add"] = "Add";
-      DateMathOp2["Subtract"] = "Subtract";
-    })(DateMathOp || (exports.DateMathOp = DateMathOp = {}));
-    exports.DAYS_IN_MONTH = Object.freeze([31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]);
-    var CronDate = class _CronDate {
-      #date;
-      #dstStart = null;
-      #dstEnd = null;
-      /**
-       * Maps the verb to the appropriate method
-       */
-      #verbMap = {
-        add: {
-          [TimeUnit.Year]: this.addYear.bind(this),
-          [TimeUnit.Month]: this.addMonth.bind(this),
-          [TimeUnit.Day]: this.addDay.bind(this),
-          [TimeUnit.Hour]: this.addHour.bind(this),
-          [TimeUnit.Minute]: this.addMinute.bind(this),
-          [TimeUnit.Second]: this.addSecond.bind(this)
-        },
-        subtract: {
-          [TimeUnit.Year]: this.subtractYear.bind(this),
-          [TimeUnit.Month]: this.subtractMonth.bind(this),
-          [TimeUnit.Day]: this.subtractDay.bind(this),
-          [TimeUnit.Hour]: this.subtractHour.bind(this),
-          [TimeUnit.Minute]: this.subtractMinute.bind(this),
-          [TimeUnit.Second]: this.subtractSecond.bind(this)
-        }
-      };
-      /**
-       * Constructs a new CronDate instance.
-       * @param {CronDate | Date | number | string} [timestamp] - The timestamp to initialize the CronDate with.
-       * @param {string} [tz] - The timezone to use for the CronDate.
-       */
-      constructor(timestamp, tz) {
-        const dateOpts = { zone: tz };
-        if (!timestamp) {
-          this.#date = luxon_1.DateTime.local();
-        } else if (timestamp instanceof _CronDate) {
-          this.#date = timestamp.#date;
-          this.#dstStart = timestamp.#dstStart;
-          this.#dstEnd = timestamp.#dstEnd;
-        } else if (timestamp instanceof Date) {
-          this.#date = luxon_1.DateTime.fromJSDate(timestamp, dateOpts);
-        } else if (typeof timestamp === "number") {
-          this.#date = luxon_1.DateTime.fromMillis(timestamp, dateOpts);
-        } else {
-          this.#date = luxon_1.DateTime.fromISO(timestamp, dateOpts);
-          this.#date.isValid || (this.#date = luxon_1.DateTime.fromRFC2822(timestamp, dateOpts));
-          this.#date.isValid || (this.#date = luxon_1.DateTime.fromSQL(timestamp, dateOpts));
-          this.#date.isValid || (this.#date = luxon_1.DateTime.fromFormat(timestamp, "EEE, d MMM yyyy HH:mm:ss", dateOpts));
-        }
-        if (!this.#date.isValid) {
-          throw new Error(`CronDate: unhandled timestamp: ${timestamp}`);
-        }
-        if (tz && tz !== this.#date.zoneName) {
-          this.#date = this.#date.setZone(tz);
+    var utilContainsNewline = require_util_contains_newline();
+    function flowIndentCheck(indent, fc, onError) {
+      if (fc?.type === "flow-collection") {
+        const end = fc.end[0];
+        if (end.indent === indent && (end.source === "]" || end.source === "}") && utilContainsNewline.containsNewline(fc)) {
+          const msg = "Flow end indicator should be more indented than parent";
+          onError(end, "BAD_INDENT", msg, true);
         }
       }
-      /**
-       * Determines if the given year is a leap year.
-       * @param {number} year - The year to check
-       * @returns {boolean} - True if the year is a leap year, false otherwise
-       * @private
-       */
-      static #isLeapYear(year) {
-        return year % 4 === 0 && year % 100 !== 0 || year % 400 === 0;
-      }
-      /**
-       * Returns daylight savings start time.
-       * @returns {number | null}
-       */
-      get dstStart() {
-        return this.#dstStart;
-      }
-      /**
-       * Sets daylight savings start time.
-       * @param {number | null} value
-       */
-      set dstStart(value) {
-        this.#dstStart = value;
-      }
-      /**
-       * Returns daylight savings end time.
-       * @returns {number | null}
-       */
-      get dstEnd() {
-        return this.#dstEnd;
-      }
-      /**
-       * Sets daylight savings end time.
-       * @param {number | null} value
-       */
-      set dstEnd(value) {
-        this.#dstEnd = value;
-      }
-      /**
-       * Adds one year to the current CronDate.
-       */
-      addYear() {
-        this.#date = this.#date.plus({ years: 1 });
-      }
-      /**
-       * Adds one month to the current CronDate.
-       */
-      addMonth() {
-        this.#date = this.#date.plus({ months: 1 }).startOf("month");
-      }
-      /**
-       * Adds one day to the current CronDate.
-       */
-      addDay() {
-        this.#date = this.#date.plus({ days: 1 }).startOf("day");
-      }
-      /**
-       * Adds one hour to the current CronDate.
-       */
-      addHour() {
-        this.#date = this.#date.plus({ hours: 1 }).startOf("hour");
-      }
-      /**
-       * Adds one minute to the current CronDate.
-       */
-      addMinute() {
-        this.#date = this.#date.plus({ minutes: 1 }).startOf("minute");
-      }
-      /**
-       * Adds one second to the current CronDate.
-       */
-      addSecond() {
-        this.#date = this.#date.plus({ seconds: 1 });
-      }
-      /**
-       * Subtracts one year from the current CronDate.
-       */
-      subtractYear() {
-        this.#date = this.#date.minus({ years: 1 });
-      }
-      /**
-       * Subtracts one month from the current CronDate.
-       * If the month is 1, it will subtract one year instead.
-       */
-      subtractMonth() {
-        this.#date = this.#date.minus({ months: 1 }).endOf("month").startOf("second");
-      }
-      /**
-       * Subtracts one day from the current CronDate.
-       * If the day is 1, it will subtract one month instead.
-       */
-      subtractDay() {
-        this.#date = this.#date.minus({ days: 1 }).endOf("day").startOf("second");
-      }
-      /**
-       * Subtracts one hour from the current CronDate.
-       * If the hour is 0, it will subtract one day instead.
-       */
-      subtractHour() {
-        this.#date = this.#date.minus({ hours: 1 }).endOf("hour").startOf("second");
-      }
-      /**
-       * Subtracts one minute from the current CronDate.
-       * If the minute is 0, it will subtract one hour instead.
-       */
-      subtractMinute() {
-        this.#date = this.#date.minus({ minutes: 1 }).endOf("minute").startOf("second");
-      }
-      /**
-       * Subtracts one second from the current CronDate.
-       * If the second is 0, it will subtract one minute instead.
-       */
-      subtractSecond() {
-        this.#date = this.#date.minus({ seconds: 1 });
-      }
-      /**
-       * Adds a unit of time to the current CronDate.
-       * @param {TimeUnit} unit
-       */
-      addUnit(unit) {
-        this.#verbMap.add[unit]();
-      }
-      /**
-       * Subtracts a unit of time from the current CronDate.
-       * @param {TimeUnit} unit
-       */
-      subtractUnit(unit) {
-        this.#verbMap.subtract[unit]();
-      }
-      /**
-       * Handles a math operation.
-       * @param {DateMathOp} verb - {'add' | 'subtract'}
-       * @param {TimeUnit} unit - {'year' | 'month' | 'day' | 'hour' | 'minute' | 'second'}
-       */
-      invokeDateOperation(verb, unit) {
-        if (verb === DateMathOp.Add) {
-          this.addUnit(unit);
-          return;
-        }
-        if (verb === DateMathOp.Subtract) {
-          this.subtractUnit(unit);
-          return;
-        }
-        throw new Error(`Invalid verb: ${verb}`);
-      }
-      /**
-       * Returns the day.
-       * @returns {number}
-       */
-      getDate() {
-        return this.#date.day;
-      }
-      /**
-       * Returns the year.
-       * @returns {number}
-       */
-      getFullYear() {
-        return this.#date.year;
-      }
-      /**
-       * Returns the day of the week.
-       * @returns {number}
-       */
-      getDay() {
-        const weekday = this.#date.weekday;
-        return weekday === 7 ? 0 : weekday;
-      }
-      /**
-       * Returns the month.
-       * @returns {number}
-       */
-      getMonth() {
-        return this.#date.month - 1;
-      }
-      /**
-       * Returns the hour.
-       * @returns {number}
-       */
-      getHours() {
-        return this.#date.hour;
-      }
-      /**
-       * Returns the minutes.
-       * @returns {number}
-       */
-      getMinutes() {
-        return this.#date.minute;
-      }
-      /**
-       * Returns the seconds.
-       * @returns {number}
-       */
-      getSeconds() {
-        return this.#date.second;
-      }
-      /**
-       * Returns the milliseconds.
-       * @returns {number}
-       */
-      getMilliseconds() {
-        return this.#date.millisecond;
-      }
-      /**
-       * Returns the timezone offset from UTC in minutes (e.g. UTC+2 => 120).
-       * Useful for detecting DST transition days.
-       *
-       * @returns {number} UTC offset in minutes
-       */
-      getUTCOffset() {
-        return this.#date.offset;
-      }
-      /**
-       * Sets the time to the start of the day (00:00:00.000) in the current timezone.
-       */
-      setStartOfDay() {
-        this.#date = this.#date.startOf("day");
-      }
-      /**
-       * Sets the time to the end of the day (23:59:59.999) in the current timezone.
-       */
-      setEndOfDay() {
-        this.#date = this.#date.endOf("day");
-      }
-      /**
-       * Returns the time.
-       * @returns {number}
-       */
-      getTime() {
-        return this.#date.valueOf();
-      }
-      /**
-       * Returns the UTC day.
-       * @returns {number}
-       */
-      getUTCDate() {
-        return this.#getUTC().day;
-      }
-      /**
-       * Returns the UTC year.
-       * @returns {number}
-       */
-      getUTCFullYear() {
-        return this.#getUTC().year;
-      }
-      /**
-       * Returns the UTC day of the week.
-       * @returns {number}
-       */
-      getUTCDay() {
-        const weekday = this.#getUTC().weekday;
-        return weekday === 7 ? 0 : weekday;
-      }
-      /**
-       * Returns the UTC month.
-       * @returns {number}
-       */
-      getUTCMonth() {
-        return this.#getUTC().month - 1;
-      }
-      /**
-       * Returns the UTC hour.
-       * @returns {number}
-       */
-      getUTCHours() {
-        return this.#getUTC().hour;
-      }
-      /**
-       * Returns the UTC minutes.
-       * @returns {number}
-       */
-      getUTCMinutes() {
-        return this.#getUTC().minute;
-      }
-      /**
-       * Returns the UTC seconds.
-       * @returns {number}
-       */
-      getUTCSeconds() {
-        return this.#getUTC().second;
-      }
-      /**
-       * Returns the UTC milliseconds.
-       * @returns {string | null}
-       */
-      toISOString() {
-        return this.#date.toUTC().toISO();
-      }
-      /**
-       * Returns the date as a JSON string.
-       * @returns {string | null}
-       */
-      toJSON() {
-        return this.#date.toJSON();
-      }
-      /**
-       * Sets the day.
-       * @param d
-       */
-      setDate(d) {
-        this.#date = this.#date.set({ day: d });
-      }
-      /**
-       * Sets the year.
-       * @param y
-       */
-      setFullYear(y) {
-        this.#date = this.#date.set({ year: y });
-      }
-      /**
-       * Sets the day of the week.
-       * @param d
-       */
-      setDay(d) {
-        this.#date = this.#date.set({ weekday: d });
-      }
-      /**
-       * Sets the month.
-       * @param m
-       */
-      setMonth(m) {
-        this.#date = this.#date.set({ month: m + 1 });
-      }
-      /**
-       * Sets the hour.
-       * @param h
-       */
-      setHours(h) {
-        this.#date = this.#date.set({ hour: h });
-      }
-      /**
-       * Sets the minutes.
-       * @param m
-       */
-      setMinutes(m) {
-        this.#date = this.#date.set({ minute: m });
-      }
-      /**
-       * Sets the seconds.
-       * @param s
-       */
-      setSeconds(s) {
-        this.#date = this.#date.set({ second: s });
-      }
-      /**
-       * Sets the milliseconds.
-       * @param s
-       */
-      setMilliseconds(s) {
-        this.#date = this.#date.set({ millisecond: s });
-      }
-      /**
-       * Returns the date as a string.
-       * @returns {string}
-       */
-      toString() {
-        return this.toDate().toString();
-      }
-      /**
-       * Returns the date as a Date object.
-       * @returns {Date}
-       */
-      toDate() {
-        return this.#date.toJSDate();
-      }
-      /**
-       * Returns true if the day is the last day of the month.
-       * @returns {boolean}
-       */
-      isLastDayOfMonth() {
-        const { day, month } = this.#date;
-        if (month === 2) {
-          const isLeap = _CronDate.#isLeapYear(this.#date.year);
-          return day === exports.DAYS_IN_MONTH[month - 1] - (isLeap ? 0 : 1);
-        }
-        return day === exports.DAYS_IN_MONTH[month - 1];
-      }
-      /**
-       * Returns true if the day is the last weekday of the month.
-       * @returns {boolean}
-       */
-      isLastWeekdayOfMonth() {
-        const { day, month } = this.#date;
-        let lastDay;
-        if (month === 2) {
-          lastDay = exports.DAYS_IN_MONTH[month - 1] - (_CronDate.#isLeapYear(this.#date.year) ? 0 : 1);
-        } else {
-          lastDay = exports.DAYS_IN_MONTH[month - 1];
-        }
-        return day > lastDay - 7;
-      }
-      /**
-       * Primarily for internal use.
-       * @param {DateMathOp} op - The operation to perform.
-       * @param {TimeUnit} unit - The unit of time to use.
-       * @param {number} [hoursLength] - The length of the hours. Required when unit is not month or day.
-       */
-      applyDateOperation(op, unit, hoursLength) {
-        if (unit === TimeUnit.Month || unit === TimeUnit.Day) {
-          this.invokeDateOperation(op, unit);
-          return;
-        }
-        const previousHour = this.getHours();
-        this.invokeDateOperation(op, unit);
-        const currentHour = this.getHours();
-        const diff = currentHour - previousHour;
-        if (diff === 2) {
-          if (hoursLength !== 24) {
-            this.dstStart = currentHour;
-          }
-        } else if (diff === 0 && this.getMinutes() === 0 && this.getSeconds() === 0) {
-          if (hoursLength !== 24) {
-            this.dstEnd = currentHour;
-          }
-        }
-      }
-      /**
-       * Returns the UTC date.
-       * @private
-       * @returns {DateTime}
-       */
-      #getUTC() {
-        return this.#date.toUTC();
-      }
-    };
-    exports.CronDate = CronDate;
-    exports.default = CronDate;
+    }
+    exports.flowIndentCheck = flowIndentCheck;
   }
 });
 
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronMonth.js
-var require_CronMonth = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronMonth.js"(exports) {
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js
+var require_util_map_includes = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
     "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronMonth = void 0;
-    var CronDate_1 = require_CronDate();
-    var CronField_1 = require_CronField();
-    var MIN_MONTH = 1;
-    var MAX_MONTH = 12;
-    var MONTH_CHARS = Object.freeze([]);
-    var CronMonth = class extends CronField_1.CronField {
-      static get min() {
-        return MIN_MONTH;
-      }
-      static get max() {
-        return MAX_MONTH;
-      }
-      static get chars() {
-        return MONTH_CHARS;
-      }
-      static get daysInMonth() {
-        return CronDate_1.DAYS_IN_MONTH;
-      }
-      /**
-       * CronDayOfMonth constructor. Initializes the "day of the month" field with the provided values.
-       * @param {MonthRange[]} values - Values for the "day of the month" field
-       * @param {CronFieldOptions} [options] - Options provided by the parser
-       */
-      constructor(values, options) {
-        super(values, options);
-        this.validate();
-      }
-      /**
-       * Returns an array of allowed values for the "day of the month" field.
-       * @returns {MonthRange[]}
-       */
-      get values() {
-        return super.values;
-      }
-    };
-    exports.CronMonth = CronMonth;
+    var identity = require_identity();
+    function mapIncludes(ctx, items, search) {
+      const { uniqueKeys } = ctx.options;
+      if (uniqueKeys === false)
+        return false;
+      const isEqual = typeof uniqueKeys === "function" ? uniqueKeys : (a, b) => a === b || identity.isScalar(a) && identity.isScalar(b) && a.value === b.value;
+      return items.some((pair) => isEqual(pair.key, search));
+    }
+    exports.mapIncludes = mapIncludes;
   }
 });
 
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronSecond.js
-var require_CronSecond = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/CronSecond.js"(exports) {
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js
+var require_resolve_block_map = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
     "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronSecond = void 0;
-    var CronField_1 = require_CronField();
-    var MIN_SECOND = 0;
-    var MAX_SECOND = 59;
-    var SECOND_CHARS = Object.freeze([]);
-    var CronSecond = class extends CronField_1.CronField {
-      static get min() {
-        return MIN_SECOND;
-      }
-      static get max() {
-        return MAX_SECOND;
-      }
-      static get chars() {
-        return SECOND_CHARS;
-      }
-      /**
-       * CronSecond constructor. Initializes the "second" field with the provided values.
-       * @param {SixtyRange[]} values - Values for the "second" field
-       * @param {CronFieldOptions} [options] - Options provided by the parser
-       */
-      constructor(values, options) {
-        super(values, options);
-        this.validate();
-      }
-      /**
-       * Returns an array of allowed values for the "second" field.
-       * @returns {SixtyRange[]}
-       */
-      get values() {
-        return super.values;
-      }
-    };
-    exports.CronSecond = CronSecond;
-  }
-});
-
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/index.js
-var require_fields = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/fields/index.js"(exports) {
-    "use strict";
-    var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
-      }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __exportStar = exports && exports.__exportStar || function(m, exports2) {
-      for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports2, p)) __createBinding(exports2, m, p);
-    };
-    Object.defineProperty(exports, "__esModule", { value: true });
-    __exportStar(require_types(), exports);
-    __exportStar(require_CronDayOfMonth(), exports);
-    __exportStar(require_CronDayOfWeek(), exports);
-    __exportStar(require_CronField(), exports);
-    __exportStar(require_CronHour(), exports);
-    __exportStar(require_CronMinute(), exports);
-    __exportStar(require_CronMonth(), exports);
-    __exportStar(require_CronSecond(), exports);
-  }
-});
-
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronFieldCollection.js
-var require_CronFieldCollection = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronFieldCollection.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronFieldCollection = void 0;
-    var fields_1 = require_fields();
-    var CronFieldCollection = class _CronFieldCollection {
-      #second;
-      #minute;
-      #hour;
-      #dayOfMonth;
-      #month;
-      #dayOfWeek;
-      /**
-       * Creates a new CronFieldCollection instance by partially overriding fields from an existing one.
-       * @param {CronFieldCollection} base - The base CronFieldCollection to copy fields from
-       * @param {CronFieldOverride} fields - The fields to override, can be CronField instances or raw values
-       * @returns {CronFieldCollection} A new CronFieldCollection instance
-       * @example
-       * const base = new CronFieldCollection({
-       *   second: new CronSecond([0]),
-       *   minute: new CronMinute([0]),
-       *   hour: new CronHour([12]),
-       *   dayOfMonth: new CronDayOfMonth([1]),
-       *   month: new CronMonth([1]),
-       *   dayOfWeek: new CronDayOfWeek([1])
-       * });
-       *
-       * // Using CronField instances
-       * const modified1 = CronFieldCollection.from(base, {
-       *   hour: new CronHour([15]),
-       *   minute: new CronMinute([30])
-       * });
-       *
-       * // Using raw values
-       * const modified2 = CronFieldCollection.from(base, {
-       *   hour: [15],        // Will create new CronHour
-       *   minute: [30]       // Will create new CronMinute
-       * });
-       */
-      static from(base, fields) {
-        return new _CronFieldCollection({
-          second: this.resolveField(fields_1.CronSecond, base.second, fields.second),
-          minute: this.resolveField(fields_1.CronMinute, base.minute, fields.minute),
-          hour: this.resolveField(fields_1.CronHour, base.hour, fields.hour),
-          dayOfMonth: this.resolveField(fields_1.CronDayOfMonth, base.dayOfMonth, fields.dayOfMonth),
-          month: this.resolveField(fields_1.CronMonth, base.month, fields.month),
-          dayOfWeek: this.resolveField(fields_1.CronDayOfWeek, base.dayOfWeek, fields.dayOfWeek)
+    var Pair = require_Pair();
+    var YAMLMap = require_YAMLMap();
+    var resolveProps = require_resolve_props();
+    var utilContainsNewline = require_util_contains_newline();
+    var utilFlowIndentCheck = require_util_flow_indent_check();
+    var utilMapIncludes = require_util_map_includes();
+    var startColMsg = "All mapping items must start at the same column";
+    function resolveBlockMap({ composeNode, composeEmptyNode }, ctx, bm, onError, tag) {
+      const NodeClass = tag?.nodeClass ?? YAMLMap.YAMLMap;
+      const map = new NodeClass(ctx.schema);
+      if (ctx.atRoot)
+        ctx.atRoot = false;
+      let offset = bm.offset;
+      let commentEnd = null;
+      for (const collItem of bm.items) {
+        const { start, key, sep, value } = collItem;
+        const keyProps = resolveProps.resolveProps(start, {
+          indicator: "explicit-key-ind",
+          next: key ?? sep?.[0],
+          offset,
+          onError,
+          parentIndent: bm.indent,
+          startOnNewline: true
         });
-      }
-      /**
-       * Resolves a field value, either using the provided CronField instance or creating a new one from raw values.
-       * @param constructor - The constructor for creating new field instances
-       * @param baseField - The base field to use if no override is provided
-       * @param fieldValue - The override value, either a CronField instance or raw values
-       * @returns The resolved CronField instance
-       * @private
-       */
-      static resolveField(constructor, baseField, fieldValue) {
-        if (!fieldValue) {
-          return baseField;
-        }
-        if (fieldValue instanceof fields_1.CronField) {
-          return fieldValue;
-        }
-        return new constructor(fieldValue);
-      }
-      /**
-       * CronFieldCollection constructor. Initializes the cron fields with the provided values.
-       * @param {CronFields} param0 - The cron fields values
-       * @throws {Error} if validation fails
-       * @example
-       * const cronFields = new CronFieldCollection({
-       *   second: new CronSecond([0]),
-       *   minute: new CronMinute([0, 30]),
-       *   hour: new CronHour([9]),
-       *   dayOfMonth: new CronDayOfMonth([15]),
-       *   month: new CronMonth([1]),
-       *   dayOfWeek: new CronDayOfTheWeek([1, 2, 3, 4, 5]),
-       * })
-       *
-       * console.log(cronFields.second.values); // [0]
-       * console.log(cronFields.minute.values); // [0, 30]
-       * console.log(cronFields.hour.values); // [9]
-       * console.log(cronFields.dayOfMonth.values); // [15]
-       * console.log(cronFields.month.values); // [1]
-       * console.log(cronFields.dayOfWeek.values); // [1, 2, 3, 4, 5]
-       */
-      constructor({ second, minute, hour, dayOfMonth, month, dayOfWeek }) {
-        if (!second) {
-          throw new Error("Validation error, Field second is missing");
-        }
-        if (!minute) {
-          throw new Error("Validation error, Field minute is missing");
-        }
-        if (!hour) {
-          throw new Error("Validation error, Field hour is missing");
-        }
-        if (!dayOfMonth) {
-          throw new Error("Validation error, Field dayOfMonth is missing");
-        }
-        if (!month) {
-          throw new Error("Validation error, Field month is missing");
-        }
-        if (!dayOfWeek) {
-          throw new Error("Validation error, Field dayOfWeek is missing");
-        }
-        if (month.values.length === 1 && !dayOfMonth.hasLastChar) {
-          if (!(parseInt(dayOfMonth.values[0], 10) <= fields_1.CronMonth.daysInMonth[month.values[0] - 1])) {
-            throw new Error("Invalid explicit day of month definition");
+        const implicitKey = !keyProps.found;
+        if (implicitKey) {
+          if (key) {
+            if (key.type === "block-seq")
+              onError(offset, "BLOCK_AS_IMPLICIT_KEY", "A block sequence may not be used as an implicit map key");
+            else if ("indent" in key && key.indent !== bm.indent)
+              onError(offset, "BAD_INDENT", startColMsg);
           }
-        }
-        this.#second = second;
-        this.#minute = minute;
-        this.#hour = hour;
-        this.#month = month;
-        this.#dayOfWeek = dayOfWeek;
-        this.#dayOfMonth = dayOfMonth;
-      }
-      /**
-       * Returns the second field.
-       * @returns {CronSecond}
-       */
-      get second() {
-        return this.#second;
-      }
-      /**
-       * Returns the minute field.
-       * @returns {CronMinute}
-       */
-      get minute() {
-        return this.#minute;
-      }
-      /**
-       * Returns the hour field.
-       * @returns {CronHour}
-       */
-      get hour() {
-        return this.#hour;
-      }
-      /**
-       * Returns the day of the month field.
-       * @returns {CronDayOfMonth}
-       */
-      get dayOfMonth() {
-        return this.#dayOfMonth;
-      }
-      /**
-       * Returns the month field.
-       * @returns {CronMonth}
-       */
-      get month() {
-        return this.#month;
-      }
-      /**
-       * Returns the day of the week field.
-       * @returns {CronDayOfWeek}
-       */
-      get dayOfWeek() {
-        return this.#dayOfWeek;
-      }
-      /**
-       * Returns a string representation of the cron fields.
-       * @param {(number | CronChars)[]} input - The cron fields values
-       * @static
-       * @returns {FieldRange[]} - The compacted cron fields
-       */
-      static compactField(input) {
-        if (input.length === 0) {
-          return [];
-        }
-        const output = [];
-        let current = void 0;
-        input.forEach((item, i, arr) => {
-          if (current === void 0) {
-            current = { start: item, count: 1 };
-            return;
-          }
-          const prevItem = arr[i - 1] || current.start;
-          const nextItem = arr[i + 1];
-          if (item === "L" || item === "W") {
-            output.push(current);
-            output.push({ start: item, count: 1 });
-            current = void 0;
-            return;
-          }
-          if (current.step === void 0 && nextItem !== void 0) {
-            const step = item - prevItem;
-            const nextStep = nextItem - item;
-            if (step <= nextStep) {
-              current = { ...current, count: 2, end: item, step };
-              return;
+          if (!keyProps.anchor && !keyProps.tag && !sep) {
+            commentEnd = keyProps.end;
+            if (keyProps.comment) {
+              if (map.comment)
+                map.comment += "\n" + keyProps.comment;
+              else
+                map.comment = keyProps.comment;
             }
-            current.step = 1;
+            continue;
           }
-          if (item - (current.end ?? 0) === current.step) {
-            current.count++;
-            current.end = item;
+          if (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key)) {
+            onError(key ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
+          }
+        } else if (keyProps.found?.indent !== bm.indent) {
+          onError(offset, "BAD_INDENT", startColMsg);
+        }
+        ctx.atKey = true;
+        const keyStart = keyProps.end;
+        const keyNode = key ? composeNode(ctx, key, keyProps, onError) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError);
+        if (ctx.schema.compat)
+          utilFlowIndentCheck.flowIndentCheck(bm.indent, key, onError);
+        ctx.atKey = false;
+        if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
+          onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
+        const valueProps = resolveProps.resolveProps(sep ?? [], {
+          indicator: "map-value-ind",
+          next: value,
+          offset: keyNode.range[2],
+          onError,
+          parentIndent: bm.indent,
+          startOnNewline: !key || key.type === "block-scalar"
+        });
+        offset = valueProps.end;
+        if (valueProps.found) {
+          if (implicitKey) {
+            if (value?.type === "block-map" && !valueProps.hasNewline)
+              onError(offset, "BLOCK_AS_IMPLICIT_KEY", "Nested mappings are not allowed in compact mappings");
+            if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
+              onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
+          }
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          if (ctx.schema.compat)
+            utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
+          offset = valueNode.range[2];
+          const pair = new Pair.Pair(keyNode, valueNode);
+          if (ctx.options.keepSourceTokens)
+            pair.srcToken = collItem;
+          map.items.push(pair);
+        } else {
+          if (implicitKey)
+            onError(keyNode.range, "MISSING_CHAR", "Implicit map keys need to be followed by map values");
+          if (valueProps.comment) {
+            if (keyNode.comment)
+              keyNode.comment += "\n" + valueProps.comment;
+            else
+              keyNode.comment = valueProps.comment;
+          }
+          const pair = new Pair.Pair(keyNode);
+          if (ctx.options.keepSourceTokens)
+            pair.srcToken = collItem;
+          map.items.push(pair);
+        }
+      }
+      if (commentEnd && commentEnd < offset)
+        onError(commentEnd, "IMPOSSIBLE", "Map comment with trailing content");
+      map.range = [bm.offset, offset, commentEnd ?? offset];
+      return map;
+    }
+    exports.resolveBlockMap = resolveBlockMap;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js
+var require_resolve_block_seq = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+    "use strict";
+    var YAMLSeq = require_YAMLSeq();
+    var resolveProps = require_resolve_props();
+    var utilFlowIndentCheck = require_util_flow_indent_check();
+    function resolveBlockSeq({ composeNode, composeEmptyNode }, ctx, bs, onError, tag) {
+      const NodeClass = tag?.nodeClass ?? YAMLSeq.YAMLSeq;
+      const seq = new NodeClass(ctx.schema);
+      if (ctx.atRoot)
+        ctx.atRoot = false;
+      if (ctx.atKey)
+        ctx.atKey = false;
+      let offset = bs.offset;
+      let commentEnd = null;
+      for (const { start, value } of bs.items) {
+        const props = resolveProps.resolveProps(start, {
+          indicator: "seq-item-ind",
+          next: value,
+          offset,
+          onError,
+          parentIndent: bs.indent,
+          startOnNewline: true
+        });
+        if (!props.found) {
+          if (props.anchor || props.tag || value) {
+            if (value?.type === "block-seq")
+              onError(props.end, "BAD_INDENT", "All sequence items must start at the same column");
+            else
+              onError(offset, "MISSING_CHAR", "Sequence item without - indicator");
           } else {
-            if (current.count === 1) {
-              output.push({ start: current.start, count: 1 });
-            } else if (current.count === 2) {
-              output.push({ start: current.start, count: 1 });
-              output.push({
-                start: current.end ?? /* istanbul ignore next - see above */
-                prevItem,
-                count: 1
-              });
-            } else {
-              output.push(current);
-            }
-            current = { start: item, count: 1 };
-          }
-        });
-        if (current) {
-          output.push(current);
-        }
-        return output;
-      }
-      /**
-       * Handles a single range.
-       * @param {CronField} field - The cron field to stringify
-       * @param {FieldRange} range {start: number, end: number, step: number, count: number} The range to handle.
-       * @param {number} max The maximum value for the field.
-       * @returns {string | null} The stringified range or null if it cannot be stringified.
-       * @private
-       */
-      static #handleSingleRange(field, range, max) {
-        const step = range.step;
-        if (!step) {
-          return null;
-        }
-        if (step === 1 && range.start === field.min && range.end && range.end >= max) {
-          return field.hasQuestionMarkChar ? "?" : "*";
-        }
-        if (step !== 1 && range.start === field.min && range.end && range.end >= max - step + 1) {
-          return `*/${step}`;
-        }
-        return null;
-      }
-      /**
-       * Handles multiple ranges.
-       * @param {FieldRange} range {start: number, end: number, step: number, count: number} The range to handle.
-       * @param {number} max The maximum value for the field.
-       * @returns {string} The stringified range.
-       * @private
-       */
-      static #handleMultipleRanges(range, max) {
-        const step = range.step;
-        if (step === 1) {
-          return `${range.start}-${range.end}`;
-        }
-        const multiplier = range.start === 0 ? range.count - 1 : range.count;
-        if (!step) {
-          throw new Error("Unexpected range step");
-        }
-        if (!range.end) {
-          throw new Error("Unexpected range end");
-        }
-        if (step * multiplier > range.end) {
-          const mapFn = (_, index) => {
-            if (typeof range.start !== "number") {
-              throw new Error("Unexpected range start");
-            }
-            return index % step === 0 ? range.start + index : null;
-          };
-          if (typeof range.start !== "number") {
-            throw new Error("Unexpected range start");
-          }
-          const seed = { length: range.end - range.start + 1 };
-          return Array.from(seed, mapFn).filter((value) => value !== null).join(",");
-        }
-        return range.end === max - step + 1 ? `${range.start}/${step}` : `${range.start}-${range.end}/${step}`;
-      }
-      /**
-       * Returns a string representation of the cron fields.
-       * @param {CronField} field - The cron field to stringify
-       * @static
-       * @returns {string} - The stringified cron field
-       */
-      stringifyField(field) {
-        let max = field.max;
-        let values = field.values;
-        if (field instanceof fields_1.CronDayOfWeek) {
-          max = 6;
-          const dayOfWeek = this.#dayOfWeek.values;
-          values = dayOfWeek[dayOfWeek.length - 1] === 7 ? dayOfWeek.slice(0, -1) : dayOfWeek;
-        }
-        if (field instanceof fields_1.CronDayOfMonth) {
-          max = this.#month.values.length === 1 ? fields_1.CronMonth.daysInMonth[this.#month.values[0] - 1] : field.max;
-        }
-        const ranges = _CronFieldCollection.compactField(values);
-        if (ranges.length === 1) {
-          const singleRangeResult = _CronFieldCollection.#handleSingleRange(field, ranges[0], max);
-          if (singleRangeResult) {
-            return singleRangeResult;
+            commentEnd = props.end;
+            if (props.comment)
+              seq.comment = props.comment;
+            continue;
           }
         }
-        return ranges.map((range) => {
-          const value = range.count === 1 ? range.start.toString() : _CronFieldCollection.#handleMultipleRanges(range, max);
-          if (field instanceof fields_1.CronDayOfWeek && field.nthDay > 0) {
-            return `${value}#${field.nthDay}`;
-          }
-          return value;
-        }).join(",");
+        const node = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, start, null, props, onError);
+        if (ctx.schema.compat)
+          utilFlowIndentCheck.flowIndentCheck(bs.indent, value, onError);
+        offset = node.range[2];
+        seq.items.push(node);
       }
-      /**
-       * Returns a string representation of the cron field values.
-       * @param {boolean} includeSeconds - Whether to include seconds in the output
-       * @returns {string} The formatted cron string
-       */
-      stringify(includeSeconds = false) {
-        const arr = [];
-        if (includeSeconds) {
-          arr.push(this.stringifyField(this.#second));
-        }
-        arr.push(
-          this.stringifyField(this.#minute),
-          // minute
-          this.stringifyField(this.#hour),
-          // hour
-          this.stringifyField(this.#dayOfMonth),
-          // dayOfMonth
-          this.stringifyField(this.#month),
-          // month
-          this.stringifyField(this.#dayOfWeek)
-        );
-        return arr.join(" ");
-      }
-      /**
-       * Returns a serialized representation of the cron fields values.
-       * @returns {SerializedCronFields} An object containing the cron field values
-       */
-      serialize() {
-        return {
-          second: this.#second.serialize(),
-          minute: this.#minute.serialize(),
-          hour: this.#hour.serialize(),
-          dayOfMonth: this.#dayOfMonth.serialize(),
-          month: this.#month.serialize(),
-          dayOfWeek: this.#dayOfWeek.serialize()
-        };
-      }
-    };
-    exports.CronFieldCollection = CronFieldCollection;
+      seq.range = [bs.offset, offset, commentEnd ?? offset];
+      return seq;
+    }
+    exports.resolveBlockSeq = resolveBlockSeq;
   }
 });
 
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronExpression.js
-var require_CronExpression = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronExpression.js"(exports) {
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js
+var require_resolve_end = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
     "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronExpression = exports.LOOPS_LIMIT_EXCEEDED_ERROR_MESSAGE = exports.TIME_SPAN_OUT_OF_BOUNDS_ERROR_MESSAGE = void 0;
-    var CronDate_1 = require_CronDate();
-    exports.TIME_SPAN_OUT_OF_BOUNDS_ERROR_MESSAGE = "Out of the time span range";
-    exports.LOOPS_LIMIT_EXCEEDED_ERROR_MESSAGE = "Invalid expression, loop limit exceeded";
-    var LOOP_LIMIT = 1e4;
-    var CronExpression = class _CronExpression {
-      #options;
-      #tz;
-      #currentDate;
-      #startDate;
-      #endDate;
-      #fields;
-      #dstTransitionDayKey = null;
-      #isDstTransitionDay = false;
-      /**
-       * Creates a new CronExpression instance.
-       *
-       * @param {CronFieldCollection} fields - Cron fields.
-       * @param {CronExpressionOptions} options - Parser options.
-       */
-      constructor(fields, options) {
-        this.#options = options;
-        this.#tz = options.tz;
-        this.#startDate = options.startDate ? new CronDate_1.CronDate(options.startDate, this.#tz) : null;
-        this.#endDate = options.endDate ? new CronDate_1.CronDate(options.endDate, this.#tz) : null;
-        let currentDateValue = options.currentDate ?? options.startDate;
-        if (currentDateValue) {
-          const tempCurrentDate = new CronDate_1.CronDate(currentDateValue, this.#tz);
-          if (this.#startDate && tempCurrentDate.getTime() < this.#startDate.getTime()) {
-            currentDateValue = this.#startDate;
-          } else if (this.#endDate && tempCurrentDate.getTime() > this.#endDate.getTime()) {
-            currentDateValue = this.#endDate;
+    function resolveEnd(end, offset, reqSpace, onError) {
+      let comment = "";
+      if (end) {
+        let hasSpace = false;
+        let sep = "";
+        for (const token of end) {
+          const { source, type } = token;
+          switch (type) {
+            case "space":
+              hasSpace = true;
+              break;
+            case "comment": {
+              if (reqSpace && !hasSpace)
+                onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+              const cb = source.substring(1) || " ";
+              if (!comment)
+                comment = cb;
+              else
+                comment += sep + cb;
+              sep = "";
+              break;
+            }
+            case "newline":
+              if (comment)
+                sep += source;
+              hasSpace = true;
+              break;
+            default:
+              onError(token, "UNEXPECTED_TOKEN", `Unexpected ${type} at node end`);
           }
+          offset += source.length;
         }
-        this.#currentDate = new CronDate_1.CronDate(currentDateValue, this.#tz);
-        this.#fields = fields;
       }
-      /**
-       * Getter for the cron fields.
-       *
-       * @returns {CronFieldCollection} Cron fields.
-       */
-      get fields() {
-        return this.#fields;
-      }
-      /**
-       * Converts cron fields back to a CronExpression instance.
-       *
-       * @public
-       * @param {Record<string, number[]>} fields - The input cron fields object.
-       * @param {CronExpressionOptions} [options] - Optional parsing options.
-       * @returns {CronExpression} - A new CronExpression instance.
-       */
-      static fieldsToExpression(fields, options) {
-        return new _CronExpression(fields, options || {});
-      }
-      /**
-       * Checks if the given value matches any element in the sequence.
-       *
-       * @param {number} value - The value to be matched.
-       * @param {number[]} sequence - The sequence to be checked against.
-       * @returns {boolean} - True if the value matches an element in the sequence; otherwise, false.
-       * @memberof CronExpression
-       * @private
-       */
-      static #matchSchedule(value, sequence) {
-        return sequence.some((element) => element === value);
-      }
-      /**
-       * Returns the minimum or maximum value from the given array of numbers.
-       *
-       * @param {number[]} values - An array of numbers.
-       * @param {boolean} reverse - If true, returns the maximum value; otherwise, returns the minimum value.
-       * @returns {number} - The minimum or maximum value.
-       */
-      #getMinOrMax(values, reverse) {
-        return values[reverse ? values.length - 1 : 0];
-      }
-      /**
-       * Checks whether the given date falls on a DST transition day in its timezone.
-       *
-       * This is used to disable certain “direct set” fast paths on DST days, because setting the hour
-       * directly may land on a non-existent or repeated local time. We cache the result per calendar day
-       * to keep iteration overhead low.
-       *
-       * @param {CronDate} currentDate - Date to check (in the cron timezone)
-       * @returns {boolean} True when the day has a DST transition
-       * @private
-       */
-      #checkDstTransition(currentDate) {
-        const key = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}-${currentDate.getDate()}`;
-        if (this.#dstTransitionDayKey === key) {
-          return this.#isDstTransitionDay;
-        }
-        const startOfDay = new CronDate_1.CronDate(currentDate);
-        startOfDay.setStartOfDay();
-        const endOfDay = new CronDate_1.CronDate(currentDate);
-        endOfDay.setEndOfDay();
-        this.#dstTransitionDayKey = key;
-        this.#isDstTransitionDay = startOfDay.getUTCOffset() !== endOfDay.getUTCOffset();
-        return this.#isDstTransitionDay;
-      }
-      /**
-       * Moves the date to the next/previous allowed second value. If there is no remaining allowed second
-       * within the current minute, rolls to the next/previous minute and resets seconds to the min/max allowed.
-       *
-       * @param {CronDate} currentDate - Mutable date being iterated
-       * @param {DateMathOp} dateMathVerb - Add/Subtract depending on direction
-       * @param {boolean} reverse - When true, iterating backwards
-       * @private
-       */
-      #moveToNextSecond(currentDate, dateMathVerb, reverse) {
-        const seconds = this.#fields.second.values;
-        const currentSecond = currentDate.getSeconds();
-        const nextSecond = this.#fields.second.findNearestValue(currentSecond, reverse);
-        if (nextSecond !== null) {
-          currentDate.setSeconds(nextSecond);
-          return;
-        }
-        currentDate.applyDateOperation(dateMathVerb, CronDate_1.TimeUnit.Minute, this.#fields.hour.values.length);
-        currentDate.setSeconds(this.#getMinOrMax(seconds, reverse));
-      }
-      /**
-       * Moves the date to the next/previous allowed minute value and resets seconds to the min/max allowed.
-       * If there is no remaining allowed minute within the current hour, rolls to the next/previous hour and
-       * resets minutes/seconds to their extrema.
-       *
-       * @param {CronDate} currentDate - Mutable date being iterated
-       * @param {DateMathOp} dateMathVerb - Add/Subtract depending on direction
-       * @param {boolean} reverse - When true, iterating backwards
-       * @private
-       */
-      #moveToNextMinute(currentDate, dateMathVerb, reverse) {
-        const minutes = this.#fields.minute.values;
-        const seconds = this.#fields.second.values;
-        const currentMinute = currentDate.getMinutes();
-        const nextMinute = this.#fields.minute.findNearestValue(currentMinute, reverse);
-        if (nextMinute !== null) {
-          currentDate.setMinutes(nextMinute);
-          currentDate.setSeconds(this.#getMinOrMax(seconds, reverse));
-          return;
-        }
-        currentDate.applyDateOperation(dateMathVerb, CronDate_1.TimeUnit.Hour, this.#fields.hour.values.length);
-        currentDate.setMinutes(this.#getMinOrMax(minutes, reverse));
-        currentDate.setSeconds(this.#getMinOrMax(seconds, reverse));
-      }
-      /**
-       * Determines if the current date matches the last specified weekday of the month.
-       *
-       * @param {Array<(number|string)>} expressions - An array of expressions containing weekdays and "L" for the last weekday.
-       * @param {CronDate} currentDate - The current date object.
-       * @returns {boolean} - True if the current date matches the last specified weekday of the month; otherwise, false.
-       * @memberof CronExpression
-       * @private
-       */
-      static #isLastWeekdayOfMonthMatch(expressions, currentDate) {
-        const isLastWeekdayOfMonth = currentDate.isLastWeekdayOfMonth();
-        return expressions.some((expression) => {
-          const weekday = parseInt(expression.toString().charAt(0), 10) % 7;
-          if (Number.isNaN(weekday)) {
-            throw new Error(`Invalid last weekday of the month expression: ${expression}`);
-          }
-          return currentDate.getDay() === weekday && isLastWeekdayOfMonth;
+      return { comment, offset };
+    }
+    exports.resolveEnd = resolveEnd;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js
+var require_resolve_flow_collection = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var resolveEnd = require_resolve_end();
+    var resolveProps = require_resolve_props();
+    var utilContainsNewline = require_util_contains_newline();
+    var utilMapIncludes = require_util_map_includes();
+    var blockMsg = "Block collections are not allowed within flow collections";
+    var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
+    function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
+      const isMap = fc.start.source === "{";
+      const fcName = isMap ? "flow map" : "flow sequence";
+      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const coll = new NodeClass(ctx.schema);
+      coll.flow = true;
+      const atRoot = ctx.atRoot;
+      if (atRoot)
+        ctx.atRoot = false;
+      if (ctx.atKey)
+        ctx.atKey = false;
+      let offset = fc.offset + fc.start.source.length;
+      for (let i = 0; i < fc.items.length; ++i) {
+        const collItem = fc.items[i];
+        const { start, key, sep, value } = collItem;
+        const props = resolveProps.resolveProps(start, {
+          flow: fcName,
+          indicator: "explicit-key-ind",
+          next: key ?? sep?.[0],
+          offset,
+          onError,
+          parentIndent: fc.indent,
+          startOnNewline: false
         });
-      }
-      /**
-       * Find the next scheduled date based on the cron expression.
-       * @returns {CronDate} - The next scheduled date or an ES6 compatible iterator object.
-       * @memberof CronExpression
-       * @public
-       */
-      next() {
-        return this.#findSchedule();
-      }
-      /**
-       * Find the previous scheduled date based on the cron expression.
-       * @returns {CronDate} - The previous scheduled date or an ES6 compatible iterator object.
-       * @memberof CronExpression
-       * @public
-       */
-      prev() {
-        return this.#findSchedule(true);
-      }
-      /**
-       * Check if there is a next scheduled date based on the current date and cron expression.
-       * @returns {boolean} - Returns true if there is a next scheduled date, false otherwise.
-       * @memberof CronExpression
-       * @public
-       */
-      hasNext() {
-        const current = this.#currentDate;
-        try {
-          this.#findSchedule();
-          return true;
-        } catch {
-          return false;
-        } finally {
-          this.#currentDate = current;
-        }
-      }
-      /**
-       * Check if there is a previous scheduled date based on the current date and cron expression.
-       * @returns {boolean} - Returns true if there is a previous scheduled date, false otherwise.
-       * @memberof CronExpression
-       * @public
-       */
-      hasPrev() {
-        const current = this.#currentDate;
-        try {
-          this.#findSchedule(true);
-          return true;
-        } catch {
-          return false;
-        } finally {
-          this.#currentDate = current;
-        }
-      }
-      /**
-       * Iterate over a specified number of steps and optionally execute a callback function for each step.
-       * @param {number} steps - The number of steps to iterate. Positive value iterates forward, negative value iterates backward.
-       * @returns {CronDate[]} - An array of iterator fields or CronDate objects.
-       * @memberof CronExpression
-       * @public
-       */
-      take(limit) {
-        const items = [];
-        if (limit >= 0) {
-          for (let i = 0; i < limit; i++) {
-            try {
-              items.push(this.next());
-            } catch {
-              return items;
+        if (!props.found) {
+          if (!props.anchor && !props.tag && !sep && !value) {
+            if (i === 0 && props.comma)
+              onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
+            else if (i < fc.items.length - 1)
+              onError(props.start, "UNEXPECTED_TOKEN", `Unexpected empty item in ${fcName}`);
+            if (props.comment) {
+              if (coll.comment)
+                coll.comment += "\n" + props.comment;
+              else
+                coll.comment = props.comment;
             }
+            offset = props.end;
+            continue;
           }
+          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key))
+            onError(
+              key,
+              // checked by containsNewline()
+              "MULTILINE_IMPLICIT_KEY",
+              "Implicit keys of flow sequence pairs need to be on a single line"
+            );
+        }
+        if (i === 0) {
+          if (props.comma)
+            onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
         } else {
-          for (let i = 0; i > limit; i--) {
-            try {
-              items.push(this.prev());
-            } catch {
-              return items;
+          if (!props.comma)
+            onError(props.start, "MISSING_CHAR", `Missing , between ${fcName} items`);
+          if (props.comment) {
+            let prevItemComment = "";
+            loop: for (const st of start) {
+              switch (st.type) {
+                case "comma":
+                case "space":
+                  break;
+                case "comment":
+                  prevItemComment = st.source.substring(1);
+                  break loop;
+                default:
+                  break loop;
+              }
+            }
+            if (prevItemComment) {
+              let prev = coll.items[coll.items.length - 1];
+              if (identity.isPair(prev))
+                prev = prev.value ?? prev.key;
+              if (prev.comment)
+                prev.comment += "\n" + prevItemComment;
+              else
+                prev.comment = prevItemComment;
+              props.comment = props.comment.substring(prevItemComment.length + 1);
             }
           }
         }
-        return items;
-      }
-      /**
-       * Reset the iterators current date to a new date or the initial date.
-       * @param {Date | CronDate} [newDate] - Optional new date to reset to. If not provided, it will reset to the initial date.
-       * @memberof CronExpression
-       * @public
-       */
-      reset(newDate) {
-        this.#currentDate = new CronDate_1.CronDate(newDate || this.#options.currentDate);
-      }
-      /**
-       * Generate a string representation of the cron expression.
-       * @param {boolean} [includeSeconds=false] - Whether to include the seconds field in the string representation.
-       * @returns {string} - The string representation of the cron expression.
-       * @memberof CronExpression
-       * @public
-       */
-      stringify(includeSeconds = false) {
-        return this.#fields.stringify(includeSeconds);
-      }
-      /**
-       * Check if the cron expression includes the given date
-       * @param {Date|CronDate} date
-       * @returns {boolean}
-       */
-      includesDate(date) {
-        const { second, minute, hour, month } = this.#fields;
-        const dt = new CronDate_1.CronDate(date, this.#tz);
-        if (!second.values.includes(dt.getSeconds()) || !minute.values.includes(dt.getMinutes()) || !hour.values.includes(dt.getHours()) || !month.values.includes(dt.getMonth() + 1)) {
-          return false;
-        }
-        if (!this.#matchDayOfMonth(dt)) {
-          return false;
-        }
-        if (this.#fields.dayOfWeek.nthDay > 0) {
-          const weekInMonth = Math.ceil(dt.getDate() / 7);
-          if (weekInMonth !== this.#fields.dayOfWeek.nthDay) {
-            return false;
-          }
-        }
-        return true;
-      }
-      /**
-       * Returns the string representation of the cron expression.
-       * @returns {CronDate} - The next schedule date.
-       */
-      toString() {
-        return this.#options.expression || this.stringify(true);
-      }
-      /**
-       * Determines if the given date matches the cron expression's day of month and day of week fields.
-       *
-       * The function checks the following rules:
-       * Rule 1: If both "day of month" and "day of week" are restricted (not wildcard), then one or both must match the current day.
-       * Rule 2: If "day of month" is restricted and "day of week" is not restricted, then "day of month" must match the current day.
-       * Rule 3: If "day of month" is a wildcard, "day of week" is not a wildcard, and "day of week" matches the current day, then the match is accepted.
-       * If none of the rules match, the match is rejected.
-       *
-       * @param {CronDate} currentDate - The current date to be evaluated against the cron expression.
-       * @returns {boolean} Returns true if the current date matches the cron expression's day of month and day of week fields, otherwise false.
-       * @memberof CronExpression
-       * @private
-       */
-      #matchDayOfMonth(currentDate) {
-        const isDayOfMonthWildcardMatch = this.#fields.dayOfMonth.isWildcard;
-        const isRestrictedDayOfMonth = !isDayOfMonthWildcardMatch;
-        const isDayOfWeekWildcardMatch = this.#fields.dayOfWeek.isWildcard;
-        const isRestrictedDayOfWeek = !isDayOfWeekWildcardMatch;
-        const matchedDOM = _CronExpression.#matchSchedule(currentDate.getDate(), this.#fields.dayOfMonth.values) || this.#fields.dayOfMonth.hasLastChar && currentDate.isLastDayOfMonth();
-        const matchedDOW = _CronExpression.#matchSchedule(currentDate.getDay(), this.#fields.dayOfWeek.values) || this.#fields.dayOfWeek.hasLastChar && _CronExpression.#isLastWeekdayOfMonthMatch(this.#fields.dayOfWeek.values, currentDate);
-        if (isRestrictedDayOfMonth && isRestrictedDayOfWeek && (matchedDOM || matchedDOW)) {
-          return true;
-        }
-        if (matchedDOM && !isRestrictedDayOfWeek) {
-          return true;
-        }
-        if (isDayOfMonthWildcardMatch && !isDayOfWeekWildcardMatch && matchedDOW) {
-          return true;
-        }
-        return false;
-      }
-      /**
-       * Determines if the current hour matches the cron expression.
-       *
-       * @param {CronDate} currentDate - The current date object.
-       * @param {DateMathOp} dateMathVerb - The date math operation enumeration value.
-       * @param {boolean} reverse - A flag indicating whether the matching should be done in reverse order.
-       * @returns {boolean} - True if the current hour matches the cron expression; otherwise, false.
-       */
-      #matchHour(currentDate, dateMathVerb, reverse) {
-        const hourValues = this.#fields.hour.values;
-        const hours = hourValues;
-        const currentHour = currentDate.getHours();
-        const isMatch = _CronExpression.#matchSchedule(currentHour, hourValues);
-        const isDstStart = currentDate.dstStart === currentHour;
-        const isDstEnd = currentDate.dstEnd === currentHour;
-        if (isDstStart) {
-          if (_CronExpression.#matchSchedule(currentHour - 1, hourValues)) {
-            return true;
-          }
-          currentDate.invokeDateOperation(dateMathVerb, CronDate_1.TimeUnit.Hour);
-          return false;
-        }
-        if (isDstEnd && !reverse) {
-          currentDate.dstEnd = null;
-          currentDate.applyDateOperation(CronDate_1.DateMathOp.Add, CronDate_1.TimeUnit.Hour, hours.length);
-          return false;
-        }
-        if (isMatch) {
-          return true;
-        }
-        currentDate.dstStart = null;
-        const nextHour = this.#fields.hour.findNearestValue(currentHour, reverse);
-        if (nextHour === null) {
-          currentDate.applyDateOperation(dateMathVerb, CronDate_1.TimeUnit.Day, hours.length);
-          return false;
-        }
-        if (this.#checkDstTransition(currentDate)) {
-          const steps = reverse ? currentHour - nextHour : nextHour - currentHour;
-          for (let i = 0; i < steps; i++) {
-            currentDate.applyDateOperation(dateMathVerb, CronDate_1.TimeUnit.Hour, hours.length);
-          }
+        if (!isMap && !sep && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+          coll.items.push(valueNode);
+          offset = valueNode.range[2];
+          if (isBlock(value))
+            onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
         } else {
-          currentDate.setHours(nextHour);
-        }
-        currentDate.setMinutes(this.#getMinOrMax(this.#fields.minute.values, reverse));
-        currentDate.setSeconds(this.#getMinOrMax(this.#fields.second.values, reverse));
-        return false;
-      }
-      /**
-       * Validates the current date against the start and end dates of the cron expression.
-       * If the current date is outside the specified time span, an error is thrown.
-       *
-       * @param currentDate {CronDate} - The current date to validate.
-       * @throws {Error} If the current date is outside the specified time span.
-       * @private
-       */
-      #validateTimeSpan(currentDate) {
-        if (!this.#startDate && !this.#endDate) {
-          return;
-        }
-        const currentTime = currentDate.getTime();
-        if (this.#startDate && currentTime < this.#startDate.getTime()) {
-          throw new Error(exports.TIME_SPAN_OUT_OF_BOUNDS_ERROR_MESSAGE);
-        }
-        if (this.#endDate && currentTime > this.#endDate.getTime()) {
-          throw new Error(exports.TIME_SPAN_OUT_OF_BOUNDS_ERROR_MESSAGE);
-        }
-      }
-      /**
-       * Finds the next or previous schedule based on the cron expression.
-       *
-       * @param {boolean} [reverse=false] - If true, finds the previous schedule; otherwise, finds the next schedule.
-       * @returns {CronDate} - The next or previous schedule date.
-       * @private
-       */
-      #findSchedule(reverse = false) {
-        const dateMathVerb = reverse ? CronDate_1.DateMathOp.Subtract : CronDate_1.DateMathOp.Add;
-        const currentDate = new CronDate_1.CronDate(this.#currentDate);
-        const startTimestamp = currentDate.getTime();
-        let stepCount = 0;
-        while (++stepCount < LOOP_LIMIT) {
-          this.#validateTimeSpan(currentDate);
-          if (!this.#matchDayOfMonth(currentDate)) {
-            currentDate.applyDateOperation(dateMathVerb, CronDate_1.TimeUnit.Day, this.#fields.hour.values.length);
-            continue;
-          }
-          if (!(this.#fields.dayOfWeek.nthDay <= 0 || Math.ceil(currentDate.getDate() / 7) === this.#fields.dayOfWeek.nthDay)) {
-            currentDate.applyDateOperation(dateMathVerb, CronDate_1.TimeUnit.Day, this.#fields.hour.values.length);
-            continue;
-          }
-          if (!_CronExpression.#matchSchedule(currentDate.getMonth() + 1, this.#fields.month.values)) {
-            currentDate.applyDateOperation(dateMathVerb, CronDate_1.TimeUnit.Month, this.#fields.hour.values.length);
-            continue;
-          }
-          if (!this.#matchHour(currentDate, dateMathVerb, reverse)) {
-            continue;
-          }
-          if (!_CronExpression.#matchSchedule(currentDate.getMinutes(), this.#fields.minute.values)) {
-            this.#moveToNextMinute(currentDate, dateMathVerb, reverse);
-            continue;
-          }
-          if (!_CronExpression.#matchSchedule(currentDate.getSeconds(), this.#fields.second.values)) {
-            this.#moveToNextSecond(currentDate, dateMathVerb, reverse);
-            continue;
-          }
-          if (startTimestamp === currentDate.getTime()) {
-            if (dateMathVerb === "Add" || currentDate.getMilliseconds() === 0) {
-              currentDate.applyDateOperation(dateMathVerb, CronDate_1.TimeUnit.Second, this.#fields.hour.values.length);
+          ctx.atKey = true;
+          const keyStart = props.end;
+          const keyNode = key ? composeNode(ctx, key, props, onError) : composeEmptyNode(ctx, keyStart, start, null, props, onError);
+          if (isBlock(key))
+            onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
+          ctx.atKey = false;
+          const valueProps = resolveProps.resolveProps(sep ?? [], {
+            flow: fcName,
+            indicator: "map-value-ind",
+            next: value,
+            offset: keyNode.range[2],
+            onError,
+            parentIndent: fc.indent,
+            startOnNewline: false
+          });
+          if (valueProps.found) {
+            if (!isMap && !props.found && ctx.options.strict) {
+              if (sep)
+                for (const st of sep) {
+                  if (st === valueProps.found)
+                    break;
+                  if (st.type === "newline") {
+                    onError(st, "MULTILINE_IMPLICIT_KEY", "Implicit keys of flow sequence pairs need to be on a single line");
+                    break;
+                  }
+                }
+              if (props.start < valueProps.found.offset - 1024)
+                onError(valueProps.found, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit flow sequence key");
             }
-            continue;
+          } else if (value) {
+            if ("source" in value && value.source?.[0] === ":")
+              onError(value, "MISSING_CHAR", `Missing space after : in ${fcName}`);
+            else
+              onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
+          }
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          if (valueNode) {
+            if (isBlock(value))
+              onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
+          } else if (valueProps.comment) {
+            if (keyNode.comment)
+              keyNode.comment += "\n" + valueProps.comment;
+            else
+              keyNode.comment = valueProps.comment;
+          }
+          const pair = new Pair.Pair(keyNode, valueNode);
+          if (ctx.options.keepSourceTokens)
+            pair.srcToken = collItem;
+          if (isMap) {
+            const map = coll;
+            if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
+              onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
+            map.items.push(pair);
+          } else {
+            const map = new YAMLMap.YAMLMap(ctx.schema);
+            map.flow = true;
+            map.items.push(pair);
+            const endRange = (valueNode ?? keyNode).range;
+            map.range = [keyNode.range[0], endRange[1], endRange[2]];
+            coll.items.push(map);
+          }
+          offset = valueNode ? valueNode.range[2] : valueProps.end;
+        }
+      }
+      const expectedEnd = isMap ? "}" : "]";
+      const [ce, ...ee] = fc.end;
+      let cePos = offset;
+      if (ce?.source === expectedEnd)
+        cePos = ce.offset + ce.source.length;
+      else {
+        const name = fcName[0].toUpperCase() + fcName.substring(1);
+        const msg = atRoot ? `${name} must end with a ${expectedEnd}` : `${name} in block collection must be sufficiently indented and end with a ${expectedEnd}`;
+        onError(offset, atRoot ? "MISSING_CHAR" : "BAD_INDENT", msg);
+        if (ce && ce.source.length !== 1)
+          ee.unshift(ce);
+      }
+      if (ee.length > 0) {
+        const end = resolveEnd.resolveEnd(ee, cePos, ctx.options.strict, onError);
+        if (end.comment) {
+          if (coll.comment)
+            coll.comment += "\n" + end.comment;
+          else
+            coll.comment = end.comment;
+        }
+        coll.range = [fc.offset, cePos, end.offset];
+      } else {
+        coll.range = [fc.offset, cePos, cePos];
+      }
+      return coll;
+    }
+    exports.resolveFlowCollection = resolveFlowCollection;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js
+var require_compose_collection = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var resolveBlockMap = require_resolve_block_map();
+    var resolveBlockSeq = require_resolve_block_seq();
+    var resolveFlowCollection = require_resolve_flow_collection();
+    function resolveCollection(CN, ctx, token, onError, tagName, tag) {
+      const coll = token.type === "block-map" ? resolveBlockMap.resolveBlockMap(CN, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq.resolveBlockSeq(CN, ctx, token, onError, tag) : resolveFlowCollection.resolveFlowCollection(CN, ctx, token, onError, tag);
+      const Coll = coll.constructor;
+      if (tagName === "!" || tagName === Coll.tagName) {
+        coll.tag = Coll.tagName;
+        return coll;
+      }
+      if (tagName)
+        coll.tag = tagName;
+      return coll;
+    }
+    function composeCollection(CN, ctx, token, props, onError) {
+      const tagToken = props.tag;
+      const tagName = !tagToken ? null : ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg));
+      if (token.type === "block-seq") {
+        const { anchor, newlineAfterProp: nl } = props;
+        const lastProp = anchor && tagToken ? anchor.offset > tagToken.offset ? anchor : tagToken : anchor ?? tagToken;
+        if (lastProp && (!nl || nl.offset < lastProp.offset)) {
+          const message = "Missing newline after block sequence props";
+          onError(lastProp, "MISSING_CHAR", message);
+        }
+      }
+      const expType = token.type === "block-map" ? "map" : token.type === "block-seq" ? "seq" : token.start.source === "{" ? "map" : "seq";
+      if (!tagToken || !tagName || tagName === "!" || tagName === YAMLMap.YAMLMap.tagName && expType === "map" || tagName === YAMLSeq.YAMLSeq.tagName && expType === "seq") {
+        return resolveCollection(CN, ctx, token, onError, tagName);
+      }
+      let tag = ctx.schema.tags.find((t) => t.tag === tagName && t.collection === expType);
+      if (!tag) {
+        const kt = ctx.schema.knownTags[tagName];
+        if (kt?.collection === expType) {
+          ctx.schema.tags.push(Object.assign({}, kt, { default: false }));
+          tag = kt;
+        } else {
+          if (kt) {
+            onError(tagToken, "BAD_COLLECTION_TYPE", `${kt.tag} used for ${expType} collection, but expects ${kt.collection ?? "scalar"}`, true);
+          } else {
+            onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, true);
+          }
+          return resolveCollection(CN, ctx, token, onError, tagName);
+        }
+      }
+      const coll = resolveCollection(CN, ctx, token, onError, tagName, tag);
+      const res = tag.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll;
+      const node = identity.isNode(res) ? res : new Scalar.Scalar(res);
+      node.range = coll.range;
+      node.tag = tagName;
+      if (tag?.format)
+        node.format = tag.format;
+      return node;
+    }
+    exports.composeCollection = composeCollection;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js
+var require_resolve_block_scalar = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    function resolveBlockScalar(ctx, scalar, onError) {
+      const start = scalar.offset;
+      const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
+      if (!header)
+        return { value: "", type: null, comment: "", range: [start, start, start] };
+      const type = header.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
+      const lines = scalar.source ? splitLines(scalar.source) : [];
+      let chompStart = lines.length;
+      for (let i = lines.length - 1; i >= 0; --i) {
+        const content = lines[i][1];
+        if (content === "" || content === "\r")
+          chompStart = i;
+        else
+          break;
+      }
+      if (chompStart === 0) {
+        const value2 = header.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
+        let end2 = start + header.length;
+        if (scalar.source)
+          end2 += scalar.source.length;
+        return { value: value2, type, comment: header.comment, range: [start, end2, end2] };
+      }
+      let trimIndent = scalar.indent + header.indent;
+      let offset = scalar.offset + header.length;
+      let contentStart = 0;
+      for (let i = 0; i < chompStart; ++i) {
+        const [indent, content] = lines[i];
+        if (content === "" || content === "\r") {
+          if (header.indent === 0 && indent.length > trimIndent)
+            trimIndent = indent.length;
+        } else {
+          if (indent.length < trimIndent) {
+            const message = "Block scalars with more-indented leading empty lines must use an explicit indentation indicator";
+            onError(offset + indent.length, "MISSING_CHAR", message);
+          }
+          if (header.indent === 0)
+            trimIndent = indent.length;
+          contentStart = i;
+          if (trimIndent === 0 && !ctx.atRoot) {
+            const message = "Block scalar values in collections must be indented";
+            onError(offset, "BAD_INDENT", message);
           }
           break;
         }
-        if (stepCount > LOOP_LIMIT) {
-          throw new Error(exports.LOOPS_LIMIT_EXCEEDED_ERROR_MESSAGE);
-        }
-        if (currentDate.getMilliseconds() !== 0) {
-          currentDate.setMilliseconds(0);
-        }
-        this.#currentDate = currentDate;
-        return currentDate;
+        offset += indent.length + content.length + 1;
       }
-      /**
-       * Returns an iterator for iterating through future CronDate instances
-       *
-       * @name Symbol.iterator
-       * @memberof CronExpression
-       * @returns {Iterator<CronDate>} An iterator object for CronExpression that returns CronDate values.
-       */
-      [Symbol.iterator]() {
-        return {
-          next: () => {
-            const schedule = this.#findSchedule();
-            return { value: schedule, done: !this.hasNext() };
+      for (let i = lines.length - 1; i >= chompStart; --i) {
+        if (lines[i][0].length > trimIndent)
+          chompStart = i + 1;
+      }
+      let value = "";
+      let sep = "";
+      let prevMoreIndented = false;
+      for (let i = 0; i < contentStart; ++i)
+        value += lines[i][0].slice(trimIndent) + "\n";
+      for (let i = contentStart; i < chompStart; ++i) {
+        let [indent, content] = lines[i];
+        offset += indent.length + content.length + 1;
+        const crlf = content[content.length - 1] === "\r";
+        if (crlf)
+          content = content.slice(0, -1);
+        if (content && indent.length < trimIndent) {
+          const src = header.indent ? "explicit indentation indicator" : "first line";
+          const message = `Block scalar lines must not be less indented than their ${src}`;
+          onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message);
+          indent = "";
+        }
+        if (type === Scalar.Scalar.BLOCK_LITERAL) {
+          value += sep + indent.slice(trimIndent) + content;
+          sep = "\n";
+        } else if (indent.length > trimIndent || content[0] === "	") {
+          if (sep === " ")
+            sep = "\n";
+          else if (!prevMoreIndented && sep === "\n")
+            sep = "\n\n";
+          value += sep + indent.slice(trimIndent) + content;
+          sep = "\n";
+          prevMoreIndented = true;
+        } else if (content === "") {
+          if (sep === "\n")
+            value += "\n";
+          else
+            sep = "\n";
+        } else {
+          value += sep + content;
+          sep = " ";
+          prevMoreIndented = false;
+        }
+      }
+      switch (header.chomp) {
+        case "-":
+          break;
+        case "+":
+          for (let i = chompStart; i < lines.length; ++i)
+            value += "\n" + lines[i][0].slice(trimIndent);
+          if (value[value.length - 1] !== "\n")
+            value += "\n";
+          break;
+        default:
+          value += "\n";
+      }
+      const end = start + header.length + scalar.source.length;
+      return { value, type, comment: header.comment, range: [start, end, end] };
+    }
+    function parseBlockScalarHeader({ offset, props }, strict, onError) {
+      if (props[0].type !== "block-scalar-header") {
+        onError(props[0], "IMPOSSIBLE", "Block scalar header not found");
+        return null;
+      }
+      const { source } = props[0];
+      const mode = source[0];
+      let indent = 0;
+      let chomp = "";
+      let error = -1;
+      for (let i = 1; i < source.length; ++i) {
+        const ch = source[i];
+        if (!chomp && (ch === "-" || ch === "+"))
+          chomp = ch;
+        else {
+          const n = Number(ch);
+          if (!indent && n)
+            indent = n;
+          else if (error === -1)
+            error = offset + i;
+        }
+      }
+      if (error !== -1)
+        onError(error, "UNEXPECTED_TOKEN", `Block scalar header includes extra characters: ${source}`);
+      let hasSpace = false;
+      let comment = "";
+      let length = source.length;
+      for (let i = 1; i < props.length; ++i) {
+        const token = props[i];
+        switch (token.type) {
+          case "space":
+            hasSpace = true;
+          // fallthrough
+          case "newline":
+            length += token.source.length;
+            break;
+          case "comment":
+            if (strict && !hasSpace) {
+              const message = "Comments must be separated from other tokens by white space characters";
+              onError(token, "MISSING_CHAR", message);
+            }
+            length += token.source.length;
+            comment = token.source.substring(1);
+            break;
+          case "error":
+            onError(token, "UNEXPECTED_TOKEN", token.message);
+            length += token.source.length;
+            break;
+          /* istanbul ignore next should not happen */
+          default: {
+            const message = `Unexpected token in block scalar header: ${token.type}`;
+            onError(token, "UNEXPECTED_TOKEN", message);
+            const ts = token.source;
+            if (ts && typeof ts === "string")
+              length += ts.length;
           }
-        };
+        }
       }
-    };
-    exports.CronExpression = CronExpression;
-    exports.default = CronExpression;
+      return { mode, indent, chomp, comment, length };
+    }
+    function splitLines(source) {
+      const split = source.split(/\n( *)/);
+      const first = split[0];
+      const m = first.match(/^( *)/);
+      const line0 = m?.[1] ? [m[1], first.slice(m[1].length)] : ["", first];
+      const lines = [line0];
+      for (let i = 1; i < split.length; i += 2)
+        lines.push([split[i], split[i + 1]]);
+      return lines;
+    }
+    exports.resolveBlockScalar = resolveBlockScalar;
   }
 });
 
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/utils/random.js
-var require_random = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/utils/random.js"(exports) {
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+var require_resolve_flow_scalar = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
     "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.seededRandom = seededRandom;
-    function xfnv1a(str) {
-      let h = 2166136261 >>> 0;
-      for (let i = 0; i < str.length; i++) {
-        h ^= str.charCodeAt(i);
-        h = Math.imul(h, 16777619);
+    var Scalar = require_Scalar();
+    var resolveEnd = require_resolve_end();
+    function resolveFlowScalar(scalar, strict, onError) {
+      const { offset, type, source, end } = scalar;
+      let _type;
+      let value;
+      const _onError = (rel, code, msg) => onError(offset + rel, code, msg);
+      switch (type) {
+        case "scalar":
+          _type = Scalar.Scalar.PLAIN;
+          value = plainValue(source, _onError);
+          break;
+        case "single-quoted-scalar":
+          _type = Scalar.Scalar.QUOTE_SINGLE;
+          value = singleQuotedValue(source, _onError);
+          break;
+        case "double-quoted-scalar":
+          _type = Scalar.Scalar.QUOTE_DOUBLE;
+          value = doubleQuotedValue(source, _onError);
+          break;
+        /* istanbul ignore next should not happen */
+        default:
+          onError(scalar, "UNEXPECTED_TOKEN", `Expected a flow scalar value, but found: ${type}`);
+          return {
+            value: "",
+            type: null,
+            comment: "",
+            range: [offset, offset + source.length, offset + source.length]
+          };
       }
-      return () => h >>> 0;
-    }
-    function mulberry32(seed) {
-      return () => {
-        let t = seed += 1831565813;
-        t = Math.imul(t ^ t >>> 15, t | 1);
-        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      const valueEnd = offset + source.length;
+      const re = resolveEnd.resolveEnd(end, valueEnd, strict, onError);
+      return {
+        value,
+        type: _type,
+        comment: re.comment,
+        range: [offset, valueEnd, re.offset]
       };
     }
-    function seededRandom(str) {
-      const seed = str ? xfnv1a(str)() : Math.floor(Math.random() * 1e10);
-      return mulberry32(seed);
+    function plainValue(source, onError) {
+      let badChar = "";
+      switch (source[0]) {
+        /* istanbul ignore next should not happen */
+        case "	":
+          badChar = "a tab character";
+          break;
+        case ",":
+          badChar = "flow indicator character ,";
+          break;
+        case "%":
+          badChar = "directive indicator character %";
+          break;
+        case "|":
+        case ">": {
+          badChar = `block scalar indicator ${source[0]}`;
+          break;
+        }
+        case "@":
+        case "`": {
+          badChar = `reserved character ${source[0]}`;
+          break;
+        }
+      }
+      if (badChar)
+        onError(0, "BAD_SCALAR_START", `Plain value cannot start with ${badChar}`);
+      return foldLines(source);
     }
-  }
-});
-
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronExpressionParser.js
-var require_CronExpressionParser = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronExpressionParser.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronExpressionParser = exports.DayOfWeek = exports.Months = exports.CronUnit = exports.PredefinedExpressions = void 0;
-    var CronFieldCollection_1 = require_CronFieldCollection();
-    var CronExpression_1 = require_CronExpression();
-    var random_1 = require_random();
-    var fields_1 = require_fields();
-    var PredefinedExpressions;
-    (function(PredefinedExpressions2) {
-      PredefinedExpressions2["@yearly"] = "0 0 0 1 1 *";
-      PredefinedExpressions2["@annually"] = "0 0 0 1 1 *";
-      PredefinedExpressions2["@monthly"] = "0 0 0 1 * *";
-      PredefinedExpressions2["@weekly"] = "0 0 0 * * 0";
-      PredefinedExpressions2["@daily"] = "0 0 0 * * *";
-      PredefinedExpressions2["@hourly"] = "0 0 * * * *";
-      PredefinedExpressions2["@minutely"] = "0 * * * * *";
-      PredefinedExpressions2["@secondly"] = "* * * * * *";
-      PredefinedExpressions2["@weekdays"] = "0 0 0 * * 1-5";
-      PredefinedExpressions2["@weekends"] = "0 0 0 * * 0,6";
-    })(PredefinedExpressions || (exports.PredefinedExpressions = PredefinedExpressions = {}));
-    var CronUnit;
-    (function(CronUnit2) {
-      CronUnit2["Second"] = "Second";
-      CronUnit2["Minute"] = "Minute";
-      CronUnit2["Hour"] = "Hour";
-      CronUnit2["DayOfMonth"] = "DayOfMonth";
-      CronUnit2["Month"] = "Month";
-      CronUnit2["DayOfWeek"] = "DayOfWeek";
-    })(CronUnit || (exports.CronUnit = CronUnit = {}));
-    var Months;
-    (function(Months2) {
-      Months2[Months2["jan"] = 1] = "jan";
-      Months2[Months2["feb"] = 2] = "feb";
-      Months2[Months2["mar"] = 3] = "mar";
-      Months2[Months2["apr"] = 4] = "apr";
-      Months2[Months2["may"] = 5] = "may";
-      Months2[Months2["jun"] = 6] = "jun";
-      Months2[Months2["jul"] = 7] = "jul";
-      Months2[Months2["aug"] = 8] = "aug";
-      Months2[Months2["sep"] = 9] = "sep";
-      Months2[Months2["oct"] = 10] = "oct";
-      Months2[Months2["nov"] = 11] = "nov";
-      Months2[Months2["dec"] = 12] = "dec";
-    })(Months || (exports.Months = Months = {}));
-    var DayOfWeek;
-    (function(DayOfWeek2) {
-      DayOfWeek2[DayOfWeek2["sun"] = 0] = "sun";
-      DayOfWeek2[DayOfWeek2["mon"] = 1] = "mon";
-      DayOfWeek2[DayOfWeek2["tue"] = 2] = "tue";
-      DayOfWeek2[DayOfWeek2["wed"] = 3] = "wed";
-      DayOfWeek2[DayOfWeek2["thu"] = 4] = "thu";
-      DayOfWeek2[DayOfWeek2["fri"] = 5] = "fri";
-      DayOfWeek2[DayOfWeek2["sat"] = 6] = "sat";
-    })(DayOfWeek || (exports.DayOfWeek = DayOfWeek = {}));
-    var CronExpressionParser2 = class _CronExpressionParser {
-      /**
-       * Parses a cron expression and returns a CronExpression object.
-       * @param {string} expression - The cron expression to parse.
-       * @param {CronExpressionOptions} [options={}] - The options to use when parsing the expression.
-       * @param {boolean} [options.strict=false] - If true, will throw an error if the expression contains both dayOfMonth and dayOfWeek.
-       * @param {CronDate} [options.currentDate=new CronDate(undefined, 'UTC')] - The date to use when calculating the next/previous occurrence.
-       *
-       * @returns {CronExpression} A CronExpression object.
-       */
-      static parse(expression, options = {}) {
-        const { strict = false, hashSeed } = options;
-        const rand = (0, random_1.seededRandom)(hashSeed);
-        expression = PredefinedExpressions[expression] || expression;
-        const rawFields = _CronExpressionParser.#getRawFields(expression, strict);
-        if (!(rawFields.dayOfMonth === "*" || rawFields.dayOfWeek === "*" || !strict)) {
-          throw new Error("Cannot use both dayOfMonth and dayOfWeek together in strict mode!");
-        }
-        const second = _CronExpressionParser.#parseField(CronUnit.Second, rawFields.second, fields_1.CronSecond.constraints, rand);
-        const minute = _CronExpressionParser.#parseField(CronUnit.Minute, rawFields.minute, fields_1.CronMinute.constraints, rand);
-        const hour = _CronExpressionParser.#parseField(CronUnit.Hour, rawFields.hour, fields_1.CronHour.constraints, rand);
-        const month = _CronExpressionParser.#parseField(CronUnit.Month, rawFields.month, fields_1.CronMonth.constraints, rand);
-        const dayOfMonth = _CronExpressionParser.#parseField(CronUnit.DayOfMonth, rawFields.dayOfMonth, fields_1.CronDayOfMonth.constraints, rand);
-        const { dayOfWeek: _dayOfWeek, nthDayOfWeek } = _CronExpressionParser.#parseNthDay(rawFields.dayOfWeek);
-        const dayOfWeek = _CronExpressionParser.#parseField(CronUnit.DayOfWeek, _dayOfWeek, fields_1.CronDayOfWeek.constraints, rand);
-        const fields = new CronFieldCollection_1.CronFieldCollection({
-          second: new fields_1.CronSecond(second, { rawValue: rawFields.second }),
-          minute: new fields_1.CronMinute(minute, { rawValue: rawFields.minute }),
-          hour: new fields_1.CronHour(hour, { rawValue: rawFields.hour }),
-          dayOfMonth: new fields_1.CronDayOfMonth(dayOfMonth, { rawValue: rawFields.dayOfMonth }),
-          month: new fields_1.CronMonth(month, { rawValue: rawFields.month }),
-          dayOfWeek: new fields_1.CronDayOfWeek(dayOfWeek, { rawValue: rawFields.dayOfWeek, nthDayOfWeek })
-        });
-        return new CronExpression_1.CronExpression(fields, { ...options, expression });
+    function singleQuotedValue(source, onError) {
+      if (source[source.length - 1] !== "'" || source.length === 1)
+        onError(source.length, "MISSING_CHAR", "Missing closing 'quote");
+      return foldLines(source.slice(1, -1)).replace(/''/g, "'");
+    }
+    function foldLines(source) {
+      let first, line;
+      try {
+        first = new RegExp("(.*?)(?<![ 	])[ 	]*\r?\n", "sy");
+        line = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
+      } catch {
+        first = /(.*?)[ \t]*\r?\n/sy;
+        line = /[ \t]*(.*?)[ \t]*\r?\n/sy;
       }
-      /**
-       * Get the raw fields from a cron expression.
-       * @param {string} expression - The cron expression to parse.
-       * @param {boolean} strict - If true, will throw an error if the expression contains both dayOfMonth and dayOfWeek.
-       * @private
-       * @returns {RawCronFields} The raw fields.
-       */
-      static #getRawFields(expression, strict) {
-        if (strict && !expression.length) {
-          throw new Error("Invalid cron expression");
+      let match = first.exec(source);
+      if (!match)
+        return source;
+      let res = match[1];
+      let sep = " ";
+      let pos = first.lastIndex;
+      line.lastIndex = pos;
+      while (match = line.exec(source)) {
+        if (match[1] === "") {
+          if (sep === "\n")
+            res += sep;
+          else
+            sep = "\n";
+        } else {
+          res += sep + match[1];
+          sep = " ";
         }
-        expression = expression || "0 * * * * *";
-        const atoms = expression.trim().split(/\s+/);
-        if (strict && atoms.length < 6) {
-          throw new Error("Invalid cron expression, expected 6 fields");
-        }
-        if (atoms.length > 6) {
-          throw new Error("Invalid cron expression, too many fields");
-        }
-        const defaults = ["*", "*", "*", "*", "*", "0"];
-        if (atoms.length < defaults.length) {
-          atoms.unshift(...defaults.slice(atoms.length));
-        }
-        const [second, minute, hour, dayOfMonth, month, dayOfWeek] = atoms;
-        return { second, minute, hour, dayOfMonth, month, dayOfWeek };
+        pos = line.lastIndex;
       }
-      /**
-       * Parse a field from a cron expression.
-       * @param {CronUnit} field - The field to parse.
-       * @param {string} value - The value of the field.
-       * @param {CronConstraints} constraints - The constraints for the field.
-       * @private
-       * @returns {(number | string)[]} The parsed field.
-       */
-      static #parseField(field, value, constraints, rand) {
-        if (field === CronUnit.Month || field === CronUnit.DayOfWeek) {
-          value = value.replace(/[a-z]{3}/gi, (match) => {
-            match = match.toLowerCase();
-            const replacer = Months[match] || DayOfWeek[match];
-            if (replacer === void 0) {
-              throw new Error(`Validation error, cannot resolve alias "${match}"`);
-            }
-            return replacer.toString();
-          });
-        }
-        if (!constraints.validChars.test(value)) {
-          throw new Error(`Invalid characters, got value: ${value}`);
-        }
-        value = this.#parseWildcard(value, constraints);
-        value = this.#parseHashed(value, constraints, rand);
-        return this.#parseSequence(field, value, constraints);
-      }
-      /**
-       * Parse a wildcard from a cron expression.
-       * @param {string} value - The value to parse.
-       * @param {CronConstraints} constraints - The constraints for the field.
-       * @private
-       */
-      static #parseWildcard(value, constraints) {
-        return value.replace(/[*?]/g, constraints.min + "-" + constraints.max);
-      }
-      /**
-       * Parse a hashed value from a cron expression.
-       * @param {string} value - The value to parse.
-       * @param {CronConstraints} constraints - The constraints for the field.
-       * @param {PRNG} rand - The random number generator to use.
-       * @private
-       */
-      static #parseHashed(value, constraints, rand) {
-        const randomValue = rand();
-        return value.replace(/H(?:\((\d+)-(\d+)\))?(?:\/(\d+))?/g, (_, min, max, step) => {
-          if (min && max && step) {
-            const minNum = parseInt(min, 10);
-            const maxNum = parseInt(max, 10);
-            const stepNum = parseInt(step, 10);
-            if (minNum > maxNum) {
-              throw new Error(`Invalid range: ${minNum}-${maxNum}, min > max`);
-            }
-            if (stepNum <= 0) {
-              throw new Error(`Invalid step: ${stepNum}, must be positive`);
-            }
-            const minStart = Math.max(minNum, constraints.min);
-            const offset = Math.floor(randomValue * stepNum);
-            const values = [];
-            for (let i = Math.floor(minStart / stepNum) * stepNum + offset; i <= maxNum; i += stepNum) {
-              if (i >= minStart) {
-                values.push(i);
-              }
-            }
-            return values.join(",");
-          } else if (min && max) {
-            const minNum = parseInt(min, 10);
-            const maxNum = parseInt(max, 10);
-            if (minNum > maxNum) {
-              throw new Error(`Invalid range: ${minNum}-${maxNum}, min > max`);
-            }
-            return String(Math.floor(randomValue * (maxNum - minNum + 1)) + minNum);
-          } else if (step) {
-            const stepNum = parseInt(step, 10);
-            if (stepNum <= 0) {
-              throw new Error(`Invalid step: ${stepNum}, must be positive`);
-            }
-            const offset = Math.floor(randomValue * stepNum);
-            const values = [];
-            for (let i = Math.floor(constraints.min / stepNum) * stepNum + offset; i <= constraints.max; i += stepNum) {
-              if (i >= constraints.min) {
-                values.push(i);
-              }
-            }
-            return values.join(",");
+      const last = /[ \t]*(.*)/sy;
+      last.lastIndex = pos;
+      match = last.exec(source);
+      return res + sep + (match?.[1] ?? "");
+    }
+    function doubleQuotedValue(source, onError) {
+      let res = "";
+      for (let i = 1; i < source.length - 1; ++i) {
+        const ch = source[i];
+        if (ch === "\r" && source[i + 1] === "\n")
+          continue;
+        if (ch === "\n") {
+          const { fold, offset } = foldNewline(source, i);
+          res += fold;
+          i = offset;
+        } else if (ch === "\\") {
+          let next = source[++i];
+          const cc = escapeCodes[next];
+          if (cc)
+            res += cc;
+          else if (next === "\n") {
+            next = source[i + 1];
+            while (next === " " || next === "	")
+              next = source[++i + 1];
+          } else if (next === "\r" && source[i + 1] === "\n") {
+            next = source[++i + 1];
+            while (next === " " || next === "	")
+              next = source[++i + 1];
+          } else if (next === "x" || next === "u" || next === "U") {
+            const length = next === "x" ? 2 : next === "u" ? 4 : 8;
+            res += parseCharCode(source, i + 1, length, onError);
+            i += length;
           } else {
-            return String(Math.floor(randomValue * (constraints.max - constraints.min + 1) + constraints.min));
+            const raw = source.substr(i - 1, 2);
+            onError(i - 1, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
+            res += raw;
           }
-        });
-      }
-      /**
-       * Parse a sequence from a cron expression.
-       * @param {CronUnit} field - The field to parse.
-       * @param {string} val - The sequence to parse.
-       * @param {CronConstraints} constraints - The constraints for the field.
-       * @private
-       */
-      static #parseSequence(field, val, constraints) {
-        const stack = [];
-        function handleResult(result, constraints2) {
-          if (Array.isArray(result)) {
-            stack.push(...result);
-          } else {
-            if (_CronExpressionParser.#isValidConstraintChar(constraints2, result)) {
-              stack.push(result);
-            } else {
-              const v = parseInt(result.toString(), 10);
-              const isValid = v >= constraints2.min && v <= constraints2.max;
-              if (!isValid) {
-                throw new Error(`Constraint error, got value ${result} expected range ${constraints2.min}-${constraints2.max}`);
-              }
-              stack.push(field === CronUnit.DayOfWeek ? v % 7 : result);
-            }
-          }
-        }
-        const atoms = val.split(",");
-        atoms.forEach((atom) => {
-          if (!(atom.length > 0)) {
-            throw new Error("Invalid list value format");
-          }
-          handleResult(_CronExpressionParser.#parseRepeat(field, atom, constraints), constraints);
-        });
-        return stack;
-      }
-      /**
-       * Parse repeat from a cron expression.
-       * @param {CronUnit} field - The field to parse.
-       * @param {string} val - The repeat to parse.
-       * @param {CronConstraints} constraints - The constraints for the field.
-       * @private
-       * @returns {(number | string)[]} The parsed repeat.
-       */
-      static #parseRepeat(field, val, constraints) {
-        const atoms = val.split("/");
-        if (atoms.length > 2) {
-          throw new Error(`Invalid repeat: ${val}`);
-        }
-        if (atoms.length === 2) {
-          if (!isNaN(parseInt(atoms[0], 10))) {
-            atoms[0] = `${atoms[0]}-${constraints.max}`;
-          }
-          return _CronExpressionParser.#parseRange(field, atoms[0], parseInt(atoms[1], 10), constraints);
-        }
-        return _CronExpressionParser.#parseRange(field, val, 1, constraints);
-      }
-      /**
-       * Validate a cron range.
-       * @param {number} min - The minimum value of the range.
-       * @param {number} max - The maximum value of the range.
-       * @param {CronConstraints} constraints - The constraints for the field.
-       * @private
-       * @returns {void}
-       * @throws {Error} Throws an error if the range is invalid.
-       */
-      static #validateRange(min, max, constraints) {
-        const isValid = !isNaN(min) && !isNaN(max) && min >= constraints.min && max <= constraints.max;
-        if (!isValid) {
-          throw new Error(`Constraint error, got range ${min}-${max} expected range ${constraints.min}-${constraints.max}`);
-        }
-        if (min > max) {
-          throw new Error(`Invalid range: ${min}-${max}, min(${min}) > max(${max})`);
+        } else if (ch === " " || ch === "	") {
+          const wsStart = i;
+          let next = source[i + 1];
+          while (next === " " || next === "	")
+            next = source[++i + 1];
+          if (next !== "\n" && !(next === "\r" && source[i + 2] === "\n"))
+            res += i > wsStart ? source.slice(wsStart, i + 1) : ch;
+        } else {
+          res += ch;
         }
       }
-      /**
-       * Validate a cron repeat interval.
-       * @param {number} repeatInterval - The repeat interval to validate.
-       * @private
-       * @returns {void}
-       * @throws {Error} Throws an error if the repeat interval is invalid.
-       */
-      static #validateRepeatInterval(repeatInterval) {
-        if (!(!isNaN(repeatInterval) && repeatInterval > 0)) {
-          throw new Error(`Constraint error, cannot repeat at every ${repeatInterval} time.`);
-        }
+      if (source[source.length - 1] !== '"' || source.length === 1)
+        onError(source.length, "MISSING_CHAR", 'Missing closing "quote');
+      return res;
+    }
+    function foldNewline(source, offset) {
+      let fold = "";
+      let ch = source[offset + 1];
+      while (ch === " " || ch === "	" || ch === "\n" || ch === "\r") {
+        if (ch === "\r" && source[offset + 2] !== "\n")
+          break;
+        if (ch === "\n")
+          fold += "\n";
+        offset += 1;
+        ch = source[offset + 1];
       }
-      /**
-       * Create a range from a cron expression.
-       * @param {CronUnit} field - The field to parse.
-       * @param {number} min - The minimum value of the range.
-       * @param {number} max - The maximum value of the range.
-       * @param {number} repeatInterval - The repeat interval of the range.
-       * @private
-       * @returns {number[]} The created range.
-       */
-      static #createRange(field, min, max, repeatInterval) {
-        const stack = [];
-        if (field === CronUnit.DayOfWeek && max % 7 === 0) {
-          stack.push(0);
-        }
-        for (let index = min; index <= max; index += repeatInterval) {
-          if (stack.indexOf(index) === -1) {
-            stack.push(index);
-          }
-        }
-        return stack;
-      }
-      /**
-       * Parse a range from a cron expression.
-       * @param {CronUnit} field - The field to parse.
-       * @param {string} val - The range to parse.
-       * @param {number} repeatInterval - The repeat interval of the range.
-       * @param {CronConstraints} constraints - The constraints for the field.
-       * @private
-       * @returns {number[] | string[] | number | string} The parsed range.
-       */
-      static #parseRange(field, val, repeatInterval, constraints) {
-        const atoms = val.split("-");
-        if (atoms.length <= 1) {
-          return isNaN(+val) ? val : +val;
-        }
-        const [min, max] = atoms.map((num) => parseInt(num, 10));
-        this.#validateRange(min, max, constraints);
-        this.#validateRepeatInterval(repeatInterval);
-        return this.#createRange(field, min, max, repeatInterval);
-      }
-      /**
-       * Parse a cron expression.
-       * @param {string} val - The cron expression to parse.
-       * @private
-       * @returns {string} The parsed cron expression.
-       */
-      static #parseNthDay(val) {
-        const atoms = val.split("#");
-        if (atoms.length <= 1) {
-          return { dayOfWeek: atoms[0] };
-        }
-        const nthValue = +atoms[atoms.length - 1];
-        const matches = val.match(/([,-/])/);
-        if (matches !== null) {
-          throw new Error(`Constraint error, invalid dayOfWeek \`#\` and \`${matches?.[0]}\` special characters are incompatible`);
-        }
-        if (!(atoms.length <= 2 && !isNaN(nthValue) && nthValue >= 1 && nthValue <= 5)) {
-          throw new Error("Constraint error, invalid dayOfWeek occurrence number (#)");
-        }
-        return { dayOfWeek: atoms[0], nthDayOfWeek: nthValue };
-      }
-      /**
-       * Checks if a character is valid for a field.
-       * @param {CronConstraints} constraints - The constraints for the field.
-       * @param {string | number} value - The value to check.
-       * @private
-       * @returns {boolean} Whether the character is valid for the field.
-       */
-      static #isValidConstraintChar(constraints, value) {
-        return constraints.chars.some((char) => value.toString().includes(char));
-      }
+      if (!fold)
+        fold = " ";
+      return { fold, offset };
+    }
+    var escapeCodes = {
+      "0": "\0",
+      // null character
+      a: "\x07",
+      // bell character
+      b: "\b",
+      // backspace
+      e: "\x1B",
+      // escape character
+      f: "\f",
+      // form feed
+      n: "\n",
+      // line feed
+      r: "\r",
+      // carriage return
+      t: "	",
+      // horizontal tab
+      v: "\v",
+      // vertical tab
+      N: "\x85",
+      // Unicode next line
+      _: "\xA0",
+      // Unicode non-breaking space
+      L: "\u2028",
+      // Unicode line separator
+      P: "\u2029",
+      // Unicode paragraph separator
+      " ": " ",
+      '"': '"',
+      "/": "/",
+      "\\": "\\",
+      "	": "	"
     };
-    exports.CronExpressionParser = CronExpressionParser2;
+    function parseCharCode(source, offset, length, onError) {
+      const cc = source.substr(offset, length);
+      const ok = cc.length === length && /^[0-9a-fA-F]+$/.test(cc);
+      const code = ok ? parseInt(cc, 16) : NaN;
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        const raw = source.substr(offset - 2, length + 2);
+        onError(offset - 2, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
+        return raw;
+      }
+    }
+    exports.resolveFlowScalar = resolveFlowScalar;
   }
 });
 
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronFileParser.js
-var require_CronFileParser = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/CronFileParser.js"(exports) {
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js
+var require_compose_scalar = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
     "use strict";
-    var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var resolveBlockScalar = require_resolve_block_scalar();
+    var resolveFlowScalar = require_resolve_flow_scalar();
+    function composeScalar(ctx, token, tagToken, onError) {
+      const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar.resolveBlockScalar(ctx, token, onError) : resolveFlowScalar.resolveFlowScalar(token, ctx.options.strict, onError);
+      const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
+      let tag;
+      if (ctx.options.stringKeys && ctx.atKey) {
+        tag = ctx.schema[identity.SCALAR];
+      } else if (tagName)
+        tag = findScalarTagByName(ctx.schema, value, tagName, tagToken, onError);
+      else if (token.type === "scalar")
+        tag = findScalarTagByTest(ctx, value, token, onError);
+      else
+        tag = ctx.schema[identity.SCALAR];
+      let scalar;
+      try {
+        const res = tag.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
+        scalar = identity.isScalar(res) ? res : new Scalar.Scalar(res);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg);
+        scalar = new Scalar.Scalar(value);
       }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports && exports.__setModuleDefault || (Object.create ? (function(o, v) {
-      Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
-      o["default"] = v;
-    });
-    var __importStar = exports && exports.__importStar || /* @__PURE__ */ (function() {
-      var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function(o2) {
-          var ar = [];
-          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
-          return ar;
-        };
-        return ownKeys(o);
-      };
-      return function(mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) {
-          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+      scalar.range = range;
+      scalar.source = value;
+      if (type)
+        scalar.type = type;
+      if (tagName)
+        scalar.tag = tagName;
+      if (tag.format)
+        scalar.format = tag.format;
+      if (comment)
+        scalar.comment = comment;
+      return scalar;
+    }
+    function findScalarTagByName(schema, value, tagName, tagToken, onError) {
+      if (tagName === "!")
+        return schema[identity.SCALAR];
+      const matchWithTest = [];
+      for (const tag of schema.tags) {
+        if (!tag.collection && tag.tag === tagName) {
+          if (tag.default && tag.test)
+            matchWithTest.push(tag);
+          else
+            return tag;
         }
-        __setModuleDefault(result, mod);
-        return result;
-      };
-    })();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronFileParser = void 0;
-    var CronExpressionParser_1 = require_CronExpressionParser();
-    var CronFileParser = class _CronFileParser {
-      /**
-       * Parse a crontab file asynchronously
-       * @param filePath Path to crontab file
-       * @returns Promise resolving to parse results
-       * @throws If file cannot be read
-       */
-      static async parseFile(filePath) {
-        const { readFile } = await Promise.resolve().then(() => __importStar(__require("fs/promises")));
-        const data = await readFile(filePath, "utf8");
-        return _CronFileParser.#parseContent(data);
       }
-      /**
-       * Parse a crontab file synchronously
-       * @param filePath Path to crontab file
-       * @returns Parse results
-       * @throws If file cannot be read
-       */
-      static parseFileSync(filePath) {
-        const { readFileSync } = __require("fs");
-        const data = readFileSync(filePath, "utf8");
-        return _CronFileParser.#parseContent(data);
+      for (const tag of matchWithTest)
+        if (tag.test?.test(value))
+          return tag;
+      const kt = schema.knownTags[tagName];
+      if (kt && !kt.collection) {
+        schema.tags.push(Object.assign({}, kt, { default: false, test: void 0 }));
+        return kt;
       }
-      /**
-       * Internal method to parse crontab file content
-       * @private
-       */
-      static #parseContent(data) {
-        const blocks = data.split("\n");
-        const result = {
-          variables: {},
-          expressions: [],
-          errors: {}
-        };
-        for (const block of blocks) {
-          const entry = block.trim();
-          if (entry.length === 0 || entry.startsWith("#")) {
-            continue;
+      onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, tagName !== "tag:yaml.org,2002:str");
+      return schema[identity.SCALAR];
+    }
+    function findScalarTagByTest({ atKey, directives, schema }, value, token, onError) {
+      const tag = schema.tags.find((tag2) => (tag2.default === true || atKey && tag2.default === "key") && tag2.test?.test(value)) || schema[identity.SCALAR];
+      if (schema.compat) {
+        const compat = schema.compat.find((tag2) => tag2.default && tag2.test?.test(value)) ?? schema[identity.SCALAR];
+        if (tag.tag !== compat.tag) {
+          const ts = directives.tagString(tag.tag);
+          const cs = directives.tagString(compat.tag);
+          const msg = `Value may be parsed as either ${ts} or ${cs}`;
+          onError(token, "TAG_RESOLVE_FAILED", msg, true);
+        }
+      }
+      return tag;
+    }
+    exports.composeScalar = composeScalar;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+var require_util_empty_scalar_position = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+    "use strict";
+    function emptyScalarPosition(offset, before, pos) {
+      if (before) {
+        pos ?? (pos = before.length);
+        for (let i = pos - 1; i >= 0; --i) {
+          let st = before[i];
+          switch (st.type) {
+            case "space":
+            case "comment":
+            case "newline":
+              offset -= st.source.length;
+              continue;
           }
-          const variableMatch = entry.match(/^(.*)=(.*)$/);
-          if (variableMatch) {
-            const [, key, value] = variableMatch;
-            result.variables[key] = value.replace(/["']/g, "");
-            continue;
+          st = before[++i];
+          while (st?.type === "space") {
+            offset += st.source.length;
+            st = before[++i];
           }
+          break;
+        }
+      }
+      return offset;
+    }
+    exports.emptyScalarPosition = emptyScalarPosition;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js
+var require_compose_node = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js"(exports) {
+    "use strict";
+    var Alias = require_Alias();
+    var identity = require_identity();
+    var composeCollection = require_compose_collection();
+    var composeScalar = require_compose_scalar();
+    var resolveEnd = require_resolve_end();
+    var utilEmptyScalarPosition = require_util_empty_scalar_position();
+    var CN = { composeNode, composeEmptyNode };
+    function composeNode(ctx, token, props, onError) {
+      const atKey = ctx.atKey;
+      const { spaceBefore, comment, anchor, tag } = props;
+      let node;
+      let isSrcToken = true;
+      switch (token.type) {
+        case "alias":
+          node = composeAlias(ctx, token, onError);
+          if (anchor || tag)
+            onError(token, "ALIAS_PROPS", "An alias node must not specify any properties");
+          break;
+        case "scalar":
+        case "single-quoted-scalar":
+        case "double-quoted-scalar":
+        case "block-scalar":
+          node = composeScalar.composeScalar(ctx, token, tag, onError);
+          if (anchor)
+            node.anchor = anchor.source.substring(1);
+          break;
+        case "block-map":
+        case "block-seq":
+        case "flow-collection":
           try {
-            const parsedEntry = _CronFileParser.#parseEntry(entry);
-            result.expressions.push(parsedEntry.interval);
-          } catch (err) {
-            result.errors[entry] = err;
+            node = composeCollection.composeCollection(CN, ctx, token, props, onError);
+            if (anchor)
+              node.anchor = anchor.source.substring(1);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            onError(token, "RESOURCE_EXHAUSTION", message);
           }
+          break;
+        default: {
+          const message = token.type === "error" ? token.message : `Unsupported token (type: ${token.type})`;
+          onError(token, "UNEXPECTED_TOKEN", message);
+          isSrcToken = false;
         }
-        return result;
       }
-      /**
-       * Parse a single crontab entry
-       * @private
-       */
-      static #parseEntry(entry) {
-        const atoms = entry.split(" ");
-        return {
-          interval: CronExpressionParser_1.CronExpressionParser.parse(atoms.slice(0, 5).join(" ")),
-          command: atoms.slice(5, atoms.length)
-        };
+      node ?? (node = composeEmptyNode(ctx, token.offset, void 0, null, props, onError));
+      if (anchor && node.anchor === "")
+        onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
+      if (atKey && ctx.options.stringKeys && (!identity.isScalar(node) || typeof node.value !== "string" || node.tag && node.tag !== "tag:yaml.org,2002:str")) {
+        const msg = "With stringKeys, all keys must be strings";
+        onError(tag ?? token, "NON_STRING_KEY", msg);
       }
-    };
-    exports.CronFileParser = CronFileParser;
+      if (spaceBefore)
+        node.spaceBefore = true;
+      if (comment) {
+        if (token.type === "scalar" && token.source === "")
+          node.comment = comment;
+        else
+          node.commentBefore = comment;
+      }
+      if (ctx.options.keepSourceTokens && isSrcToken)
+        node.srcToken = token;
+      return node;
+    }
+    function composeEmptyNode(ctx, offset, before, pos, { spaceBefore, comment, anchor, tag, end }, onError) {
+      const token = {
+        type: "scalar",
+        offset: utilEmptyScalarPosition.emptyScalarPosition(offset, before, pos),
+        indent: -1,
+        source: ""
+      };
+      const node = composeScalar.composeScalar(ctx, token, tag, onError);
+      if (anchor) {
+        node.anchor = anchor.source.substring(1);
+        if (node.anchor === "")
+          onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
+      }
+      if (spaceBefore)
+        node.spaceBefore = true;
+      if (comment) {
+        node.comment = comment;
+        node.range[2] = end;
+      }
+      return node;
+    }
+    function composeAlias({ options }, { offset, source, end }, onError) {
+      const alias = new Alias.Alias(source.substring(1));
+      if (alias.source === "")
+        onError(offset, "BAD_ALIAS", "Alias cannot be an empty string");
+      if (alias.source.endsWith(":"))
+        onError(offset + source.length - 1, "BAD_ALIAS", "Alias ending in : is ambiguous", true);
+      const valueEnd = offset + source.length;
+      const re = resolveEnd.resolveEnd(end, valueEnd, options.strict, onError);
+      alias.range = [offset, valueEnd, re.offset];
+      if (re.comment)
+        alias.comment = re.comment;
+      return alias;
+    }
+    exports.composeEmptyNode = composeEmptyNode;
+    exports.composeNode = composeNode;
   }
 });
 
-// ../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/index.js
-var require_dist = __commonJS({
-  "../../node_modules/.pnpm/cron-parser@5.5.0/node_modules/cron-parser/dist/index.js"(exports) {
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js
+var require_compose_doc = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
     "use strict";
-    var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
+    var Document = require_Document();
+    var composeNode = require_compose_node();
+    var resolveEnd = require_resolve_end();
+    var resolveProps = require_resolve_props();
+    function composeDoc(options, directives, { offset, start, value, end }, onError) {
+      const opts = Object.assign({ _directives: directives }, options);
+      const doc = new Document.Document(void 0, opts);
+      const ctx = {
+        atKey: false,
+        atRoot: true,
+        directives: doc.directives,
+        options: doc.options,
+        schema: doc.schema
+      };
+      const props = resolveProps.resolveProps(start, {
+        indicator: "doc-start",
+        next: value ?? end?.[0],
+        offset,
+        onError,
+        parentIndent: 0,
+        startOnNewline: true
+      });
+      if (props.found) {
+        doc.directives.docStart = true;
+        if (value && (value.type === "block-map" || value.type === "block-seq") && !props.hasNewline)
+          onError(props.end, "MISSING_CHAR", "Block collection cannot start on same line with directives-end marker");
       }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __exportStar = exports && exports.__exportStar || function(m, exports2) {
-      for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports2, p)) __createBinding(exports2, m, p);
+      doc.contents = value ? composeNode.composeNode(ctx, value, props, onError) : composeNode.composeEmptyNode(ctx, props.end, start, null, props, onError);
+      const contentEnd = doc.contents.range[2];
+      const re = resolveEnd.resolveEnd(end, contentEnd, false, onError);
+      if (re.comment)
+        doc.comment = re.comment;
+      doc.range = [offset, contentEnd, re.offset];
+      return doc;
+    }
+    exports.composeDoc = composeDoc;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js
+var require_composer = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js"(exports) {
+    "use strict";
+    var node_process = __require("process");
+    var directives = require_directives();
+    var Document = require_Document();
+    var errors = require_errors();
+    var identity = require_identity();
+    var composeDoc = require_compose_doc();
+    var resolveEnd = require_resolve_end();
+    function getErrorPos(src) {
+      if (typeof src === "number")
+        return [src, src + 1];
+      if (Array.isArray(src))
+        return src.length === 2 ? src : [src[0], src[1]];
+      const { offset, source } = src;
+      return [offset, offset + (typeof source === "string" ? source.length : 1)];
+    }
+    function parsePrelude(prelude) {
+      let comment = "";
+      let atComment = false;
+      let afterEmptyLine = false;
+      for (let i = 0; i < prelude.length; ++i) {
+        const source = prelude[i];
+        switch (source[0]) {
+          case "#":
+            comment += (comment === "" ? "" : afterEmptyLine ? "\n\n" : "\n") + (source.substring(1) || " ");
+            atComment = true;
+            afterEmptyLine = false;
+            break;
+          case "%":
+            if (prelude[i + 1]?.[0] !== "#")
+              i += 1;
+            atComment = false;
+            break;
+          default:
+            if (!atComment)
+              afterEmptyLine = true;
+            atComment = false;
+        }
+      }
+      return { comment, afterEmptyLine };
+    }
+    var Composer = class {
+      constructor(options = {}) {
+        this.doc = null;
+        this.atDirectives = false;
+        this.prelude = [];
+        this.errors = [];
+        this.warnings = [];
+        this.onError = (source, code, message, warning) => {
+          const pos = getErrorPos(source);
+          if (warning)
+            this.warnings.push(new errors.YAMLWarning(pos, code, message));
+          else
+            this.errors.push(new errors.YAMLParseError(pos, code, message));
+        };
+        this.directives = new directives.Directives({ version: options.version || "1.2" });
+        this.options = options;
+      }
+      decorate(doc, afterDoc) {
+        const { comment, afterEmptyLine } = parsePrelude(this.prelude);
+        if (comment) {
+          const dc = doc.contents;
+          if (afterDoc) {
+            doc.comment = doc.comment ? `${doc.comment}
+${comment}` : comment;
+          } else if (afterEmptyLine || doc.directives.docStart || !dc) {
+            doc.commentBefore = comment;
+          } else if (identity.isCollection(dc) && !dc.flow && dc.items.length > 0) {
+            let it = dc.items[0];
+            if (identity.isPair(it))
+              it = it.key;
+            const cb = it.commentBefore;
+            it.commentBefore = cb ? `${comment}
+${cb}` : comment;
+          } else {
+            const cb = dc.commentBefore;
+            dc.commentBefore = cb ? `${comment}
+${cb}` : comment;
+          }
+        }
+        if (afterDoc) {
+          for (let i = 0; i < this.errors.length; ++i)
+            doc.errors.push(this.errors[i]);
+          for (let i = 0; i < this.warnings.length; ++i)
+            doc.warnings.push(this.warnings[i]);
+        } else {
+          doc.errors = this.errors;
+          doc.warnings = this.warnings;
+        }
+        this.prelude = [];
+        this.errors = [];
+        this.warnings = [];
+      }
+      /**
+       * Current stream status information.
+       *
+       * Mostly useful at the end of input for an empty stream.
+       */
+      streamInfo() {
+        return {
+          comment: parsePrelude(this.prelude).comment,
+          directives: this.directives,
+          errors: this.errors,
+          warnings: this.warnings
+        };
+      }
+      /**
+       * Compose tokens into documents.
+       *
+       * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+       * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+       */
+      *compose(tokens, forceDoc = false, endOffset = -1) {
+        for (const token of tokens)
+          yield* this.next(token);
+        yield* this.end(forceDoc, endOffset);
+      }
+      /** Advance the composer by one CST token. */
+      *next(token) {
+        if (node_process.env.LOG_STREAM)
+          console.dir(token, { depth: null });
+        switch (token.type) {
+          case "directive":
+            this.directives.add(token.source, (offset, message, warning) => {
+              const pos = getErrorPos(token);
+              pos[0] += offset;
+              this.onError(pos, "BAD_DIRECTIVE", message, warning);
+            });
+            this.prelude.push(token.source);
+            this.atDirectives = true;
+            break;
+          case "document": {
+            const doc = composeDoc.composeDoc(this.options, this.directives, token, this.onError);
+            if (this.atDirectives && !doc.directives.docStart)
+              this.onError(token, "MISSING_CHAR", "Missing directives-end/doc-start indicator line");
+            this.decorate(doc, false);
+            if (this.doc)
+              yield this.doc;
+            this.doc = doc;
+            this.atDirectives = false;
+            break;
+          }
+          case "byte-order-mark":
+          case "space":
+            break;
+          case "comment":
+          case "newline":
+            this.prelude.push(token.source);
+            break;
+          case "error": {
+            const msg = token.source ? `${token.message}: ${JSON.stringify(token.source)}` : token.message;
+            const error = new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg);
+            if (this.atDirectives || !this.doc)
+              this.errors.push(error);
+            else
+              this.doc.errors.push(error);
+            break;
+          }
+          case "doc-end": {
+            if (!this.doc) {
+              const msg = "Unexpected doc-end without preceding document";
+              this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg));
+              break;
+            }
+            this.doc.directives.docEnd = true;
+            const end = resolveEnd.resolveEnd(token.end, token.offset + token.source.length, this.doc.options.strict, this.onError);
+            this.decorate(this.doc, true);
+            if (end.comment) {
+              const dc = this.doc.comment;
+              this.doc.comment = dc ? `${dc}
+${end.comment}` : end.comment;
+            }
+            this.doc.range[2] = end.offset;
+            break;
+          }
+          default:
+            this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", `Unsupported token ${token.type}`));
+        }
+      }
+      /**
+       * Call at end of input to yield any remaining document.
+       *
+       * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+       * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+       */
+      *end(forceDoc = false, endOffset = -1) {
+        if (this.doc) {
+          this.decorate(this.doc, true);
+          yield this.doc;
+          this.doc = null;
+        } else if (forceDoc) {
+          const opts = Object.assign({ _directives: this.directives }, this.options);
+          const doc = new Document.Document(void 0, opts);
+          if (this.atDirectives)
+            this.onError(endOffset, "MISSING_CHAR", "Missing directives-end indicator line");
+          doc.range = [0, endOffset, endOffset];
+          this.decorate(doc, false);
+          yield doc;
+        }
+      }
     };
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CronFileParser = exports.CronExpressionParser = exports.CronExpression = exports.CronFieldCollection = exports.CronDate = void 0;
-    var CronExpressionParser_1 = require_CronExpressionParser();
-    var CronDate_1 = require_CronDate();
-    Object.defineProperty(exports, "CronDate", { enumerable: true, get: function() {
-      return CronDate_1.CronDate;
-    } });
-    var CronFieldCollection_1 = require_CronFieldCollection();
-    Object.defineProperty(exports, "CronFieldCollection", { enumerable: true, get: function() {
-      return CronFieldCollection_1.CronFieldCollection;
-    } });
-    var CronExpression_1 = require_CronExpression();
-    Object.defineProperty(exports, "CronExpression", { enumerable: true, get: function() {
-      return CronExpression_1.CronExpression;
-    } });
-    var CronExpressionParser_2 = require_CronExpressionParser();
-    Object.defineProperty(exports, "CronExpressionParser", { enumerable: true, get: function() {
-      return CronExpressionParser_2.CronExpressionParser;
-    } });
-    var CronFileParser_1 = require_CronFileParser();
-    Object.defineProperty(exports, "CronFileParser", { enumerable: true, get: function() {
-      return CronFileParser_1.CronFileParser;
-    } });
-    __exportStar(require_fields(), exports);
-    exports.default = CronExpressionParser_1.CronExpressionParser;
+    exports.Composer = Composer;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js
+var require_cst_scalar = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+    "use strict";
+    var resolveBlockScalar = require_resolve_block_scalar();
+    var resolveFlowScalar = require_resolve_flow_scalar();
+    var errors = require_errors();
+    var stringifyString = require_stringifyString();
+    function resolveAsScalar(token, strict = true, onError) {
+      if (token) {
+        const _onError = (pos, code, message) => {
+          const offset = typeof pos === "number" ? pos : Array.isArray(pos) ? pos[0] : pos.offset;
+          if (onError)
+            onError(offset, code, message);
+          else
+            throw new errors.YAMLParseError([offset, offset + 1], code, message);
+        };
+        switch (token.type) {
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return resolveFlowScalar.resolveFlowScalar(token, strict, _onError);
+          case "block-scalar":
+            return resolveBlockScalar.resolveBlockScalar({ options: { strict } }, token, _onError);
+        }
+      }
+      return null;
+    }
+    function createScalarToken(value, context) {
+      const { implicitKey = false, indent, inFlow = false, offset = -1, type = "PLAIN" } = context;
+      const source = stringifyString.stringifyString({ type, value }, {
+        implicitKey,
+        indent: indent > 0 ? " ".repeat(indent) : "",
+        inFlow,
+        options: { blockQuote: true, lineWidth: -1 }
+      });
+      const end = context.end ?? [
+        { type: "newline", offset: -1, indent, source: "\n" }
+      ];
+      switch (source[0]) {
+        case "|":
+        case ">": {
+          const he = source.indexOf("\n");
+          const head = source.substring(0, he);
+          const body = source.substring(he + 1) + "\n";
+          const props = [
+            { type: "block-scalar-header", offset, indent, source: head }
+          ];
+          if (!addEndtoBlockProps(props, end))
+            props.push({ type: "newline", offset: -1, indent, source: "\n" });
+          return { type: "block-scalar", offset, indent, props, source: body };
+        }
+        case '"':
+          return { type: "double-quoted-scalar", offset, indent, source, end };
+        case "'":
+          return { type: "single-quoted-scalar", offset, indent, source, end };
+        default:
+          return { type: "scalar", offset, indent, source, end };
+      }
+    }
+    function setScalarValue(token, value, context = {}) {
+      let { afterKey = false, implicitKey = false, inFlow = false, type } = context;
+      let indent = "indent" in token ? token.indent : null;
+      if (afterKey && typeof indent === "number")
+        indent += 2;
+      if (!type)
+        switch (token.type) {
+          case "single-quoted-scalar":
+            type = "QUOTE_SINGLE";
+            break;
+          case "double-quoted-scalar":
+            type = "QUOTE_DOUBLE";
+            break;
+          case "block-scalar": {
+            const header = token.props[0];
+            if (header.type !== "block-scalar-header")
+              throw new Error("Invalid block scalar header");
+            type = header.source[0] === ">" ? "BLOCK_FOLDED" : "BLOCK_LITERAL";
+            break;
+          }
+          default:
+            type = "PLAIN";
+        }
+      const source = stringifyString.stringifyString({ type, value }, {
+        implicitKey: implicitKey || indent === null,
+        indent: indent !== null && indent > 0 ? " ".repeat(indent) : "",
+        inFlow,
+        options: { blockQuote: true, lineWidth: -1 }
+      });
+      switch (source[0]) {
+        case "|":
+        case ">":
+          setBlockScalarValue(token, source);
+          break;
+        case '"':
+          setFlowScalarValue(token, source, "double-quoted-scalar");
+          break;
+        case "'":
+          setFlowScalarValue(token, source, "single-quoted-scalar");
+          break;
+        default:
+          setFlowScalarValue(token, source, "scalar");
+      }
+    }
+    function setBlockScalarValue(token, source) {
+      const he = source.indexOf("\n");
+      const head = source.substring(0, he);
+      const body = source.substring(he + 1) + "\n";
+      if (token.type === "block-scalar") {
+        const header = token.props[0];
+        if (header.type !== "block-scalar-header")
+          throw new Error("Invalid block scalar header");
+        header.source = head;
+        token.source = body;
+      } else {
+        const { offset } = token;
+        const indent = "indent" in token ? token.indent : -1;
+        const props = [
+          { type: "block-scalar-header", offset, indent, source: head }
+        ];
+        if (!addEndtoBlockProps(props, "end" in token ? token.end : void 0))
+          props.push({ type: "newline", offset: -1, indent, source: "\n" });
+        for (const key of Object.keys(token))
+          if (key !== "type" && key !== "offset")
+            delete token[key];
+        Object.assign(token, { type: "block-scalar", indent, props, source: body });
+      }
+    }
+    function addEndtoBlockProps(props, end) {
+      if (end)
+        for (const st of end)
+          switch (st.type) {
+            case "space":
+            case "comment":
+              props.push(st);
+              break;
+            case "newline":
+              props.push(st);
+              return true;
+          }
+      return false;
+    }
+    function setFlowScalarValue(token, source, type) {
+      switch (token.type) {
+        case "scalar":
+        case "double-quoted-scalar":
+        case "single-quoted-scalar":
+          token.type = type;
+          token.source = source;
+          break;
+        case "block-scalar": {
+          const end = token.props.slice(1);
+          let oa = source.length;
+          if (token.props[0].type === "block-scalar-header")
+            oa -= token.props[0].source.length;
+          for (const tok of end)
+            tok.offset += oa;
+          delete token.props;
+          Object.assign(token, { type, source, end });
+          break;
+        }
+        case "block-map":
+        case "block-seq": {
+          const offset = token.offset + source.length;
+          const nl = { type: "newline", offset, indent: token.indent, source: "\n" };
+          delete token.items;
+          Object.assign(token, { type, source, end: [nl] });
+          break;
+        }
+        default: {
+          const indent = "indent" in token ? token.indent : -1;
+          const end = "end" in token && Array.isArray(token.end) ? token.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
+          for (const key of Object.keys(token))
+            if (key !== "type" && key !== "offset")
+              delete token[key];
+          Object.assign(token, { type, indent, source, end });
+        }
+      }
+    }
+    exports.createScalarToken = createScalarToken;
+    exports.resolveAsScalar = resolveAsScalar;
+    exports.setScalarValue = setScalarValue;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js
+var require_cst_stringify = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+    "use strict";
+    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    function stringifyToken(token) {
+      switch (token.type) {
+        case "block-scalar": {
+          let res = "";
+          for (const tok of token.props)
+            res += stringifyToken(tok);
+          return res + token.source;
+        }
+        case "block-map":
+        case "block-seq": {
+          let res = "";
+          for (const item of token.items)
+            res += stringifyItem(item);
+          return res;
+        }
+        case "flow-collection": {
+          let res = token.start.source;
+          for (const item of token.items)
+            res += stringifyItem(item);
+          for (const st of token.end)
+            res += st.source;
+          return res;
+        }
+        case "document": {
+          let res = stringifyItem(token);
+          if (token.end)
+            for (const st of token.end)
+              res += st.source;
+          return res;
+        }
+        default: {
+          let res = token.source;
+          if ("end" in token && token.end)
+            for (const st of token.end)
+              res += st.source;
+          return res;
+        }
+      }
+    }
+    function stringifyItem({ start, key, sep, value }) {
+      let res = "";
+      for (const st of start)
+        res += st.source;
+      if (key)
+        res += stringifyToken(key);
+      if (sep)
+        for (const st of sep)
+          res += st.source;
+      if (value)
+        res += stringifyToken(value);
+      return res;
+    }
+    exports.stringify = stringify2;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js
+var require_cst_visit = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+    "use strict";
+    var BREAK = /* @__PURE__ */ Symbol("break visit");
+    var SKIP = /* @__PURE__ */ Symbol("skip children");
+    var REMOVE = /* @__PURE__ */ Symbol("remove item");
+    function visit(cst, visitor) {
+      if ("type" in cst && cst.type === "document")
+        cst = { start: cst.start, value: cst.value };
+      _visit(Object.freeze([]), cst, visitor);
+    }
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP;
+    visit.REMOVE = REMOVE;
+    visit.itemAtPath = (cst, path) => {
+      let item = cst;
+      for (const [field, index] of path) {
+        const tok = item?.[field];
+        if (tok && "items" in tok) {
+          item = tok.items[index];
+        } else
+          return void 0;
+      }
+      return item;
+    };
+    visit.parentCollection = (cst, path) => {
+      const parent = visit.itemAtPath(cst, path.slice(0, -1));
+      const field = path[path.length - 1][0];
+      const coll = parent?.[field];
+      if (coll && "items" in coll)
+        return coll;
+      throw new Error("Parent collection not found");
+    };
+    function _visit(path, item, visitor) {
+      let ctrl = visitor(item, path);
+      if (typeof ctrl === "symbol")
+        return ctrl;
+      for (const field of ["key", "value"]) {
+        const token = item[field];
+        if (token && "items" in token) {
+          for (let i = 0; i < token.items.length; ++i) {
+            const ci = _visit(Object.freeze(path.concat([[field, i]])), token.items[i], visitor);
+            if (typeof ci === "number")
+              i = ci - 1;
+            else if (ci === BREAK)
+              return BREAK;
+            else if (ci === REMOVE) {
+              token.items.splice(i, 1);
+              i -= 1;
+            }
+          }
+          if (typeof ctrl === "function" && field === "key")
+            ctrl = ctrl(item, path);
+        }
+      }
+      return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
+    }
+    exports.visit = visit;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js
+var require_cst = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js"(exports) {
+    "use strict";
+    var cstScalar = require_cst_scalar();
+    var cstStringify = require_cst_stringify();
+    var cstVisit = require_cst_visit();
+    var BOM = "\uFEFF";
+    var DOCUMENT = "";
+    var FLOW_END = "";
+    var SCALAR = "";
+    var isCollection = (token) => !!token && "items" in token;
+    var isScalar = (token) => !!token && (token.type === "scalar" || token.type === "single-quoted-scalar" || token.type === "double-quoted-scalar" || token.type === "block-scalar");
+    function prettyToken(token) {
+      switch (token) {
+        case BOM:
+          return "<BOM>";
+        case DOCUMENT:
+          return "<DOC>";
+        case FLOW_END:
+          return "<FLOW_END>";
+        case SCALAR:
+          return "<SCALAR>";
+        default:
+          return JSON.stringify(token);
+      }
+    }
+    function tokenType(source) {
+      switch (source) {
+        case BOM:
+          return "byte-order-mark";
+        case DOCUMENT:
+          return "doc-mode";
+        case FLOW_END:
+          return "flow-error-end";
+        case SCALAR:
+          return "scalar";
+        case "---":
+          return "doc-start";
+        case "...":
+          return "doc-end";
+        case "":
+        case "\n":
+        case "\r\n":
+          return "newline";
+        case "-":
+          return "seq-item-ind";
+        case "?":
+          return "explicit-key-ind";
+        case ":":
+          return "map-value-ind";
+        case "{":
+          return "flow-map-start";
+        case "}":
+          return "flow-map-end";
+        case "[":
+          return "flow-seq-start";
+        case "]":
+          return "flow-seq-end";
+        case ",":
+          return "comma";
+      }
+      switch (source[0]) {
+        case " ":
+        case "	":
+          return "space";
+        case "#":
+          return "comment";
+        case "%":
+          return "directive-line";
+        case "*":
+          return "alias";
+        case "&":
+          return "anchor";
+        case "!":
+          return "tag";
+        case "'":
+          return "single-quoted-scalar";
+        case '"':
+          return "double-quoted-scalar";
+        case "|":
+        case ">":
+          return "block-scalar-header";
+      }
+      return null;
+    }
+    exports.createScalarToken = cstScalar.createScalarToken;
+    exports.resolveAsScalar = cstScalar.resolveAsScalar;
+    exports.setScalarValue = cstScalar.setScalarValue;
+    exports.stringify = cstStringify.stringify;
+    exports.visit = cstVisit.visit;
+    exports.BOM = BOM;
+    exports.DOCUMENT = DOCUMENT;
+    exports.FLOW_END = FLOW_END;
+    exports.SCALAR = SCALAR;
+    exports.isCollection = isCollection;
+    exports.isScalar = isScalar;
+    exports.prettyToken = prettyToken;
+    exports.tokenType = tokenType;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js
+var require_lexer = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js"(exports) {
+    "use strict";
+    var cst = require_cst();
+    function isEmpty(ch) {
+      switch (ch) {
+        case void 0:
+        case " ":
+        case "\n":
+        case "\r":
+        case "	":
+          return true;
+        default:
+          return false;
+      }
+    }
+    var hexDigits = new Set("0123456789ABCDEFabcdef");
+    var tagChars = new Set("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-#;/?:@&=+$_.!~*'()");
+    var flowIndicatorChars = new Set(",[]{}");
+    var invalidAnchorChars = new Set(" ,[]{}\n\r	");
+    var isNotAnchorChar = (ch) => !ch || invalidAnchorChars.has(ch);
+    var Lexer = class {
+      constructor() {
+        this.atEnd = false;
+        this.blockScalarIndent = -1;
+        this.blockScalarKeep = false;
+        this.buffer = "";
+        this.flowKey = false;
+        this.flowLevel = 0;
+        this.indentNext = 0;
+        this.indentValue = 0;
+        this.lineEndPos = null;
+        this.next = null;
+        this.pos = 0;
+      }
+      /**
+       * Generate YAML tokens from the `source` string. If `incomplete`,
+       * a part of the last line may be left as a buffer for the next call.
+       *
+       * @returns A generator of lexical tokens
+       */
+      *lex(source, incomplete = false) {
+        if (source) {
+          if (typeof source !== "string")
+            throw TypeError("source is not a string");
+          this.buffer = this.buffer ? this.buffer + source : source;
+          this.lineEndPos = null;
+        }
+        this.atEnd = !incomplete;
+        let next = this.next ?? "stream";
+        while (next && (incomplete || this.hasChars(1)))
+          next = yield* this.parseNext(next);
+      }
+      atLineEnd() {
+        let i = this.pos;
+        let ch = this.buffer[i];
+        while (ch === " " || ch === "	")
+          ch = this.buffer[++i];
+        if (!ch || ch === "#" || ch === "\n")
+          return true;
+        if (ch === "\r")
+          return this.buffer[i + 1] === "\n";
+        return false;
+      }
+      charAt(n) {
+        return this.buffer[this.pos + n];
+      }
+      continueScalar(offset) {
+        let ch = this.buffer[offset];
+        if (this.indentNext > 0) {
+          let indent = 0;
+          while (ch === " ")
+            ch = this.buffer[++indent + offset];
+          if (ch === "\r") {
+            const next = this.buffer[indent + offset + 1];
+            if (next === "\n" || !next && !this.atEnd)
+              return offset + indent + 1;
+          }
+          return ch === "\n" || indent >= this.indentNext || !ch && !this.atEnd ? offset + indent : -1;
+        }
+        if (ch === "-" || ch === ".") {
+          const dt = this.buffer.substr(offset, 3);
+          if ((dt === "---" || dt === "...") && isEmpty(this.buffer[offset + 3]))
+            return -1;
+        }
+        return offset;
+      }
+      getLine() {
+        let end = this.lineEndPos;
+        if (typeof end !== "number" || end !== -1 && end < this.pos) {
+          end = this.buffer.indexOf("\n", this.pos);
+          this.lineEndPos = end;
+        }
+        if (end === -1)
+          return this.atEnd ? this.buffer.substring(this.pos) : null;
+        if (this.buffer[end - 1] === "\r")
+          end -= 1;
+        return this.buffer.substring(this.pos, end);
+      }
+      hasChars(n) {
+        return this.pos + n <= this.buffer.length;
+      }
+      setNext(state) {
+        this.buffer = this.buffer.substring(this.pos);
+        this.pos = 0;
+        this.lineEndPos = null;
+        this.next = state;
+        return null;
+      }
+      peek(n) {
+        return this.buffer.substr(this.pos, n);
+      }
+      *parseNext(next) {
+        switch (next) {
+          case "stream":
+            return yield* this.parseStream();
+          case "line-start":
+            return yield* this.parseLineStart();
+          case "block-start":
+            return yield* this.parseBlockStart();
+          case "doc":
+            return yield* this.parseDocument();
+          case "flow":
+            return yield* this.parseFlowCollection();
+          case "quoted-scalar":
+            return yield* this.parseQuotedScalar();
+          case "block-scalar":
+            return yield* this.parseBlockScalar();
+          case "plain-scalar":
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseStream() {
+        let line = this.getLine();
+        if (line === null)
+          return this.setNext("stream");
+        if (line[0] === cst.BOM) {
+          yield* this.pushCount(1);
+          line = line.substring(1);
+        }
+        if (line[0] === "%") {
+          let dirEnd = line.length;
+          let cs = line.indexOf("#");
+          while (cs !== -1) {
+            const ch = line[cs - 1];
+            if (ch === " " || ch === "	") {
+              dirEnd = cs - 1;
+              break;
+            } else {
+              cs = line.indexOf("#", cs + 1);
+            }
+          }
+          while (true) {
+            const ch = line[dirEnd - 1];
+            if (ch === " " || ch === "	")
+              dirEnd -= 1;
+            else
+              break;
+          }
+          const n = (yield* this.pushCount(dirEnd)) + (yield* this.pushSpaces(true));
+          yield* this.pushCount(line.length - n);
+          this.pushNewline();
+          return "stream";
+        }
+        if (this.atLineEnd()) {
+          const sp = yield* this.pushSpaces(true);
+          yield* this.pushCount(line.length - sp);
+          yield* this.pushNewline();
+          return "stream";
+        }
+        yield cst.DOCUMENT;
+        return yield* this.parseLineStart();
+      }
+      *parseLineStart() {
+        const ch = this.charAt(0);
+        if (!ch && !this.atEnd)
+          return this.setNext("line-start");
+        if (ch === "-" || ch === ".") {
+          if (!this.atEnd && !this.hasChars(4))
+            return this.setNext("line-start");
+          const s = this.peek(3);
+          if ((s === "---" || s === "...") && isEmpty(this.charAt(3))) {
+            yield* this.pushCount(3);
+            this.indentValue = 0;
+            this.indentNext = 0;
+            return s === "---" ? "doc" : "stream";
+          }
+        }
+        this.indentValue = yield* this.pushSpaces(false);
+        if (this.indentNext > this.indentValue && !isEmpty(this.charAt(1)))
+          this.indentNext = this.indentValue;
+        return yield* this.parseBlockStart();
+      }
+      *parseBlockStart() {
+        const [ch0, ch1] = this.peek(2);
+        if (!ch1 && !this.atEnd)
+          return this.setNext("block-start");
+        if ((ch0 === "-" || ch0 === "?" || ch0 === ":") && isEmpty(ch1)) {
+          const n = (yield* this.pushCount(1)) + (yield* this.pushSpaces(true));
+          this.indentNext = this.indentValue + 1;
+          this.indentValue += n;
+          return "block-start";
+        }
+        return "doc";
+      }
+      *parseDocument() {
+        yield* this.pushSpaces(true);
+        const line = this.getLine();
+        if (line === null)
+          return this.setNext("doc");
+        let n = yield* this.pushIndicators();
+        switch (line[n]) {
+          case "#":
+            yield* this.pushCount(line.length - n);
+          // fallthrough
+          case void 0:
+            yield* this.pushNewline();
+            return yield* this.parseLineStart();
+          case "{":
+          case "[":
+            yield* this.pushCount(1);
+            this.flowKey = false;
+            this.flowLevel = 1;
+            return "flow";
+          case "}":
+          case "]":
+            yield* this.pushCount(1);
+            return "doc";
+          case "*":
+            yield* this.pushUntil(isNotAnchorChar);
+            return "doc";
+          case '"':
+          case "'":
+            return yield* this.parseQuotedScalar();
+          case "|":
+          case ">":
+            n += yield* this.parseBlockScalarHeader();
+            n += yield* this.pushSpaces(true);
+            yield* this.pushCount(line.length - n);
+            yield* this.pushNewline();
+            return yield* this.parseBlockScalar();
+          default:
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseFlowCollection() {
+        let nl, sp;
+        let indent = -1;
+        do {
+          nl = yield* this.pushNewline();
+          if (nl > 0) {
+            sp = yield* this.pushSpaces(false);
+            this.indentValue = indent = sp;
+          } else {
+            sp = 0;
+          }
+          sp += yield* this.pushSpaces(true);
+        } while (nl + sp > 0);
+        const line = this.getLine();
+        if (line === null)
+          return this.setNext("flow");
+        if (indent !== -1 && indent < this.indentNext && line[0] !== "#" || indent === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
+          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
+          if (!atFlowEndMarker) {
+            this.flowLevel = 0;
+            yield cst.FLOW_END;
+            return yield* this.parseLineStart();
+          }
+        }
+        let n = 0;
+        while (line[n] === ",") {
+          n += yield* this.pushCount(1);
+          n += yield* this.pushSpaces(true);
+          this.flowKey = false;
+        }
+        n += yield* this.pushIndicators();
+        switch (line[n]) {
+          case void 0:
+            return "flow";
+          case "#":
+            yield* this.pushCount(line.length - n);
+            return "flow";
+          case "{":
+          case "[":
+            yield* this.pushCount(1);
+            this.flowKey = false;
+            this.flowLevel += 1;
+            return "flow";
+          case "}":
+          case "]":
+            yield* this.pushCount(1);
+            this.flowKey = true;
+            this.flowLevel -= 1;
+            return this.flowLevel ? "flow" : "doc";
+          case "*":
+            yield* this.pushUntil(isNotAnchorChar);
+            return "flow";
+          case '"':
+          case "'":
+            this.flowKey = true;
+            return yield* this.parseQuotedScalar();
+          case ":": {
+            const next = this.charAt(1);
+            if (this.flowKey || isEmpty(next) || next === ",") {
+              this.flowKey = false;
+              yield* this.pushCount(1);
+              yield* this.pushSpaces(true);
+              return "flow";
+            }
+          }
+          // fallthrough
+          default:
+            this.flowKey = false;
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseQuotedScalar() {
+        const quote = this.charAt(0);
+        let end = this.buffer.indexOf(quote, this.pos + 1);
+        if (quote === "'") {
+          while (end !== -1 && this.buffer[end + 1] === "'")
+            end = this.buffer.indexOf("'", end + 2);
+        } else {
+          while (end !== -1) {
+            let n = 0;
+            while (this.buffer[end - 1 - n] === "\\")
+              n += 1;
+            if (n % 2 === 0)
+              break;
+            end = this.buffer.indexOf('"', end + 1);
+          }
+        }
+        const qb = this.buffer.substring(0, end);
+        let nl = qb.indexOf("\n", this.pos);
+        if (nl !== -1) {
+          while (nl !== -1) {
+            const cs = this.continueScalar(nl + 1);
+            if (cs === -1)
+              break;
+            nl = qb.indexOf("\n", cs);
+          }
+          if (nl !== -1) {
+            end = nl - (qb[nl - 1] === "\r" ? 2 : 1);
+          }
+        }
+        if (end === -1) {
+          if (!this.atEnd)
+            return this.setNext("quoted-scalar");
+          end = this.buffer.length;
+        }
+        yield* this.pushToIndex(end + 1, false);
+        return this.flowLevel ? "flow" : "doc";
+      }
+      *parseBlockScalarHeader() {
+        this.blockScalarIndent = -1;
+        this.blockScalarKeep = false;
+        let i = this.pos;
+        while (true) {
+          const ch = this.buffer[++i];
+          if (ch === "+")
+            this.blockScalarKeep = true;
+          else if (ch > "0" && ch <= "9")
+            this.blockScalarIndent = Number(ch) - 1;
+          else if (ch !== "-")
+            break;
+        }
+        return yield* this.pushUntil((ch) => isEmpty(ch) || ch === "#");
+      }
+      *parseBlockScalar() {
+        let nl = this.pos - 1;
+        let indent = 0;
+        let ch;
+        loop: for (let i2 = this.pos; ch = this.buffer[i2]; ++i2) {
+          switch (ch) {
+            case " ":
+              indent += 1;
+              break;
+            case "\n":
+              nl = i2;
+              indent = 0;
+              break;
+            case "\r": {
+              const next = this.buffer[i2 + 1];
+              if (!next && !this.atEnd)
+                return this.setNext("block-scalar");
+              if (next === "\n")
+                break;
+            }
+            // fallthrough
+            default:
+              break loop;
+          }
+        }
+        if (!ch && !this.atEnd)
+          return this.setNext("block-scalar");
+        if (indent >= this.indentNext) {
+          if (this.blockScalarIndent === -1)
+            this.indentNext = indent;
+          else {
+            this.indentNext = this.blockScalarIndent + (this.indentNext === 0 ? 1 : this.indentNext);
+          }
+          do {
+            const cs = this.continueScalar(nl + 1);
+            if (cs === -1)
+              break;
+            nl = this.buffer.indexOf("\n", cs);
+          } while (nl !== -1);
+          if (nl === -1) {
+            if (!this.atEnd)
+              return this.setNext("block-scalar");
+            nl = this.buffer.length;
+          }
+        }
+        let i = nl + 1;
+        ch = this.buffer[i];
+        while (ch === " ")
+          ch = this.buffer[++i];
+        if (ch === "	") {
+          while (ch === "	" || ch === " " || ch === "\r" || ch === "\n")
+            ch = this.buffer[++i];
+          nl = i - 1;
+        } else if (!this.blockScalarKeep) {
+          do {
+            let i2 = nl - 1;
+            let ch2 = this.buffer[i2];
+            if (ch2 === "\r")
+              ch2 = this.buffer[--i2];
+            const lastChar = i2;
+            while (ch2 === " ")
+              ch2 = this.buffer[--i2];
+            if (ch2 === "\n" && i2 >= this.pos && i2 + 1 + indent > lastChar)
+              nl = i2;
+            else
+              break;
+          } while (true);
+        }
+        yield cst.SCALAR;
+        yield* this.pushToIndex(nl + 1, true);
+        return yield* this.parseLineStart();
+      }
+      *parsePlainScalar() {
+        const inFlow = this.flowLevel > 0;
+        let end = this.pos - 1;
+        let i = this.pos - 1;
+        let ch;
+        while (ch = this.buffer[++i]) {
+          if (ch === ":") {
+            const next = this.buffer[i + 1];
+            if (isEmpty(next) || inFlow && flowIndicatorChars.has(next))
+              break;
+            end = i;
+          } else if (isEmpty(ch)) {
+            let next = this.buffer[i + 1];
+            if (ch === "\r") {
+              if (next === "\n") {
+                i += 1;
+                ch = "\n";
+                next = this.buffer[i + 1];
+              } else
+                end = i;
+            }
+            if (next === "#" || inFlow && flowIndicatorChars.has(next))
+              break;
+            if (ch === "\n") {
+              const cs = this.continueScalar(i + 1);
+              if (cs === -1)
+                break;
+              i = Math.max(i, cs - 2);
+            }
+          } else {
+            if (inFlow && flowIndicatorChars.has(ch))
+              break;
+            end = i;
+          }
+        }
+        if (!ch && !this.atEnd)
+          return this.setNext("plain-scalar");
+        yield cst.SCALAR;
+        yield* this.pushToIndex(end + 1, true);
+        return inFlow ? "flow" : "doc";
+      }
+      *pushCount(n) {
+        if (n > 0) {
+          yield this.buffer.substr(this.pos, n);
+          this.pos += n;
+          return n;
+        }
+        return 0;
+      }
+      *pushToIndex(i, allowEmpty) {
+        const s = this.buffer.slice(this.pos, i);
+        if (s) {
+          yield s;
+          this.pos += s.length;
+          return s.length;
+        } else if (allowEmpty)
+          yield "";
+        return 0;
+      }
+      *pushIndicators() {
+        let n = 0;
+        loop: while (true) {
+          switch (this.charAt(0)) {
+            case "!":
+              n += yield* this.pushTag();
+              n += yield* this.pushSpaces(true);
+              continue loop;
+            case "&":
+              n += yield* this.pushUntil(isNotAnchorChar);
+              n += yield* this.pushSpaces(true);
+              continue loop;
+            case "-":
+            // this is an error
+            case "?":
+            // this is an error outside flow collections
+            case ":": {
+              const inFlow = this.flowLevel > 0;
+              const ch1 = this.charAt(1);
+              if (isEmpty(ch1) || inFlow && flowIndicatorChars.has(ch1)) {
+                if (!inFlow)
+                  this.indentNext = this.indentValue + 1;
+                else if (this.flowKey)
+                  this.flowKey = false;
+                n += yield* this.pushCount(1);
+                n += yield* this.pushSpaces(true);
+                continue loop;
+              }
+            }
+          }
+          break loop;
+        }
+        return n;
+      }
+      *pushTag() {
+        if (this.charAt(1) === "<") {
+          let i = this.pos + 2;
+          let ch = this.buffer[i];
+          while (!isEmpty(ch) && ch !== ">")
+            ch = this.buffer[++i];
+          return yield* this.pushToIndex(ch === ">" ? i + 1 : i, false);
+        } else {
+          let i = this.pos + 1;
+          let ch = this.buffer[i];
+          while (ch) {
+            if (tagChars.has(ch))
+              ch = this.buffer[++i];
+            else if (ch === "%" && hexDigits.has(this.buffer[i + 1]) && hexDigits.has(this.buffer[i + 2])) {
+              ch = this.buffer[i += 3];
+            } else
+              break;
+          }
+          return yield* this.pushToIndex(i, false);
+        }
+      }
+      *pushNewline() {
+        const ch = this.buffer[this.pos];
+        if (ch === "\n")
+          return yield* this.pushCount(1);
+        else if (ch === "\r" && this.charAt(1) === "\n")
+          return yield* this.pushCount(2);
+        else
+          return 0;
+      }
+      *pushSpaces(allowTabs) {
+        let i = this.pos - 1;
+        let ch;
+        do {
+          ch = this.buffer[++i];
+        } while (ch === " " || allowTabs && ch === "	");
+        const n = i - this.pos;
+        if (n > 0) {
+          yield this.buffer.substr(this.pos, n);
+          this.pos = i;
+        }
+        return n;
+      }
+      *pushUntil(test) {
+        let i = this.pos;
+        let ch = this.buffer[i];
+        while (!test(ch))
+          ch = this.buffer[++i];
+        return yield* this.pushToIndex(i, false);
+      }
+    };
+    exports.Lexer = Lexer;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js
+var require_line_counter = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js"(exports) {
+    "use strict";
+    var LineCounter = class {
+      constructor() {
+        this.lineStarts = [];
+        this.addNewLine = (offset) => this.lineStarts.push(offset);
+        this.linePos = (offset) => {
+          let low = 0;
+          let high = this.lineStarts.length;
+          while (low < high) {
+            const mid = low + high >> 1;
+            if (this.lineStarts[mid] < offset)
+              low = mid + 1;
+            else
+              high = mid;
+          }
+          if (this.lineStarts[low] === offset)
+            return { line: low + 1, col: 1 };
+          if (low === 0)
+            return { line: 0, col: offset };
+          const start = this.lineStarts[low - 1];
+          return { line: low, col: offset - start + 1 };
+        };
+      }
+    };
+    exports.LineCounter = LineCounter;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js
+var require_parser = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js"(exports) {
+    "use strict";
+    var node_process = __require("process");
+    var cst = require_cst();
+    var lexer = require_lexer();
+    function includesToken(list, type) {
+      for (let i = 0; i < list.length; ++i)
+        if (list[i].type === type)
+          return true;
+      return false;
+    }
+    function findNonEmptyIndex(list) {
+      for (let i = 0; i < list.length; ++i) {
+        switch (list[i].type) {
+          case "space":
+          case "comment":
+          case "newline":
+            break;
+          default:
+            return i;
+        }
+      }
+      return -1;
+    }
+    function isFlowToken(token) {
+      switch (token?.type) {
+        case "alias":
+        case "scalar":
+        case "single-quoted-scalar":
+        case "double-quoted-scalar":
+        case "flow-collection":
+          return true;
+        default:
+          return false;
+      }
+    }
+    function getPrevProps(parent) {
+      switch (parent.type) {
+        case "document":
+          return parent.start;
+        case "block-map": {
+          const it = parent.items[parent.items.length - 1];
+          return it.sep ?? it.start;
+        }
+        case "block-seq":
+          return parent.items[parent.items.length - 1].start;
+        /* istanbul ignore next should not happen */
+        default:
+          return [];
+      }
+    }
+    function getFirstKeyStartProps(prev) {
+      if (prev.length === 0)
+        return [];
+      let i = prev.length;
+      loop: while (--i >= 0) {
+        switch (prev[i].type) {
+          case "doc-start":
+          case "explicit-key-ind":
+          case "map-value-ind":
+          case "seq-item-ind":
+          case "newline":
+            break loop;
+        }
+      }
+      while (prev[++i]?.type === "space") {
+      }
+      return prev.splice(i, prev.length);
+    }
+    function arrayPushArray(target, source) {
+      if (source.length < 1e5)
+        Array.prototype.push.apply(target, source);
+      else
+        for (let i = 0; i < source.length; ++i)
+          target.push(source[i]);
+    }
+    function fixFlowSeqItems(fc) {
+      if (fc.start.type === "flow-seq-start") {
+        for (const it of fc.items) {
+          if (it.sep && !it.value && !includesToken(it.start, "explicit-key-ind") && !includesToken(it.sep, "map-value-ind")) {
+            if (it.key)
+              it.value = it.key;
+            delete it.key;
+            if (isFlowToken(it.value)) {
+              if (it.value.end)
+                arrayPushArray(it.value.end, it.sep);
+              else
+                it.value.end = it.sep;
+            } else
+              arrayPushArray(it.start, it.sep);
+            delete it.sep;
+          }
+        }
+      }
+    }
+    var Parser = class {
+      /**
+       * @param onNewLine - If defined, called separately with the start position of
+       *   each new line (in `parse()`, including the start of input).
+       */
+      constructor(onNewLine) {
+        this.atNewLine = true;
+        this.atScalar = false;
+        this.indent = 0;
+        this.offset = 0;
+        this.onKeyLine = false;
+        this.stack = [];
+        this.source = "";
+        this.type = "";
+        this.lexer = new lexer.Lexer();
+        this.onNewLine = onNewLine;
+      }
+      /**
+       * Parse `source` as a YAML stream.
+       * If `incomplete`, a part of the last line may be left as a buffer for the next call.
+       *
+       * Errors are not thrown, but yielded as `{ type: 'error', message }` tokens.
+       *
+       * @returns A generator of tokens representing each directive, document, and other structure.
+       */
+      *parse(source, incomplete = false) {
+        if (this.onNewLine && this.offset === 0)
+          this.onNewLine(0);
+        for (const lexeme of this.lexer.lex(source, incomplete))
+          yield* this.next(lexeme);
+        if (!incomplete)
+          yield* this.end();
+      }
+      /**
+       * Advance the parser by the `source` of one lexical token.
+       */
+      *next(source) {
+        this.source = source;
+        if (node_process.env.LOG_TOKENS)
+          console.log("|", cst.prettyToken(source));
+        if (this.atScalar) {
+          this.atScalar = false;
+          yield* this.step();
+          this.offset += source.length;
+          return;
+        }
+        const type = cst.tokenType(source);
+        if (!type) {
+          const message = `Not a YAML token: ${source}`;
+          yield* this.pop({ type: "error", offset: this.offset, message, source });
+          this.offset += source.length;
+        } else if (type === "scalar") {
+          this.atNewLine = false;
+          this.atScalar = true;
+          this.type = "scalar";
+        } else {
+          this.type = type;
+          yield* this.step();
+          switch (type) {
+            case "newline":
+              this.atNewLine = true;
+              this.indent = 0;
+              if (this.onNewLine)
+                this.onNewLine(this.offset + source.length);
+              break;
+            case "space":
+              if (this.atNewLine && source[0] === " ")
+                this.indent += source.length;
+              break;
+            case "explicit-key-ind":
+            case "map-value-ind":
+            case "seq-item-ind":
+              if (this.atNewLine)
+                this.indent += source.length;
+              break;
+            case "doc-mode":
+            case "flow-error-end":
+              return;
+            default:
+              this.atNewLine = false;
+          }
+          this.offset += source.length;
+        }
+      }
+      /** Call at end of input to push out any remaining constructions */
+      *end() {
+        while (this.stack.length > 0)
+          yield* this.pop();
+      }
+      get sourceToken() {
+        const st = {
+          type: this.type,
+          offset: this.offset,
+          indent: this.indent,
+          source: this.source
+        };
+        return st;
+      }
+      *step() {
+        const top = this.peek(1);
+        if (this.type === "doc-end" && top?.type !== "doc-end") {
+          while (this.stack.length > 0)
+            yield* this.pop();
+          this.stack.push({
+            type: "doc-end",
+            offset: this.offset,
+            source: this.source
+          });
+          return;
+        }
+        if (!top)
+          return yield* this.stream();
+        switch (top.type) {
+          case "document":
+            return yield* this.document(top);
+          case "alias":
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return yield* this.scalar(top);
+          case "block-scalar":
+            return yield* this.blockScalar(top);
+          case "block-map":
+            return yield* this.blockMap(top);
+          case "block-seq":
+            return yield* this.blockSequence(top);
+          case "flow-collection":
+            return yield* this.flowCollection(top);
+          case "doc-end":
+            return yield* this.documentEnd(top);
+        }
+        yield* this.pop();
+      }
+      peek(n) {
+        return this.stack[this.stack.length - n];
+      }
+      *pop(error) {
+        const token = error ?? this.stack.pop();
+        if (!token) {
+          const message = "Tried to pop an empty stack";
+          yield { type: "error", offset: this.offset, source: "", message };
+        } else if (this.stack.length === 0) {
+          yield token;
+        } else {
+          const top = this.peek(1);
+          if (token.type === "block-scalar") {
+            token.indent = "indent" in top ? top.indent : 0;
+          } else if (token.type === "flow-collection" && top.type === "document") {
+            token.indent = 0;
+          }
+          if (token.type === "flow-collection")
+            fixFlowSeqItems(token);
+          switch (top.type) {
+            case "document":
+              top.value = token;
+              break;
+            case "block-scalar":
+              top.props.push(token);
+              break;
+            case "block-map": {
+              const it = top.items[top.items.length - 1];
+              if (it.value) {
+                top.items.push({ start: [], key: token, sep: [] });
+                this.onKeyLine = true;
+                return;
+              } else if (it.sep) {
+                it.value = token;
+              } else {
+                Object.assign(it, { key: token, sep: [] });
+                this.onKeyLine = !it.explicitKey;
+                return;
+              }
+              break;
+            }
+            case "block-seq": {
+              const it = top.items[top.items.length - 1];
+              if (it.value)
+                top.items.push({ start: [], value: token });
+              else
+                it.value = token;
+              break;
+            }
+            case "flow-collection": {
+              const it = top.items[top.items.length - 1];
+              if (!it || it.value)
+                top.items.push({ start: [], key: token, sep: [] });
+              else if (it.sep)
+                it.value = token;
+              else
+                Object.assign(it, { key: token, sep: [] });
+              return;
+            }
+            /* istanbul ignore next should not happen */
+            default:
+              yield* this.pop();
+              yield* this.pop(token);
+          }
+          if ((top.type === "document" || top.type === "block-map" || top.type === "block-seq") && (token.type === "block-map" || token.type === "block-seq")) {
+            const last = token.items[token.items.length - 1];
+            if (last && !last.sep && !last.value && last.start.length > 0 && findNonEmptyIndex(last.start) === -1 && (token.indent === 0 || last.start.every((st) => st.type !== "comment" || st.indent < token.indent))) {
+              if (top.type === "document")
+                top.end = last.start;
+              else
+                top.items.push({ start: last.start });
+              token.items.splice(-1, 1);
+            }
+          }
+        }
+      }
+      *stream() {
+        switch (this.type) {
+          case "directive-line":
+            yield { type: "directive", offset: this.offset, source: this.source };
+            return;
+          case "byte-order-mark":
+          case "space":
+          case "comment":
+          case "newline":
+            yield this.sourceToken;
+            return;
+          case "doc-mode":
+          case "doc-start": {
+            const doc = {
+              type: "document",
+              offset: this.offset,
+              start: []
+            };
+            if (this.type === "doc-start")
+              doc.start.push(this.sourceToken);
+            this.stack.push(doc);
+            return;
+          }
+        }
+        yield {
+          type: "error",
+          offset: this.offset,
+          message: `Unexpected ${this.type} token in YAML stream`,
+          source: this.source
+        };
+      }
+      *document(doc) {
+        if (doc.value)
+          return yield* this.lineEnd(doc);
+        switch (this.type) {
+          case "doc-start": {
+            if (findNonEmptyIndex(doc.start) !== -1) {
+              yield* this.pop();
+              yield* this.step();
+            } else
+              doc.start.push(this.sourceToken);
+            return;
+          }
+          case "anchor":
+          case "tag":
+          case "space":
+          case "comment":
+          case "newline":
+            doc.start.push(this.sourceToken);
+            return;
+        }
+        const bv = this.startBlockValue(doc);
+        if (bv)
+          this.stack.push(bv);
+        else {
+          yield {
+            type: "error",
+            offset: this.offset,
+            message: `Unexpected ${this.type} token in YAML document`,
+            source: this.source
+          };
+        }
+      }
+      *scalar(scalar) {
+        if (this.type === "map-value-ind") {
+          const prev = getPrevProps(this.peek(2));
+          const start = getFirstKeyStartProps(prev);
+          let sep;
+          if (scalar.end) {
+            sep = scalar.end;
+            sep.push(this.sourceToken);
+            delete scalar.end;
+          } else
+            sep = [this.sourceToken];
+          const map = {
+            type: "block-map",
+            offset: scalar.offset,
+            indent: scalar.indent,
+            items: [{ start, key: scalar, sep }]
+          };
+          this.onKeyLine = true;
+          this.stack[this.stack.length - 1] = map;
+        } else
+          yield* this.lineEnd(scalar);
+      }
+      *blockScalar(scalar) {
+        switch (this.type) {
+          case "space":
+          case "comment":
+          case "newline":
+            scalar.props.push(this.sourceToken);
+            return;
+          case "scalar":
+            scalar.source = this.source;
+            this.atNewLine = true;
+            this.indent = 0;
+            if (this.onNewLine) {
+              let nl = this.source.indexOf("\n") + 1;
+              while (nl !== 0) {
+                this.onNewLine(this.offset + nl);
+                nl = this.source.indexOf("\n", nl) + 1;
+              }
+            }
+            yield* this.pop();
+            break;
+          /* istanbul ignore next should not happen */
+          default:
+            yield* this.pop();
+            yield* this.step();
+        }
+      }
+      *blockMap(map) {
+        const it = map.items[map.items.length - 1];
+        switch (this.type) {
+          case "newline":
+            this.onKeyLine = false;
+            if (it.value) {
+              const end = "end" in it.value ? it.value.end : void 0;
+              const last = Array.isArray(end) ? end[end.length - 1] : void 0;
+              if (last?.type === "comment")
+                end?.push(this.sourceToken);
+              else
+                map.items.push({ start: [this.sourceToken] });
+            } else if (it.sep) {
+              it.sep.push(this.sourceToken);
+            } else {
+              it.start.push(this.sourceToken);
+            }
+            return;
+          case "space":
+          case "comment":
+            if (it.value) {
+              map.items.push({ start: [this.sourceToken] });
+            } else if (it.sep) {
+              it.sep.push(this.sourceToken);
+            } else {
+              if (this.atIndentedComment(it.start, map.indent)) {
+                const prev = map.items[map.items.length - 2];
+                const end = prev?.value?.end;
+                if (Array.isArray(end)) {
+                  arrayPushArray(end, it.start);
+                  end.push(this.sourceToken);
+                  map.items.pop();
+                  return;
+                }
+              }
+              it.start.push(this.sourceToken);
+            }
+            return;
+        }
+        if (this.indent >= map.indent) {
+          const atMapIndent = !this.onKeyLine && this.indent === map.indent;
+          const atNextItem = atMapIndent && (it.sep || it.explicitKey) && this.type !== "seq-item-ind";
+          let start = [];
+          if (atNextItem && it.sep && !it.value) {
+            const nl = [];
+            for (let i = 0; i < it.sep.length; ++i) {
+              const st = it.sep[i];
+              switch (st.type) {
+                case "newline":
+                  nl.push(i);
+                  break;
+                case "space":
+                  break;
+                case "comment":
+                  if (st.indent > map.indent)
+                    nl.length = 0;
+                  break;
+                default:
+                  nl.length = 0;
+              }
+            }
+            if (nl.length >= 2)
+              start = it.sep.splice(nl[1]);
+          }
+          switch (this.type) {
+            case "anchor":
+            case "tag":
+              if (atNextItem || it.value) {
+                start.push(this.sourceToken);
+                map.items.push({ start });
+                this.onKeyLine = true;
+              } else if (it.sep) {
+                it.sep.push(this.sourceToken);
+              } else {
+                it.start.push(this.sourceToken);
+              }
+              return;
+            case "explicit-key-ind":
+              if (!it.sep && !it.explicitKey) {
+                it.start.push(this.sourceToken);
+                it.explicitKey = true;
+              } else if (atNextItem || it.value) {
+                start.push(this.sourceToken);
+                map.items.push({ start, explicitKey: true });
+              } else {
+                this.stack.push({
+                  type: "block-map",
+                  offset: this.offset,
+                  indent: this.indent,
+                  items: [{ start: [this.sourceToken], explicitKey: true }]
+                });
+              }
+              this.onKeyLine = true;
+              return;
+            case "map-value-ind":
+              if (it.explicitKey) {
+                if (!it.sep) {
+                  if (includesToken(it.start, "newline")) {
+                    Object.assign(it, { key: null, sep: [this.sourceToken] });
+                  } else {
+                    const start2 = getFirstKeyStartProps(it.start);
+                    this.stack.push({
+                      type: "block-map",
+                      offset: this.offset,
+                      indent: this.indent,
+                      items: [{ start: start2, key: null, sep: [this.sourceToken] }]
+                    });
+                  }
+                } else if (it.value) {
+                  map.items.push({ start: [], key: null, sep: [this.sourceToken] });
+                } else if (includesToken(it.sep, "map-value-ind")) {
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start, key: null, sep: [this.sourceToken] }]
+                  });
+                } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
+                  const start2 = getFirstKeyStartProps(it.start);
+                  const key = it.key;
+                  const sep = it.sep;
+                  sep.push(this.sourceToken);
+                  delete it.key;
+                  delete it.sep;
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start: start2, key, sep }]
+                  });
+                } else if (start.length > 0) {
+                  it.sep = it.sep.concat(start, this.sourceToken);
+                } else {
+                  it.sep.push(this.sourceToken);
+                }
+              } else {
+                if (!it.sep) {
+                  Object.assign(it, { key: null, sep: [this.sourceToken] });
+                } else if (it.value || atNextItem) {
+                  map.items.push({ start, key: null, sep: [this.sourceToken] });
+                } else if (includesToken(it.sep, "map-value-ind")) {
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start: [], key: null, sep: [this.sourceToken] }]
+                  });
+                } else {
+                  it.sep.push(this.sourceToken);
+                }
+              }
+              this.onKeyLine = true;
+              return;
+            case "alias":
+            case "scalar":
+            case "single-quoted-scalar":
+            case "double-quoted-scalar": {
+              const fs = this.flowScalar(this.type);
+              if (atNextItem || it.value) {
+                map.items.push({ start, key: fs, sep: [] });
+                this.onKeyLine = true;
+              } else if (it.sep) {
+                this.stack.push(fs);
+              } else {
+                Object.assign(it, { key: fs, sep: [] });
+                this.onKeyLine = true;
+              }
+              return;
+            }
+            default: {
+              const bv = this.startBlockValue(map);
+              if (bv) {
+                if (bv.type === "block-seq") {
+                  if (!it.explicitKey && it.sep && !includesToken(it.sep, "newline")) {
+                    yield* this.pop({
+                      type: "error",
+                      offset: this.offset,
+                      message: "Unexpected block-seq-ind on same line with key",
+                      source: this.source
+                    });
+                    return;
+                  }
+                } else if (atMapIndent) {
+                  map.items.push({ start });
+                }
+                this.stack.push(bv);
+                return;
+              }
+            }
+          }
+        }
+        yield* this.pop();
+        yield* this.step();
+      }
+      *blockSequence(seq) {
+        const it = seq.items[seq.items.length - 1];
+        switch (this.type) {
+          case "newline":
+            if (it.value) {
+              const end = "end" in it.value ? it.value.end : void 0;
+              const last = Array.isArray(end) ? end[end.length - 1] : void 0;
+              if (last?.type === "comment")
+                end?.push(this.sourceToken);
+              else
+                seq.items.push({ start: [this.sourceToken] });
+            } else
+              it.start.push(this.sourceToken);
+            return;
+          case "space":
+          case "comment":
+            if (it.value)
+              seq.items.push({ start: [this.sourceToken] });
+            else {
+              if (this.atIndentedComment(it.start, seq.indent)) {
+                const prev = seq.items[seq.items.length - 2];
+                const end = prev?.value?.end;
+                if (Array.isArray(end)) {
+                  arrayPushArray(end, it.start);
+                  end.push(this.sourceToken);
+                  seq.items.pop();
+                  return;
+                }
+              }
+              it.start.push(this.sourceToken);
+            }
+            return;
+          case "anchor":
+          case "tag":
+            if (it.value || this.indent <= seq.indent)
+              break;
+            it.start.push(this.sourceToken);
+            return;
+          case "seq-item-ind":
+            if (this.indent !== seq.indent)
+              break;
+            if (it.value || includesToken(it.start, "seq-item-ind"))
+              seq.items.push({ start: [this.sourceToken] });
+            else
+              it.start.push(this.sourceToken);
+            return;
+        }
+        if (this.indent > seq.indent) {
+          const bv = this.startBlockValue(seq);
+          if (bv) {
+            this.stack.push(bv);
+            return;
+          }
+        }
+        yield* this.pop();
+        yield* this.step();
+      }
+      *flowCollection(fc) {
+        const it = fc.items[fc.items.length - 1];
+        if (this.type === "flow-error-end") {
+          let top;
+          do {
+            yield* this.pop();
+            top = this.peek(1);
+          } while (top?.type === "flow-collection");
+        } else if (fc.end.length === 0) {
+          switch (this.type) {
+            case "comma":
+            case "explicit-key-ind":
+              if (!it || it.sep)
+                fc.items.push({ start: [this.sourceToken] });
+              else
+                it.start.push(this.sourceToken);
+              return;
+            case "map-value-ind":
+              if (!it || it.value)
+                fc.items.push({ start: [], key: null, sep: [this.sourceToken] });
+              else if (it.sep)
+                it.sep.push(this.sourceToken);
+              else
+                Object.assign(it, { key: null, sep: [this.sourceToken] });
+              return;
+            case "space":
+            case "comment":
+            case "newline":
+            case "anchor":
+            case "tag":
+              if (!it || it.value)
+                fc.items.push({ start: [this.sourceToken] });
+              else if (it.sep)
+                it.sep.push(this.sourceToken);
+              else
+                it.start.push(this.sourceToken);
+              return;
+            case "alias":
+            case "scalar":
+            case "single-quoted-scalar":
+            case "double-quoted-scalar": {
+              const fs = this.flowScalar(this.type);
+              if (!it || it.value)
+                fc.items.push({ start: [], key: fs, sep: [] });
+              else if (it.sep)
+                this.stack.push(fs);
+              else
+                Object.assign(it, { key: fs, sep: [] });
+              return;
+            }
+            case "flow-map-end":
+            case "flow-seq-end":
+              fc.end.push(this.sourceToken);
+              return;
+          }
+          const bv = this.startBlockValue(fc);
+          if (bv)
+            this.stack.push(bv);
+          else {
+            yield* this.pop();
+            yield* this.step();
+          }
+        } else {
+          const parent = this.peek(2);
+          if (parent.type === "block-map" && (this.type === "map-value-ind" && parent.indent === fc.indent || this.type === "newline" && !parent.items[parent.items.length - 1].sep)) {
+            yield* this.pop();
+            yield* this.step();
+          } else if (this.type === "map-value-ind" && parent.type !== "flow-collection") {
+            const prev = getPrevProps(parent);
+            const start = getFirstKeyStartProps(prev);
+            fixFlowSeqItems(fc);
+            const sep = fc.end.splice(1, fc.end.length);
+            sep.push(this.sourceToken);
+            const map = {
+              type: "block-map",
+              offset: fc.offset,
+              indent: fc.indent,
+              items: [{ start, key: fc, sep }]
+            };
+            this.onKeyLine = true;
+            this.stack[this.stack.length - 1] = map;
+          } else {
+            yield* this.lineEnd(fc);
+          }
+        }
+      }
+      flowScalar(type) {
+        if (this.onNewLine) {
+          let nl = this.source.indexOf("\n") + 1;
+          while (nl !== 0) {
+            this.onNewLine(this.offset + nl);
+            nl = this.source.indexOf("\n", nl) + 1;
+          }
+        }
+        return {
+          type,
+          offset: this.offset,
+          indent: this.indent,
+          source: this.source
+        };
+      }
+      startBlockValue(parent) {
+        switch (this.type) {
+          case "alias":
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return this.flowScalar(this.type);
+          case "block-scalar-header":
+            return {
+              type: "block-scalar",
+              offset: this.offset,
+              indent: this.indent,
+              props: [this.sourceToken],
+              source: ""
+            };
+          case "flow-map-start":
+          case "flow-seq-start":
+            return {
+              type: "flow-collection",
+              offset: this.offset,
+              indent: this.indent,
+              start: this.sourceToken,
+              items: [],
+              end: []
+            };
+          case "seq-item-ind":
+            return {
+              type: "block-seq",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start: [this.sourceToken] }]
+            };
+          case "explicit-key-ind": {
+            this.onKeyLine = true;
+            const prev = getPrevProps(parent);
+            const start = getFirstKeyStartProps(prev);
+            start.push(this.sourceToken);
+            return {
+              type: "block-map",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start, explicitKey: true }]
+            };
+          }
+          case "map-value-ind": {
+            this.onKeyLine = true;
+            const prev = getPrevProps(parent);
+            const start = getFirstKeyStartProps(prev);
+            return {
+              type: "block-map",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start, key: null, sep: [this.sourceToken] }]
+            };
+          }
+        }
+        return null;
+      }
+      atIndentedComment(start, indent) {
+        if (this.type !== "comment")
+          return false;
+        if (this.indent <= indent)
+          return false;
+        return start.every((st) => st.type === "newline" || st.type === "space");
+      }
+      *documentEnd(docEnd) {
+        if (this.type !== "doc-mode") {
+          if (docEnd.end)
+            docEnd.end.push(this.sourceToken);
+          else
+            docEnd.end = [this.sourceToken];
+          if (this.type === "newline")
+            yield* this.pop();
+        }
+      }
+      *lineEnd(token) {
+        switch (this.type) {
+          case "comma":
+          case "doc-start":
+          case "doc-end":
+          case "flow-seq-end":
+          case "flow-map-end":
+          case "map-value-ind":
+            yield* this.pop();
+            yield* this.step();
+            break;
+          case "newline":
+            this.onKeyLine = false;
+          // fallthrough
+          case "space":
+          case "comment":
+          default:
+            if (token.end)
+              token.end.push(this.sourceToken);
+            else
+              token.end = [this.sourceToken];
+            if (this.type === "newline")
+              yield* this.pop();
+        }
+      }
+    };
+    exports.Parser = Parser;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js
+var require_public_api = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js"(exports) {
+    "use strict";
+    var composer = require_composer();
+    var Document = require_Document();
+    var errors = require_errors();
+    var log = require_log();
+    var identity = require_identity();
+    var lineCounter = require_line_counter();
+    var parser = require_parser();
+    function parseOptions(options) {
+      const prettyErrors = options.prettyErrors !== false;
+      const lineCounter$1 = options.lineCounter || prettyErrors && new lineCounter.LineCounter() || null;
+      return { lineCounter: lineCounter$1, prettyErrors };
+    }
+    function parseAllDocuments(source, options = {}) {
+      const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
+      const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
+      const composer$1 = new composer.Composer(options);
+      const docs = Array.from(composer$1.compose(parser$1.parse(source)));
+      if (prettyErrors && lineCounter2)
+        for (const doc of docs) {
+          doc.errors.forEach(errors.prettifyError(source, lineCounter2));
+          doc.warnings.forEach(errors.prettifyError(source, lineCounter2));
+        }
+      if (docs.length > 0)
+        return docs;
+      return Object.assign([], { empty: true }, composer$1.streamInfo());
+    }
+    function parseDocument2(source, options = {}) {
+      const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
+      const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
+      const composer$1 = new composer.Composer(options);
+      let doc = null;
+      for (const _doc of composer$1.compose(parser$1.parse(source), true, source.length)) {
+        if (!doc)
+          doc = _doc;
+        else if (doc.options.logLevel !== "silent") {
+          doc.errors.push(new errors.YAMLParseError(_doc.range.slice(0, 2), "MULTIPLE_DOCS", "Source contains multiple documents; please use YAML.parseAllDocuments()"));
+          break;
+        }
+      }
+      if (prettyErrors && lineCounter2) {
+        doc.errors.forEach(errors.prettifyError(source, lineCounter2));
+        doc.warnings.forEach(errors.prettifyError(source, lineCounter2));
+      }
+      return doc;
+    }
+    function parse(src, reviver, options) {
+      let _reviver = void 0;
+      if (typeof reviver === "function") {
+        _reviver = reviver;
+      } else if (options === void 0 && reviver && typeof reviver === "object") {
+        options = reviver;
+      }
+      const doc = parseDocument2(src, options);
+      if (!doc)
+        return null;
+      doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
+      if (doc.errors.length > 0) {
+        if (doc.options.logLevel !== "silent")
+          throw doc.errors[0];
+        else
+          doc.errors = [];
+      }
+      return doc.toJS(Object.assign({ reviver: _reviver }, options));
+    }
+    function stringify2(value, replacer, options) {
+      let _replacer = null;
+      if (typeof replacer === "function" || Array.isArray(replacer)) {
+        _replacer = replacer;
+      } else if (options === void 0 && replacer) {
+        options = replacer;
+      }
+      if (typeof options === "string")
+        options = options.length;
+      if (typeof options === "number") {
+        const indent = Math.round(options);
+        options = indent < 1 ? void 0 : indent > 8 ? { indent: 8 } : { indent };
+      }
+      if (value === void 0) {
+        const { keepUndefined } = options ?? replacer ?? {};
+        if (!keepUndefined)
+          return void 0;
+      }
+      if (identity.isDocument(value) && !_replacer)
+        return value.toString(options);
+      return new Document.Document(value, _replacer, options).toString(options);
+    }
+    exports.parse = parse;
+    exports.parseAllDocuments = parseAllDocuments;
+    exports.parseDocument = parseDocument2;
+    exports.stringify = stringify2;
+  }
+});
+
+// ../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js
+var require_dist = __commonJS({
+  "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js"(exports) {
+    "use strict";
+    var composer = require_composer();
+    var Document = require_Document();
+    var Schema = require_Schema();
+    var errors = require_errors();
+    var Alias = require_Alias();
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var Scalar = require_Scalar();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var cst = require_cst();
+    var lexer = require_lexer();
+    var lineCounter = require_line_counter();
+    var parser = require_parser();
+    var publicApi = require_public_api();
+    var visit = require_visit();
+    exports.Composer = composer.Composer;
+    exports.Document = Document.Document;
+    exports.Schema = Schema.Schema;
+    exports.YAMLError = errors.YAMLError;
+    exports.YAMLParseError = errors.YAMLParseError;
+    exports.YAMLWarning = errors.YAMLWarning;
+    exports.Alias = Alias.Alias;
+    exports.isAlias = identity.isAlias;
+    exports.isCollection = identity.isCollection;
+    exports.isDocument = identity.isDocument;
+    exports.isMap = identity.isMap;
+    exports.isNode = identity.isNode;
+    exports.isPair = identity.isPair;
+    exports.isScalar = identity.isScalar;
+    exports.isSeq = identity.isSeq;
+    exports.Pair = Pair.Pair;
+    exports.Scalar = Scalar.Scalar;
+    exports.YAMLMap = YAMLMap.YAMLMap;
+    exports.YAMLSeq = YAMLSeq.YAMLSeq;
+    exports.CST = cst;
+    exports.Lexer = lexer.Lexer;
+    exports.LineCounter = lineCounter.LineCounter;
+    exports.Parser = parser.Parser;
+    exports.parse = publicApi.parse;
+    exports.parseAllDocuments = publicApi.parseAllDocuments;
+    exports.parseDocument = publicApi.parseDocument;
+    exports.stringify = publicApi.stringify;
+    exports.visit = visit.visit;
+    exports.visitAsync = visit.visitAsync;
   }
 });
 
 // src/index.ts
-var import_cron_parser = __toESM(require_dist(), 1);
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
-// ../../packages/digest/src/index.ts
+// ../../packages/github-lite/dist/github-types.js
+var GitHubLiteApiError = class extends Error {
+  code;
+  status;
+  constructor(message, code, status) {
+    super(message);
+    this.name = "GitHubLiteApiError";
+    this.code = code;
+    this.status = status;
+  }
+};
+
+// ../../packages/github-lite/dist/github-responses.js
+function mapIssueResponse(issue) {
+  if (!issue) {
+    throw new GitHubLiteApiError("GitHub issue was empty.", "unknown", 500);
+  }
+  return {
+    number: issue.number,
+    title: issue.title,
+    body: issue.body ?? "",
+    labels: issue.labels.map((label) => typeof label === "string" ? label : label.name).filter((label) => Boolean(label)),
+    url: issue.html_url,
+    state: issue.state ?? "open",
+    author: issue.user?.login ?? "",
+    ...issue.created_at ? { createdAt: issue.created_at } : {},
+    ...issue.updated_at ? { updatedAt: issue.updated_at } : {},
+    isPullRequest: Boolean(issue.pull_request)
+  };
+}
+function mapIssueCommentResponse(comment, issueNumber) {
+  return {
+    author: comment.user?.login ?? "",
+    body: comment.body,
+    createdAt: comment.created_at ?? "",
+    updatedAt: comment.updated_at ?? comment.created_at ?? "",
+    id: comment.id,
+    issueNumber
+  };
+}
+function mapIssueEventResponse(event) {
+  return {
+    actor: event.actor?.login ?? "",
+    createdAt: event.created_at ?? "",
+    event: event.event,
+    id: event.id,
+    ...event.label ? { label: mapLabelResponse(event.label) } : {}
+  };
+}
+function mapLabelResponse(label) {
+  return {
+    color: label.color,
+    ...label.description ? { description: label.description } : {},
+    name: label.name
+  };
+}
+function mapPullRequestResponse(pullRequest) {
+  return {
+    number: pullRequest.number,
+    title: pullRequest.title,
+    url: pullRequest.html_url,
+    head: pullRequest.head.ref,
+    headSha: pullRequest.head.sha,
+    base: pullRequest.base.ref,
+    ...pullRequest.base.sha ? { baseSha: pullRequest.base.sha } : {},
+    state: pullRequest.state,
+    author: pullRequest.user?.login ?? "",
+    body: pullRequest.body ?? "",
+    ...pullRequest.created_at ? { createdAt: pullRequest.created_at } : {},
+    ...pullRequest.updated_at ? { updatedAt: pullRequest.updated_at } : {},
+    merged: pullRequest.merged ?? Boolean(pullRequest.merged_at),
+    ...pullRequest.merge_commit_sha ? { mergeSha: pullRequest.merge_commit_sha } : {},
+    ...pullRequest.merged_at ? { mergedAt: pullRequest.merged_at } : {}
+  };
+}
+function mapPullRequestFileResponse(file) {
+  return {
+    ...file.patch ? { patch: file.patch } : {},
+    path: file.filename,
+    ...file.previous_filename ? { previousPath: file.previous_filename } : {},
+    status: file.status
+  };
+}
+function mapWorkflowResponse(workflow) {
+  return {
+    id: workflow.id,
+    name: workflow.name,
+    path: workflow.path,
+    state: workflow.state === "disabled" ? "disabled" : "active",
+    url: workflow.html_url
+  };
+}
+function mapWorkflowRunResponse(run2) {
+  return {
+    actor: run2.actor?.login ?? "",
+    conclusion: mapWorkflowRunConclusion(run2.conclusion),
+    ...run2.created_at ? { createdAt: run2.created_at } : {},
+    ...run2.display_title ? { displayTitle: run2.display_title } : {},
+    event: mapWorkflowRunEvent(run2.event),
+    id: run2.id,
+    name: run2.name?.trim() || run2.display_title?.trim() || `Run ${run2.id}`,
+    runAttempt: run2.run_attempt ?? 1,
+    ...run2.run_started_at ? { startedAt: run2.run_started_at } : {},
+    status: mapWorkflowRunStatus(run2.status),
+    ...run2.updated_at ? { updatedAt: run2.updated_at } : {},
+    url: run2.html_url,
+    workflowId: run2.workflow_id,
+    ...run2.repository?.id !== void 0 && run2.repository.id !== null ? { repositoryId: String(run2.repository.id) } : {},
+    ...run2.path ? { workflowPath: run2.path } : {}
+  };
+}
+function mapWorkflowJobResponse(job) {
+  return {
+    conclusion: mapWorkflowRunConclusion(job.conclusion),
+    ...job.completed_at ? { completedAt: job.completed_at } : {},
+    id: job.id,
+    name: job.name,
+    ...job.started_at ? { startedAt: job.started_at } : {},
+    status: mapWorkflowRunStatus(job.status),
+    ...job.steps ? {
+      steps: job.steps.map((step, index) => ({
+        conclusion: mapWorkflowRunConclusion(step.conclusion),
+        ...step.completed_at ? { completedAt: step.completed_at } : {},
+        name: step.name?.trim() || `Step ${index + 1}`,
+        number: step.number ?? index + 1,
+        ...step.started_at ? { startedAt: step.started_at } : {},
+        status: mapWorkflowRunStatus(step.status)
+      }))
+    } : {},
+    ...job.html_url ? { url: job.html_url } : {}
+  };
+}
+function mapWorkflowRunStatus(value) {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "queued" || normalized === "in_progress" || normalized === "completed") {
+    return normalized;
+  }
+  return "queued";
+}
+function mapWorkflowRunConclusion(value) {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "success" || normalized === "failure" || normalized === "cancelled" || normalized === "skipped" || normalized === "timed_out" || normalized === "action_required") {
+    return normalized;
+  }
+  return null;
+}
+function mapWorkflowRunEvent(value) {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "workflow_dispatch" || normalized === "issue_comment" || normalized === "schedule") {
+    return normalized;
+  }
+  return "workflow_dispatch";
+}
+function mapRepositoryPermissionValue(permission, roleName) {
+  const explicitRole = normalizeRepositoryPermissionName(roleName);
+  if (explicitRole) {
+    return explicitRole;
+  }
+  const basePermission = normalizeRepositoryPermissionName(permission);
+  if (basePermission) {
+    return basePermission;
+  }
+  return "none";
+}
+function normalizeRepositoryPermissionName(value) {
+  const normalized = value?.trim().toLowerCase();
+  switch (normalized) {
+    case "admin":
+    case "maintain":
+    case "write":
+    case "triage":
+    case "read":
+    case "none":
+      return normalized;
+    default:
+      return null;
+  }
+}
+function mapTeamMembershipState(value) {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "active" || normalized === "pending") {
+    return normalized;
+  }
+  throw new GitHubLiteApiError(`Unsupported GitHub team membership state: ${value ?? "unknown"}`, "unknown", 500);
+}
+function mapTeamMembershipRole(value) {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "member" || normalized === "maintainer") {
+    return normalized;
+  }
+  throw new GitHubLiteApiError(`Unsupported GitHub team membership role: ${value ?? "unknown"}`, "unknown", 500);
+}
+
+// ../../packages/github-lite/dist/github-http.js
+function createGitHubRequester({ apiBaseUrl = "https://api.github.com", fetcher = fetch, token }) {
+  const trimmedToken = token.trim();
+  if (!trimmedToken) {
+    throw new GitHubLiteApiError("GitHub token is required.", "bad-request", 400);
+  }
+  return {
+    async request(path, init = {}, options = {}) {
+      const response = await fetcher(`${apiBaseUrl}${path}`, {
+        ...init,
+        headers: buildHeaders(trimmedToken, init.headers)
+      });
+      if (response.status === 404 && options.allowNotFound) {
+        return null;
+      }
+      if (!response.ok) {
+        throw await buildGitHubApiError(response);
+      }
+      if (response.status === 204) {
+        return null;
+      }
+      return await response.json();
+    },
+    async requestText(path, init = {}) {
+      const response = await fetcher(`${apiBaseUrl}${path}`, {
+        ...init,
+        headers: buildHeaders(trimmedToken, init.headers)
+      });
+      if (!response.ok) {
+        throw await buildGitHubApiError(response);
+      }
+      return response.text();
+    }
+  };
+}
+function buildHeaders(token, initHeaders) {
+  const headers = new Headers(initHeaders);
+  headers.set("Accept", "application/vnd.github+json");
+  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("Content-Type", "application/json");
+  headers.set("X-GitHub-Api-Version", "2022-11-28");
+  return headers;
+}
+function buildQuery(params) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      query.set(key, value);
+    }
+  }
+  const serializedQuery = query.toString();
+  return serializedQuery ? `?${serializedQuery}` : "";
+}
+function buildLabelSearchQualifier(label) {
+  return /\s/u.test(label) ? `label:"${label.replace(/"/g, '\\"')}"` : `label:${label}`;
+}
+function encodePath(path) {
+  return path.split("/").map((part) => encodeURIComponent(part)).join("/");
+}
+function decodeBase64(value) {
+  const bytes = Uint8Array.from(atob(value.replace(/\s/g, "")), (character) => character.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+function encodeBase64(value) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+function truncateTextByBytes(content, maxBytes) {
+  if (maxBytes <= 0) {
+    return {
+      content: "",
+      truncated: getByteLength(content) > 0
+    };
+  }
+  const bytes = new TextEncoder().encode(content);
+  if (bytes.byteLength <= maxBytes) {
+    return {
+      content,
+      truncated: false
+    };
+  }
+  return {
+    content: new TextDecoder().decode(bytes.slice(0, maxBytes)),
+    truncated: true
+  };
+}
+function getByteLength(content) {
+  return new TextEncoder().encode(content).byteLength;
+}
+function hasWorkflowDispatchTrigger(content) {
+  return /(^|\n)\s*workflow_dispatch\s*:/m.test(content);
+}
+async function readErrorMessage(response) {
+  try {
+    const payload = await response.json();
+    return payload.message ?? `GitHub API request failed with ${response.status}`;
+  } catch {
+    return `GitHub API request failed with ${response.status}`;
+  }
+}
+function mapStatusToErrorCode(status) {
+  if (status === 400) {
+    return "bad-request";
+  }
+  if (status === 409) {
+    return "conflict";
+  }
+  if (status === 401) {
+    return "unauthorized";
+  }
+  if (status === 403) {
+    return "forbidden";
+  }
+  if (status === 404) {
+    return "not-found";
+  }
+  if (status === 422) {
+    return "validation";
+  }
+  if (status === 429) {
+    return "rate-limited";
+  }
+  return "unknown";
+}
+async function buildGitHubApiError(response) {
+  const message = await readErrorMessage(response);
+  return new GitHubLiteApiError(message, isRateLimitedResponse(response, message) ? "rate-limited" : mapStatusToErrorCode(response.status), response.status);
+}
+function isRateLimitedResponse(response, message) {
+  if (response.status === 429) {
+    return true;
+  }
+  if (response.status !== 403) {
+    return false;
+  }
+  if (response.headers.get("x-ratelimit-remaining") === "0") {
+    return true;
+  }
+  if (response.headers.has("retry-after")) {
+    return true;
+  }
+  return message.toLowerCase().includes("rate limit");
+}
+
+// ../../packages/github-lite/dist/github-client.js
+function createGitHubLiteClient(options) {
+  const requester = createGitHubRequester(options);
+  return {
+    ...createRepositoryOperations(requester),
+    ...createPullRequestOperations(requester),
+    ...createIssueOperations(requester),
+    ...createWorkflowOperations(requester),
+    ...createRepositoryAccessOperations(requester)
+  };
+}
+function createRepositoryOperations(requester) {
+  const { request } = requester;
+  return {
+    async getCurrentUser() {
+      const user = await request("/user");
+      if (!user) {
+        throw new GitHubLiteApiError("GitHub user was empty.", "unknown", 500);
+      }
+      return { login: user.login };
+    },
+    async getRepository({ owner, repo }) {
+      const repository = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`);
+      if (!repository) {
+        throw new GitHubLiteApiError("GitHub repository was empty.", "unknown", 500);
+      }
+      return {
+        owner: repository.owner.login,
+        repo: repository.name,
+        defaultBranch: repository.default_branch,
+        private: repository.private,
+        url: repository.html_url
+      };
+    },
+    async getFile({ owner, repo, path, ref }) {
+      const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+      const content = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}${query}`, {}, { allowNotFound: true });
+      if (!content) {
+        return null;
+      }
+      if (content.encoding !== "base64") {
+        throw new GitHubLiteApiError(`Unsupported GitHub content encoding: ${content.encoding}`, "unknown", 500);
+      }
+      return {
+        path: content.path,
+        content: decodeBase64(content.content),
+        contentBase64: content.content.replace(/\s/g, ""),
+        sha: content.sha
+      };
+    },
+    async getDirectory({ owner, repo, path, ref }) {
+      const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+      const entries = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}${query}`, {}, { allowNotFound: true });
+      if (!entries) {
+        return null;
+      }
+      if (!Array.isArray(entries)) {
+        throw new GitHubLiteApiError(`GitHub path is not a directory: ${path}`, "bad-request", 400);
+      }
+      return entries.map((entry) => ({
+        name: entry.name,
+        path: entry.path,
+        sha: entry.sha,
+        type: entry.type
+      }));
+    },
+    async getBranchHeadSha({ owner, repo, branch }) {
+      const ref = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodePath(branch)}`);
+      if (!ref) {
+        throw new GitHubLiteApiError("GitHub branch ref was empty.", "unknown", 500);
+      }
+      return ref.object.sha;
+    },
+    async createBranch({ owner, repo, branch, sha }) {
+      await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs`, {
+        method: "POST",
+        body: JSON.stringify({ ref: `refs/heads/${branch}`, sha })
+      });
+    },
+    async putFile({ owner, repo, path, branch, message, content, encoding = "utf-8", sha }) {
+      const response = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          branch,
+          content: encoding === "base64" ? content : encodeBase64(content),
+          message,
+          ...sha ? { sha } : {}
+        })
+      });
+      if (!response) {
+        throw new GitHubLiteApiError("GitHub file response was empty.", "unknown", 500);
+      }
+      return {
+        path: response.content.path,
+        sha: response.content.sha
+      };
+    },
+    async deleteFile({ owner, repo, path, branch, message, sha }) {
+      const response = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}`, {
+        method: "DELETE",
+        body: JSON.stringify({
+          branch,
+          message,
+          sha
+        })
+      });
+      return {
+        path: response?.content?.path ?? path
+      };
+    }
+  };
+}
+function createPullRequestOperations(requester) {
+  const { request } = requester;
+  return {
+    async createPullRequest({ owner, repo, title, body, head, base }) {
+      const pullRequest = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`, {
+        method: "POST",
+        body: JSON.stringify({ base, body, head, title })
+      });
+      if (!pullRequest) {
+        throw new GitHubLiteApiError("GitHub pull request was empty.", "unknown", 500);
+      }
+      return mapPullRequestResponse(pullRequest);
+    },
+    async getPullRequest({ owner, repo, pullNumber }) {
+      const pullRequest = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}`, {}, { allowNotFound: true });
+      return pullRequest ? mapPullRequestResponse(pullRequest) : null;
+    },
+    async updatePullRequest({ owner, repo, pullNumber, body, title }) {
+      const pullRequest = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...body !== void 0 ? { body } : {},
+          ...title !== void 0 ? { title } : {}
+        })
+      });
+      if (!pullRequest) {
+        throw new GitHubLiteApiError("GitHub pull request was empty.", "unknown", 500);
+      }
+      return mapPullRequestResponse(pullRequest);
+    },
+    async listPullRequests({ owner, repo, state = "open", base, head }) {
+      const query = buildQuery({ base, head, per_page: "100", state });
+      const pullRequests = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${query}`);
+      return (pullRequests ?? []).map(mapPullRequestResponse);
+    },
+    async listPullRequestFiles({ owner, repo, pullNumber }) {
+      const files = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}/files?per_page=100`);
+      return (files ?? []).map(mapPullRequestFileResponse);
+    },
+    async mergePullRequest({ owner, repo, pullNumber, commitTitle, commitMessage, mergeMethod = "squash", expectedHeadSha }) {
+      const result = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}/merge`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...commitMessage ? { commit_message: commitMessage } : {},
+          ...commitTitle ? { commit_title: commitTitle } : {},
+          merge_method: mergeMethod,
+          ...expectedHeadSha ? { sha: expectedHeadSha } : {}
+        })
+      });
+      if (!result) {
+        throw new GitHubLiteApiError("GitHub merge response was empty.", "unknown", 500);
+      }
+      return {
+        merged: result.merged,
+        message: result.message,
+        sha: result.sha
+      };
+    }
+  };
+}
+function createIssueOperations(requester) {
+  const { request } = requester;
+  return {
+    async createIssue({ owner, repo, title, body, labels }) {
+      const issue = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`, {
+        method: "POST",
+        body: JSON.stringify({ body, labels, title })
+      });
+      return mapIssueResponse(issue);
+    },
+    async getIssue({ owner, repo, issueNumber }) {
+      const issue = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`, {}, { allowNotFound: true });
+      return issue ? mapIssueResponse(issue) : null;
+    },
+    async updateIssue({ owner, repo, issueNumber, title, body, state, labels }) {
+      const issue = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...body !== void 0 ? { body } : {},
+          ...labels !== void 0 ? { labels } : {},
+          ...state !== void 0 ? { state } : {},
+          ...title !== void 0 ? { title } : {}
+        })
+      });
+      return mapIssueResponse(issue);
+    },
+    async listIssues({ owner, repo, state = "open" }) {
+      const query = buildQuery({ per_page: "100", state });
+      const issues = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues${query}`);
+      return (issues ?? []).map(mapIssueResponse);
+    },
+    async searchIssues({ owner, repo, query = "", state = "open", labels = [] }) {
+      const qualifierTerms = [`repo:${owner}/${repo}`, "is:issue"];
+      const trimmedQuery = query.trim();
+      if (state !== "all") {
+        qualifierTerms.push(`state:${state}`);
+      }
+      for (const label of labels.map((value) => value.trim()).filter(Boolean)) {
+        qualifierTerms.push(buildLabelSearchQualifier(label));
+      }
+      if (trimmedQuery) {
+        qualifierTerms.push(trimmedQuery);
+      }
+      const searchResponse = await request(`/search/issues${buildQuery({ q: qualifierTerms.join(" ") })}`);
+      return (searchResponse?.items ?? []).map(mapIssueResponse);
+    },
+    async listIssueEvents({ owner, repo, issueNumber }) {
+      const events = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/events`);
+      return (events ?? []).map(mapIssueEventResponse);
+    },
+    async listIssueComments({ owner, repo, issueNumber }) {
+      const query = buildQuery({ per_page: "100" });
+      const comments = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments${query}`);
+      return (comments ?? []).map((comment) => mapIssueCommentResponse(comment, issueNumber));
+    },
+    async listLabels({ owner, repo }) {
+      const labels = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels`);
+      return (labels ?? []).map(mapLabelResponse);
+    },
+    async createLabel({ owner, repo, name, color, description }) {
+      const label = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/labels`, {
+        method: "POST",
+        body: JSON.stringify({
+          color,
+          description,
+          name
+        })
+      });
+      if (!label) {
+        throw new GitHubLiteApiError("GitHub label response was empty.", "unknown", 500);
+      }
+      return mapLabelResponse(label);
+    },
+    async createIssueComment({ owner, repo, issueNumber, body }) {
+      const comment = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ body })
+      });
+      if (!comment) {
+        throw new GitHubLiteApiError("GitHub issue comment was empty.", "unknown", 500);
+      }
+      return mapIssueCommentResponse(comment, issueNumber);
+    },
+    async addIssueLabels({ owner, repo, issueNumber, labels }) {
+      await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/labels`, {
+        method: "POST",
+        body: JSON.stringify({ labels })
+      });
+    },
+    async removeIssueLabel({ owner, repo, issueNumber, label }) {
+      await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`, {
+        method: "DELETE"
+      });
+    },
+    async closeIssue({ owner, repo, issueNumber }) {
+      await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`, {
+        method: "PATCH",
+        body: JSON.stringify({ state: "closed" })
+      });
+    }
+  };
+}
+function createWorkflowOperations(requester) {
+  const { request, requestText } = requester;
+  const defaultLogMaxBytes = 2e5;
+  async function readWorkflowContent({ owner, path, repo }) {
+    const content = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}`, {}, { allowNotFound: true });
+    if (!content) {
+      return null;
+    }
+    if (content.encoding !== "base64") {
+      throw new GitHubLiteApiError(`Unsupported GitHub content encoding: ${content.encoding}`, "unknown", 500);
+    }
+    return decodeBase64(content.content);
+  }
+  async function workflowSupportsDispatch({ owner, path, repo }) {
+    const content = await readWorkflowContent({ owner, path, repo });
+    return content ? hasWorkflowDispatchTrigger(content) : false;
+  }
+  return {
+    async listWorkflows({ dispatchableOnly = false, owner, repo }) {
+      const workflows = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows`);
+      const mappedWorkflows = (workflows?.workflows ?? []).map(mapWorkflowResponse);
+      if (!dispatchableOnly) {
+        return mappedWorkflows;
+      }
+      const dispatchable = await Promise.all(mappedWorkflows.map(async (workflow) => ({
+        supported: await workflowSupportsDispatch({
+          owner,
+          path: workflow.path,
+          repo
+        }),
+        workflow
+      })));
+      return dispatchable.filter((candidate) => candidate.supported).map((candidate) => candidate.workflow);
+    },
+    async getWorkflow({ owner, repo, workflowId }) {
+      const workflow = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodePath(String(workflowId))}`, {}, { allowNotFound: true });
+      return workflow ? mapWorkflowResponse(workflow) : null;
+    },
+    async listWorkflowRuns({ owner, repo, event, perPage = 30, status, workflowId }) {
+      const query = buildQuery({
+        ...event ? { event } : {},
+        per_page: String(perPage),
+        ...status ? { status } : {}
+      });
+      const path = workflowId === void 0 ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs${query}` : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodePath(String(workflowId))}/runs${query}`;
+      const runs = await request(path);
+      return (runs?.workflow_runs ?? []).map(mapWorkflowRunResponse);
+    },
+    async getWorkflowRun({ owner, repo, runAttempt, runId }) {
+      const run2 = await request(runAttempt ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/attempts/${runAttempt}` : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}`, {}, { allowNotFound: true });
+      return run2 ? mapWorkflowRunResponse(run2) : null;
+    },
+    async listWorkflowRunJobs({ owner, repo, runAttempt, runId }) {
+      const jobsPath = runAttempt ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/attempts/${runAttempt}/jobs` : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/jobs`;
+      const jobs = await request(jobsPath);
+      return (jobs?.jobs ?? []).map(mapWorkflowJobResponse);
+    },
+    async getWorkflowJobLog({ owner, repo, jobId, maxBytes }) {
+      const content = await requestText(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/jobs/${jobId}/logs`);
+      const limit = maxBytes ?? defaultLogMaxBytes;
+      const truncatedContent = truncateTextByBytes(content, limit);
+      return {
+        content: truncatedContent.content,
+        jobId,
+        sizeBytes: getByteLength(content),
+        truncated: truncatedContent.truncated
+      };
+    }
+  };
+}
+function createRepositoryAccessOperations(requester) {
+  const { request } = requester;
+  return {
+    async getRepositoryPermissionForUser({ owner, repo, username }) {
+      const permissionResponse = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/collaborators/${encodeURIComponent(username)}/permission`, {}, { allowNotFound: true });
+      if (!permissionResponse) {
+        return {
+          permission: "none",
+          roleName: "none",
+          username
+        };
+      }
+      return {
+        permission: mapRepositoryPermissionValue(permissionResponse.permission, permissionResponse.role_name),
+        roleName: normalizeRepositoryPermissionName(permissionResponse.role_name) ?? normalizeRepositoryPermissionName(permissionResponse.permission) ?? "none",
+        username: permissionResponse.user?.login?.trim() || username
+      };
+    },
+    async getTeamMembershipForUser({ org, teamSlug, username }) {
+      const membership = await request(`/orgs/${encodeURIComponent(org)}/teams/${encodeURIComponent(teamSlug)}/memberships/${encodeURIComponent(username)}`, {}, { allowNotFound: true });
+      if (!membership) {
+        return null;
+      }
+      return {
+        org,
+        role: mapTeamMembershipRole(membership.role),
+        state: mapTeamMembershipState(membership.state),
+        teamSlug,
+        username
+      };
+    }
+  };
+}
+
+// ../../packages/github-lite/dist/repository-yaml.js
+var import_yaml = __toESM(require_dist(), 1);
+function parseRepositoryYaml(input) {
+  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
+  if (document.errors.length > 0) {
+    return {
+      diagnostics: document.errors.map(toYamlDiagnostic),
+      ok: false
+    };
+  }
+  return { ok: true, value: document.toJS() };
+}
+function formatRepositoryYamlDiagnostics(diagnostics) {
+  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
+}
+function toYamlDiagnostic(error) {
+  const position = error.linePos?.[0];
+  return {
+    column: position?.col ?? 1,
+    line: position?.line ?? 1,
+    message: error.message
+  };
+}
+
+// ../../packages/domain/dist/api-version.js
+var batchPlaneApiVersion = "batchplane.io/v1";
+var legacyBatchPlaneApiVersion = "batchtrail.io/v1";
+var supportedBatchPlaneApiVersions = [
+  batchPlaneApiVersion,
+  legacyBatchPlaneApiVersion
+];
+function isBatchPlaneApiVersion(value) {
+  return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
+}
+
+// ../../packages/domain/dist/workspace-policy.js
+var defaultWorkspacePolicy = {
+  approval: {
+    mode: "SELF_APPROVAL_BLOCKED"
+  }
+};
+
+// ../../packages/github-lite/dist/repository-schema.js
+function isCanonicalBatchId(value) {
+  return typeof value === "string" && /^[A-Za-z0-9](?:[A-Za-z0-9]|[.-](?=[A-Za-z0-9]))*$/.test(value);
+}
+function validateBatchDefinition(definition) {
+  const diagnostics = [];
+  const record = requireRecord(definition, "$", diagnostics);
+  if (!record)
+    return diagnostics;
+  requireCanonicalBatchId(record.batchId, diagnostics);
+  requireString(record, "name", diagnostics);
+  requireString(record, "owner", diagnostics);
+  requireString(record, "domain", diagnostics);
+  requireString(record, "environment", diagnostics);
+  validateEnum(record.criticality, "criticality", criticalityValues, diagnostics);
+  validateEnum(record.status, "status", batchStatusValues, diagnostics);
+  validateWorkflow(record.workflow, "workflow", diagnostics);
+  validateGateRequired(record.gateRequired, diagnostics);
+  validateExecution(record.execution, diagnostics);
+  validateStringArray(record.labels, "labels", diagnostics, false);
+  validateSchedules(record.schedules, "schedules", diagnostics);
+  return diagnostics;
+}
+function validateBatchDefinitionFile(file) {
+  const diagnostics = [];
+  const record = requireRecord(file, "$", diagnostics);
+  if (!record)
+    return { diagnostics, ok: false };
+  validateApiVersion(record.apiVersion, diagnostics);
+  validateExact(record.kind, "kind", "BatchDefinition", diagnostics);
+  const metadata = requireRecord(record.metadata, "metadata", diagnostics);
+  const spec = requireRecord(record.spec, "spec", diagnostics);
+  if (metadata && spec) {
+    const schedules = Array.isArray(spec.schedules) ? spec.schedules.map((schedule) => {
+      const item = isRecord(schedule) ? schedule : {};
+      return {
+        cron: item.cron,
+        enabled: item.enabled,
+        name: item.name,
+        scheduleId: item.id,
+        timezone: item.timezone
+      };
+    }) : void 0;
+    diagnostics.push(...validateBatchDefinition({
+      batchId: metadata.id,
+      criticality: spec.criticality,
+      domain: spec.domain,
+      environment: spec.environment,
+      execution: spec.execution,
+      gateRequired: spec.gateRequired,
+      labels: metadata.labels,
+      name: metadata.name,
+      owner: spec.owner,
+      schedules,
+      status: spec.status,
+      workflow: spec.workflow
+    }).map(mapBatchDiagnosticToFile));
+  }
+  return diagnostics.length ? { diagnostics, ok: false } : { diagnostics: [], ok: true, value: file };
+}
+function batchDefinitionFromFile(file) {
+  return {
+    batchId: file.metadata.id,
+    criticality: file.spec.criticality,
+    domain: file.spec.domain,
+    environment: file.spec.environment,
+    ...file.spec.execution ? { execution: file.spec.execution } : {},
+    gateRequired: file.spec.gateRequired,
+    ...file.metadata.governedChangeId ? { governedChangeId: file.metadata.governedChangeId } : {},
+    ...file.metadata.labels ? { labels: file.metadata.labels } : {},
+    name: file.metadata.name,
+    owner: file.spec.owner,
+    ...file.spec.schedules ? {
+      schedules: file.spec.schedules.map((schedule) => ({
+        cron: schedule.cron,
+        enabled: schedule.enabled,
+        name: schedule.name,
+        scheduleId: schedule.id,
+        timezone: schedule.timezone
+      }))
+    } : {},
+    status: file.spec.status,
+    workflow: file.spec.workflow
+  };
+}
+function validateWorkspacePolicy(policy) {
+  const diagnostics = [];
+  const record = requireRecord(policy, "$", diagnostics);
+  if (!record)
+    return diagnostics;
+  const approval = requireRecord(record.approval, "approval", diagnostics);
+  if (approval) {
+    validateEnum(approval.mode, "approval.mode", workspaceApprovalModeValues, diagnostics);
+  }
+  return diagnostics;
+}
+function validateWorkspacePolicyFile(file) {
+  return validateFile(file, "WorkspacePolicy", (spec, diagnostics) => {
+    diagnostics.push(...withSpecPrefix(validateWorkspacePolicy(spec)));
+  });
+}
+function validateRoleMapping(roleMapping) {
+  const diagnostics = [];
+  const record = requireRecord(roleMapping, "$", diagnostics);
+  if (!record)
+    return diagnostics;
+  const roles = requireRecord(record.roles, "roles", diagnostics);
+  if (!roles)
+    return diagnostics;
+  Object.keys(roles).filter((role) => !roleMappingRoles.includes(role)).forEach((role) => diagnostics.push(problem("unexpected_role", `roles.${role}`, `Role '${role}' is not a supported BatchPlane role.`)));
+  roleMappingRoles.forEach((role) => validateApproverSelector(roles[role], `roles.${role}`, diagnostics));
+  return diagnostics;
+}
+function validateRoleMappingFile(file) {
+  return validateFile(file, "RoleMapping", (spec, diagnostics) => {
+    diagnostics.push(...withSpecPrefix(validateRoleMapping(spec)));
+  });
+}
+function validateFile(file, kind, validateSpec) {
+  const diagnostics = [];
+  const record = requireRecord(file, "$", diagnostics);
+  if (!record)
+    return { diagnostics, ok: false };
+  validateApiVersion(record.apiVersion, diagnostics);
+  validateExact(record.kind, "kind", kind, diagnostics);
+  const metadata = requireRecord(record.metadata, "metadata", diagnostics);
+  const spec = requireRecord(record.spec, "spec", diagnostics);
+  if (metadata) {
+    requireString(metadata, "id", diagnostics, "metadata.id");
+    if (kind === "ApprovalPolicy") {
+      requireString(metadata, "name", diagnostics, "metadata.name");
+    }
+  }
+  if (spec)
+    validateSpec(spec, diagnostics);
+  return diagnostics.length ? { diagnostics, ok: false } : { diagnostics: [], ok: true, value: file };
+}
+function withSpecPrefix(diagnostics) {
+  return diagnostics.map((diagnostic) => ({
+    ...diagnostic,
+    field: `spec.${diagnostic.field}`
+  }));
+}
+function requireRecord(value, field, diagnostics) {
+  if (isRecord(value))
+    return value;
+  diagnostics.push(problem(value === void 0 ? "required" : "invalid_type", field, value === void 0 ? `${field} is required.` : `${field} must be an object.`));
+  return void 0;
+}
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function requireCanonicalBatchId(value, diagnostics) {
+  if (isCanonicalBatchId(value))
+    return;
+  diagnostics.push(problem(value === void 0 || value === "" ? "required" : "invalid_batch_id", "batchId", value === void 0 || value === "" ? "batchId is required." : "batchId must be a canonical repository-safe Batch ID."));
+}
+function requireString(record, key, diagnostics, field = key) {
+  const value = record[key];
+  if (typeof value === "string" && value.trim())
+    return value;
+  diagnostics.push(problem(value === void 0 || value === "" ? "required" : "invalid_type", field, value === void 0 || value === "" ? `${field} is required.` : `${field} must be a non-empty string.`));
+  return void 0;
+}
+function validateExact(value, field, expected, diagnostics) {
+  if (value === expected)
+    return;
+  diagnostics.push(problem(value === void 0 ? "required" : "invalid_value", field, `${field} must be '${expected}'.`));
+}
+function validateApiVersion(value, diagnostics) {
+  if (isBatchPlaneApiVersion(value))
+    return;
+  diagnostics.push(problem(value === void 0 ? "required" : "invalid_value", "apiVersion", "apiVersion must be one of: batchplane.io/v1, batchtrail.io/v1."));
+}
+function validateEnum(value, field, values, diagnostics) {
+  if (typeof value === "string" && values.includes(value))
+    return;
+  diagnostics.push(problem(value === void 0 || value === "" ? "required" : "invalid_value", field, `${field} must be one of: ${values.join(", ")}.`));
+}
+function validateEnumArray(value, field, values, diagnostics) {
+  if (!Array.isArray(value)) {
+    diagnostics.push(problem(value === void 0 ? "required" : "invalid_type", field, `${field} must be a non-empty array.`));
+    return;
+  }
+  if (!value.length) {
+    diagnostics.push(problem("required", field, `${field} must include at least one value.`));
+    return;
+  }
+  value.forEach((item, index) => {
+    if (typeof item !== "string" || !values.includes(item)) {
+      diagnostics.push(problem("invalid_value", `${field}.${index}`, `${field}.${index} must be one of: ${values.join(", ")}.`));
+    }
+  });
+}
+function validateWorkflow(value, field, diagnostics) {
+  const workflow = requireRecord(value, field, diagnostics);
+  if (!workflow)
+    return;
+  const path = requireString(workflow, "path", diagnostics, `${field}.path`);
+  requireString(workflow, "ref", diagnostics, `${field}.ref`);
+  if (path && !/^\.github\/workflows\/[^/]+\.ya?ml$/u.test(path.trim())) {
+    diagnostics.push(problem("invalid_workflow_path", `${field}.path`, `${field}.path must be a .yml or .yaml file directly under .github/workflows/.`));
+  }
+}
+function validateGateRequired(value, diagnostics) {
+  if (value === true)
+    return;
+  diagnostics.push(problem(value === void 0 ? "required" : "gate_required", "gateRequired", "gateRequired must be true for Lite batches."));
+}
+function validateExecution(value, diagnostics) {
+  if (value === void 0)
+    return;
+  const execution = requireRecord(value, "execution", diagnostics);
+  if (!execution)
+    return;
+  const runsOn = execution.runsOn;
+  if (!(typeof runsOn === "string" && runsOn.trim()) && !(Array.isArray(runsOn) && runsOn.length && runsOn.every((item) => typeof item === "string" && item.trim()))) {
+    diagnostics.push(problem(runsOn === void 0 ? "required" : "invalid_type", "execution.runsOn", "execution.runsOn must be a non-empty string or string array."));
+  }
+  requireString(execution, "command", diagnostics, "execution.command");
+  if (execution.artifactPath !== void 0 && typeof execution.artifactPath !== "string") {
+    diagnostics.push(problem("invalid_type", "execution.artifactPath", "execution.artifactPath must be a string when provided."));
+  }
+}
+function validateSchedules(value, field, diagnostics) {
+  if (value === void 0)
+    return;
+  if (!Array.isArray(value)) {
+    diagnostics.push(problem("invalid_type", field, `${field} must be an array when provided.`));
+    return;
+  }
+  value.forEach((schedule, index) => {
+    const item = requireRecord(schedule, `${field}.${index}`, diagnostics);
+    if (!item)
+      return;
+    requireString(item, "scheduleId", diagnostics, `${field}.${index}.scheduleId`);
+    requireString(item, "name", diagnostics, `${field}.${index}.name`);
+    requireString(item, "cron", diagnostics, `${field}.${index}.cron`);
+    requireString(item, "timezone", diagnostics, `${field}.${index}.timezone`);
+    if (typeof item.enabled !== "boolean")
+      diagnostics.push(problem(item.enabled === void 0 ? "required" : "invalid_type", `${field}.${index}.enabled`, `${field}.${index}.enabled must be a boolean.`));
+  });
+}
+function validateStringArray(value, field, diagnostics, required) {
+  if (value === void 0 && !required)
+    return;
+  if (!Array.isArray(value)) {
+    diagnostics.push(problem(value === void 0 ? "required" : "invalid_type", field, `${field} must be an array of non-empty strings.`));
+    return;
+  }
+  if (required && !value.length)
+    diagnostics.push(problem("required", field, `${field} must include at least one value.`));
+  value.forEach((item, index) => {
+    if (typeof item !== "string" || !item.trim())
+      diagnostics.push(problem("invalid_type", `${field}.${index}`, `${field}.${index} must be a non-empty string.`));
+  });
+}
+function validateApproverSelector(value, field, diagnostics) {
+  const selector = requireRecord(value, field, diagnostics);
+  if (!selector)
+    return;
+  const hasValue = [
+    selector.githubUsers,
+    selector.githubTeams,
+    selector.repositoryRoles
+  ].some((candidate) => Array.isArray(candidate) && candidate.length);
+  if (!hasValue)
+    diagnostics.push(problem("selector_required", field, `${field} must define at least one of githubUsers, githubTeams, or repositoryRoles.`));
+  if (selector.githubUsers !== void 0)
+    validateStringArray(selector.githubUsers, `${field}.githubUsers`, diagnostics, true);
+  if (selector.githubTeams !== void 0)
+    validateStringArray(selector.githubTeams, `${field}.githubTeams`, diagnostics, true);
+  if (selector.repositoryRoles !== void 0)
+    validateEnumArray(selector.repositoryRoles, `${field}.repositoryRoles`, repositoryRoleValues, diagnostics);
+}
+function mapBatchDiagnosticToFile(diagnostic) {
+  if (diagnostic.field === "batchId")
+    return { ...diagnostic, field: "metadata.id" };
+  if (diagnostic.field === "name")
+    return { ...diagnostic, field: "metadata.name" };
+  if (diagnostic.field === "labels" || diagnostic.field.startsWith("labels."))
+    return { ...diagnostic, field: `metadata.${diagnostic.field}` };
+  if (diagnostic.field.startsWith("schedules."))
+    return {
+      ...diagnostic,
+      field: `spec.${diagnostic.field.replace(/^(schedules\.\d+)\.scheduleId$/u, "$1.id")}`
+    };
+  return { ...diagnostic, field: `spec.${diagnostic.field}` };
+}
+function problem(code, field, message) {
+  return { code, field, message, severity: "error" };
+}
+var batchStatusValues = ["ACTIVE", "INACTIVE"];
+var criticalityValues = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+var repositoryRoleValues = ["admin", "maintain", "write", "triage"];
+var workspaceApprovalModeValues = [
+  "SELF_APPROVAL_BLOCKED",
+  "SELF_APPROVAL_ALLOWED",
+  "AUTO_APPROVE"
+];
+var roleMappingRoles = [
+  "requester",
+  "approver",
+  "maintainer",
+  "auditor"
+];
+
+// ../../packages/digest/dist/index.js
 function canonicalize(value) {
   return JSON.stringify(normalize(value));
 }
@@ -9213,14 +8444,22 @@ async function createRequestDigest(input) {
   return createCanonicalDigest(isDigestEnvelope(input) ? input.payload : input);
 }
 async function sha256Hex(value) {
-  const digest = await globalThis.crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value)
-  );
-  return Array.from(
-    new Uint8Array(digest),
-    (byte) => byte.toString(16).padStart(2, "0")
-  ).join("");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return digestToHex(digest);
+}
+async function sha256BytesHex(value) {
+  const bytes = toByteView(value);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return digestToHex(digest);
+}
+function toByteView(value) {
+  const source = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  const copiedBytes = new Uint8Array(source.byteLength);
+  copiedBytes.set(source);
+  return copiedBytes;
+}
+function digestToHex(digest) {
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 function normalize(value) {
   if (Array.isArray(value)) {
@@ -9242,93 +8481,74 @@ function normalize(value) {
   return value;
 }
 function isDigestEnvelope(value) {
-  return Boolean(
-    value && typeof value === "object" && !Array.isArray(value) && "payload" in value
-  );
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payload" in value);
 }
 
-// ../../packages/domain/src/index.ts
-var batchPlaneApiVersion = "batchplane.io/v1";
-var legacyBatchPlaneApiVersion = "batchtrail.io/v1";
-var supportedBatchPlaneApiVersions = [
-  batchPlaneApiVersion,
-  legacyBatchPlaneApiVersion
-];
-function isBatchPlaneApiVersion(value) {
-  return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
-}
-async function buildExecutionRequestIssue({
-  batch,
-  expiresAt,
-  parameters = [],
-  reason = "Manual request from BatchPlane Lite.",
-  requestId,
-  requestedAt,
-  requestedBy,
-  schedule,
-  triggerType = "MANUAL",
-  workflowRef
-}) {
-  const effectiveRequestId = requestId ?? (triggerType === "SCHEDULE" && schedule ? createScheduledExecutionRequestId(
-    batch.batchId,
-    schedule.scheduleId,
-    schedule.scheduledAt
-  ) : createExecutionRequestId(batch.batchId, requestedAt));
+// ../../packages/github-lite/dist/execution-request-evidence.js
+async function buildExecutionRequestIssue({ approvedBatchRevision, batch, expiresAt, parameters = [], reason = "Manual request from BatchPlane Lite.", requestId, requestedAt, requestedBy, schedule, triggerType = "MANUAL", workflowRef }) {
+  if (!approvedBatchRevision.governedChangeId.trim() || !approvedBatchRevision.targetRevisionDigest.startsWith("sha256:")) {
+    throw new Error("Execution requests require an approved governed Batch revision binding.");
+  }
+  const effectiveRequestId = requestId ?? (triggerType === "SCHEDULE" && schedule ? await createScheduledExecutionRequestId(batch.batchId, schedule.scheduleId, schedule.repositoryId, schedule.sourceRunId) : createExecutionRequestId(batch.batchId, requestedAt));
+  if (triggerType !== "SCHEDULE" && !expiresAt)
+    throw new Error("Manual execution requests require an expiration time.");
   const requestedAtIso = requestedAt.toISOString();
-  const expiresAtIso = expiresAt.toISOString();
+  const expiresAtIso = expiresAt?.toISOString();
   const parameterPayload = await buildParameterPayload(parameters);
-  const effectiveWorkflowRef = workflowRef?.trim() || batch.workflow.ref;
   const payload = {
     apiVersion: batchPlaneApiVersion,
     kind: "ExecutionRequest",
-    metadata: {
-      batchId: batch.batchId,
-      requestId: effectiveRequestId
-    },
+    metadata: { batchId: batch.batchId, requestId: effectiveRequestId },
     spec: {
+      approvedBatchRevision: {
+        governedChangeId: approvedBatchRevision.governedChangeId.trim(),
+        targetRevisionDigest: approvedBatchRevision.targetRevisionDigest.trim()
+      },
       batch: {
         criticality: batch.criticality,
         domain: batch.domain,
         environment: batch.environment,
+        gateRequired: batch.gateRequired,
         name: batch.name,
         owner: batch.owner
       },
-      execution: batch.execution ? {
-        ...batch.execution.artifactPath ? { artifactPath: batch.execution.artifactPath } : {},
-        command: batch.execution.command,
-        gateRequired: batch.gateRequired,
-        runsOn: batch.execution.runsOn
-      } : void 0,
-      expiresAt: expiresAtIso,
+      ...batch.execution ? {
+        execution: {
+          ...batch.execution.artifactPath ? { artifactPath: batch.execution.artifactPath } : {},
+          command: batch.execution.command,
+          gateRequired: batch.gateRequired,
+          runsOn: batch.execution.runsOn
+        }
+      } : {},
+      ...expiresAtIso ? { expiresAt: expiresAtIso } : {},
+      ...triggerType === "SCHEDULE" ? { contractVersion: "NATIVE_SCHEDULE_V2" } : {},
+      ...parameterPayload ? { parameters: parameterPayload } : {},
       reason,
       requestedAt: requestedAtIso,
       requestedBy,
-      ...parameterPayload ? { parameters: parameterPayload } : {},
       ...triggerType !== "MANUAL" ? { triggerType } : {},
       workflow: {
         path: batch.workflow.path,
-        ref: effectiveWorkflowRef
+        ref: workflowRef?.trim() || batch.workflow.ref
       },
       ...schedule ? { schedule } : {}
     }
   };
-  const requestDigest = await createRequestDigest(
-    payload
-  );
+  const requestDigest = await createRequestDigest(payload);
   const request = {
+    approvedBatchRevision: payload.spec.approvedBatchRevision,
     batchId: batch.batchId,
-    expiresAt: expiresAtIso,
+    ...expiresAtIso ? { expiresAt: expiresAtIso } : {},
     requestDigest,
     requestedAt: requestedAtIso,
     requestedBy,
     requestId: effectiveRequestId,
     status: "REQUESTED",
     ...reason ? { reason } : {},
-    ...triggerType !== "MANUAL" ? { triggerType } : {},
-    ...schedule ? { schedule } : {}
+    ...triggerType !== "MANUAL" ? { triggerType } : {}
   };
   return {
-    body: buildExecutionRequestBody({ payload, request }),
+    body: buildExecutionRequestBody(payload, request),
     labels: triggerType === "SCHEDULE" ? ["batchplane:execution-request", "batchplane:scheduled-execution"] : ["batchplane:execution-request"],
     payload,
     request,
@@ -9336,65 +8556,37 @@ async function buildExecutionRequestIssue({
   };
 }
 function createExecutionRequestId(batchId, date = /* @__PURE__ */ new Date(), entropy = createEntropy()) {
-  return `btr-${formatRequestTimestamp(date.toISOString())}-${toRequestSlug(
+  return `btr-${date.toISOString().replaceAll("-", "").replaceAll(":", "").replaceAll(".", "").replaceAll("T", "").replaceAll("Z", "").slice(0, 14)}-${toRequestSlug(batchId)}-${entropy}`;
+}
+async function createScheduledExecutionRequestId(batchId, scheduleId, repositoryId, sourceRunId) {
+  const run2 = String(sourceRunId).trim();
+  if (!repositoryId.trim() || !run2)
+    throw new Error("Scheduled execution requests require the native repository and Run identifiers.");
+  const digest = await createRequestDigest({
     batchId,
-    48
-  )}-${entropy}`;
+    repositoryId,
+    scheduleId,
+    sourceRunId: run2
+  });
+  return `btr-schedule-${digest.slice("sha256:".length)}`;
 }
-function createScheduledExecutionRequestId(batchId, scheduleId, scheduledAt) {
-  return `btr-${formatRequestTimestamp(
-    scheduledAt instanceof Date ? scheduledAt.toISOString() : scheduledAt
-  )}-${toRequestSlug(batchId, 24)}-${toRequestSlug(scheduleId, 24)}`;
+async function buildParameterPayload(parameters) {
+  const entries = await Promise.all(parameters.map(async ({ name, sensitive, value }) => {
+    const key = name.trim();
+    if (!key)
+      return void 0;
+    return sensitive ? [
+      key,
+      {
+        sensitive: true,
+        valueDigest: await createParameterDigest({ [key]: value })
+      }
+    ] : [key, { value }];
+  }));
+  const present = entries.filter((entry) => Boolean(entry));
+  return present.length ? Object.fromEntries(present) : void 0;
 }
-function addHours(date, hours) {
-  return new Date(date.getTime() + hours * 60 * 60 * 1e3);
-}
-function buildExecutionApprovalComment({
-  approvedAt,
-  approvalMode,
-  approvalType = "MANUAL",
-  approver,
-  request
-}) {
-  const selfApproval = approver === request.requestedBy;
-  const scheduleDelegated = approvalType === "SCHEDULE_DELEGATED";
-  const workspaceAutoApproved = approvalType === "WORKSPACE_AUTO_APPROVED";
-  return [
-    `/bgcp approve requestDigest=${request.requestDigest}`,
-    "",
-    "## BatchPlane Execution Approval",
-    "",
-    "- Decision: APPROVED",
-    `- Approver: @${approver}`,
-    `- Approved at: ${approvedAt.toISOString()}`,
-    ...approvalMode ? [`- Approval mode: ${approvalMode}`] : [],
-    ...scheduleDelegated ? ["- Approval type: SCHEDULE_DELEGATED"] : [],
-    ...workspaceAutoApproved ? ["- Approval type: WORKSPACE_AUTO_APPROVED"] : [],
-    ...workspaceAutoApproved ? ["- Approval source: WORKSPACE_POLICY"] : [],
-    ...!scheduleDelegated && !workspaceAutoApproved && selfApproval ? ["- Self approval: ALLOWED_BY_WORKSPACE_POLICY"] : [],
-    `- Request ID: \`${request.requestId}\``,
-    `- Batch ID: \`${request.batchId}\``,
-    `- Request digest: \`${request.requestDigest}\``,
-    "",
-    "This approval evidence was recorded by BatchPlane Lite.",
-    "",
-    "<!-- batchplane:execution-approval",
-    "decision=APPROVED",
-    `requestId=${request.requestId}`,
-    `batchId=${request.batchId}`,
-    `requestDigest=${request.requestDigest}`,
-    ...approvalMode ? [`approvalMode=${approvalMode}`] : [],
-    ...scheduleDelegated ? ["approvalType=SCHEDULE_DELEGATED"] : [],
-    ...workspaceAutoApproved ? ["approvalType=WORKSPACE_AUTO_APPROVED"] : [],
-    ...workspaceAutoApproved ? ["approvalSource=WORKSPACE_POLICY"] : [],
-    ...!scheduleDelegated && !workspaceAutoApproved && selfApproval ? ["selfApproval=true"] : [],
-    "-->"
-  ].join("\n");
-}
-function buildExecutionRequestBody({
-  payload,
-  request
-}) {
+function buildExecutionRequestBody(payload, request) {
   return [
     "## BatchPlane Execution Request",
     "",
@@ -9402,12 +8594,10 @@ function buildExecutionRequestBody({
     `- Batch ID: \`${request.batchId}\``,
     `- Requested by: @${request.requestedBy}`,
     `- Requested at: ${request.requestedAt}`,
-    `- Expires at: ${request.expiresAt}`,
+    ...request.expiresAt ? [`- Expires at: ${request.expiresAt}`] : [],
     `- Trigger type: \`${request.triggerType ?? "MANUAL"}\``,
-    ...request.schedule ? [
-      `- Schedule ID: \`${request.schedule.scheduleId}\``,
-      `- Scheduled at: ${request.schedule.scheduledAt}`
-    ] : [],
+    `- Approved Batch change: \`${request.approvedBatchRevision.governedChangeId}\``,
+    `- Approved Batch digest: \`${request.approvedBatchRevision.targetRevisionDigest}\``,
     `- Request digest: \`${request.requestDigest}\``,
     `- Status: ${request.status}`,
     "",
@@ -9428,463 +8618,966 @@ function buildExecutionRequestBody({
 function createEntropy() {
   const bytes = new Uint8Array(4);
   globalThis.crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function toRequestSlug(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "batch";
+}
+
+// ../../packages/github-lite/dist/batch-definition-codec.js
+function getBatchDefinitionPath(batchId) {
+  return `.batch-governance/batches/${assertCanonicalBatchId(batchId)}.yml`;
+}
+function getBatchWorkflowPath(batchId) {
+  return `.github/workflows/${assertCanonicalBatchId(batchId)}.yml`;
+}
+function getBatchArtifactPath(batchId, fileName) {
+  const batchSlug = assertCanonicalBatchId(batchId);
+  const fileSlug = toFileNameSlug(fileName);
+  return `.batch-governance/batches/${batchSlug}/artifacts/${fileSlug || "artifact.bin"}`;
+}
+function assertCanonicalBatchId(batchId) {
+  if (isCanonicalBatchId(batchId)) {
+    return batchId;
+  }
+  throw new Error("Batch ID must be a canonical repository-safe identifier containing only letters, digits, dots, and hyphens.");
+}
+function parseBatchDefinitionYaml(yaml) {
+  const result = parseRepositoryYaml(yaml);
+  if (!result.ok) {
+    throw new Error(`Invalid BatchPlane YAML: ${formatRepositoryYamlDiagnostics(result.diagnostics)}`);
+  }
+  const document = asYamlRecord(result.value);
+  const validation = validateBatchDefinitionFile(document);
+  if (!validation.ok) {
+    throw new Error(`Invalid BatchPlane BatchDefinition: ${validation.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; ")}`);
+  }
+  const metadata = asYamlRecord(document.metadata);
+  const spec = asYamlRecord(document.spec);
+  const workflow = asYamlRecord(spec.workflow);
+  const execution = asYamlRecord(spec.execution);
+  const schedules = readYamlSchedules(spec, "schedules");
+  const criticality = parseCriticality(readYamlString(spec, "criticality"));
+  const status = parseBatchStatus(readYamlString(spec, "status"));
+  const command = readYamlString(execution, "command");
+  const runsOn = readYamlRunnerLabel(execution, "runsOn");
+  const artifactPath = readYamlString(execution, "artifactPath");
+  return {
+    batchId: readYamlString(metadata, "id"),
+    governedChangeId: readYamlString(metadata, "governedChangeId") || void 0,
+    name: readYamlString(metadata, "name"),
+    owner: readYamlString(spec, "owner"),
+    domain: readYamlString(spec, "domain"),
+    environment: readYamlString(spec, "environment"),
+    criticality,
+    status,
+    workflow: {
+      path: readYamlString(workflow, "path"),
+      ref: readYamlString(workflow, "ref")
+    },
+    gateRequired: readYamlBoolean(spec, "gateRequired"),
+    execution: command || runsOn ? {
+      ...artifactPath ? { artifactPath } : {},
+      command,
+      runsOn: runsOn || ""
+    } : void 0,
+    schedules: schedules.length > 0 ? schedules : void 0
+  };
+}
+function asYamlRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function readYamlString(record, key) {
+  const value = record[key];
+  if (value === void 0 || value === null || Array.isArray(value)) {
+    return "";
+  }
+  return typeof value === "object" ? "" : String(value);
+}
+function readYamlRunnerLabel(record, key) {
+  const value = record[key];
+  if (typeof value === "string") {
+    return value;
+  }
+  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+    return value;
+  }
+  return "";
+}
+function readYamlBoolean(record, key) {
+  return record[key] === true;
+}
+function readYamlSchedules(record, key) {
+  const value = record[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => asYamlRecord(item)).map((item) => ({
+    cron: readYamlString(item, "cron"),
+    enabled: readYamlBoolean(item, "enabled"),
+    name: readYamlString(item, "name"),
+    scheduleId: readYamlString(item, "id"),
+    timezone: readYamlString(item, "timezone")
+  })).filter((schedule) => Boolean(schedule.scheduleId) || Boolean(schedule.name) || Boolean(schedule.cron) || Boolean(schedule.timezone));
+}
+function parseCriticality(value) {
+  if (value === "LOW" || value === "MEDIUM" || value === "HIGH" || value === "CRITICAL") {
+    return value;
+  }
+  return "MEDIUM";
+}
+function parseBatchStatus(value) {
+  if (value === "ACTIVE" || value === "INACTIVE") {
+    return value;
+  }
+  return "INACTIVE";
+}
+function toFileNameSlug(value) {
+  return value.trim().replace(/[\\/]+/g, "-").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/[._-]+$/g, "").replace(/^[._-]+/g, "").slice(0, 120);
+}
+
+// ../../packages/github-lite/dist/github-workflow.js
+var batchPlaneGateActionRef = "always0ne/batchplane/actions/gate@main";
+var batchPlaneScheduleRequestActionRef = "always0ne/batchplane/actions/schedule-request@main";
+var batchPlaneScheduleResultActionRef = "always0ne/batchplane/actions/schedule-result@main";
+function buildBatchWorkflowYaml(definition) {
+  const workflowName = definition.name || definition.batchId || "New batch";
+  const batchId = definition.batchId || "batch-id";
+  const runCommandLines = indentRunCommand(definition.execution?.command ?? "");
+  const runner = formatRunnerLabel(definition.execution?.runsOn ?? "ubuntu-latest");
+  const batchPath = getBatchDefinitionPath(batchId);
+  const enabledSchedules = (definition.schedules ?? []).filter((schedule) => schedule.enabled);
+  assertUnambiguousScheduleTimezones(enabledSchedules);
+  const scheduleEntries = Array.from(new Map(enabledSchedules.map((schedule) => ({
+    cron: schedule.cron.trim(),
+    timezone: schedule.timezone.trim()
+  })).filter((schedule) => schedule.cron && schedule.timezone).map((schedule) => [
+    `${schedule.cron}\0${schedule.timezone}`,
+    schedule
+  ])).values());
+  return [
+    `name: ${yamlString(`BatchPlane - ${workflowName}`)}`,
+    "run-name: BatchPlane ${{ github.event.inputs.batch_id || 'scheduled' }} ${{ github.event.inputs.request_id || github.event.schedule || '' }}",
+    "",
+    "on:",
+    "  workflow_dispatch:",
+    "    inputs:",
+    "      request_id:",
+    "        description: BatchPlane execution request ID",
+    "        required: true",
+    "        type: string",
+    "      batch_id:",
+    "        description: BatchPlane batch ID",
+    "        required: true",
+    "        type: string",
+    "      request_digest:",
+    "        description: BatchPlane approved request digest",
+    "        required: true",
+    "        type: string",
+    "      schedule_id:",
+    "        description: BatchPlane schedule identifier for scheduled dispatches",
+    "        required: false",
+    "        type: string",
+    ...scheduleEntries.length > 0 ? [
+      "  schedule:",
+      ...scheduleEntries.map((schedule) => `    - cron: ${yamlString(schedule.cron)}
+      timezone: ${yamlString(schedule.timezone)}`)
+    ] : [],
+    "",
+    "jobs:",
+    ...enabledSchedules.flatMap((schedule) => buildScheduledRequestJobLines({
+      batchId,
+      batchPath,
+      runCommand: definition.execution?.command ?? "",
+      runner,
+      schedule
+    })),
+    "  batchplane-gate:",
+    "    name: BatchPlane Gate",
+    "    if: github.event_name == 'workflow_dispatch'",
+    "    runs-on: ubuntu-latest",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    outputs:",
+    "      verified_sha: ${{ steps.verify.outputs.verified_sha }}",
+    "    permissions:",
+    "      contents: read",
+    "      issues: read",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Verify approved execution evidence",
+    "        id: verify",
+    `        uses: ${batchPlaneGateActionRef}`,
+    "        with:",
+    "          mode: lite",
+    "          batch-id: ${{ inputs.batch_id }}",
+    "          config-path: .batch-governance",
+    "          request-id: ${{ inputs.request_id }}",
+    "          approval-source: issue",
+    "          approval-ref: ${{ inputs.request_id }}",
+    "          request-digest: ${{ inputs.request_digest }}",
+    "          schedule-id: ${{ inputs.schedule_id }}",
+    "          gate-job-name: BatchPlane Gate",
+    "          gate-step-name: Verify approved execution evidence",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "",
+    "  run-batch:",
+    "    name: Run governed batch",
+    "    if: github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''",
+    `    runs-on: ${runner}`,
+    "    needs: batchplane-gate",
+    "    permissions:",
+    "      contents: read",
+    "    steps:",
+    "      - name: Checkout registered assets",
+    "        uses: actions/checkout@v4",
+    "        with:",
+    "          ref: ${{ needs.batchplane-gate.outputs.verified_sha }}",
+    "",
+    "      - name: Run batch",
+    "        run: |",
+    '          echo "::group::BatchPlane batch command"',
+    `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
+    `          echo ${yamlString(`BatchPlane approved execution for ${batchId}`)}`,
+    ...runCommandLines,
     ""
-  );
+  ].join("\n");
 }
-async function buildParameterPayload(parameters) {
-  const entries = await Promise.all(
-    parameters.map((parameter) => ({
-      name: parameter.name.trim(),
-      sensitive: parameter.sensitive,
-      value: parameter.value
-    })).filter((parameter) => parameter.name.length > 0).map(async (parameter) => {
-      if (parameter.sensitive) {
-        return [
-          parameter.name,
-          {
-            sensitive: true,
-            valueDigest: await createParameterDigest({
-              [parameter.name]: parameter.value
-            })
-          }
-        ];
-      }
-      return [
-        parameter.name,
-        {
-          value: parameter.value
-        }
-      ];
+function yamlString(value) {
+  return JSON.stringify(value);
+}
+function githubExpressionString(value) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+function indentRunCommand(runCommand) {
+  const lines = runCommand.trimEnd().split("\n");
+  if (lines.length === 0 || lines.every((line) => !line.trim())) {
+    return [
+      "          # Define the governed batch command during registration."
+    ];
+  }
+  return lines.map((line) => `          ${line}`);
+}
+function formatRunnerLabel(runnerLabel) {
+  if (Array.isArray(runnerLabel)) {
+    return `[${runnerLabel.map(yamlString).join(", ")}]`;
+  }
+  return yamlString(runnerLabel || "ubuntu-latest");
+}
+function buildScheduledRequestJobLines({ batchId, batchPath, runCommand, runner, schedule }) {
+  const identity = getNativeScheduleWorkflowJobIdentity(schedule);
+  const { businessJobId, businessJobName, controlJobId: jobId, controlJobName } = identity;
+  return [
+    `  ${jobId}:`,
+    `    name: ${yamlString(controlJobName)}`,
+    `    if: github.event_name == 'schedule' && github.event.schedule == ${githubExpressionString(schedule.cron)}`,
+    "    outputs:",
+    "      request-id: ${{ steps.schedule_request.outputs.request-id }}",
+    "      request-digest: ${{ steps.schedule_request.outputs.request-digest }}",
+    "      issue-number: ${{ steps.schedule_request.outputs.issue-number }}",
+    "    concurrency:",
+    `      group: ${yamlString(`batchplane-schedule-${toWorkflowJobId(batchId)}-${toScheduleWorkflowJobId(schedule.scheduleId)}`)}`,
+    "      cancel-in-progress: false",
+    "    runs-on: ubuntu-latest",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    permissions:",
+    "      contents: read",
+    "      issues: write",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Record native scheduled execution request",
+    "        id: schedule_request",
+    "        continue-on-error: true",
+    `        uses: ${batchPlaneScheduleRequestActionRef}`,
+    "        with:",
+    `          batch-id: ${yamlString(batchId)}`,
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          cron: ${yamlString(schedule.cron)}`,
+    `          timezone: ${yamlString(schedule.timezone)}`,
+    `          definition-path: ${yamlString(batchPath)}`,
+    "          config-path: .batch-governance",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "      - name: Verify approved native schedule evidence",
+    "        id: verify",
+    "        if: always()",
+    `        uses: ${batchPlaneGateActionRef}`,
+    "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    "          request-id: ${{ steps.schedule_request.outputs.request-id }}",
+    "          request-digest: ${{ steps.schedule_request.outputs.request-digest }}",
+    "          issue-number: ${{ steps.schedule_request.outputs.issue-number }}",
+    "          controller-reason: ${{ steps.schedule_request.outputs.failure-reason }}",
+    "          record-evidence: true",
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          gate-job-name: ${yamlString(controlJobName)}`,
+    "          gate-step-name: Verify approved native schedule evidence",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "",
+    `  ${businessJobId}:`,
+    `    name: ${yamlString(businessJobName)}`,
+    `    needs: ${jobId}`,
+    `    if: github.event_name == 'schedule' && needs.${jobId}.result == 'success'`,
+    `    runs-on: ${runner}`,
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    permissions:",
+    "      contents: read",
+    "      issues: read",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Reverify approved native schedule evidence",
+    "        id: verify",
+    `        uses: ${batchPlaneGateActionRef}`,
+    "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    `          request-id: \${{ needs.${jobId}.outputs.request-id }}`,
+    `          request-digest: \${{ needs.${jobId}.outputs.request-digest }}`,
+    `          issue-number: \${{ needs.${jobId}.outputs.issue-number }}`,
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          gate-job-name: ${yamlString(businessJobName)}`,
+    "          gate-step-name: Reverify approved native schedule evidence",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "      - name: Checkout registered assets",
+    "        if: steps.verify.outputs.verified_sha != ''",
+    "        uses: actions/checkout@v4",
+    "        with:",
+    "          ref: ${{ steps.verify.outputs.verified_sha }}",
+    "      - name: Run batch",
+    "        if: steps.verify.outputs.verified_sha != ''",
+    "        run: |",
+    '          echo "::group::BatchPlane batch command"',
+    `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
+    `          echo ${yamlString(`BatchPlane approved execution for ${batchId}`)}`,
+    ...indentRunCommand(runCommand),
+    "",
+    `  result-${jobId}:`,
+    `    name: ${yamlString(`Record ${schedule.name || schedule.scheduleId} result`)}`,
+    `    needs: [${jobId}, ${businessJobId}]`,
+    `    if: github.event_name == 'schedule' && github.event.schedule == ${githubExpressionString(schedule.cron)} && always() && needs.${jobId}.outputs.issue-number != ''`,
+    "    runs-on: ubuntu-latest",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    permissions:",
+    "      actions: read",
+    "      contents: read",
+    "      issues: write",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Record native schedule result",
+    `        uses: ${batchPlaneScheduleResultActionRef}`,
+    "        with:",
+    `          batch-id: ${yamlString(batchId)}`,
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          issue-number: \${{ needs.${jobId}.outputs.issue-number }}`,
+    `          request-id: \${{ needs.${jobId}.outputs.request-id }}`,
+    `          request-digest: \${{ needs.${jobId}.outputs.request-digest }}`,
+    `          control-result: \${{ needs.${jobId}.result }}`,
+    `          business-result: \${{ needs.${businessJobId}.result }}`,
+    `          business-job-id: ${yamlString(businessJobId)}`,
+    `          business-job-name: ${yamlString(businessJobName)}`,
+    `          control-job-id: ${yamlString(jobId)}`,
+    `          control-job-name: ${yamlString(controlJobName)}`,
+    `          definition-path: ${yamlString(batchPath)}`,
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    ""
+  ];
+}
+function getNativeScheduleWorkflowJobIdentity(schedule) {
+  const controlJobId = toScheduleWorkflowJobId(schedule.scheduleId);
+  return {
+    businessJobId: `run-${controlJobId}`,
+    businessJobName: `Run [${schedule.scheduleId}]`,
+    controlJobId,
+    controlJobName: `Schedule [${schedule.scheduleId}]`
+  };
+}
+function assertUnambiguousScheduleTimezones(schedules) {
+  const timezoneByCron = /* @__PURE__ */ new Map();
+  for (const schedule of schedules) {
+    const cron = schedule.cron.trim();
+    const timezone = schedule.timezone.trim();
+    const existing = timezoneByCron.get(cron);
+    if (existing && existing !== timezone) {
+      throw new Error(`SCHEDULE_TIMEZONE_AMBIGUOUS: schedules with cron ${cron} must use one timezone per workflow.`);
+    }
+    timezoneByCron.set(cron, timezone);
+  }
+}
+function toWorkflowJobId(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 48) || "schedule_request";
+}
+function toScheduleWorkflowJobId(scheduleId) {
+  const encoded = Array.from(scheduleId).map((character) => character.codePointAt(0).toString(16)).join("_");
+  return `schedule_${encoded}`;
+}
+
+// ../../packages/github-lite/dist/change-request-evidence.js
+var changeRequestEvidenceVersion = "batchplane.io/governed-change/v2";
+var requestMarker = "batchplane:governed-change-request";
+var decisionMarker = "batchplane:governed-change-decision";
+var withdrawalMarker = "batchplane:governed-change-withdrawal";
+async function createChangeRequestDigest(evidence) {
+  return createCanonicalDigest(toRequestDigestPayload(evidence));
+}
+async function createTargetRevisionDigest(artifacts) {
+  const resultingArtifacts = artifacts.filter((artifact) => artifact.afterDigest !== null).map(({ afterDigest, kind, path }) => ({ afterDigest, kind, path }));
+  return createCanonicalDigest({
+    artifacts: sortArtifacts(resultingArtifacts),
+    resultingState: resultingArtifacts.length === 0 ? "EMPTY" : "PRESENT",
+    version: changeRequestEvidenceVersion
+  });
+}
+function parseChangeRequestEvidence(body) {
+  const evidence = parseEvidence(body, requestMarker);
+  if (!isChangeRequestEvidence(evidence)) {
+    return null;
+  }
+  return evidence;
+}
+function parseChangeRequestDecisionEvidence(body) {
+  const evidence = parseEvidence(body, decisionMarker);
+  if (!isChangeRequestDecisionEvidence(evidence)) {
+    return null;
+  }
+  return evidence;
+}
+function parseChangeRequestWithdrawalEvidence(body) {
+  const evidence = parseEvidence(body, withdrawalMarker);
+  return isChangeRequestWithdrawalEvidence(evidence) ? evidence : null;
+}
+function parseEvidence(body, marker) {
+  const start = body.indexOf(`${marker}
+`);
+  if (start < 0) {
+    return null;
+  }
+  const jsonStart = start + marker.length + 1;
+  const end = body.indexOf("\n-->", jsonStart);
+  if (end < 0) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(body.slice(jsonStart, end));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+function isChangeRequestEvidence(evidence) {
+  return Boolean(evidence && evidence.version === changeRequestEvidenceVersion && isNonBlankString(evidence.baseRevisionSha) && isNonBlankString(evidence.batchId) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.repository) && isNonBlankString(evidence.requester) && isNonBlankString(evidence.requestedAt) && (evidence.remediation === void 0 || evidence.remediation === "REVIEW_CURRENT" || evidence.remediation === "RESTORE_LAST_APPROVED") && isNonBlankString(evidence.targetRevisionDigest) && isChangeType(evidence.type) && isNonBlankString(evidence.workspace) && Array.isArray(evidence.artifacts) && evidence.artifacts.every(isChangeRequestArtifact));
+}
+function isChangeRequestDecisionEvidence(evidence) {
+  return Boolean(evidence && evidence.version === changeRequestEvidenceVersion && isNonBlankString(evidence.authorizationRevisionSha) && isNonBlankString(evidence.headRevisionSha) && (evidence.decision === "APPROVED" || evidence.decision === "REJECTED") && (evidence.decisionSource === "USER" || evidence.decisionSource === "WORKSPACE_POLICY") && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest) && (evidence.decision !== "REJECTED" || isNonBlankString(evidence.rejectionReason)));
+}
+function isChangeRequestWithdrawalEvidence(evidence) {
+  return Boolean(evidence && evidence.version === changeRequestEvidenceVersion && evidence.decision === "WITHDRAWN" && isNonBlankString(evidence.headRevisionSha) && isNonBlankString(evidence.governedChangeId) && isNonBlankString(evidence.requestDigest) && isNonBlankString(evidence.targetRevisionDigest));
+}
+function isChangeRequestArtifact(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const artifact = value;
+  return isNonBlankString(artifact.path) && (artifact.kind === "ARTIFACT" || artifact.kind === "BATCH_DEFINITION" || artifact.kind === "WORKFLOW") && isDigestOrNull(artifact.beforeDigest) && isDigestOrNull(artifact.afterDigest);
+}
+function isChangeType(value) {
+  return value === "REGISTER" || value === "CHANGE" || value === "DELETE";
+}
+function isDigestOrNull(value) {
+  return value === null || isNonBlankString(value);
+}
+function isNonBlankString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+function toRequestDigestPayload(evidence) {
+  return {
+    artifacts: sortArtifacts(evidence.artifacts).map(toArtifactDigestPayload),
+    baseRevisionSha: evidence.baseRevisionSha,
+    batchId: evidence.batchId,
+    governedChangeId: evidence.governedChangeId,
+    headRevisionSha: evidence.headRevisionSha,
+    repository: evidence.repository,
+    requester: evidence.requester,
+    requestedAt: evidence.requestedAt,
+    ...evidence.remediation ? { remediation: evidence.remediation } : {},
+    targetRevisionDigest: evidence.targetRevisionDigest,
+    type: evidence.type,
+    version: evidence.version,
+    workspace: evidence.workspace
+  };
+}
+function toArtifactDigestPayload(artifact) {
+  return {
+    afterDigest: artifact.afterDigest,
+    beforeDigest: artifact.beforeDigest,
+    kind: artifact.kind,
+    path: artifact.path
+  };
+}
+function sortArtifacts(artifacts) {
+  return [...artifacts].sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
+}
+
+// ../../packages/github-lite/dist/change-request-policy.js
+var roleMappingPath = ".batch-governance/policies/role-mapping.yml";
+var workspacePolicyPath = ".batch-governance/workspace.yml";
+async function loadChangeRequestPolicy(client, repository, ref) {
+  const file = await client.getFile({
+    ...repository,
+    path: workspacePolicyPath,
+    ref
+  });
+  if (!file)
+    return defaultWorkspacePolicy;
+  const parsed = parseRepositoryYaml(file.content);
+  const validated = parsed.ok ? validateWorkspacePolicyFile(parsed.value) : null;
+  return validated?.ok ? validated.value.spec : defaultWorkspacePolicy;
+}
+async function loadChangeRequestRoles(client, repository, ref) {
+  const file = await client.getFile({
+    ...repository,
+    path: roleMappingPath,
+    ref
+  });
+  if (!file)
+    throw new Error("Workspace role mapping is required.");
+  const parsed = parseRepositoryYaml(file.content);
+  const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
+  if (!validated?.ok)
+    throw new Error("Workspace role mapping is invalid.");
+  return validated.value.spec;
+}
+async function hasChangeRequestRole(client, repository, login, selector) {
+  if (selector.githubUsers?.includes(login))
+    return true;
+  if (selector.repositoryRoles?.length) {
+    const permission = await client.getRepositoryPermissionForUser({
+      ...repository,
+      username: login
+    });
+    if (selector.repositoryRoles.includes(permission.permission)) {
+      return true;
+    }
+  }
+  if (!selector.githubTeams?.length)
+    return false;
+  const memberships = await Promise.all(selector.githubTeams.map((teamSlug) => client.getTeamMembershipForUser({
+    org: repository.owner,
+    teamSlug,
+    username: login
+  })));
+  return memberships.some((membership) => membership?.state === "active");
+}
+
+// ../../packages/github-lite/dist/change-request-verifier.js
+async function hasAuthoritativeChangeRequest(client, repository, pullRequest, evidence, options = {}) {
+  const workspace = await client.getRepository(repository);
+  if (!hasMatchingRequestMetadata(repository, workspace.defaultBranch, pullRequest, evidence)) {
+    return false;
+  }
+  const request = evidence;
+  if (!isValidVerifiedBatchId(request.batchId)) {
+    return false;
+  }
+  try {
+    const roleMapping = await loadChangeRequestRoles(client, repository, request.baseRevisionSha);
+    const authorHasRequesterRole = await hasChangeRequestRole(client, repository, pullRequest.author, roleMapping.roles.requester);
+    if (!authorHasRequesterRole)
+      return false;
+  } catch (error) {
+    if (options.propagateRequesterRoleReadFailure)
+      throw error;
+    return false;
+  }
+  const [pullRequestFiles, actualArtifacts, definitionMatches] = await Promise.all([
+    client.listPullRequestFiles({
+      ...repository,
+      pullNumber: pullRequest.number
+    }),
+    loadActualArtifacts(client, repository, pullRequest, request),
+    hasMatchingDefinitionMeaning(client, repository, pullRequest, request)
+  ]);
+  const actualTargetDigest = await createTargetRevisionDigest(actualArtifacts);
+  return actualTargetDigest === request.targetRevisionDigest && hasMatchingArtifactDigests(request.artifacts, actualArtifacts) && hasExactChangedFileSet(request.artifacts, pullRequestFiles) && hasMatchingBatchMeaning(request, actualArtifacts) && definitionMatches;
+}
+function isValidVerifiedBatchId(batchId) {
+  try {
+    assertCanonicalBatchId(batchId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function hasMatchingRequestMetadata(repository, defaultBranch, pullRequest, evidence) {
+  return Boolean(evidence && pullRequest.headSha && pullRequest.baseSha && pullRequest.createdAt && evidence.repository === `${repository.owner}/${repository.repo}` && evidence.workspace === `${repository.owner}/${repository.repo}` && (pullRequest.state !== "open" || pullRequest.base === defaultBranch) && evidence.requester === pullRequest.author && evidence.requestedAt === pullRequest.createdAt && evidence.baseRevisionSha === pullRequest.baseSha && evidence.headRevisionSha === pullRequest.headSha);
+}
+async function loadActualArtifacts(client, repository, pullRequest, evidence) {
+  return Promise.all(evidence.artifacts.map(async (artifact) => {
+    const [baseFile, headFile] = await Promise.all([
+      client.getFile({
+        ...repository,
+        path: artifact.path,
+        ref: evidence.baseRevisionSha
+      }),
+      client.getFile({
+        ...repository,
+        path: artifact.path,
+        ref: pullRequest.headSha
+      })
+    ]);
+    return {
+      afterDigest: headFile ? await digestFile(headFile) : null,
+      beforeDigest: baseFile ? await digestFile(baseFile) : null,
+      kind: artifact.kind,
+      path: artifact.path
+    };
+  }));
+}
+async function hasMatchingDefinitionMeaning(client, repository, pullRequest, evidence) {
+  const definitionPath = getBatchDefinitionPath(evidence.batchId);
+  const workflowPath = getBatchWorkflowPath(evidence.batchId);
+  const [baseFile, headFile] = await Promise.all([
+    client.getFile({
+      ...repository,
+      path: definitionPath,
+      ref: evidence.baseRevisionSha
+    }),
+    client.getFile({
+      ...repository,
+      path: definitionPath,
+      ref: pullRequest.headSha
     })
-  );
-  return entries.length > 0 ? Object.fromEntries(entries) : void 0;
+  ]);
+  try {
+    const baseDefinition = baseFile ? parseBatchDefinitionYaml(baseFile.content) : null;
+    const headDefinition = headFile ? parseBatchDefinitionYaml(headFile.content) : null;
+    const [baseWorkflow, headWorkflow] = await Promise.all([
+      client.getFile({
+        ...repository,
+        path: workflowPath,
+        ref: evidence.baseRevisionSha
+      }),
+      client.getFile({
+        ...repository,
+        path: workflowPath,
+        ref: pullRequest.headSha
+      })
+    ]);
+    const definition = evidence.type === "DELETE" ? baseDefinition : headDefinition;
+    const definitionArtifacts = evidence.artifacts.filter((artifact) => artifact.kind === "BATCH_DEFINITION");
+    const workflowArtifacts = evidence.artifacts.filter((artifact) => artifact.kind === "WORKFLOW");
+    const uniqueArtifactKeys = new Set(evidence.artifacts.map((artifact) => `${artifact.kind}\0${artifact.path}`));
+    return definition !== null && definitionArtifacts.length === 1 && workflowArtifacts.length === 1 && uniqueArtifactKeys.size === evidence.artifacts.length && definition.batchId === evidence.batchId && definitionArtifacts[0]?.path === definitionPath && definition.workflow.path === workflowPath && workflowArtifacts[0]?.path === workflowPath && hasCanonicalArtifactEnvelope({
+      artifacts: evidence.artifacts,
+      baseDefinition,
+      batchId: evidence.batchId,
+      headDefinition,
+      type: evidence.type
+    }) && hasCanonicalWorkflow({
+      headDefinition,
+      headWorkflow,
+      type: evidence.type
+    }) && hasCanonicalWorkflowTransition({
+      baseWorkflow,
+      headWorkflow,
+      type: evidence.type
+    }) && (evidence.type === "DELETE" || definition.governedChangeId === evidence.governedChangeId);
+  } catch {
+    return false;
+  }
 }
-function formatRequestTimestamp(value) {
-  return value.replaceAll("-", "").replaceAll(":", "").replaceAll(".", "").replaceAll("T", "").replaceAll("Z", "").slice(0, 14);
+function hasCanonicalWorkflow({ headDefinition, headWorkflow, type }) {
+  if (type === "DELETE")
+    return true;
+  return Boolean(headDefinition?.gateRequired && headWorkflow && new TextDecoder().decode(fileBytes(headWorkflow)) === buildBatchWorkflowYaml(headDefinition));
 }
-function toRequestSlug(value, maxLength) {
-  const slug = value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
-  return slug.slice(0, maxLength) || "batch";
+function hasCanonicalWorkflowTransition({ baseWorkflow, headWorkflow, type }) {
+  if (type === "REGISTER")
+    return !baseWorkflow && Boolean(headWorkflow);
+  if (type === "CHANGE")
+    return Boolean(baseWorkflow && headWorkflow);
+  return Boolean(baseWorkflow && !headWorkflow);
 }
-function validateBatchDefinition(definition) {
-  const diagnostics = [];
-  const record = requireRecord(definition, "$", diagnostics);
-  if (!record) {
-    return diagnostics;
+function hasCanonicalArtifactEnvelope({ artifacts, baseDefinition, batchId, headDefinition, type }) {
+  const artifactFiles = artifacts.filter((artifact) => artifact.kind === "ARTIFACT");
+  const baseArtifactPath = baseDefinition?.execution?.artifactPath;
+  const headArtifactPath = headDefinition?.execution?.artifactPath;
+  const baseArtifact = findArtifact(artifactFiles, baseArtifactPath);
+  const headArtifact = findArtifact(artifactFiles, headArtifactPath);
+  if (type === "DELETE") {
+    return !headArtifactPath && artifactFiles.length === (baseArtifactPath ? 1 : 0) && Boolean(!baseArtifactPath || baseArtifact?.beforeDigest !== null && baseArtifact?.afterDigest === null);
   }
-  requireString(record, "batchId", diagnostics);
-  requireString(record, "name", diagnostics);
-  requireString(record, "owner", diagnostics);
-  requireString(record, "domain", diagnostics);
-  requireString(record, "environment", diagnostics);
-  validateEnumField(
-    record.criticality,
-    "criticality",
-    criticalityValues,
-    diagnostics
-  );
-  validateEnumField(record.status, "status", batchStatusValues, diagnostics);
-  validateWorkflowTarget(record.workflow, "workflow", diagnostics);
-  validateGateRequired(record.gateRequired, diagnostics);
-  validateOptionalExecution(record.execution, diagnostics);
-  validateOptionalStringArray(record.labels, "labels", diagnostics);
-  validateOptionalBatchSchedules(record.schedules, "schedules", diagnostics);
-  return diagnostics;
+  if (headArtifactPath && !isCanonicalOrRetainedArtifactPath({
+    baseArtifactPath,
+    batchId,
+    headArtifactPath
+  })) {
+    return false;
+  }
+  if (!baseArtifactPath && !headArtifactPath)
+    return artifactFiles.length === 0;
+  if (!baseArtifactPath && headArtifactPath) {
+    return artifactFiles.length === 1 && headArtifact?.beforeDigest === null && headArtifact?.afterDigest !== null;
+  }
+  if (baseArtifactPath && !headArtifactPath) {
+    return artifactFiles.length === 1 && baseArtifact?.beforeDigest !== null && baseArtifact?.afterDigest === null;
+  }
+  if (baseArtifactPath === headArtifactPath) {
+    return artifactFiles.length === 1 && baseArtifact?.beforeDigest !== null && baseArtifact?.afterDigest !== null;
+  }
+  return artifactFiles.length === 2 && baseArtifact?.beforeDigest !== null && baseArtifact?.afterDigest === null && headArtifact?.beforeDigest === null && headArtifact?.afterDigest !== null;
 }
-function validateBatchDefinitionFile(file) {
-  const diagnostics = [];
-  const record = requireRecord(file, "$", diagnostics);
-  if (!record) {
-    return { diagnostics, ok: false };
-  }
-  validateBatchPlaneApiVersion(record.apiVersion, diagnostics);
-  validateExactValue(record.kind, "kind", "BatchDefinition", diagnostics);
-  const metadata = requireRecord(record.metadata, "metadata", diagnostics);
-  const spec = requireRecord(record.spec, "spec", diagnostics);
-  if (metadata && spec) {
-    const batchDefinition = {
-      batchId: metadata.id,
-      criticality: spec.criticality,
-      domain: spec.domain,
-      environment: spec.environment,
-      execution: spec.execution,
-      gateRequired: spec.gateRequired,
-      labels: metadata.labels,
-      name: metadata.name,
-      owner: spec.owner,
-      schedules: Array.isArray(spec.schedules) ? spec.schedules.map((schedule) => {
-        const item = schedule && typeof schedule === "object" && !Array.isArray(schedule) ? schedule : {};
-        return {
-          cron: item.cron,
-          enabled: item.enabled,
-          name: item.name,
-          scheduleId: item.id,
-          timezone: item.timezone
-        };
-      }) : void 0,
-      status: spec.status,
-      workflow: spec.workflow
-    };
-    diagnostics.push(
-      ...validateBatchDefinition(batchDefinition).map(
-        mapBatchDefinitionDiagnosticToFile
-      )
-    );
-  }
-  if (diagnostics.length > 0) {
-    return { diagnostics, ok: false };
-  }
-  return { diagnostics: [], ok: true, value: file };
+function findArtifact(artifacts, path) {
+  return path ? artifacts.find((artifact) => artifact.path === path) : void 0;
 }
-function parseYamlDocument(input) {
-  const diagnostics = [];
-  const root = {};
-  const stack = [{ indent: -2, value: root }];
-  const lines = input.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-  lines.forEach((rawLine, index) => {
-    const lineNumber = index + 1;
-    if (!rawLine.trim() || rawLine.trimStart().startsWith("#")) {
-      return;
-    }
-    if (rawLine.includes("	")) {
-      diagnostics.push({
-        column: rawLine.indexOf("	") + 1,
-        line: lineNumber,
-        message: "Tabs are not supported in BatchPlane YAML indentation."
-      });
-      return;
-    }
-    const indent = countLeadingSpaces(rawLine);
-    if (indent % 2 !== 0) {
-      diagnostics.push({
-        column: indent + 1,
-        line: lineNumber,
-        message: "Indentation must use two-space levels."
-      });
-      return;
-    }
-    while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
-      stack.pop();
-    }
-    const parent = stack[stack.length - 1];
-    if (indent > parent.indent + 2) {
-      diagnostics.push({
-        column: indent + 1,
-        line: lineNumber,
-        message: "Indentation jumps more than one level."
-      });
-      return;
-    }
-    const trimmed = rawLine.trim();
-    const separatorIndex = trimmed.indexOf(":");
-    if (separatorIndex <= 0) {
-      diagnostics.push({
-        column: indent + 1,
-        line: lineNumber,
-        message: "Expected a YAML key followed by ':'."
-      });
-      return;
-    }
-    const key = trimmed.slice(0, separatorIndex).trim();
-    const rawValue = trimmed.slice(separatorIndex + 1).trim();
-    if (!key) {
-      diagnostics.push({
-        column: indent + 1,
-        line: lineNumber,
-        message: "YAML keys must not be empty."
-      });
-      return;
-    }
-    if (Object.hasOwn(parent.value, key)) {
-      diagnostics.push({
-        column: indent + 1,
-        line: lineNumber,
-        message: `Duplicate YAML key '${key}'.`
-      });
-      return;
-    }
-    if (!rawValue) {
-      const child = {};
-      parent.value[key] = child;
-      stack.push({ indent, value: child });
-      return;
-    }
-    const parsedValue = parseYamlScalar(rawValue, lineNumber, indent + 1);
-    if (parsedValue.ok) {
-      parent.value[key] = parsedValue.value;
-    } else {
-      diagnostics.push(...parsedValue.diagnostics);
-    }
-  });
-  if (diagnostics.length > 0) {
-    return { diagnostics, ok: false };
-  }
-  return { ok: true, value: root };
+function isCanonicalOrRetainedArtifactPath({ baseArtifactPath, batchId, headArtifactPath }) {
+  return headArtifactPath === baseArtifactPath || isCanonicalBatchArtifactPath(batchId, headArtifactPath);
 }
-function parseYamlScalar(value, line, column) {
-  if (value === "true") {
-    return { ok: true, value: true };
-  }
-  if (value === "false") {
-    return { ok: true, value: false };
-  }
-  if (value === "null") {
-    return { ok: true, value: null };
-  }
-  if (/^-?\d+(\.\d+)?$/.test(value)) {
-    return { ok: true, value: Number(value) };
-  }
-  if (value.startsWith('"') || value.startsWith("[") || value.startsWith("{")) {
-    try {
-      return { ok: true, value: JSON.parse(value) };
-    } catch {
-      return {
-        diagnostics: [
-          {
-            column,
-            line,
-            message: "Invalid quoted or inline JSON YAML value."
-          }
-        ],
-        ok: false
-      };
-    }
-  }
-  return { ok: true, value };
+function isCanonicalBatchArtifactPath(batchId, path) {
+  const prefix = `.batch-governance/batches/${batchId}/artifacts/`;
+  if (!path.startsWith(prefix))
+    return false;
+  const fileName = path.slice(prefix.length);
+  return Boolean(fileName) && getBatchArtifactPath(batchId, fileName) === path;
 }
-function countLeadingSpaces(value) {
-  return value.length - value.trimStart().length;
-}
-var batchStatusValues = ["ACTIVE", "INACTIVE"];
-var criticalityValues = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-function requireRecord(value, field, diagnostics) {
-  if (isRecord(value)) {
-    return value;
-  }
-  diagnostics.push({
-    code: value === void 0 ? "required" : "invalid_type",
-    field,
-    message: value === void 0 ? `${field} is required.` : `${field} must be an object.`,
-    severity: "error"
-  });
-  return void 0;
-}
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-function requireString(record, key, diagnostics, field = key) {
-  const value = record[key];
-  if (typeof value === "string" && value.trim()) {
-    return value;
-  }
-  diagnostics.push({
-    code: value === void 0 || value === "" ? "required" : "invalid_type",
-    field,
-    message: value === void 0 || value === "" ? `${field} is required.` : `${field} must be a non-empty string.`,
-    severity: "error"
-  });
-  return void 0;
-}
-function requireBoolean(record, key, diagnostics, field = key) {
-  const value = record[key];
-  if (typeof value === "boolean") {
-    return value;
-  }
-  diagnostics.push({
-    code: value === void 0 ? "required" : "invalid_type",
-    field,
-    message: value === void 0 ? `${field} is required.` : `${field} must be a boolean.`,
-    severity: "error"
-  });
-  return void 0;
-}
-function validateExactValue(value, field, expected, diagnostics) {
-  if (value === expected) {
-    return;
-  }
-  diagnostics.push({
-    code: value === void 0 ? "required" : "invalid_value",
-    field,
-    message: `${field} must be '${expected}'.`,
-    severity: "error"
+function hasMatchingArtifactDigests(expected, actual) {
+  return expected.length === actual.length && expected.every((artifact) => {
+    const current = actual.find((candidate) => candidate.kind === artifact.kind && candidate.path === artifact.path);
+    return current?.beforeDigest === artifact.beforeDigest && current.afterDigest === artifact.afterDigest;
   });
 }
-function validateBatchPlaneApiVersion(value, diagnostics) {
-  if (isBatchPlaneApiVersion(value)) {
-    return;
-  }
-  diagnostics.push({
-    code: value === void 0 ? "required" : "invalid_value",
-    field: "apiVersion",
-    message: `apiVersion must be one of: ${supportedBatchPlaneApiVersions.join(", ")}.`,
-    severity: "error"
-  });
+function hasExactChangedFileSet(artifacts, files) {
+  const expected = artifacts.filter((artifact) => artifact.beforeDigest !== artifact.afterDigest).map(toExpectedFileChange).sort(compareFileChanges);
+  const actual = files.flatMap((file) => file.status === "renamed" && file.previousPath ? [
+    { path: file.previousPath, status: "removed" },
+    { path: file.path, status: "added" }
+  ] : [{ path: file.path, status: normalizeFileStatus(file.status) }]).sort(compareFileChanges);
+  return expected.every((change, index) => change.path === actual[index]?.path && change.status === actual[index]?.status) && expected.length === actual.length;
 }
-function validateEnumField(value, field, allowedValues, diagnostics) {
-  if (typeof value === "string" && allowedValues.includes(value)) {
-    return;
-  }
-  diagnostics.push({
-    code: value === void 0 || value === "" ? "required" : "invalid_value",
-    field,
-    message: `${field} must be one of: ${allowedValues.join(", ")}.`,
-    severity: "error"
-  });
+function toExpectedFileChange(artifact) {
+  return {
+    path: artifact.path,
+    status: artifact.beforeDigest === null ? "added" : artifact.afterDigest === null ? "removed" : "modified"
+  };
 }
-function validateWorkflowTarget(value, field, diagnostics) {
-  const workflow = requireRecord(value, field, diagnostics);
-  if (!workflow) {
-    return;
+function normalizeFileStatus(status) {
+  if (status === "added" || status === "removed" || status === "renamed") {
+    return status;
   }
-  const path = requireString(workflow, "path", diagnostics, `${field}.path`);
-  requireString(workflow, "ref", diagnostics, `${field}.ref`);
-  if (path && !/^\.github\/workflows\/[^/]+\.ya?ml$/u.test(path.trim())) {
-    diagnostics.push({
-      code: "invalid_workflow_path",
-      field: `${field}.path`,
-      message: `${field}.path must be a .yml or .yaml file directly under .github/workflows/.`,
-      severity: "error"
-    });
-  }
+  return "modified";
 }
-function validateGateRequired(value, diagnostics) {
-  if (value === true) {
-    return;
-  }
-  diagnostics.push({
-    code: value === void 0 ? "required" : "gate_required",
-    field: "gateRequired",
-    message: "gateRequired must be true for Lite batches.",
-    severity: "error"
-  });
+function compareFileChanges(left, right) {
+  return left.path === right.path ? left.status.localeCompare(right.status) : left.path.localeCompare(right.path);
 }
-function validateOptionalExecution(value, diagnostics) {
-  if (value === void 0) {
-    return;
-  }
-  const execution = requireRecord(value, "execution", diagnostics);
-  if (!execution) {
-    return;
-  }
-  validateRunnerLabel(execution.runsOn, "execution.runsOn", diagnostics);
-  requireString(execution, "command", diagnostics, "execution.command");
-  if (execution.artifactPath !== void 0 && typeof execution.artifactPath !== "string") {
-    diagnostics.push({
-      code: "invalid_type",
-      field: "execution.artifactPath",
-      message: "execution.artifactPath must be a string when provided.",
-      severity: "error"
-    });
+function hasMatchingBatchMeaning(evidence, artifacts) {
+  const definition = artifacts.find((artifact) => artifact.kind === "BATCH_DEFINITION");
+  const workflow = artifacts.find((artifact) => artifact.kind === "WORKFLOW");
+  if (!definition || !workflow)
+    return false;
+  if (definition.path !== getBatchDefinitionPath(evidence.batchId))
+    return false;
+  if (workflow.path !== getBatchWorkflowPath(evidence.batchId))
+    return false;
+  switch (evidence.type) {
+    case "REGISTER":
+      return definition.beforeDigest === null && definition.afterDigest !== null && workflow.beforeDigest === null && workflow.afterDigest !== null;
+    case "DELETE":
+      return definition.beforeDigest !== null && definition.afterDigest === null && workflow.beforeDigest !== null && workflow.afterDigest === null;
+    case "CHANGE":
+      return definition.beforeDigest !== null && definition.afterDigest !== null && workflow.beforeDigest !== null && workflow.afterDigest !== null;
   }
 }
-function validateOptionalBatchSchedules(value, field, diagnostics) {
-  if (value === void 0) {
-    return;
-  }
-  if (!Array.isArray(value)) {
-    diagnostics.push({
-      code: "invalid_type",
-      field,
-      message: `${field} must be an array when provided.`,
-      severity: "error"
-    });
-    return;
-  }
-  value.forEach((schedule, index) => {
-    const item = requireRecord(schedule, `${field}.${index}`, diagnostics);
-    if (!item) {
-      return;
+function digestFile(file) {
+  return sha256BytesHex(fileBytes(file));
+}
+function fileBytes(file) {
+  if (!file.contentBase64)
+    return new TextEncoder().encode(file.content);
+  return Uint8Array.from(atob(file.contentBase64), (character) => character.charCodeAt(0));
+}
+
+// ../../packages/github-lite/dist/approved-batch-revision.js
+async function verifyApprovedBatchRevision({ batchId, client, executionWorkflowSha, expectedRevision, repository }) {
+  try {
+    const current = await loadCurrentBatchSnapshot(client, repository, batchId);
+    if (!current || !matchesExpectedCurrentRevision(current, expectedRevision)) {
+      return bypassed();
     }
-    requireString(
-      item,
-      "scheduleId",
-      diagnostics,
-      `${field}.${index}.scheduleId`
-    );
-    requireString(item, "name", diagnostics, `${field}.${index}.name`);
-    requireString(item, "cron", diagnostics, `${field}.${index}.cron`);
-    requireString(item, "timezone", diagnostics, `${field}.${index}.timezone`);
-    requireBoolean(item, "enabled", diagnostics, `${field}.${index}.enabled`);
-  });
-}
-function validateRunnerLabel(value, field, diagnostics) {
-  if (typeof value === "string" && value.trim()) {
-    return;
-  }
-  if (Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string" && item.trim())) {
-    return;
-  }
-  diagnostics.push({
-    code: value === void 0 ? "required" : "invalid_type",
-    field,
-    message: `${field} must be a non-empty string or string array.`,
-    severity: "error"
-  });
-}
-function validateOptionalStringArray(value, field, diagnostics) {
-  if (value === void 0) {
-    return;
-  }
-  validateStringArray(value, field, diagnostics, false);
-}
-function validateStringArray(value, field, diagnostics, requireNonEmpty) {
-  if (!Array.isArray(value)) {
-    diagnostics.push({
-      code: value === void 0 ? "required" : "invalid_type",
-      field,
-      message: `${field} must be an array of non-empty strings.`,
-      severity: "error"
-    });
-    return;
-  }
-  if (requireNonEmpty && value.length === 0) {
-    diagnostics.push({
-      code: "required",
-      field,
-      message: `${field} must include at least one value.`,
-      severity: "error"
-    });
-    return;
-  }
-  value.forEach((item, index) => {
-    if (typeof item === "string" && item.trim()) {
-      return;
+    const candidate = (await loadMergedBatchCandidates(client, repository, batchId))[0];
+    if (!candidate || !matchesCurrentCandidate(candidate, current, expectedRevision)) {
+      return bypassed();
     }
-    diagnostics.push({
-      code: "invalid_type",
-      field: `${field}.${index}`,
-      message: `${field}.${index} must be a non-empty string.`,
-      severity: "error"
-    });
-  });
-}
-function mapBatchDefinitionDiagnosticToFile(diagnostic) {
-  if (diagnostic.field === "batchId") {
-    return { ...diagnostic, field: "metadata.id" };
-  }
-  if (diagnostic.field === "name") {
-    return { ...diagnostic, field: "metadata.name" };
-  }
-  if (diagnostic.field === "labels") {
-    return { ...diagnostic, field: "metadata.labels" };
-  }
-  if (diagnostic.field.startsWith("labels.")) {
+    if (!await hasAuthoritativeCandidateProof(client, repository, candidate)) {
+      return bypassed();
+    }
+    if (!await hasMatchingRevisionDigests({
+      candidate,
+      client,
+      currentSha: current.sha,
+      executionWorkflowSha,
+      repository
+    })) {
+      return bypassed();
+    }
     return {
-      ...diagnostic,
-      field: `metadata.${diagnostic.field}`
+      approvedRevision: {
+        governedChangeId: candidate.evidence.governedChangeId,
+        targetRevisionDigest: candidate.evidence.targetRevisionDigest
+      },
+      controlStatus: "VERIFIED",
+      verifiedSha: candidate.pullRequest.mergeSha
     };
-  }
-  if (diagnostic.field.startsWith("schedules.")) {
+  } catch {
     return {
-      ...diagnostic,
-      field: `spec.${diagnostic.field.replace(
-        /^(schedules\.\d+)\.scheduleId$/u,
-        "$1.id"
-      )}`
+      controlStatus: "UNKNOWN",
+      reasonCode: "APPROVED_BATCH_REVISION_UNAVAILABLE"
     };
   }
-  return { ...diagnostic, field: `spec.${diagnostic.field}` };
+}
+async function loadCurrentBatchSnapshot(client, repository, batchId) {
+  const workspace = await client.getRepository(repository);
+  const sha = await client.getBranchHeadSha({
+    ...repository,
+    branch: workspace.defaultBranch
+  });
+  const definitionFile = await client.getFile({
+    ...repository,
+    path: getBatchDefinitionPath(batchId),
+    ref: sha
+  });
+  if (!definitionFile)
+    return null;
+  const definition = parseBatchDefinitionYaml(definitionFile.content);
+  return definition.batchId === batchId && definition.governedChangeId ? { governedChangeId: definition.governedChangeId, sha } : null;
+}
+function matchesExpectedCurrentRevision(current, expected) {
+  return !expected || expected.governedChangeId === current.governedChangeId && expected.targetRevisionDigest.startsWith("sha256:");
+}
+function matchesCurrentCandidate(candidate, current, expected) {
+  return candidate.evidence.governedChangeId === current.governedChangeId && (!expected || expected.targetRevisionDigest === candidate.evidence.targetRevisionDigest);
+}
+async function hasAuthoritativeCandidateProof(client, repository, candidate) {
+  return await hasAuthoritativeChangeRequest(client, repository, candidate.pullRequest, candidate.evidence, { propagateRequesterRoleReadFailure: true }) && await hasAuthorizedMergedDecision(client, repository, candidate.pullRequest, candidate.evidence);
+}
+async function hasMatchingRevisionDigests({ candidate, client, currentSha, executionWorkflowSha, repository }) {
+  const refs = [candidate.pullRequest.mergeSha, currentSha];
+  if (executionWorkflowSha)
+    refs.push(executionWorkflowSha);
+  const digests = await Promise.all(refs.map(async (ref) => createTargetRevisionDigest(await loadArtifacts(client, repository, candidate.evidence.artifacts, ref))));
+  return digests.every((digest) => digest === candidate.evidence.targetRevisionDigest);
+}
+async function loadMergedBatchCandidates(client, repository, batchId) {
+  const changes = await client.listPullRequests({
+    ...repository,
+    state: "closed"
+  });
+  const candidateNumbers = changes.filter((pullRequest) => pullRequest.merged).map((pullRequest) => pullRequest.number);
+  const candidates = await Promise.all(candidateNumbers.map(async (pullNumber) => {
+    const pullRequest = await client.getPullRequest({
+      ...repository,
+      pullNumber
+    });
+    const evidence = pullRequest ? parseChangeRequestEvidence(pullRequest.body) : null;
+    return pullRequest?.merged && evidence?.batchId === batchId ? { evidence, pullRequest } : null;
+  }));
+  return candidates.filter((candidate) => Boolean(candidate?.pullRequest.mergeSha && candidate.pullRequest.mergedAt)).sort((left, right) => right.pullRequest.mergedAt.localeCompare(left.pullRequest.mergedAt));
+}
+async function hasAuthorizedMergedDecision(client, repository, pullRequest, request) {
+  const requestDigest = await createChangeRequestDigest(request);
+  const comments = await client.listIssueComments({
+    ...repository,
+    issueNumber: pullRequest.number
+  });
+  const decisions = await Promise.all(comments.map(async (comment) => {
+    const decision = parseChangeRequestDecisionEvidence(comment.body);
+    if (decision && hasMatchingDecisionRequest(decision, request, requestDigest) && isUneditedPreMergeComment(comment, pullRequest.mergedAt) && await isAuthorizedDecision({
+      client,
+      commentAuthor: comment.author,
+      decision,
+      pullRequest,
+      repository,
+      request
+    })) {
+      return { comment, decision: decision.decision };
+    }
+    const withdrawal = parseChangeRequestWithdrawalEvidence(comment.body);
+    if (withdrawal && withdrawal.governedChangeId === request.governedChangeId && withdrawal.headRevisionSha === request.headRevisionSha && withdrawal.requestDigest === requestDigest && withdrawal.targetRevisionDigest === request.targetRevisionDigest && comment.author === request.requester && isUneditedPreMergeComment(comment, pullRequest.mergedAt)) {
+      return { comment, decision: "WITHDRAWN" };
+    }
+    return null;
+  }));
+  const latest = decisions.filter((decision) => Boolean(decision)).sort((left, right) => compareCommentChronology(right.comment, left.comment))[0];
+  return latest?.decision === "APPROVED";
+}
+function hasMatchingDecisionRequest(decision, request, requestDigest) {
+  return decision.governedChangeId === request.governedChangeId && decision.headRevisionSha === request.headRevisionSha && decision.requestDigest === requestDigest && decision.targetRevisionDigest === request.targetRevisionDigest;
+}
+async function isAuthorizedDecision({ client, commentAuthor, decision, pullRequest, repository, request }) {
+  const [policy, roles, mergedPolicy, mergedRoles] = await Promise.all([
+    loadChangeRequestPolicy(client, repository, decision.authorizationRevisionSha),
+    loadChangeRequestRoles(client, repository, decision.authorizationRevisionSha),
+    loadChangeRequestPolicy(client, repository, pullRequest.mergeSha ?? ""),
+    loadChangeRequestRoles(client, repository, pullRequest.mergeSha ?? "")
+  ]);
+  if (!hasEquivalentAuthorization({ policy, roles }, { policy: mergedPolicy, roles: mergedRoles })) {
+    return false;
+  }
+  if (decision.decisionSource === "WORKSPACE_POLICY") {
+    return commentAuthor === request.requester && policy.approval.mode === "AUTO_APPROVE";
+  }
+  const requesterIsApprover = commentAuthor === request.requester;
+  const approverHasRole = await hasChangeRequestRole(client, repository, commentAuthor, roles.roles.approver);
+  if (!approverHasRole)
+    return false;
+  if (requesterIsApprover && policy.approval.mode === "SELF_APPROVAL_BLOCKED") {
+    return false;
+  }
+  return true;
+}
+function isUneditedPreMergeComment(comment, mergedAt) {
+  return Boolean(comment.updatedAt) && comment.createdAt === comment.updatedAt && isApprovalBeforeMerge(comment.createdAt, mergedAt);
+}
+function compareCommentChronology(left, right) {
+  const timestampDifference = Date.parse(left.createdAt) - Date.parse(right.createdAt);
+  return timestampDifference || left.id - right.id;
+}
+function hasEquivalentAuthorization(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+function isApprovalBeforeMerge(approvalCreatedAt, mergedAt) {
+  if (!mergedAt)
+    return false;
+  const approvalTime = Date.parse(approvalCreatedAt);
+  const mergeTime = Date.parse(mergedAt);
+  return Number.isFinite(approvalTime) && Number.isFinite(mergeTime) && approvalTime <= mergeTime;
+}
+async function loadArtifacts(client, repository, expectedArtifacts, ref) {
+  return Promise.all(expectedArtifacts.map(async (artifact) => {
+    const file = await client.getFile({
+      ...repository,
+      path: artifact.path,
+      ref
+    });
+    return {
+      afterDigest: file ? await digestFile2(file) : null,
+      beforeDigest: artifact.beforeDigest,
+      kind: artifact.kind,
+      path: artifact.path
+    };
+  }));
+}
+async function digestFile2(file) {
+  return sha256BytesHex(fileBytes2(file));
+}
+function fileBytes2(file) {
+  return file.contentBase64 ? Uint8Array.from(atob(file.contentBase64), (value) => value.charCodeAt(0)) : new TextEncoder().encode(file.content);
+}
+function bypassed() {
+  return { controlStatus: "BYPASSED", reasonCode: "UNAPPROVED_BATCH_REVISION" };
 }
 
 // src/index.ts
@@ -9896,11 +9589,17 @@ var requestLabels = [
   },
   {
     color: "0F766E",
-    description: "BatchPlane delegated scheduled execution request",
+    description: "BatchPlane native scheduled execution request",
     name: "batchplane:scheduled-execution"
   }
 ];
-async function createOrReuseScheduledExecutionRequest(input) {
+async function createNativeScheduledExecutionRequest(input) {
+  assertNativeScheduleOccurrence(input);
+  if (input.sourceRunAttempt !== 1) {
+    throw new Error(
+      "RERUN_NOT_AUTHORIZED: native schedule reruns cannot create a new occurrence."
+    );
+  }
   const client = createScheduleRequestGitHubClient({
     apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
     fetcher: input.fetcher ?? fetch,
@@ -9915,6 +9614,12 @@ async function createOrReuseScheduledExecutionRequest(input) {
     );
   }
   const batch = parseBatchDefinition(batchFile.content, definitionPath);
+  const revision = await resolveApprovedBatchRevision(input, batch.batchId);
+  if (revision.controlStatus !== "VERIFIED") {
+    throw new Error(
+      revision.controlStatus === "UNKNOWN" ? "APPROVED_BATCH_REVISION_UNAVAILABLE: approved Batch revision could not be verified." : "UNAPPROVED_BATCH_REVISION: Batch revision does not match the latest approved governed change."
+    );
+  }
   const schedule = (batch.schedules ?? []).find(
     (candidate) => candidate.scheduleId === input.scheduleId
   );
@@ -9936,107 +9641,52 @@ async function createOrReuseScheduledExecutionRequest(input) {
       `Schedule ${input.scheduleId} timezone does not match workflow configuration.`
     );
   }
-  const scheduledAt = resolveScheduledAt({
-    cron: input.cron,
-    now: input.now ?? /* @__PURE__ */ new Date(),
-    timezone: input.timezone
-  });
-  const requestId = createScheduledExecutionRequestId(
+  if (batch.workflow.path !== input.workflowPath) {
+    throw new Error(
+      "NATIVE_SCHEDULE_WORKFLOW_MISMATCH: the running workflow is not the registered Batch workflow."
+    );
+  }
+  if (batch.workflow.ref !== input.workflowRef) {
+    throw new Error(
+      "NATIVE_SCHEDULE_WORKFLOW_MISMATCH: the running workflow ref is not the registered Batch workflow ref."
+    );
+  }
+  const requestId = await createScheduledExecutionRequestId(
     batch.batchId,
     input.scheduleId,
-    scheduledAt
+    input.repositoryId,
+    input.sourceRunId
   );
   const existingIssue = await client.findIssueByRequestId(requestId);
   if (existingIssue) {
-    const existingRequest = parseExecutionRequest(existingIssue.body);
-    if (!existingRequest || existingRequest.requestId !== requestId) {
-      throw new Error(
-        `Scheduled execution request evidence is invalid for ${requestId}.`
-      );
-    }
-    const comments = await client.listIssueComments(existingIssue.number);
-    const dispatcherStatus = findLatestDispatcherStatus(comments, requestId);
-    if (dispatcherStatus === "DISPATCHED" || dispatcherStatus === "DISPATCHING") {
-      return {
-        issueNumber: existingIssue.number,
-        requestDigest: existingRequest.requestDigest,
-        requestId,
-        scheduledAt,
-        status: "already-dispatched"
-      };
-    }
-    const approvalComment2 = findLatestApprovalComment(comments, requestId);
-    if (approvalComment2) {
-      return {
-        approvalCommentId: approvalComment2.id,
-        issueNumber: existingIssue.number,
-        requestDigest: existingRequest.requestDigest,
-        requestId,
-        scheduledAt,
-        status: "reused"
-      };
-    }
-    const comment = await client.createIssueComment(
-      existingIssue.number,
-      buildExecutionApprovalComment({
-        approvalType: "SCHEDULE_DELEGATED",
-        approvedAt: input.now ?? /* @__PURE__ */ new Date(),
-        approver: "github-actions[bot]",
-        request: {
-          batchId: existingRequest.batchId,
-          requestDigest: existingRequest.requestDigest,
-          requestId: existingRequest.requestId,
-          requestedBy: existingRequest.requestedBy
-        }
-      })
+    throw new Error(
+      `NATIVE_SCHEDULE_OCCURRENCE_ALREADY_RECORDED: ${requestId} already has Issue #${existingIssue.number}; no existing request can be reused as a fresh permit.`
     );
-    return {
-      approvalCommentId: comment.id,
-      issueNumber: existingIssue.number,
-      requestDigest: existingRequest.requestDigest,
-      requestId,
-      scheduledAt,
-      status: "reused"
-    };
   }
   await client.ensureLabels(requestLabels);
   const issue = await buildExecutionRequestIssue({
+    approvedBatchRevision: revision.approvedRevision,
     batch,
-    expiresAt: addHours(input.now ?? /* @__PURE__ */ new Date(), 24),
-    reason: "Scheduled occurrence generated from approved BatchPlane schedule.",
+    reason: "Native GitHub Actions schedule occurrence from an approved BatchPlane schedule.",
     requestId,
     requestedAt: input.now ?? /* @__PURE__ */ new Date(),
     requestedBy: "github-actions[bot]",
     schedule: {
       definitionCommitSha: input.sha,
       definitionPath,
+      repositoryId: input.repositoryId,
       scheduleId: input.scheduleId,
-      scheduledAt
+      sourceRunAttempt: input.sourceRunAttempt,
+      sourceRunId: input.sourceRunId
     },
     triggerType: "SCHEDULE",
     workflowRef: batch.workflow.ref
   });
   const createdIssue = await client.createIssue(issue);
-  const approvalComment = await client.createIssueComment(
-    createdIssue.number,
-    buildExecutionApprovalComment({
-      approvalType: "SCHEDULE_DELEGATED",
-      approvedAt: input.now ?? /* @__PURE__ */ new Date(),
-      approver: "github-actions[bot]",
-      request: {
-        batchId: issue.request.batchId,
-        requestDigest: issue.request.requestDigest,
-        requestId: issue.request.requestId,
-        requestedBy: issue.request.requestedBy
-      }
-    })
-  );
   return {
-    approvalCommentId: approvalComment.id,
     issueNumber: createdIssue.number,
     requestDigest: issue.request.requestDigest,
     requestId,
-    scheduledAt,
     status: "created"
   };
 }
@@ -10047,29 +9697,47 @@ function readScheduleRequestInputFromEnv(env = process.env) {
     configPath: readActionInput(env, "config-path") || ".batch-governance",
     cron: readActionInput(env, "cron"),
     definitionPath: readActionInput(env, "definition-path"),
+    eventName: env.GITHUB_EVENT_NAME ?? "",
+    eventSchedule: readNativeScheduleEvent(env),
     githubToken: readActionInput(env, "github-token") || env.GITHUB_TOKEN || "",
     repository: env.GITHUB_REPOSITORY || "",
+    repositoryId: env.GITHUB_REPOSITORY_ID ?? "",
     scheduleId: readActionInput(env, "schedule-id"),
-    sha: env.GITHUB_SHA || "",
+    sha: env.GITHUB_WORKFLOW_SHA ?? "",
+    sourceRunAttempt: Number.parseInt(env.GITHUB_RUN_ATTEMPT ?? "", 10),
+    sourceRunId: env.GITHUB_RUN_ID ?? "",
+    workflowPath: readWorkflowPath(env.GITHUB_WORKFLOW_REF ?? ""),
+    workflowRef: readWorkflowRef(env.GITHUB_WORKFLOW_REF ?? ""),
     timezone: readActionInput(env, "timezone")
   };
 }
 async function run(env = process.env) {
   const input = readScheduleRequestInputFromEnv(env);
-  const result = await createOrReuseScheduledExecutionRequest(input);
+  let result;
+  try {
+    result = await createNativeScheduledExecutionRequest(input);
+  } catch (error) {
+    const reason = toReasonCode(error);
+    setActionOutput("request-id", "");
+    setActionOutput("request-digest", "");
+    setActionOutput("issue-number", "");
+    setActionOutput("failure-reason", reason);
+    throw error;
+  }
   setActionOutput("status", result.status);
   setActionOutput("request-id", result.requestId);
   setActionOutput("request-digest", result.requestDigest);
-  setActionOutput("scheduled-at", result.scheduledAt);
   setActionOutput("issue-number", String(result.issueNumber ?? ""));
-  setActionOutput(
-    "approval-comment-id",
-    String(result.approvalCommentId ?? "")
-  );
+  setActionOutput("failure-reason", "");
   console.log(
-    `BatchPlane scheduled occurrence resolved: ${result.scheduledAt} (${input.timezone}, ${input.cron})`
+    `BatchPlane native schedule occurrence resolved: ${input.sourceRunId} (${input.timezone}, ${input.cron})`
   );
   return result;
+}
+function toReasonCode(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = /^([A-Z][A-Z0-9_]+):/u.exec(message);
+  return match?.[1] ?? "SCHEDULE_REQUEST_FAILED";
 }
 function createScheduleRequestGitHubClient({
   apiBaseUrl,
@@ -10125,19 +9793,6 @@ function createScheduleRequestGitHubClient({
         title: response.title
       };
     },
-    async createIssueComment(issueNumber, body) {
-      const response = await request(
-        `${repoPath}/issues/${issueNumber}/comments`,
-        {
-          body: JSON.stringify({ body }),
-          method: "POST"
-        }
-      );
-      if (!response) {
-        throw new Error("GitHub issue comment response was empty.");
-      }
-      return response;
-    },
     async ensureLabels(labels) {
       for (const label of labels) {
         try {
@@ -10158,13 +9813,17 @@ function createScheduleRequestGitHubClient({
         if (!response?.length) {
           break;
         }
-        const match = response.find((issue) => {
+        const matches = response.filter((issue) => {
           if (issue.pull_request) {
             return false;
           }
-          return (issue.body ?? "").includes(`requestId=${requestId}`);
+          return readRequestIdMarker(issue.body ?? "") === requestId;
         });
-        if (match) {
+        if (matches.length > 0) {
+          const match = matches[0];
+          if (!match) {
+            continue;
+          }
           return {
             body: match.body ?? "",
             number: match.number,
@@ -10177,7 +9836,7 @@ function createScheduleRequestGitHubClient({
     },
     async getFile(path, ref) {
       const response = await request(
-        `${repoPath}/contents/${encodePath(path)}?ref=${encodeURIComponent(
+        `${repoPath}/contents/${encodePath2(path)}?ref=${encodeURIComponent(
           ref
         )}`,
         {},
@@ -10195,31 +9854,19 @@ function createScheduleRequestGitHubClient({
         content: Buffer.from(response.content, "base64").toString("utf-8"),
         path: response.path
       };
-    },
-    async listIssueComments(issueNumber) {
-      const comments = [];
-      for (let page = 1; page <= 10; page += 1) {
-        const response = await request(
-          `${repoPath}/issues/${issueNumber}/comments?per_page=100&page=${page}`
-        );
-        if (!response?.length) {
-          break;
-        }
-        comments.push(
-          ...response.map((comment) => ({
-            author: comment.user?.login ?? "",
-            body: comment.body ?? "",
-            createdAt: comment.created_at ?? "",
-            id: comment.id
-          }))
-        );
-      }
-      return comments;
     }
   };
 }
+function readRequestIdMarker(body) {
+  const marker = body.match(
+    /<!--\s*(?:batchplane|batchtrail):execution-request\s*([\s\S]*?)-->/u
+  );
+  if (!marker?.[1]) return void 0;
+  const line = marker[1].split("\n").find((candidate) => candidate.trimStart().startsWith("requestId="));
+  return line?.slice(line.indexOf("=") + 1).trim() || void 0;
+}
 function parseBatchDefinition(content, path) {
-  const parsed = parseYamlDocument(content);
+  const parsed = parseRepositoryYaml(content);
   if (!parsed.ok) {
     throw new Error(`Batch definition YAML is invalid: ${path}.`);
   }
@@ -10227,137 +9874,70 @@ function parseBatchDefinition(content, path) {
   if (!validated.ok) {
     throw new Error(`Batch definition is invalid: ${path}.`);
   }
-  return fromBatchDefinitionFile(validated.value);
+  return batchDefinitionFromFile(validated.value);
 }
-function fromBatchDefinitionFile(file) {
-  return {
-    batchId: file.metadata.id,
-    criticality: file.spec.criticality,
-    domain: file.spec.domain,
-    environment: file.spec.environment,
-    execution: file.spec.execution,
-    gateRequired: file.spec.gateRequired,
-    name: file.metadata.name,
-    owner: file.spec.owner,
-    schedules: file.spec.schedules?.map((schedule) => ({
-      cron: schedule.cron,
-      enabled: schedule.enabled,
-      name: schedule.name,
-      scheduleId: schedule.id,
-      timezone: schedule.timezone
-    })),
-    status: file.spec.status,
-    workflow: file.spec.workflow
-  };
-}
-function resolveScheduledAt({
-  cron,
-  now,
-  timezone
-}) {
-  validateTimeZone(timezone);
-  const interval = import_cron_parser.CronExpressionParser.parse(cron, {
-    currentDate: new Date(now.getTime() + 6e4),
-    tz: timezone
-  });
-  return interval.prev().toDate().toISOString();
-}
-function validateTimeZone(timeZone) {
-  new Intl.DateTimeFormat("en-US", { timeZone }).format(/* @__PURE__ */ new Date());
-}
-function parseExecutionRequest(issueBody) {
-  const marker = parseBatchPlaneMarker(issueBody, "execution-request");
-  const payload = parseCanonicalPayload(issueBody);
-  const requestId = marker.get("requestId") ?? readMarkdownField(issueBody, "Request ID");
-  const batchId = marker.get("batchId") ?? readMarkdownField(issueBody, "Batch ID");
-  const requestDigest = marker.get("requestDigest") ?? readMarkdownField(issueBody, "Request digest");
-  const requestedBy = readMarkdownField(issueBody, "Requested by").replace(/^@/, "") || payload?.spec?.requestedBy || "";
-  if (!requestId || !batchId || !requestDigest) {
-    return null;
-  }
-  return {
-    batchId,
-    requestDigest,
-    requestedBy,
-    requestId
-  };
-}
-function findLatestApprovalComment(comments, requestId) {
-  return comments.slice().reverse().find((comment) => {
-    const marker = parseBatchPlaneMarker(
-      comment.body,
-      "execution-approval"
+function assertNativeScheduleOccurrence(input) {
+  if (input.eventName !== "schedule") {
+    throw new Error(
+      "NATIVE_SCHEDULE_EVENT_REQUIRED: schedule requests only run from GitHub's schedule event."
     );
-    return marker.get("decision") === "APPROVED" && marker.get("requestId") === requestId;
-  }) ?? null;
-}
-function findLatestDispatcherStatus(comments, requestId) {
-  for (let index = comments.length - 1; index >= 0; index -= 1) {
-    const marker = parseBatchPlaneMarker(
-      comments[index]?.body ?? "",
-      "bgcp:dispatcher"
+  }
+  if (!input.eventSchedule?.trim() || input.eventSchedule.trim() !== input.cron.trim()) {
+    throw new Error(
+      "NATIVE_SCHEDULE_CRON_MISMATCH: GitHub event schedule does not match the registered cron."
     );
-    if (marker.get("requestId") !== requestId) {
-      continue;
-    }
-    const status = marker.get("status");
-    if (status === "DISPATCHED" || status === "DISPATCHING" || status === "DISPATCH_FAILED") {
-      return status;
-    }
   }
-  return null;
+  if (!input.repositoryId.trim() || !isPositiveIntegerString(input.sourceRunId) || !input.workflowPath.trim() || !input.workflowRef.trim() || !input.sha.trim() || !Number.isInteger(input.sourceRunAttempt) || input.sourceRunAttempt < 1) {
+    throw new Error(
+      "NATIVE_SCHEDULE_RUN_REQUIRED: repository and source Run identifiers are required."
+    );
+  }
 }
-function parseCanonicalPayload(body) {
-  const match = body.match(
-    /### Canonical payload\s*```json\s*([\s\S]*?)\s*```/u
-  );
-  if (!match?.[1]) {
-    return null;
-  }
+function isPositiveIntegerString(value) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0;
+}
+function readNativeScheduleEvent(env) {
+  const path = env.GITHUB_EVENT_PATH;
+  if (!path) return "";
   try {
-    return JSON.parse(match[1]);
+    const value = JSON.parse(readFileSync(path, "utf8"));
+    return typeof value.schedule === "string" ? value.schedule : "";
   } catch {
-    return null;
+    return "";
   }
 }
-function parseBatchPlaneMarker(body, markerName) {
-  const marker = /* @__PURE__ */ new Map();
-  const match = body.match(
-    new RegExp(
-      `<!--\\s*(?:batchplane|batchtrail):${escapeRegExp(markerName)}\\s*([\\s\\S]*?)-->`,
-      "u"
-    )
-  );
-  if (!match?.[1]) {
-    return marker;
+function readWorkflowPath(workflowRef) {
+  const marker = "/.github/workflows/";
+  const start = workflowRef.indexOf(marker);
+  const end = workflowRef.lastIndexOf("@");
+  return start >= 0 && end > start ? workflowRef.slice(start + 1, end) : "";
+}
+function readWorkflowRef(workflowRef) {
+  const separator = workflowRef.lastIndexOf("@");
+  const value = separator >= 0 ? workflowRef.slice(separator + 1) : "";
+  return value.replace(/^refs\/heads\//u, "").trim();
+}
+async function resolveApprovedBatchRevision(input, batchId) {
+  if (input.verifyBatchRevision) {
+    return input.verifyBatchRevision({
+      batchId,
+      executionWorkflowSha: input.sha
+    });
   }
-  for (const line of match[1].split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-    const separatorIndex = trimmed.indexOf("=");
-    if (separatorIndex <= 0) {
-      continue;
-    }
-    marker.set(
-      trimmed.slice(0, separatorIndex).trim(),
-      trimmed.slice(separatorIndex + 1).trim()
-    );
-  }
-  return marker;
+  const { owner, repo } = parseRepository(input.repository);
+  return verifyApprovedBatchRevision({
+    batchId,
+    client: createGitHubLiteClient({
+      apiBaseUrl: input.apiBaseUrl ?? "https://api.github.com",
+      fetcher: input.fetcher ?? fetch,
+      token: input.githubToken
+    }),
+    executionWorkflowSha: input.sha,
+    repository: { owner, repo }
+  });
 }
-function readMarkdownField(body, label) {
-  const match = body.match(
-    new RegExp(`^-\\s*${escapeRegExp(label)}:\\s*(.+)$`, "imu")
-  );
-  const value = match?.[1]?.trim() ?? "";
-  return value.replace(/^`|`$/g, "");
-}
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-function encodePath(path) {
+function encodePath2(path) {
   return path.split("/").map((part) => encodeURIComponent(part)).join("/");
 }
 function parseRepository(value) {
@@ -10381,14 +9961,15 @@ function setActionOutput(name, value) {
   appendFileSync(outputPath, `${name}=${value}
 `);
 }
-if (import.meta.url === `file://${process.argv[1]}`) {
+var invokedPath = process.argv[1];
+if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
   run().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   });
 }
 export {
-  createOrReuseScheduledExecutionRequest,
+  createNativeScheduledExecutionRequest,
   readScheduleRequestInputFromEnv,
   run
 };

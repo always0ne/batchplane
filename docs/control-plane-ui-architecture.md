@@ -1,278 +1,109 @@
-# Control Plane UI Architecture
+# Shared UI Architecture
 
-Status: Architecture baseline for issue #191
+Status: Current UI boundary and approved target, reconciled 2026-10-05.
+This document does not declare Main or multiple Workspaces implemented.
 
-## 1. Purpose
-
-Main and Lite use one React/Vite feature application. The UI presents one
-BatchPlane operating model across providers while keeping native platform
-details available when they help an operator diagnose or configure work.
-
-This document defines the shared information architecture, runtime boundary,
-page responsibilities, capability behavior, and edition-specific composition.
-The detailed visual baseline for the current Lite implementation remains in
-`lite-ui-ux-baseline.md`.
-
-## 2. Navigation Model
-
-The primary navigation is grouped by operator intent:
+## Actual Dependency Direction
 
 ```text
-Workspace switcher
-
-Overview
-
-Operations
-  Batches
-  Runs
-  Failures
-
-Requests
-  My Work
-  Approvals
-  All Requests
-
-Governance
-  Audit Trail
-
-Workspace
-  Platform Connections
-  Members And Roles
-  Approval Policies
-  Settings
+app/router + runtime composition
+  -> React Pages and owned components/Hooks
+  -> client Context
+  -> packages/ui-client: BatchPlaneClient
+  -> injected implementation
+       Lite: packages/github-lite -> GitHub
+       Main: future HTTP adapter -> Kotlin application -> platform adapters
 ```
 
-Rules:
+The current contract is [the source interface](../packages/ui-client/src/index.ts).
+Do not introduce a parallel grouped client, generic form renderer or provider
+SDK just to match an illustration. Future methods follow approved complete flows.
 
-- `My Work` is personal and actionable; it is not the Workspace-wide request
-  archive.
-- `Approvals` contains only items on which the current user can make a decision.
-- `All Requests` provides Workspace-wide change, execution, and follow-up
-  history according to permission.
-- `Runs` is the complete execution history; `Failures` is the follow-up subset.
-- Provider source pages are secondary links from BatchPlane detail pages, not
-  primary navigation.
-- Lite may hide unsupported management pages, but it must preserve the grouping
-  and route meanings.
+## Ownership And Readability
 
-## 3. Global Context
+Follow [mandatory engineering principles](./frontend-engineering-principles.md)
+and the libraries' documented composition patterns.
 
-The application shell always knows:
+- `app`: routing, providers and composition, with React Router route objects,
+  layout and Outlet rather than a custom route switch.
+- `pages`: business areas; list/detail/new folders when multiple Pages exist.
+  Pages reveal screen composition; meaningful child components have separate
+  owner-local files. Page-only Hooks stay with their owner.
+- `components`: genuinely product-neutral controls and visual tokens.
+- `client`: the narrow React bridge to the product client.
+- `runtime`: implementation selection and provider-specific connection editor.
+- `assets`: branding; `shared`: non-visual neutral support such as i18n.
 
-- selected Workspace;
-- optional provider/Platform Connection filter;
-- signed-in Principal and effective roles;
-- edition and runtime health;
-- pending actionable work count;
-- locale and display timezone.
+No `features` or global `ui` layer, no overview/operations/control directory
+grouping, no helper-per-file fragmentation. Simple ternaries and maps are useful;
+nested multi-state markup and oversized Hooks hide responsibility.
 
-Changing Workspace cancels or invalidates Workspace-scoped queries before the
-new data renders. A detail route containing an object outside the selected
-Workspace either changes context after confirmation or returns an authorized
-not-found state; it never renders data under the wrong Workspace header.
+## Current Sitemap
 
-Lite stores several repository connection sessions in `sessionStorage` and
-uses the Workspace switcher to select one trust boundary. An optional `All
-connected Workspaces` portfolio is read-only until the user enters a specific
-Workspace for an action.
+These routes are verified against [router.tsx](../apps/web/src/app/router.tsx).
+They are not proposed Main endpoints.
 
-## 4. Page Responsibilities
+| Route                                      | Page ownership / purpose                                                      |
+| ------------------------------------------ | ----------------------------------------------------------------------------- |
+| `/dashboard`                               | `pages/dashboard`: operating summary                                          |
+| `/my-work`                                 | `pages/my-work`: actionable work assigned to the user                         |
+| `/batches`                                 | `pages/batches/list`: Batch inventory                                         |
+| `/batches/:batchId`                        | `pages/batches/detail`: configuration, schedules, history and request actions |
+| `/batches/new`                             | `pages/requests/changes/new`: existing change-writing route                   |
+| `/approvals/registration/:requestLocator`  | `pages/requests/changes/detail`: existing change detail                       |
+| `/batches/:batchId/execution-requests/new` | `pages/requests/execution/new`: manual execution request                      |
+| `/execution-requests/:requestLocator`      | `pages/requests/execution/detail`: execution request detail                   |
+| `/requests`                                | `pages/requests/list`: Workspace request inventory                            |
+| `/approvals`                               | `pages/approvals`: approval inbox                                             |
+| `/executions`                              | `pages/executions/list`: execution inventory                                  |
+| `/executions/:executionId`                 | `pages/executions/detail`: exact execution and logs                           |
+| `/executions/failures`                     | `pages/executions/failures`: failures and follow-up entry                     |
+| `/audit`                                   | `pages/audit`: evidence timeline                                              |
+| `/workspace`                               | `pages/workspace`: shared settings and injected connection form               |
 
-### Overview
+The existing schedule-writing URL redirects into Batch change writing; schedules
+are not directly mutated from Batch detail. Request routes remain until #142.
+Its future `/requests/new` and `/requests/:requestId` are recorded in the
+[unified-request specification](./unified-request-feature-spec.md), not added by
+this document PR. Cross-Batch schedule inventory #206 is still pending.
 
-Shows compact operational totals and exceptions across the selected context:
+## Workspace And Provider Scope
 
-- active and drifted Batches;
-- running, failed, and Gate-blocked attempts;
-- pending approvals and overdue follow-up;
-- degraded Platform Connections;
-- recent high-priority audit events.
+Main will support multiple connections in one Workspace. A provider-specific
+typed connection editor is composed by runtime; Workspace policy stays in the
+shared Page. Do not infer provider identity from a Workspace URL.
 
-Every metric deep-links to the corresponding filtered list. The page is an
-operational summary, not a marketing dashboard.
+#142 must support authorized aggregate views and requests across Workspaces,
+not only a global switcher. Each displayed item retains its Workspace,
+connection, Batch and execution identity. Permission checks cover every target.
+If no approver can approve all included operations, creation is unavailable with
+a useful reason. Do not gather independent per-Workspace approvals instead.
 
-### Batches
+Credentials, Issue/PR DTOs, raw evidence parsing and transport remain in adapters.
+Typed provider fields may appear where needed; GitHub links are secondary
+evidence, not the user's primary task flow.
 
-The list supports Workspace, provider, Platform Connection, lifecycle,
-governance, environment, owner, and recent-run filters. Rows show enough
-execution target and control status to distinguish similarly named batches.
+## Interaction Rules
 
-The detail page contains compact sections in this order:
+- After a confirmed mutation, show the product detail and actual latest state,
+  not an obsolete approve button or a forced trip to GitHub.
+- Execution requests link to the exact execution detail when correlated, not
+  merely to an unfiltered list. Change requests link to their Batch.
+- Batch detail shows what runs, runtime, command/artifact, schedules and history.
+  Gate is mandatory and compact; it is not an optional switch or oversized card.
+- Disabled controls expose a concise accessible reason, ordinarily a tooltip.
+- Business logs default to the actual batch-command region; full logs remain
+  available. Gate denial is not business failure.
+- Request withdrawal, queued cancellation and running stop use distinct
+  confirmations. Ask before stopping running work, preserve reason, and wait for
+  real engine evidence before displaying completion.
+- Result synchronization is a separate read/repair command, never automatic
+  re-execution or cancellation.
+- Lists expose errors and partial scope; stale work must not disappear merely
+  because the newest page is full. Use current direct-query behavior; no new
+  caching layer is authorized here.
+- English and Korean, keyboard interaction, desktop/mobile layout and connected
+  navigation are checked for every affected screen under open #119.
 
-1. identity, lifecycle, provider, connection, and effective revision;
-2. primary requests: run, change, suspend/restore, delete;
-3. execution target and provider-specific configuration;
-4. schedules and expected next occurrences;
-5. recent runs and failures;
-6. change, Gate, and audit evidence.
-
-Gate is mandatory status attached to the execution target. It must not consume
-a large standalone promotional card and must never look optional.
-
-Deleted Batches retain the same detail route in read-only archive mode, with
-their final revision and historical runs directly reachable.
-
-### Requests And Approvals
-
-One normalized request list supports:
-
-- change requests;
-- execution intents;
-- failure submissions awaiting review.
-
-Type-specific detail pages use the same header, state history, requester,
-policy, decision, evidence, and source-link pattern. Change approval must show
-material before/after fields and a native diff. Execution approval must show
-the exact Batch revision, target, parameters or redacted bindings, reason,
-expiry, and separation-of-duties result.
-
-An item that is dispatched, applied, failed, rejected, expired, or otherwise no
-longer actionable never shows active approve/reject controls. It links to its
-result detail instead.
-
-### Runs
-
-Run list is provider-neutral and includes queued, running, succeeded, business
-failed, Gate blocked, canceled, timed out, and unknown attempts. The default
-view includes all states; a failure shortcut applies the relevant filter.
-
-Run detail shows:
-
-- Batch and immutable revision;
-- trigger and authority source;
-- normalized and native execution identity;
-- Gate decision and reason;
-- timestamps and state history;
-- business log view first, full native log view on demand;
-- source-platform link;
-- failure follow-up state and action when applicable.
-
-### Failures
-
-Failure list separates business failures from Gate control exceptions. Business
-failures support explanation and action submission. Closure requires an
-independent Workspace Manager review. Gate blocks remain searchable control
-exceptions and may open operational remediation work, but are not mislabeled as
-business failures.
-
-### Audit Trail
-
-Audit uses the normalized event contract. Filters include Workspace,
-connection, provider, Batch, actor, action, outcome, reason, request/attempt,
-and time. Native evidence opens as a secondary source link. Export is available
-only when runtime capability and authorization allow it.
-
-### Platform Connections
-
-Connection pages contain provider-specific setup, credentials reference,
-capabilities, health, connector version, enforcement coverage, drift, and
-upgrade actions. GitHub owner/repository and Jenkins endpoint are connection
-fields; neither changes the product navigation vocabulary.
-
-## 5. Runtime Boundary
-
-Feature code imports product contracts only:
-
-```text
-feature page
-  -> feature query/command hook
-  -> BatchPlaneClient interface
-  -> Main API client OR Lite application service
-  -> provider/persistence adapter
-```
-
-Forbidden dependencies:
-
-- feature component to GitHub REST client;
-- feature component to Kotlin server DTO implementation detail;
-- shared route to provider-name conditional;
-- Lite composition root to a parser owned by a feature component;
-- provider adapter to UI translation resources.
-
-Provider-specific forms are rendered from a versioned configuration schema plus
-bounded provider UI extensions. Extensions may contribute fields, validation,
-help, and native preview; they may not replace approval, Gate, audit, or request
-state components.
-
-## 6. Query And Mutation Behavior
-
-- A page entry and explicit refresh request fresh authoritative data.
-- Query caching may deduplicate concurrent reads but must not mask a completed
-  mutation or provider event behind a stale time-to-live.
-- A successful mutation returns or immediately fetches its authoritative object
-  and navigates to that BatchPlane detail route.
-- Provider eventual consistency is shown as a named state such as `Awaiting
-provider visibility`, not as missing data or a silent empty list.
-- Optimistic UI is limited to reversible local presentation state. Approval,
-  apply, dispatch, Gate, and failure-review outcomes are never guessed.
-- List rows use stable dimensions and compact metadata so refreshes do not shift
-  the layout.
-
-## 7. Capability-Driven UX
-
-The runtime combines edition and connection capabilities. Controls have four
-possible states:
-
-| State                        | Behavior                                                                                     |
-| ---------------------------- | -------------------------------------------------------------------------------------------- |
-| Available                    | Normal command or navigation action                                                          |
-| Unavailable by capability    | Disabled with a concise reason tooltip                                                       |
-| Unavailable by authorization | Hidden for disclosure-sensitive actions or disabled with policy reason where context matters |
-| Temporarily unavailable      | Disabled with health/retry context and no false permanent limitation                         |
-
-Unsupported provider actions must not disappear if their absence would confuse
-an operator reading a governed Batch. For example, a disabled `Cancel` action
-shows that the provider does not support controlled cancellation.
-
-## 8. Edition Composition
-
-### Main
-
-- authenticates through the configured IdP;
-- receives product roles and Workspace membership from the server;
-- supports multiple connections in one Workspace;
-- uses server-side pagination, authorization, audit export, and provider health;
-- never receives provider secret values.
-
-### Lite
-
-- authenticates with the current GitHub session token;
-- maps one repository to one Workspace trust boundary;
-- supports multiple connected Workspaces in volatile browser session state;
-- uses GitHub-native PR, Issue, comment, and run evidence behind product view
-  models;
-- renders setup, branch-protection, token-scope, and managed-workflow health in
-  the GitHub Platform Connection surface.
-
-## 9. Internationalization And Accessibility
-
-- English is the default locale and Korean is bundled.
-- Locale selection begins with stored user choice, then browser locale, then
-  English fallback.
-- Contributors add locale resources through the supported-locale registry and
-  message catalogs without editing feature conditions.
-- Stable technical identifiers, provider resource names, reason codes, YAML
-  fields, and log text are not translated.
-- Icons have accessible names or adjacent text; unfamiliar icon-only controls
-  have tooltips.
-- Keyboard focus, error association, status semantics, contrast, and responsive
-  text fit are release checks.
-
-## 10. Screen Review Contract
-
-Every screen implementation or material revision checks:
-
-1. its place in the end-to-end operator journey;
-2. the primary object and next action;
-3. whether actionable work is separated from evidence/history;
-4. whether provider detail is subordinate to product meaning;
-5. whether mandatory Gate status appears compactly and unambiguously;
-6. disabled-action reasons and empty/error/loading states;
-7. authoritative refresh and post-mutation navigation;
-8. English/Korean parity and extensible locale resources;
-9. desktop and mobile layout without overlap or wasted structural space;
-10. Main/Lite behavior through the same page component and client contract.
-
-The standing UI/UX review issue remains open while screens are being developed;
-individual PRs reference the applicable checklist evidence rather than treating
-one initial review as permanent approval.
+The [QA sheet](./user-qa.ko.md) identifies which of these are current checks and
+which await implementation. A mock Main fixture proves composition only.

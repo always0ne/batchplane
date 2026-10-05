@@ -2,6 +2,7 @@
   "title": "Audit Trail",
   "subtitle": "Trace requests, approvals, dispatches, Gate decisions, and workflow runs.",
   "actions": {
+    "openExecution": "Execution detail",
     "openSource": "GitHub source",
     "refresh": "Refresh"
   },
@@ -16,6 +17,13 @@
     "batchId": "Batch",
     "requestId": "Request",
     "runId": "Run",
+    "runAttempt": "Attempt",
+    "scheduleId": "Schedule",
+    "observation": "Observed result",
+    "followUpId": "Follow-up",
+    "reviewId": "Review",
+    "reviewStatus": "Review",
+    "selfReview": "Self review",
     "gateResult": "Gate",
     "status": "Status",
     "reasonCode": "Reason"
@@ -27,16 +35,21 @@
     "error": "Audit timeline could not be loaded."
   },
   "summaries": {
+    "SOURCE_RUN_OBSERVED": "Source Run {{runId}}, attempt {{runAttempt}}: {{observation}}",
+    "NATIVE_SCHEDULE_OBSERVED": "Schedule {{scheduleId}}, Run {{runId}}, attempt {{runAttempt}}: {{observation}}",
     "BATCH_REGISTERED": "Batch registered by PR #{{pullNumber}} for {{batchId}}",
     "BATCH_CHANGED": "Batch change requested by PR #{{pullNumber}} for {{batchId}}",
     "EXECUTION_REQUESTED": "Execution requested for {{batchId}}",
     "APPROVAL_RECORDED": "Approval recorded for {{batchId}}",
     "DISPATCH_RECORDED": "Dispatcher recorded {{status}} for {{batchId}}",
+    "FAILURE_FOLLOW_UP_RECORDED": "Failure follow-up recorded for {{batchId}}",
+    "FAILURE_FOLLOW_UP_REVIEWED": "Failure follow-up {{decision}} for {{batchId}}",
     "GATE_DECIDED": "Gate {{gateResult}} for {{batchId}}",
     "RUN_COMPLETED": "Workflow run {{conclusion}} for {{batchId}}",
     "SCHEDULE_OCCURRED": "Schedule occurrence for {{batchId}}"
   },
   "values": {
+    "scheduleExecution": "Schedule execution",
     "actor": "Actor: {{actor}}",
     "gateResult": {
       "ALLOWED": "allowed",

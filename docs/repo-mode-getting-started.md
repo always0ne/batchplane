@@ -1,6 +1,6 @@
 # BatchPlane Lite Workspace Getting Started
 
-BatchPlane Lite uses a GitHub-backed Workspace as the governance store,
+BatchPlane Lite uses a GitHub-backed Workspace as the configuration store,
 approval surface, dispatcher runtime, and audit trail. The React/Vite UI is
 static; it does not run a BatchPlane server. In Lite, the Workspace is backed by
 one target GitHub repository.
@@ -86,7 +86,11 @@ Enter:
 - Repository: target GitHub repository name
 - Token: fine-grained token
 
-Choose `Save session`, then `Check connection`.
+Choose `Check connection` to save and verify the entered connection. A separate
+`Save session` is optional and does not verify connectivity. Editing, saving or
+clearing the connection invalidates the previous check. Check again before
+creating installation, update or policy requests; those actions do not save
+the connection for you.
 
 The connection check reads:
 
@@ -108,11 +112,11 @@ The target repository is installed when the default branch contains:
 .batch-governance/batches/.gitkeep
 ```
 
-If any required file is missing, choose `Create installation PR` in Workspace.
+If any required file is missing, choose `Create installation request` in Workspace.
 Review and merge the pull request in GitHub.
 
 If required files exist but generated workflow files are outdated, Workspace
-shows the affected workflow paths and offers `Create workflow update PR`. That
+shows the affected workflow paths and offers `Create update request`. That
 update only changes managed workflow files:
 
 ```text
@@ -152,7 +156,7 @@ spec:
 
 Supported approval modes:
 
-- `SELF_APPROVAL_BLOCKED`: default four-eyes control. Requester and approver
+- `SELF_APPROVAL_BLOCKED`: default separation of duties. Requester and approver
   must be different users. Use this for audit-heavy or production-like
   Workspaces.
 - `SELF_APPROVAL_ALLOWED`: requester may approve their own eligible Batch change
@@ -164,7 +168,7 @@ Supported approval modes:
   execution and eligible Batch change request creation also records explicit
   approval evidence automatically. Gate allows execution evidence only when the
   merged Workspace policy is `AUTO_APPROVE`. The dispatcher still performs
-  `workflow_dispatch`; the browser UI must not dispatch governed workflows
+  `workflow_dispatch`; the browser UI must not dispatch controlled workflows
   directly. This mode also includes `SELF_APPROVAL_ALLOWED` behavior.
 
 Workspace policy, role-mapping, and installation requests use the policy that
@@ -283,7 +287,7 @@ Common causes:
 - missing `.batch-governance/policies/role-mapping.yml`
 - missing or stale dispatcher workflow
 - direct `workflow_dispatch` without a matching approved request
-- GitHub Actions UI rerun of a previous governed workflow run
+- GitHub Actions UI rerun of a previous controlled workflow run
 - self-approval while Workspace policy is `SELF_APPROVAL_BLOCKED`
 - expired request
 - digest mismatch after Issue body or approval evidence was edited
@@ -298,17 +302,21 @@ the downstream Batch command failed.
 Schedules are stored inside the owning batch definition and approved through
 the registration or change PR.
 
-The current 0.x generator preserves the user-entered timezone in Batch metadata
-but converts the native trigger to UTC cron entries. Its scheduled job creates
-occurrence-specific Issue evidence, writes a legacy `SCHEDULE_DELEGATED`
-compatibility marker, and invokes the dispatcher without waiting in the manual
-approvals inbox.
+GitHub Actions entries retain the original cron and native IANA timezone.
+Within one Batch workflow, the same cron with different timezones is rejected
+explicitly because the documented event context does not distinguish them.
 
-The v2 target uses GitHub.com native POSIX cron plus IANA timezone support. The
-effective approved Schedule Revision becomes the authority, and the native
-schedule run passes Gate before the batch command without creating manual or
-automatic approval evidence. The migration and compatibility window are
-defined in `control-plane-migration-plan.md` and `main-lite-conformance.md`.
+Each observed native Run records a schedule-specific execution request, Gate
+decision, business execution and result in the same workflow. The approved
+Batch revision is its authorization; there is no per-occurrence approval
+comment or second dispatched Run. Scheduled requests do not wait in approvals.
+
+Full and partial native reruns are blocked before the command. Separate native
+Runs are not deduplicated by an inferred nominal scheduled time. Delay is
+possible; Lite does not automatically catch up missed slots or re-execute after
+an uncertain result. Regenerate existing Batch workflows through an approved
+Batch change, not a direct file edit or Workspace reset. See the
+[schedule execution contract and live checklist](./schedule-execution-contract.md).
 
 ## Security Limitations
 

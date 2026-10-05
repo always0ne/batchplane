@@ -1,6 +1,10 @@
 # BatchPlane Domain Model
 
-Status: Architecture baseline for issue #191
+Status: Conceptual model, reconciled 2026-10-05. Main aggregate names, fields,
+state enums, IDs and table boundaries below are design candidates, not released
+API/schema. #227 approves the concrete model before Main implementation.
+The approved product semantics and current Lite implementation take precedence
+over illustrative shapes; see [traceability](./requirements-traceability.md).
 
 ## Modeling Principles
 
@@ -18,7 +22,7 @@ Status: Architecture baseline for issue #191
 
 | Value object           | Meaning                                              |
 | ---------------------- | ---------------------------------------------------- |
-| `WorkspaceId`          | Tenant and governance boundary                       |
+| `WorkspaceId`          | Access and policy boundary                           |
 | `PlatformConnectionId` | One configured provider installation or endpoint     |
 | `ProviderKey`          | Stable extensible string such as `github-actions`    |
 | `BatchId`              | Global product identifier inside a Workspace         |
@@ -91,7 +95,7 @@ Batch
   externalResourceRef
   currentRevisionId
   lifecycleStatus
-  governanceStatus
+  controlStatus
 ```
 
 `BatchRevision` is immutable:
@@ -129,10 +133,10 @@ Examples of provider-owned fields:
 Schedules are logically part of `BatchRevision`. Main MAY maintain relational
 schedule projection tables for searching and occurrence processing.
 
-## Governed Change Aggregate
+## Change Request Concept
 
 ```text
-GovernedChangeRequest
+ChangeRequest
   requestId
   workspaceId
   batchId
@@ -162,7 +166,6 @@ stateDiagram-v2
     APPROVED --> CONFLICTED: base revision changed
     APPLYING --> APPLIED: provider mutation confirmed
     APPLYING --> APPLY_FAILED: provider mutation failed
-    APPLY_FAILED --> APPLYING: approved retry
     APPLIED --> [*]
     REJECTED --> [*]
     CANCELED --> [*]
@@ -170,7 +173,8 @@ stateDiagram-v2
 ```
 
 Approval does not itself mean the provider mutation succeeded. `APPLIED` is the
-only state that confirms effective native change.
+only state that confirms effective native change. Change-apply failure recovery
+requires separate detailed design; this illustration does not authorize retries.
 
 ## Approval Aggregate
 
@@ -194,6 +198,18 @@ evidence source.
 The approval state is derived from policy and decisions. A provider-native PR
 review or repository role is evidence consumed by an edition adapter; it is not
 the core approval model.
+
+## Unified Request Boundary
+
+The single-target shapes below describe an operation, not the final unified
+request. #142 requires a request containing multiple Batch/operation/Workspace
+items and one whole-request approval. Creation requires a common approver for
+all operations; per-Workspace approval collection is not the chosen model.
+Request approval and each item's apply/execution result remain separate.
+
+Exact item ordering, cross-repository evidence, partial-failure handling and
+Main schema require approved design. Do not implement a generic workflow engine
+from this conceptual document.
 
 ## Execution Intent Aggregate
 
@@ -227,16 +243,29 @@ stateDiagram-v2
     REQUESTED --> REJECTED: reject
     REQUESTED --> CANCELED: cancel
     REQUESTED --> EXPIRED: expires
+    AUTHORIZED --> CANCELED: authorized withdrawal before delivery
     AUTHORIZED --> DISPATCHING: dispatch begins
     AUTHORIZED --> EXPIRED: authorization expires
     DISPATCHING --> DISPATCHED: provider accepted
-    DISPATCHING --> DISPATCH_FAILED: provider rejected or unavailable
-    DISPATCH_FAILED --> DISPATCHING: approved dispatch retry
+    DISPATCHING --> DISPATCH_FAILED: confirmed provider rejection
+    DISPATCH_FAILED --> [*]
     DISPATCHED --> [*]
 ```
 
 The execution result is not part of this state machine. It belongs to
-`ExecutionAttempt`.
+`ExecutionAttempt`. Unknown acceptance is not confirmed dispatch failure and
+must not cause blind redelivery. Confirmed dispatch failure requires a new
+request under current policy/inputs. Expired/terminal requests cannot
+indefinitely block valid new work (#224).
+
+Approved withdrawal is allowed for requester, approver or target-execution-
+authorized user. Once native work is queued/running, explicit real cancel/stop
+confirmation and reason are required; preserve actual terminal results if it
+already finished. Detailed authority mapping and state enums require #225/#227.
+Mixed item outcomes cannot be displayed as a fully withdrawn unified request.
+
+Result synchronization repairs observations; it is a separate command from
+cancellation and cannot re-execute business work.
 
 ## Schedule Authority
 
@@ -251,8 +280,6 @@ ScheduleRevision
   cron
   timezone
   enabled
-  overlapPolicy
-  misfirePolicy
   effectiveFrom
   effectiveUntil
   approvalEvidenceRef
@@ -260,7 +287,7 @@ ScheduleRevision
 ```
 
 The native schedule trigger supplies a `ScheduledOccurrenceRef` containing
-provider, schedule identity, native scheduled time, and native execution
+provider, schedule identity, available native timing, and native execution
 identity. Gate resolves the currently effective approved Schedule Revision.
 
 ```text
@@ -277,7 +304,15 @@ ScheduledOccurrenceRef
 adapter derives a documented key from the Schedule Revision and native
 execution identity. `expectedAt` may be absent when a provider reports only an
 observed native occurrence. Provider delay is represented by the difference
-between `expectedAt` and `observedAt`; it does not create a new approval.
+between `expectedAt` and `observedAt` only when a trustworthy expected time
+exists; worker start time is not a substitute. It does not create a new approval.
+
+Lite occurrence identity is defined in the
+[schedule contract](./schedule-execution-contract.md):
+`(repositoryId, batchId, scheduleId, sourceRunId)`. Same-Run attempts share the
+source occurrence; rerun does not create authority. Separate native Runs are
+not guaranteed deduplicated for an inferred nominal slot. No automatic
+catch-up/backfill/retry is approved. #229 provides Main delay monitoring.
 
 ## Execution Permit
 
@@ -292,7 +327,7 @@ ExecutionPermit
   platformConnectionId
   batchId
   batchRevisionId
-  authorityType: EXECUTION_INTENT | SCHEDULE_REVISION | BREAK_GLASS
+  authorityType: EXECUTION_INTENT | SCHEDULE_REVISION
   authorityId
   parameterDigest
   issuedAt
@@ -375,6 +410,9 @@ stateDiagram-v2
 
 The initial explanation and every manager decision remain immutable evidence.
 Corrections create a new submission rather than editing historical records.
+This is supported-product behavior: Lite source comments remain editable or
+deletable under GitHub permissions. Explicit manager review is required; allowed
+self-review follows effective policy and never means automatic closure.
 
 ## Audit Event
 
@@ -400,7 +438,7 @@ AuditEvent
   metadata
 ```
 
-Current state is stored in domain tables; Audit Event records how that state was
+In the Main target, current state is stored in domain tables; Audit Event records how that state was
 reached. BatchPlane does not require full event sourcing for the initial Main
 architecture.
 

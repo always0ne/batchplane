@@ -10,22 +10,24 @@
     "command": "Batch command",
     "domain": "Domain",
     "environment": "Environment",
-    "governed": "Governed",
+    "controlled": "Controlled",
     "missingCommand": "Batch command is missing",
     "owner": "Owner",
-    "runsOn": "Runs on",
-    "workflowPath": "Workflow path"
+    "runsOn": "Execution environment",
+    "workflowPath": "Execution target"
   },
   "detail": {
     "title": "Execution request detail",
     "subtitle": "Review request {{requestId}} and record approval evidence.",
+    "nativeScheduleSubtitle": "Request {{requestId}}",
     "actions": {
       "approve": "Approve execution",
       "backToApprovals": "Back to approvals",
+      "backToRequestInventory": "Back to request inventory",
       "closedTitle": "No approval action",
-      "note": "Approval records Issue comment evidence. The browser never dispatches the workflow directly.",
-      "openIssue": "Open Issue",
-      "openRunDetail": "View run detail",
+      "note": "Approval records request evidence. The browser never dispatches the workflow directly.",
+      "openSourceRequest": "Open source request",
+      "openRunDetail": "View execution detail",
       "refresh": "Refresh",
       "reject": "Reject",
       "title": "Approval decision"
@@ -37,6 +39,8 @@
       "gateBlocked": "Blocked",
       "gateEvidence": "Gate evidence",
       "noBrowserDispatch": "BatchPlane UI records evidence only. The repository dispatcher workflow observes the approval comment and performs workflow_dispatch.",
+      "nativeScheduleEvidence": "This is a recorded native schedule occurrence. Its observed Actions attempt is the execution evidence.",
+      "nativeScheduleTitle": "Native schedule evidence",
       "none": "No evidence yet",
       "noWorkflowRun": "No correlated workflow run yet",
       "status": "Status",
@@ -46,25 +50,27 @@
     },
     "fields": {
       "artifact": "Execution file",
+      "approvedBatchRevision": "Approved Batch revision",
       "batchId": "Batch ID",
       "command": "Batch command",
       "environment": "Environment",
       "expiresAt": "Expires at",
-      "issueState": "Issue state",
+      "issueState": "Source request status",
       "reason": "Reason",
       "repository": "Workspace",
       "requestDigest": "Request digest",
       "requestedAt": "Requested at",
       "requestedBy": "Requested by",
-      "runsOn": "Runs on",
-      "workflow": "Workflow"
+      "runsOn": "Execution environment",
+      "sourceChange": "Source change",
+      "workflow": "Execution target"
     },
-    "governance": {
+    "control": {
       "digest": "Request digest is present.",
       "gateMissing": "BatchPlane Gate evidence is missing.",
       "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
       "requester": "Requester evidence is present.",
-      "title": "Governance checks"
+      "title": "Control checks"
     },
     "material": {
       "title": "Decision material"
@@ -81,7 +87,9 @@
       "error": "Failed to load execution request detail.",
       "loading": "Loading execution request detail...",
       "noSession": "Connect a Workspace before reviewing execution requests.",
-      "notFound": "Execution request Issue #{{issueNumber}} was not found."
+      "notFound": "Execution request {{requestLocator}} was not found.",
+      "pending": "The request is recorded. Awaiting the latest processing status.",
+      "unavailable": "The latest status could not be checked. Showing the last confirmed result."
     },
     "status": {
       "APPROVED": "Approval recorded",
@@ -90,7 +98,8 @@
       "DISPATCH_FAILED": "Dispatch failed",
       "GATE_BLOCKED": "Gate blocked",
       "REJECTED": "Rejected",
-      "REQUESTED": "Waiting for approval"
+      "REQUESTED": "Waiting for approval",
+      "SCHEDULE_RECORDED": "Scheduled occurrence recorded"
     },
     "statusHelp": {
       "APPROVED": "Approval comment evidence exists. The dispatcher is expected to pick it up.",
@@ -99,33 +108,38 @@
       "DISPATCH_FAILED": "Dispatcher evidence says workflow dispatch failed.",
       "GATE_BLOCKED": "Gate evidence says the workflow run was blocked.",
       "REJECTED": "The request was rejected and must not dispatch.",
-      "REQUESTED": "A maintainer approval comment is still required."
+      "REQUESTED": "A maintainer approval comment is still required.",
+      "SCHEDULE_RECORDED": "This is a native schedule occurrence. Its approved Batch revision, Gate observation, and execution evidence are separate; it is not awaiting human approval."
     },
     "values": {
       "selfApprovalAllowed": "Self-approval is enabled by Workspace policy ({{mode}}). This approval will still be recorded as self-approval evidence.",
-      "selfApprovalBlocked": "Requester and approver must be different users."
+      "selfApprovalBlocked": "Requester and approver must be different users.",
+      "requesterIdentityUnverified": "The request's requester identity could not be verified."
     }
   },
   "runDetail": {
-    "title": "Execution run detail",
-    "subtitle": "Inspect workflow run {{runId}} evidence.",
+    "sourceRunTitle": "Source execution detail",
+    "title": "Execution detail",
+    "subtitle": "Inspect execution {{executionId}} evidence.",
     "actions": {
       "backToFailures": "Back to failures",
-      "backToRuns": "Back to runs",
+      "backToExecutions": "Back to executions",
       "openBatch": "Open batch",
-      "openGitHubRun": "Open GitHub run",
+      "openGitHubRun": "Open source execution",
       "refresh": "Refresh"
     },
     "business": {
+      "sourceRunUnconfirmed": "This source run is not correlated with a recorded schedule occurrence. Its jobs and logs are available, but no business result is attributed.",
       "current": "Business execution status: {{status}}.",
       "failed": "The batch command or business job failed after Gate allowed the run.",
       "notReached": "The batch command did not run because Gate blocked execution.",
+      "verificationUnknown": "The workflow failed, but Gate verification is unknown. BatchPlane cannot classify this as a business failure.",
       "title": "Business execution"
     },
     "followUp": {
       "actionTaken": "Action taken",
       "actionTakenPlaceholder": "Describe the correction, rerun, escalation, or risk-acceptance proposal.",
-      "description": "Record the operator explanation and follow-up action as immutable GitHub-backed evidence. Workspace manager review is tracked separately.",
+      "description": "Record the operator explanation, follow-up action, and Workspace manager review as GitHub-backed audit evidence.",
       "empty": "No failure explanation has been recorded yet.",
       "error": "Failed to save failure follow-up.",
       "explanation": "Explanation",
@@ -133,6 +147,28 @@
       "history": "Recorded explanations",
       "owner": "Owner",
       "ownerPlaceholder": "ops-team or @username",
+      "review": {
+        "approve": "Approve explanation",
+        "error": "Failed to record review decision.",
+        "latest": "Reviewed by @{{reviewer}} at {{reviewedAt}}",
+        "reason": "Review reason",
+        "reasonPlaceholder": "Record why the explanation is accepted, rejected, or needs changes.",
+        "reject": "Reject",
+        "requestChanges": "Request changes",
+        "saving": "Recording...",
+        "statusValues": {
+          "APPROVED": "Manager approved",
+          "AWAITING_REVIEW": "Manager review pending",
+          "CHANGES_REQUESTED": "Changes requested",
+          "REJECTED": "Manager rejected"
+        },
+        "unavailableReasons": {
+          "ALREADY_REVIEWED": "A manager review decision is already recorded.",
+          "NOT_WORKSPACE_MANAGER": "Workspace manager permission is required to review this explanation.",
+          "PERMISSION_UNAVAILABLE": "Workspace manager permission could not be verified.",
+          "SELF_REVIEW_BLOCKED": "You cannot review your own explanation under the current Workspace policy."
+        }
+      },
       "save": "Record follow-up",
       "saving": "Recording...",
       "status": "Follow-up status",
@@ -154,15 +190,16 @@
       "reasonCode": "Reason code",
       "requestId": "Request ID",
       "runAttempt": "Attempt",
-      "runId": "Run ID",
+      "executionId": "Execution ID",
+      "sourceRunId": "Source execution ID",
       "startedAt": "Started at",
-      "workflow": "Workflow"
+      "workflow": "Execution target"
     },
     "gate": {
       "allowedMessage": "Gate allowed this run before the batch command.",
       "blockedMessage": "Gate blocked this run before the batch command. Treat this separately from business failure.",
       "blockedTitle": "Gate blocked",
-      "noEvidence": "Gate job evidence is not available yet.",
+      "noEvidence": "Gate verification is unknown because structured Gate evidence is unavailable or does not match this run.",
       "title": "Gate control"
     },
     "jobs": {
@@ -175,6 +212,7 @@
       "hideLog": "Hide logs",
       "jobId": "Job ID {{jobId}}",
       "kind": {
+        "source": "Source job",
         "business": "Business job",
         "gate": "Gate job"
       },
@@ -185,6 +223,7 @@
       "logUnavailable": "Log link unavailable",
       "logViewTruncated": "Showing the first {{limit}} of {{count}} matching log lines.",
       "openBusinessLog": "Open business logs",
+      "openSourceLog": "Open source logs",
       "openGateLog": "Open Gate logs",
       "openLogForJob": "Open GitHub Actions logs for {{name}}",
       "rawLogNotPersisted": "Loaded on demand from GitHub. Raw log text is not written to audit evidence.",
@@ -192,6 +231,7 @@
       "searchLog": "Search log",
       "searchPlaceholder": "Filter visible log lines",
       "viewBusinessLog": "View business logs",
+      "viewSourceLog": "View source logs",
       "viewGateLog": "View Gate logs",
       "title": "Job conclusion summary"
     },
@@ -201,28 +241,31 @@
       "FAILED": "Failed",
       "QUEUED": "Queued",
       "RUNNING": "Running",
-      "SUCCEEDED": "Succeeded"
+      "SUCCEEDED": "Succeeded",
+      "UNCONFIRMED": "Evidence unconfirmed"
     },
     "states": {
       "actionsPermission": "GitHub Actions read permission is required to load run evidence and job log links. Check the token permissions for this private repository.",
       "error": "Failed to load execution run detail.",
       "loading": "Loading execution run detail...",
       "noSession": "Connect a Workspace before viewing execution runs.",
-      "notFound": "Execution run {{runId}} was not found."
+      "notFound": "Execution {{executionId}} was not found."
     },
     "status": {
       "BLOCKED": "Gate blocked",
       "CANCELED": "Canceled",
       "FAILED": "Business failed",
+      "GATE_VERIFICATION_UNKNOWN": "Gate verification unknown",
       "QUEUED": "Queued",
       "RUNNING": "Running",
-      "SUCCEEDED": "Succeeded"
+      "SUCCEEDED": "Succeeded",
+      "UNCONFIRMED": "Evidence unconfirmed"
     },
     "values": {
       "inProgress": "In progress",
       "none": "None",
       "unknown": "Unknown",
-      "unknownWorkflow": "GitHub Actions workflow"
+      "unknownWorkflow": "Execution target unavailable"
     }
   },
   "form": {
@@ -231,7 +274,8 @@
     "expiresInOption": "{{hours}} hour(s)",
     "reason": "Reason",
     "title": "Request details",
-    "workflowRef": "Workflow ref"
+    "workflowRef": "Workflow ref",
+    "targetRevision": "Target revision"
   },
   "parameters": {
     "add": "Add parameter",
@@ -239,7 +283,7 @@
     "name": "Name",
     "remove": "Remove parameter",
     "sensitive": "Sensitive",
-    "sensitiveHint": "Sensitive values are never written to the GitHub Issue. BatchPlane stores only a value digest for audit comparison.",
+    "sensitiveHint": "Sensitive values are never written to the source request. BatchPlane stores only a value digest for audit comparison.",
     "title": "Parameters",
     "value": "Value"
   },
@@ -250,21 +294,21 @@
   },
   "review": {
     "commandReady": "Batch command is included in the request payload.",
-    "autoApproval": "Workspace policy auto-approves this request after Issue creation. BatchPlane records approval evidence only; the dispatcher still performs workflow_dispatch.",
+    "autoApproval": "Workspace policy auto-approves this request after creation. BatchPlane records approval evidence only; the dispatcher performs the controlled workflow dispatch.",
     "digest": "Request digest",
-    "digestReady": "Request digest will be written to the Issue marker.",
+    "digestReady": "Request digest will be written to request evidence.",
     "expiresAt": "Expires at",
     "gateRequired": "BatchPlane Gate is mandatory before the batch command.",
     "nextStep": "After creation, BatchPlane opens the execution request detail.",
-    "noDispatch": "Creating the Issue does not dispatch the workflow.",
+    "noDispatch": "Creating the request does not dispatch the workflow.",
     "pending": "Pending",
     "requestId": "Request ID",
-    "runner": "Runner",
+    "runner": "Execution environment",
     "title": "Request review",
-    "workflow": "Workflow"
+    "workflow": "Execution target"
   },
   "states": {
-    "completeForm": "Complete the request before creating an Issue.",
+    "completeForm": "Complete the request before creating it.",
     "created": "Execution request was created.",
     "error": "Failed to load execution request form.",
     "loading": "Loading execution request form...",
@@ -275,12 +319,18 @@
     "submitError": "Failed to create execution request."
   },
   "validation": {
+    "readiness": {
+      "BATCH_INACTIVE": "Inactive batches cannot be requested for execution.",
+      "EXECUTION_COMMAND_UNAVAILABLE": "The batch command is not recorded in the batch definition.",
+      "GATE_NOT_REQUIRED": "BatchPlane Gate is mandatory before execution can be requested."
+    },
     "expiresIn": "Expiration must be selected.",
     "gateRequired": "BatchPlane Gate is mandatory before execution can be requested.",
     "inactive": "Inactive batches cannot be requested for execution.",
     "missingCommand": "The batch command is not recorded in the batch definition.",
     "parameterName": "Parameter name is required when a value is entered.",
     "reason": "Reason is required.",
-    "workflowRef": "Workflow ref is required."
+    "workflowRef": "Workflow ref is required.",
+    "targetRevision": "Target revision is required."
   }
 }

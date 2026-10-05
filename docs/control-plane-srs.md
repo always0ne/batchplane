@@ -1,6 +1,16 @@
 # BatchPlane Unified Control Plane SRS
 
-Status: Architecture baseline for issue #191
+Status: Product requirements reconciled 2026-10-05.
+Delivery order and implementation readiness are separate from this normative
+target; see [the roadmap](./control-plane-migration-plan.md) and
+[requirements traceability](./requirements-traceability.md).
+
+The original proposal IDs are retained. CP-BAT-004/005/006, CP-FAL-003/006,
+CP-AUD-005 and CP-NOT-002/003/004/005 describe earlier proposals whose scope still
+needs confirmation. Their MUST/SHOULD wording is conditional on adoption, not
+new approval in this PR. Retention details, Main API/DB shapes and provider
+credentials require design at their assigned stage. No optional proposal may
+silently become a release gate.
 
 This document defines product-level requirements shared by Main and Lite.
 Edition-specific specifications may refine storage, transport, and user handoff,
@@ -34,21 +44,22 @@ but must not change the product meaning defined here.
 - `CP-WSP-003` A Platform Connection MUST identify a provider, endpoint or
   installation, credential reference, capability set, health state, and
   enforcement coverage.
-- `CP-WSP-004` Credentials MUST NOT be returned to the UI after storage.
+- `CP-WSP-004` Main provider credentials MUST NOT be returned to the UI after
+  storage; Lite's browser token follows CP-WSP-006 instead.
 - `CP-WSP-005` Main MUST store credential references through a secret-provider
   boundary rather than storing browser-supplied long-lived tokens in UI state.
 - `CP-WSP-006` Lite MUST keep its GitHub credential in volatile session storage
   only and MUST document the browser trust limitation.
-- `CP-WSP-007` Workspace switching MUST change all list, detail, action, and
-  audit queries to the selected Workspace without leaking data from another
-  Workspace.
+- `CP-WSP-007` List, detail, command and audit queries MUST retain explicit
+  authorized Workspace/connection scope, including aggregate queries; a UI
+  selection MUST NOT grant access.
 - `CP-WSP-008` Connection health MUST distinguish authentication failure,
   unavailable provider, incompatible connector, missing Gate installation, and
   degraded observation.
-- `CP-WSP-009` Lite MUST provide Workspace switching and MAY aggregate
-  read-only portfolio views across session-connected Workspaces, while writes
-  and policy decisions remain scoped to exactly one repository-backed
-  Workspace.
+- `CP-WSP-009` Authorized aggregate queries and unified requests MUST span
+  multiple Workspaces, not only support switching. Lite delivery is first choice;
+  demonstrated constraints and user approval are required to defer it until
+  the first follow-up after Main's first operating flow.
 
 ## Provider Capability And Installation
 
@@ -90,11 +101,12 @@ but must not change the product meaning defined here.
 - `CP-BAT-008` Deleted batches and their historical revisions, requests, runs,
   failures, and audit records MUST remain directly queryable.
 
-## Governed Registration, Change, And Deletion
+## Controlled Registration, Change, And Deletion
 
-- `CP-CHG-001` Register, update, suspend, restore, and delete operations MUST
-  begin as a Change Request and MUST NOT mutate a native platform before
-  authorization.
+- `CP-CHG-001` Registration, modification and deletion MUST begin as a Change
+  Request and MUST NOT mutate a native platform before authorization. Any
+  supported suspension/restoration is a controlled change too; this does not
+  separately authorize new suspension features.
 - `CP-CHG-002` A Change Request MUST contain the requester, reason, target,
   operation type, base revision, proposed revision, normalized diff, native
   diff when available, and request digest.
@@ -145,17 +157,36 @@ but must not change the product meaning defined here.
   request bodies, browser storage, or logs; a digest or secret reference MAY be
   recorded.
 - `CP-EXE-004` Approval MUST bind to the complete normalized execution intent.
-- `CP-EXE-005` Main MUST issue a short-lived, scope-bound, single-consumption
-  Execution Permit only after successful authorization.
+- `CP-EXE-005` Main MUST bind execution admission to verified, scope-bound
+  authorization for the actual attempt. An Execution Permit is the candidate
+  representation; issuance timing and transport require Main contract approval.
 - `CP-EXE-006` A permit MUST bind Workspace, Platform Connection, Batch,
   revision, trigger, request or schedule authority, parameter digest, expiry,
   and intended native execution when known.
-- `CP-EXE-007` A new retry or rerun MUST create a new attempt and MUST NOT reuse
-  consumed authorization implicitly.
-- `CP-EXE-008` Dispatch failure MUST remain distinguishable from Gate denial and
-  business failure.
+- `CP-EXE-007` A new user-requested execution MUST use new authorization.
+  Native reruns MUST NOT reuse consumed authority. No automatic execution retry
+  or same-request redispatch after confirmed delivery failure is approved.
+- `CP-EXE-008` Confirmed dispatch failure MUST terminate the request and require
+  a new request under current policy/inputs. It MUST remain distinct from unknown
+  delivery, Gate denial and business failure.
+- `CP-EXE-009` Approved parameter values MUST reach the actual business runtime
+  without substituting unapproved values; a correct stored request alone is
+  insufficient.
+- `CP-EXE-010` Expired and terminal failed requests MUST NOT indefinitely block
+  valid subsequent requests or changes.
+- `CP-EXE-011` The requester, actual approver or a target-execution-authorized
+  user MUST be able to withdraw approved work before delivery. Command and Gate
+  checks MUST enforce the withdrawal; UI-only state is insufficient.
+- `CP-EXE-012` Withdrawal after provider acceptance MUST branch on actual state:
+  explicit queued cancel or running-stop confirmation, real engine command and
+  reason/actor/target evidence. Already terminal results MUST be preserved;
+  uncertain results MUST NOT be declared terminated. Detailed cancel authority
+  mapping requires design.
+- `CP-EXE-013` Main's first execution flow MUST provide result synchronization
+  separately from cancellation. It repairs recorded observation from actual
+  provider evidence and MUST NOT re-execute or stop the business command.
 
-## Schedule Governance
+## Schedule Control
 
 - `CP-SCH-001` Schedules MUST be logically owned by a Batch revision even when
   a read projection stores them separately.
@@ -175,8 +206,18 @@ but must not change the product meaning defined here.
   scheduled occurrence while preserving duplicate-delivery evidence.
 - `CP-SCH-009` Disabled, deleted, drifted, or superseded schedules MUST be denied
   at Gate even if the native platform still fires them.
-- `CP-SCH-010` Overlap, misfire, retry, and concurrency policy MUST be explicit
-  and provider-capability aware.
+- `CP-SCH-010` Provider delay and concurrency/duplicate limits MUST be explicit.
+  No automatic catch-up, backfill or execution retry is approved. A native
+  occurrence identity MUST NOT imply deduplication of distinct native executions
+  assigned an inferred nominal time.
+- `CP-SCH-011` Users MUST be able to query schedules across Batches and reach
+  the owning Batch, approved authority and execution history. Editing remains in
+  Batch registration/change requests.
+- `CP-SCH-012` Cron validation, next-occurrence preview and generated native
+  schedule MUST agree on the supported expression and timezone semantics.
+- `CP-SCH-013` Main MUST provide schedule-delay monitoring. Unknown nominal
+  timing MUST remain unknown; worker start time MUST NOT be substituted to
+  fabricate expected execution time.
 
 ## Gate Enforcement
 
@@ -197,13 +238,13 @@ but must not change the product meaning defined here.
   translated only at the UI boundary.
 - `CP-GAT-009` A connection without verified pre-start coverage MUST be marked
   `UNPROTECTED` or `PARTIALLY_PROTECTED`; it MUST NOT appear fully governed.
-- `CP-GAT-010` Emergency bypass, if introduced, MUST be a separately approved,
-  time-bounded break-glass flow and MUST never be an undocumented fail-open.
+- `CP-GAT-010` No implicit fail-open is allowed. Emergency bypass is not
+  approved scope; any future proposal requires a separate design and approval.
 - `CP-GAT-011` A provider integration MUST report terminal outcome for every
   Gate-allowed attempt or reconcile it to an explicit `UNKNOWN` state; Gate
   start evidence alone is not a complete execution record.
 
-## Run Observation And Logs
+## Execution Observation And Logs
 
 - `CP-RUN-001` The run list MUST normalize queued, running, succeeded, business
   failed, Gate blocked, canceled, timed out, and unknown states.
@@ -216,8 +257,14 @@ but must not change the product meaning defined here.
   audit evidence by default.
 - `CP-RUN-005` Log access MUST obey Workspace and provider authorization and
   MUST avoid exposing secrets in application telemetry.
-- `CP-RUN-006` Missing or late provider events MUST be reconciled through an
-  adapter-supported fallback without creating duplicate attempts.
+- `CP-RUN-006` Missing or late provider observations MUST remain distinguishable
+  from actual business outcomes. Reconciliation MUST NOT create another execution.
+- `CP-RUN-007` Execution and audit queries MUST find matching period/Batch
+  records beyond the initial result page. Partial scope or errors MUST NOT be
+  represented as complete or empty results.
+- `CP-RUN-008` Execution detail MUST link to the exact request/authority and
+  retained Batch revision. Business log view MUST default to the actual batch
+  command region and offer full logs.
 
 ## Failure Follow-Up
 
@@ -254,7 +301,8 @@ but must not change the product meaning defined here.
 ## Notifications And Work Queues
 
 - `CP-NOT-001` My Work MUST derive actionable items from requests, approvals,
-  failed execution, follow-up, and manager review state.
+  failed execution, follow-up and manager review. Unresolved items MUST remain
+  discoverable and actionable regardless of age or first-page limits.
 - `CP-NOT-002` Notifications MUST be emitted from committed state through the
   outbox in Main.
 - `CP-NOT-003` Notification delivery failure MUST NOT roll back the governed
@@ -300,10 +348,12 @@ but must not change the product meaning defined here.
   stable operation key.
 - `CP-NFR-002` Webhooks and provider events MUST be treated as at-least-once
   delivery.
-- `CP-NFR-003` Exactly-once business claims MUST be implemented through unique
-  constraints and idempotent transitions, not transport assumptions.
-- `CP-NFR-004` All persisted timestamps MUST be normalized to UTC with
-  sub-second precision; display timezone is a UI concern.
+- `CP-NFR-003` Idempotent product transitions MUST NOT be presented as a
+  guarantee of exactly-once external business effects. Unknown native acceptance
+  MUST NOT trigger blind retransmission.
+- `CP-NFR-004` Absolute timestamps MUST have unambiguous UTC semantics.
+  Configured schedule timezone is execution input and MUST be preserved, not
+  treated as only a display preference. Preserve actual provider precision.
 - `CP-NFR-005` Logs, tokens, credentials, sensitive parameters, and identity
   assertions MUST be redacted from product logs.
 - `CP-NFR-006` Workspace data access MUST be enforced in application and query
@@ -314,8 +364,26 @@ but must not change the product meaning defined here.
   evidence export size MUST be deployment-profile decisions recorded before a
   production release.
 
+## Unified Requests
+
+- `CP-REQ-001` One request MUST support multiple Batches, operation types and
+  authorized Workspaces, with one whole-request approval.
+- `CP-REQ-002` Creation MUST be blocked when no person has approval authority
+  for all target operations. A common approver decides once for the entire
+  request; separate Workspace approvals are not a substitute.
+- `CP-REQ-003` Whole-request approval MUST remain separate from item execution
+  outcomes. Mixed queued/running/terminal targets MUST NOT appear wholly
+  withdrawn when some operations still execute.
+- `CP-REQ-004` Existing request routes MUST remain until unified request
+  delivery. Future routes are `/requests/new` and `/requests/:requestId`.
+
 ## Traceability
 
-Edition and provider specifications MUST reference these requirement IDs.
-Deviation documents MUST identify the requirement, reason, user impact,
-mitigation, and intended closure release.
+[Requirements traceability](./requirements-traceability.md) maps every CP group
+and unified-request specification to issue ownership and QA. Proposed scope and
+Main detail are not claimed implemented. Deviation records identify requirement,
+reason, user impact, mitigation and accepted follow-up.
+
+The [QA sheet](./user-qa.ko.md) groups observable user flows rather than requiring
+one test per requirement. Implementation, local automated checks, user QA and
+live-provider acceptance are separate states.

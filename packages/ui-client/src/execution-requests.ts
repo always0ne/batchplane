@@ -1,0 +1,240 @@
+import type {
+  ExecutionRequestStatus,
+  ExecutionRun,
+  ExecutionRunJob,
+  ExecutionRunStatus,
+  WorkspaceApprovalMode,
+} from "@batchplane/domain";
+import type { BatchExecutionTarget } from "./batch-details.js";
+
+/** Source evidence can be inspected before an execution request is correlated. */
+export type ExecutionRunPresentation = ExecutionRun & {
+  executionTarget?: {
+    location?: string;
+    name?: string;
+  };
+  observedAt?: string;
+  sourceUrl?: string;
+  evidenceScope?: "SOURCE_RUN";
+  nativeSchedule?: NonNullable<ExecutionAttempt["nativeSchedule"]> & {
+    executionLocator: string;
+  };
+};
+
+export type ExecutionRequestParameter = {
+  name: string;
+  sensitive: boolean;
+  value: string;
+};
+
+export type ExecutionRequestBatchContext = {
+  batchId: string;
+  criticality: string;
+  domain: string;
+  environment: string;
+  executionTarget?: BatchExecutionTarget;
+  gateRequired: boolean;
+  name: string;
+  owner: string;
+  status: "ACTIVE" | "INACTIVE";
+};
+
+export type ExecutionRequestDraft = {
+  approvedBatchRevision: {
+    governedChangeId: string;
+    targetRevisionDigest: string;
+  };
+  batch: ExecutionRequestBatchContext;
+  creationCapability: {
+    canCreate: boolean;
+    unavailableReasons: Array<
+      "BATCH_INACTIVE" | "EXECUTION_COMMAND_UNAVAILABLE" | "GATE_NOT_REQUIRED"
+    >;
+  };
+  requestId: string;
+  requestedAt: string;
+  requestedBy: string;
+  workspaceApprovalMode: WorkspaceApprovalMode;
+  workspaceLabel: string;
+};
+
+export type ExecutionRequestDraftResult =
+  | { batchId: string; type: "not-found" }
+  | { draft: ExecutionRequestDraft; type: "ready" };
+
+export type ExecutionRequestInput = {
+  draft: ExecutionRequestDraft;
+  expiresAt: string;
+  parameters: ExecutionRequestParameter[];
+  reason: string;
+  targetRevision: string;
+};
+
+export class ExecutionRequestCreationUnavailableError extends Error {
+  readonly code = "EXECUTION_REQUEST_CREATION_UNAVAILABLE";
+
+  constructor(
+    readonly unavailableReasons: ExecutionRequestDraft["creationCapability"]["unavailableReasons"],
+  ) {
+    super("EXECUTION_REQUEST_CREATION_UNAVAILABLE");
+    this.name = "ExecutionRequestCreationUnavailableError";
+  }
+}
+
+export function isExecutionRequestCreationUnavailableError(
+  error: unknown,
+): error is ExecutionRequestCreationUnavailableError {
+  return error instanceof ExecutionRequestCreationUnavailableError;
+}
+
+export type ExecutionRequestEvidence = {
+  /** The canonical request evidence is intentionally opaque to product UI. */
+  canonicalPayload: string | null;
+  requestDigest: string;
+  approvedBatchRevision: {
+    governedChangeId: string;
+    targetRevisionDigest: string;
+  } | null;
+  /** A uniquely matched, existing change request; provider routing stays outside this contract. */
+  sourceChange?: {
+    label: string;
+    requestLocator: string;
+  };
+};
+
+/** Product-visible schedule identity, intentionally free of repository/SHA evidence. */
+export type ExecutionScheduleOccurrence = {
+  scheduleId: string;
+  sourceRunAttempt: number;
+  sourceRunId: string;
+};
+
+export type ExecutionDecision = {
+  actor: string;
+  decidedAt: string;
+  decision: "APPROVED" | "REJECTED";
+  reason: string;
+  source: "WORKSPACE_POLICY" | "USER";
+};
+
+export type ExecutionDispatch = {
+  actor: string;
+  createdAt: string;
+  status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED";
+};
+
+export type ExecutionGateDecision = {
+  actor: string;
+  allowed: boolean;
+  createdAt: string;
+  message?: string;
+  reasonCode?: string;
+};
+
+export type ExecutionAttempt = {
+  actor?: string;
+  attempt: number;
+  /** Stable BatchPlane attempt identity; routes may use it without provider IDs. */
+  attemptLocator: string;
+  completedAt?: string;
+  gateDecision?: {
+    allowed: boolean;
+    decidedAt: string;
+    message: string;
+    reasonCode?: string;
+  };
+  jobs?: ExecutionRunJob[];
+  requestId: string;
+  sourceLabel: string;
+  sourceUrl?: string;
+  startedAt?: string;
+  status: ExecutionRunStatus;
+  /** A provider-neutral presentation of a native schedule occurrence. */
+  nativeSchedule?: {
+    observation:
+      | "QUEUED"
+      | "RUNNING"
+      | "SUCCEEDED"
+      | "FAILED"
+      | "BLOCKED"
+      | "CANCELED"
+      | "UNCONFIRMED";
+    reason?: string;
+    scheduleId: string;
+    sourceRunAttempt: number;
+    sourceRunId: string;
+  };
+  executionTarget?: {
+    location?: string;
+    name?: string;
+  };
+};
+
+export type ExecutionAttempts =
+  | { type: "loaded"; attempts: ExecutionAttempt[] }
+  | { type: "unavailable" };
+
+export type ExecutionRequestCapability = {
+  canApprove: boolean;
+  canReject: boolean;
+  approveUnavailableReason?:
+    | "NOT_AWAITING_APPROVAL"
+    | "REQUESTER_IDENTITY_UNVERIFIED"
+    | "SELF_APPROVAL_BLOCKED";
+  rejectUnavailableReason?: "NOT_AWAITING_APPROVAL";
+};
+
+export type ExecutionRequestApprovalNotice = {
+  kind: "SELF_APPROVAL_ALLOWED";
+  mode: "SELF_APPROVAL_ALLOWED" | "AUTO_APPROVE";
+};
+
+export type ExecutionRequest = {
+  approvalDecision?: ExecutionDecision;
+  approvalNotice?: ExecutionRequestApprovalNotice;
+  batch: {
+    criticality: string;
+    domain: string;
+    environment: string;
+    /** Canonical request snapshot when present; legacy evidence intentionally omits it. */
+    gateRequired?: boolean;
+    name: string;
+    owner: string;
+  };
+  batchId: string;
+  capability: ExecutionRequestCapability;
+  dispatcher?: ExecutionDispatch;
+  evidence: ExecutionRequestEvidence;
+  executionTarget?: BatchExecutionTarget;
+  expiresAt: string;
+  gateDecision?: ExecutionGateDecision;
+  reason: string;
+  requestId: string;
+  requestLocator: string;
+  requestedAt: string;
+  requestedBy: string;
+  sourceLabel: string;
+  sourceState: "OPEN" | "CLOSED";
+  sourceUrl?: string;
+  status: ExecutionRequestStatus | "GATE_BLOCKED";
+  title: string;
+  triggerType: "MANUAL" | "SCHEDULE";
+  updatedAt: string;
+  workspaceLabel: string;
+  attempts: ExecutionAttempts;
+  schedule?: ExecutionScheduleOccurrence;
+};
+
+export type ExecutionRequestPreview = {
+  request: Omit<
+    ExecutionRequest,
+    "attempts" | "capability" | "requestLocator" | "sourceLabel" | "sourceUrl"
+  >;
+};
+
+export type CreateExecutionRequestResult = {
+  postCreateError?: {
+    code: "AUTO_APPROVAL_RECORDING_FAILED";
+  };
+  request: ExecutionRequest;
+};

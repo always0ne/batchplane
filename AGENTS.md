@@ -1,0 +1,247 @@
+# BatchPlane Mandatory Engineering Instructions
+
+These instructions are mandatory for every change in this repository. Read
+`docs/frontend-engineering-principles.md` before changing the Web application.
+The detailed document is the source of truth for rationale and examples; this
+file is the enforcement checklist.
+
+## Decision And Delivery
+
+- Do not start implementation until the user has approved the concrete scope,
+  affected behavior, dependency direction, UX impact, and explicit non-goals.
+- Sol owns architecture, product judgment, and final review. Terra owns code
+  implementation unless the user explicitly changes that assignment.
+- When the user permits task-based worker selection, consider available Sol 6
+  and Luna 6 alongside Terra. Choose for the approved scope and record the
+  actual model; availability does not authorize new work or extra agents.
+- Start new work from an updated `main`, inspect all existing planned issues and
+  priorities before creating another issue, and avoid duplicate backlog items.
+- Never merge a pull request. Remote CI result tracking and merge decisions
+  belong to the user.
+- When a local execution ledger exists, read its current entry and linked
+  active plan before starting, resuming, or delegating work. Confirm the current
+  work item, approval boundary, non-goals, and next step against the checkout.
+  Update the active plan at work-item completion, a scope decision, handoff, or
+  interruption. Record evidence and remaining work; do not mark implementation,
+  validation, delivery, and user merge as the same state. Do not choose another
+  issue merely because it is easier or nearby.
+- Match verification to the risk changed. Code, configuration, dependency, and
+  build changes require the complete local verification sequence documented in
+  `README.md`. Documentation-only changes require only relevant document
+  formatting, content, link, and diff checks; do not run application builds or
+  tests when they cannot validate the change. UI work also requires browser
+  review at desktop and mobile widths in English and Korean.
+
+## Official Patterns Are Mandatory
+
+- Follow React's official guidance and the official recommended patterns of
+  each library used. This is a required implementation and review criterion,
+  not an optional style preference.
+- Before designing or changing an integration, check the installed version and
+  its official documentation. Distinguish recommendations from supported
+  alternatives and examples; do not invent an official folder or naming rule.
+- Use the library's established APIs and composition model before introducing
+  project-specific wrappers or abstractions for the same responsibility.
+- When several official patterns are supported, choose the simplest one that
+  fits the approved product requirements and explain meaningful tradeoffs.
+  A newer pattern alone does not authorize upgrades or a framework migration.
+- Deviations require a concrete constraint, comparison with the official
+  approach, and explicit user approval before implementation. Include the
+  relevant official reference and decision in the design or PR.
+- Worker instructions and final review must enforce this rule. Passing tests,
+  shorter files, or fewer lines do not establish architectural acceptance.
+
+## Product And Runtime Boundaries
+
+- Lite and Main must share the same React product UI source and product
+  semantics. They may not share runtime implementations or deployment artifacts.
+- React pages and their business components depend on the provider-neutral
+  `BatchPlaneClient`.
+  They must not access GitHub tokens, REST DTOs, Issues, pull requests, branches,
+  repository paths, YAML evidence, or raw workflow data directly.
+- Provider-specific transport, evidence parsing, and repository behavior belong
+  in the appropriate adapter, initially `packages/github-lite`.
+- Do not duplicate authorization, approval, scheduling, Gate, or audit policy in
+  UI code. Product policy has one authoritative definition.
+
+## Frontend Structure
+
+- `app` owns routing, providers, and composition.
+- Organize `pages` by business ownership so a maintainer can find related code
+  by browsing folders, not only searching symbols. Keep route screens, their
+  components, Hooks and tests together under the owning business area.
+- Apply page-level ownership to every business group, not just Batches. When
+  a group has multiple Pages, separate list, detail and writing Pages into
+  `list`, `detail` and `new`, with their page-only components, Hooks and tests.
+  An existing single-Page group is already a page folder; do not add redundant
+  nesting. Keep only genuinely shared business code at its closest common owner.
+  Cross-page integration tests belong under `src/test`, not one Page's folder.
+- Align page ownership with the product sitemap. Use `executions` for execution
+  inspection, with failure-specific screens under `executions/failures`, and
+  `workspace` for settings. Do not add overview/operations/control folder layers.
+- Name product request code `ChangeRequest`, not `GovernedChange`. Review file,
+  export, Hook and translation names together when retiring a product term.
+  Preserve persisted evidence keys, markers, versions and existing URLs unless
+  a separate format or route change is approved. Provider-specific vocabulary
+  remains appropriate inside the adapter when it describes an actual provider API.
+- Keep unified multi-Batch/multi-type requests outside the refactoring. Preserve
+  existing change/execution request routes and behavior until the separate
+  `docs/unified-request-feature-spec.md` is detailed and approved.
+- Group request code under `pages/requests/execution` and `pages/requests/changes`.
+  Reuse from another screen does not change ownership: the approval inbox may
+  use the execution request's approval control without moving it to a global folder.
+- `components` contains genuinely product-neutral common components such as
+  Button and PageState, plus their tests and existing visual tokens. Do not use
+  a separate `ui` folder inside this already-UI application, or a `features` layer.
+- `client` is the provider-neutral React bridge to `packages/ui-client`. It owns
+  the narrow Context and Hook used to access the injected `BatchPlaneClient`.
+- `assets` owns brand and product-specific visual assets.
+- `runtime` owns Lite/Main implementation selection and dependency injection.
+- `shared` is limited to non-visual, product-neutral support such as i18n and
+  generic formatting. Do not turn it into a miscellaneous folder.
+- App composes route Pages. Pages may reuse another business area's owned
+  components, but must not import that area's route Page or app composition.
+  Business UI uses `client -> packages/ui-client`. Global common components
+  must not depend on business folders, product/provider models or app composition.
+  Share at the narrowest actual business scope; do not add an empty common folder.
+
+## React Rules
+
+- Use function components and Hooks.
+- Keep render pure. Start user-caused work in event handlers. Use Effects only
+  to synchronize with external systems or component lifetime.
+- Store the minimum state. Derive values during render instead of synchronizing
+  redundant state with Effects.
+- Keep state at its closest clear owner. Use Context only for a real tree-wide
+  dependency or distant shared state. Use reducers only for genuinely complex
+  related state transitions.
+- Give custom Hooks concrete, high-level names. Keep page-only Hooks beside the
+  page, component-owned Hooks beside the component, and truly generic browser
+  Hooks under `shared/hooks`.
+- Do not create lifecycle-wrapper Hooks, a global dumping-ground `hooks` folder,
+  or Hooks for functions that do not call Hooks.
+
+## Components And UI Foundation
+
+- A page should read as route and screen composition, not as transport,
+  parsing, policy, and rendering in one function.
+- Extract page-local components when they name a meaningful visual region,
+  isolate interaction or state, improve readability, or deserve focused tests.
+- Make the Page-to-child-component hierarchy visible in both composition and
+  files. Each named component belongs in its own file under its actual owner;
+  moving several component functions into the same Page or region file does
+  not meet this project's separation requirement. Use populated page-local
+  `components` and `hooks` folders where they clarify the hierarchy.
+- Reuse is not a prerequisite for extraction. A Page should reveal the screen's
+  composition, and each component should reveal its named responsibility.
+  Do not retain tangled JSX just to avoid another component, or split trivial
+  markup merely to reduce line counts. Pure display calculations remain functions.
+- Preserve input state ownership, component identity and mount lifetime when
+  extracting components; readability cleanup must not change interaction behavior.
+- Keep business components with their owner even when reused elsewhere. Promote
+  code to global `components` only when its responsibility is genuinely common
+  and its contract is stable. Reuse count or visual resemblance alone is not enough.
+- Establish a small semantic token, asset, and UI primitive foundation before
+  repeating raw controls across screens. Grow it through real product screens;
+  do not predict every future component.
+- Tailwind is an implementation detail behind stable UI components. Do not make
+  every page recreate button, field, focus, loading, disabled, or status styles.
+- Use Lucide for familiar icons. Reserve custom SVGs for BatchPlane-specific
+  marks and assets. Never embed translatable text in images.
+- Do not create a separate design-system package, Storybook installation,
+  generic form engine, generic table engine, or state/query library without a
+  demonstrated need and explicit user approval.
+
+## Readability And Tests
+
+- Names must read like prose and state intent. Avoid broad `model`, `utils`,
+  `helpers`, and large barrel files that hide unrelated responsibilities.
+- Keep each function understandable within one screen. Split by responsibility,
+  not arbitrary line counts or anticipated reuse.
+- Read the changed flow as a maintainer: names, inputs, side effects, and results
+  must be understandable without reconstructing an unnecessary wrapper chain.
+  Review long functions and files explicitly; move a coherent responsibility,
+  not a giant function into a new Hook or service. A pure declaration list may
+  be longer than executable logic; smaller files alone are not a success metric.
+- Do not mechanically create one file per function or type. Closely related
+  operations may stay together. Any retained oversized unit needs a concrete
+  readability reason in the review, not a new generic framework to hide it.
+- Use ternaries for short, immediately readable choices, not to compress
+  multi-state precedence or nested markup. JSX must reveal the screen's regions
+  and hierarchy without mentally executing long conditional branches. Extract
+  meaningful child components into their own files; simple conditional display
+  and list rendering remain valid. Replacing `?:` with `&&`, or hiding the same
+  tangled markup in helpers, is not a readability fix.
+- Component-file separation is not one-file-per-helper fragmentation. Do not
+  invent title/button wrappers, empty layers, or generic rendering frameworks.
+  Worker instructions and source review must check both file ownership and JSX
+  readability; passing tests alone cannot establish acceptance.
+- Co-locate unit, Hook, and component tests with their implementation. Put
+  cross-page integration and browser end-to-end tests in dedicated test areas.
+- Test observable behavior and public client contracts, not incidental internal
+  calls. Preserve loading, error, empty, disconnected, success, disabled,
+  localization, and navigation states as applicable.
+- Treat tests as executable specifications: the title and body must make the
+  condition, action, and observable expected result clear. The title must not
+  claim a guarantee that the setup and assertions do not actually establish.
+- Write only necessary tests. Repair or extend an existing coherent case before
+  adding another; keep related assertions together. Remove proven overlap only
+  after identifying where its unique contract remains protected. Test counts,
+  deletion quotas, and one assertion per test are not quality targets.
+- Await the relevant async result before negative assertions, identify the
+  actual target, and isolate the condition being tested. Distinguish type checks,
+  current-behavior characterization, DOM checks, and real browser validation.
+- Every UI change must be checked against `docs/lite-ui-ux-baseline.md` and the
+  open UI/UX baseline issue #119 while that review remains active.
+- For behavior changes, keep `docs/requirements-traceability.md` and the affected
+  cases in `docs/user-qa.ko.md` aligned. Report affected QA IDs and connected-flow
+  impact with the PR. Reuse coherent cases instead of adding a case per change.
+  Preserve results by tested version/environment using the QA result template;
+  mark impacted prior passes as requiring revalidation, never silently carry
+  them forward. Implementation, automated checks, user QA, actual-provider proof,
+  remote CI and merge are separate evidence. Documentation-only changes do not
+  create new product QA passes or require application builds/tests.
+
+## No Overengineering
+
+- Distinguish verified defects, explicit requirements, and unverified
+  hypotheses. Never describe a hypothetical state as an observed defect.
+- Do not invent threats or exceptional states to justify defensive branches,
+  new states, abstractions, compatibility paths, or additional backlog work.
+  Before proposing mitigation, identify a reachable path or documented trust
+  boundary in the current system and its concrete impact. A demonstrated risk
+  does not require a production incident, but speculation alone is not evidence.
+- When evidence is missing, perform only proportionate investigation. Do not
+  implement the hypothetical case or expand the approved scope. Present any
+  justified out-of-scope change, its minimum solution and cost for user approval.
+  Apply this rule to planning, worker instructions, and review alike.
+- Add only the boundaries required by current product behavior and the approved
+  next vertical slice.
+- Preserve future Lite/Main and platform boundaries by assigning current
+  responsibilities correctly. Do not implement future engines, speculative
+  extension points, unreachable defensive paths, or hypothetical fallbacks.
+  Do not remove an existing authorization or input check merely to simplify
+  code; establish its callers and trust boundary first.
+- Do not add empty layers, speculative interfaces, future-provider methods,
+  framework migrations, caches, generators, or convenience abstractions without
+  an observed problem and explicit approval.
+- Refactor in complete, reviewable vertical slices. Preserve behavior unless a
+  separately identified defect or approved product change is in scope.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+When the user types `$graphify` in Codex, use the installed graphify skill or instructions before doing anything else.
+
+Use the graph for quick navigation, then confirm findings in the relevant source.
+Missing graph relationships are not evidence of a defect. All approval, scope,
+and no-overengineering instructions above still apply.
+
+Rules:
+
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

@@ -1,6 +1,9 @@
 # BatchPlane Audit And Evidence
 
-Status: Architecture baseline for issue #191
+Status: Product evidence semantics and Main design candidates, 2026-10-05.
+Exact envelope/schema/retention design is not implemented. Export and recurrence
+reporting remain earlier proposals awaiting scope confirmation; see the
+[roadmap](./control-plane-migration-plan.md).
 
 ## Purpose
 
@@ -11,13 +14,13 @@ raw provider logs are an immutable product ledger.
 
 ## Evidence Layers
 
-| Layer              | Purpose                                 | Main                   | Lite                             |
-| ------------------ | --------------------------------------- | ---------------------- | -------------------------------- |
-| Product state      | Current actionable state                | MySQL state tables     | Derived from repository evidence |
-| Immutable decision | Approval, Gate, review                  | Append-only MySQL rows | PR/Issue comments and reviews    |
-| Audit event        | Search and export timeline              | `audit_event`          | Normalized projection            |
-| Native evidence    | Provider operation and execution source | Evidence reference     | GitHub source URL/ID             |
-| Raw logs           | Troubleshooting                         | Fetched on demand      | Fetched on demand                |
+| Layer             | Purpose                                 | Main                           | Lite                                                                |
+| ----------------- | --------------------------------------- | ------------------------------ | ------------------------------------------------------------------- |
+| Product state     | Current actionable state                | MySQL state tables             | Derived from repository evidence                                    |
+| Decision evidence | Approval, Gate, review                  | Planned append-only MySQL rows | GitHub PR/Issue comments and reviews, subject to source permissions |
+| Audit event       | Search and export timeline              | `audit_event`                  | Normalized projection                                               |
+| Native evidence   | Provider operation and execution source | Evidence reference             | GitHub source URL/ID                                                |
+| Raw logs          | Troubleshooting                         | Fetched on demand              | Fetched on demand                                                   |
 
 Raw logs are volatile operator evidence by default. They may contain secrets,
 can be large, and may follow provider retention rather than BatchPlane audit
@@ -75,7 +78,7 @@ retention.
 
 ### Batch And Schedule
 
-- discovery and onboarding
+- discovery and onboarding, if that proposed scope is adopted
 - register/change/delete request submitted
 - approval/rejection/cancel
 - provider apply started/completed/failed
@@ -86,7 +89,8 @@ retention.
 ### Execution And Gate
 
 - execution intent requested/approved/rejected/canceled/expired
-- dispatch started/accepted/failed/retried
+- dispatch started/accepted/confirmed failed or still unknown
+- withdrawal/cancel requested, confirmed or not confirmed, with actor/reason
 - native start observed
 - Gate allowed/denied
 - native run started/completed/canceled/timed out
@@ -98,14 +102,15 @@ retention.
 - failure case opened
 - explanation/action submission
 - manager approval/rejection/change request
-- case closure and recurrence report generation
+- case closure; recurrence reports only if the proposal is adopted
 
 ## Append-Only Rules
 
 - Supported application APIs never update or delete an existing audit event.
 - Corrections create a new event referencing the superseded or corrected event.
-- Approval decisions, Gate decisions, historical Batch revisions, failure
-  submissions, and manager reviews are immutable records.
+- Supported product commands append decisions, Gate evidence, historical Batch
+  revisions, failure submissions and manager reviews instead of rewriting them.
+  Lite cannot guarantee immutable GitHub source storage.
 - Current-state projections may change, but their transitions emit events.
 - Database administration remains a privileged infrastructure risk and must be
   addressed by deployment controls, backups, access logs, and export policy.
@@ -153,7 +158,8 @@ For a state-changing Main command, one MySQL transaction writes:
 1. aggregate/current-state change
 2. immutable decision or revision record when applicable
 3. append-only audit event
-4. outbox event for provider side effect or notification
+4. side-effect intent through an approved recoverable orchestration (an outbox
+   is a candidate, not a preselected general notification framework)
 
 The external provider call occurs after commit. Its result creates another
 idempotent state transition and audit event.
@@ -171,12 +177,15 @@ Lite maps GitHub evidence to common event meanings:
 - failure and review comments to follow-up events
 
 Parsers preserve source URL, repository, number/ID, actor, and native timestamp.
-Writers use the current BatchPlane namespace while readers may retain legacy
-BatchTrail compatibility during the documented migration period.
+Existing historical namespace readers remain in current code; this document
+requires no new compatibility layer. Old delegated schedule approval is not
+valid execution authority. NATIVE_SCHEDULE_V2 uses the owning approved revision,
+source occurrence and exact job/attempt result.
 
-## Export
+## Export Proposal
 
-Main audit export must support machine-readable JSON/NDJSON and a human-readable
+Scope confirmation is pending for this earlier proposal; it is not a new
+acceptance gate in #192/#232. If adopted, Main audit export should support machine-readable JSON/NDJSON and a human-readable
 report format. An export includes:
 
 - explicit query scope and generated time
@@ -186,8 +195,8 @@ report format. An export includes:
 - export manifest and content digest
 - incomplete-source warnings when provider evidence is unavailable
 
-Large exports run asynchronously through the outbox/job mechanism and require
-auditor authorization. Exporting audit data is itself audited.
+The delivery mechanism and exact export formats require separate design;
+authorized access is required. Exporting audit data is itself audited.
 
 ## Retention And Privacy
 
@@ -205,6 +214,19 @@ auditor authorization. Exporting audit data is itself audited.
 No retention duration is fixed in the product architecture until legal,
 security, and operating requirements for a deployment are confirmed.
 
+## Query Completeness And Operating Evidence
+
+Period/Batch queries must reach records beyond the first result page (#226).
+Old unresolved explanation/review items remain actionable in My Work. Missing
+permission, partial source retrieval or provider retention must not be presented
+as an empty or complete timeline.
+
+Cancellation records the request and actual engine confirmation separately.
+Result synchronization records a correction backed by provider evidence; it
+never executes/cancels work. Confirmed dispatch failure is terminal and a new
+request has a new authorization history. Unknown acceptance is not fabricated
+failure. See [user QA](./user-qa.ko.md).
+
 ## Integrity And Operations
 
 Main production deployments should support:
@@ -212,10 +234,10 @@ Main production deployments should support:
 - restricted write access to audit tables
 - encrypted transport and storage
 - database backups and restore tests
-- optional batch/export hash chaining for tamper-evidence requirements
 - monitoring for missing sequence, outbox lag, reconciliation lag, and export
   failure
 - time synchronization and UTC timestamp validation
 
-Hash chaining is an optional deployment hardening decision, not a replacement
-for database and organizational access controls.
+No hash-chain service or new evidence store is approved by this baseline.
+Deployment hardening must address a demonstrated requirement without replacing
+existing access-control and evidence responsibilities.

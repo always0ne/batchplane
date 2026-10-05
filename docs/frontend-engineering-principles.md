@@ -1,0 +1,951 @@
+# Frontend Engineering Principles
+
+## Status
+
+This document is the mandatory engineering baseline for the shared BatchPlane
+React application. It applies to both Lite and Main UI development. Root
+`AGENTS.md` contains the short enforcement checklist and points here for the
+complete contract.
+
+These rules translate the current React documentation into BatchPlane's product
+and repository constraints. React does not prescribe a canonical folder tree.
+The structure below is a deliberate BatchPlane decision based on React's
+component hierarchy, state ownership, purity, Effects, and custom Hook guidance.
+
+Primary React references:
+
+- [Thinking in React](https://react.dev/learn/thinking-in-react)
+- [Importing and Exporting Components](https://18.react.dev/learn/importing-and-exporting-components)
+- [Choosing the State Structure](https://react.dev/learn/choosing-the-state-structure)
+- [You Might Not Need an Effect](https://react.dev/learn/you-might-not-need-an-effect)
+- [Reusing Logic with Custom Hooks](https://react.dev/learn/reusing-logic-with-custom-hooks)
+- [Extracting State Logic into a Reducer](https://react.dev/learn/extracting-state-logic-into-a-reducer)
+- [Passing Data Deeply with Context](https://react.dev/learn/passing-data-deeply-with-context)
+- [Keeping Components Pure](https://react.dev/learn/keeping-components-pure)
+
+## Official Patterns First
+
+Following React's official guidance and each adopted library's official
+recommended patterns is mandatory. Contributors should be able to recognize
+the library's normal usage without first learning a project-specific substitute.
+This requirement applies to implementation, delegated worker instructions, and
+final review, not only to initial architecture planning.
+
+The purpose is recognizable code that another contributor can understand and
+maintain using the library's normal model. Minimizing the diff is not a reason
+to retain unnecessary special paths. A supported escape hatch is not the same
+as the recommended baseline; explain that distinction before choosing one.
+
+Before changing a library integration, identify the installed version and read
+the applicable official documentation. Separate a documented recommendation
+from one supported alternative or an illustrative example. Official guidance
+does not necessarily prescribe filenames or one universal directory structure.
+
+Prefer the library's own APIs and composition model for responsibilities it
+already owns. Do not add wrappers merely to shorten files or demonstrate
+separation. If multiple official approaches are supported, select the simplest
+one that meets current requirements and explain material tradeoffs. Do not use
+this rule to introduce unapproved upgrades, frameworks, loaders, caches, or
+other unrelated features.
+
+A departure requires a demonstrated project constraint, a comparison with the
+official approach, and user approval before implementation. Record the official
+reference and reasoning in the design or PR. Tests establish behavior, but do
+not replace this architecture review.
+
+For the approved routing correction, use React Router's route tree, layout
+routes and `Outlet`, with `createBrowserRouter` and `RouterProvider`. Preserve
+product-client injection, the current request URLs, Pages basename/redirect restoration,
+locale behavior, and fixture remount boundaries. This decision does not migrate
+page queries to loaders or commands to router actions.
+
+The current integration pins `react-router` to `7.18.2`, retaining React 18
+and Vite. Routing APIs come from `react-router`; `RouterProvider` comes from
+`react-router/dom` in both the browser entry point and the jsdom tests rendered
+with ReactDOM. The DOM entry point supplies ReactDOM's `flushSync`; the root
+entry point is the supported alternative for non-DOM renderers.
+
+Keep the existing plain `*` not-found route and page-owned queries/commands.
+This is client-rendered Data Mode, without router loaders/actions/fetchers,
+SSR/hydration, RSC, or Framework mode. Internal destinations are app paths with
+encoded identifiers. Pages redirect restoration uses same-origin
+`history.replaceState` before router creation, not a loader redirect.
+
+Official versioned references:
+
+- [v6-to-v7 upgrade guide](https://raw.githubusercontent.com/remix-run/react-router/react-router%407.18.0/docs/upgrading/v6.md)
+- [RouterProvider source and DOM import guidance](https://raw.githubusercontent.com/remix-run/react-router/react-router%407.18.2/packages/react-router/lib/components.tsx)
+- [v7.18.2 compatibility requirements](https://raw.githubusercontent.com/remix-run/react-router/react-router%407.18.2/packages/react-router/package.json)
+- [RSC advisory and patched version](https://github.com/remix-run/react-router/security/advisories/GHSA-qwww-vcr4-c8h2)
+
+## Product Principle
+
+The user journey is more important than an isolated screen or folder. A change
+must be understood from entry point through authorization, action, resulting
+state, navigation, audit evidence, failure handling, and follow-up work. A screen
+is not complete merely because its local controls render or call an API.
+
+BatchPlane is a multi-platform batch control and audit product. GitHub Actions is
+the first provider, not the product model. Shared UI must therefore speak in
+Workspace, Batch, change request, approval, execution, schedule, failure, and
+audit concepts rather than GitHub transport concepts.
+
+## Target Source Structure
+
+```text
+apps/web/src/
+  app/       router, top-level providers, and application composition
+  pages/     route screens and related code grouped by business ownership
+    dashboard/
+    my-work/
+    batches/
+      list/
+      detail/
+    executions/
+      list/
+      detail/ execution evidence, logs and failure follow-up interaction
+      failures/ failure list Page
+      ...shared execution-history region, row and query
+    requests/
+      list/
+      execution/
+        new/
+        detail/
+        ...shared execution approval control
+      changes/
+        new/ registration/update/deletion share the current writing Page
+        detail/
+        ...shared change preview
+    approvals/
+    audit/
+    workspace/
+    not-found/
+  components/ product-neutral common controls, their tests, and visual tokens
+  client/    provider-neutral React access to the injected product client
+  assets/    BatchPlane brand and product-specific visual assets
+  runtime/   Lite/Main implementation selection and client injection
+  shared/    non-visual product-neutral support such as i18n
+  test/      cross-page integration tests and existing test support
+```
+
+Organize for a person browsing by business concept, not only searching symbols.
+Apply the same page-level rule to every business group: keep each Page with its
+own components, Hooks and tests in the folder for that screen. Where multiple
+Pages exist, use `list`, `detail` and `new` to distinguish their responsibilities.
+These are source ownership folders, not a change to the current route contract.
+
+Dashboard, My Work, approvals, audit, Workspace and not-found each already have
+one Page-owned folder. Do not create redundant `dashboard/dashboard` or invented
+list/detail screens just to make every directory have the same depth. Review
+those groups under the same rule whenever another Page is actually introduced.
+
+Only actual shared business code stays at its common owner. Reuse does not
+transfer code to a global components folder: the approval inbox imports
+`pages/requests/execution/components/ExecutionApprovalActions.tsx`; the Batch change editor
+and change detail share `pages/requests/changes/components/ChangeRequestPreviewPanel.tsx`.
+Registration, update, and deletion share the change-request area rather than
+three artificial copies of the same editor. Batch detail and its request-entry
+controls stay under `pages/batches/detail`; the approval inbox stays under
+`pages/approvals`. Execution list and failure list share the existing history
+region, row and query at `pages/executions`; evidence, logs and follow-up input
+belong to `pages/executions/detail`, where those interactions are rendered.
+
+Keep page-only tests beside that Page. Existing tests covering more than one
+Page belong under `src/test`. Distinguish the route Page from its child components
+in the file structure. Use populated page-local `components` and `hooks` folders
+when they make that hierarchy easier to browse; group related regions under
+their actual owner. Each named component has its own file. Do not create empty
+folders, barrel files, forwarding components or a folder for every helper merely
+to carry out a move. Tests remain beside their implementations.
+
+This is the project's approved directory convention, not a React-prescribed
+folder layout. It retains the existing named module imports described in
+[React's component import/export guide](https://18.react.dev/learn/importing-and-exporting-components)
+and the existing React Router route composition.
+
+### Product Naming
+
+Use `ChangeRequest` for registration, modification and deletion requests.
+`GovernedChange` is a retired product-code name, not an additional request type.
+Keep file, export, Hook, client operation and translation terminology aligned.
+Renaming a type does not authorize a change to its approval or evidence behavior.
+
+Product execution pages use `Execution`, and connection/settings pages use
+`Workspace`. GitHub adapter filenames such as `execution-run-client.ts` still
+describe actual workflow-run API access; provider vocabulary is appropriate there.
+Likewise, `github-lite` and `github-actions-execution.ts` name real provider-specific
+implementations rather than Lite-only product screens.
+
+Storage names are separate from source names. `.batch-governance` paths,
+`governedChangeId` evidence fields, `batchplane:governed-change-*` markers and
+`batchplane.io/governed-change/v2` remain existing repository formats. Their
+preservation is intentional and must not lead to new compatibility branches or
+parallel old exports. Existing request URLs also stay fixed until the approved
+unified-request work. Historical research is not rewritten to hide old names.
+
+Global `components` holds genuinely product-neutral controls such as Button and
+PageState. Do not introduce separate `ui` or `features` layers. Share business
+code at its narrowest actual owner; do not add empty common folders or relocate
+a component globally just because another screen uses it.
+
+The target dependency direction is:
+
+```text
+app -> pages -> owned business components / common components
+app, business UI -> client -> packages/ui-client
+common components -> other common components / product-neutral support
+
+runtime -> packages/github-lite -> packages/ui-client
+```
+
+The arrows describe imports, not mandatory intermediate layers. A Page can use
+`components` directly or another business area's owned component. It must not
+import another route Page or app composition. Global common components must not
+import business folders, product/provider models, or app composition. Pages own
+screen-level flow and navigation; components own the interaction or presentation
+expressed by their props. This is an ownership convention, not a custom React
+framework or a claim that React mandates these folder names.
+
+### Sitemap And Refactoring Boundary
+
+Page ownership follows the product sitemap. Do not introduce intermediate
+`overview`, `operations` or `control` directory layers. Execution inspection
+uses `executions`, not the provider's `runs` term; failure-specific screens are
+nested under `executions/failures`. Workspace settings are product-level even
+when Lite supplies the connection editor.
+
+| Product surface           | Current route                             |
+| ------------------------- | ----------------------------------------- |
+| Dashboard                 | `/dashboard`                              |
+| My Work                   | `/my-work`                                |
+| Batch list and detail     | `/batches`, `/batches/:batchId`           |
+| Execution list and detail | `/executions`, `/executions/:executionId` |
+| Failure list              | `/executions/failures`                    |
+| Request list              | `/requests`                               |
+| Approvals                 | `/approvals`                              |
+| Audit                     | `/audit`                                  |
+| Workspace settings        | `/workspace`                              |
+
+The existing Batch form remains at `/batches/new`, including current change
+and deletion query modes. Execution request writing remains at
+`/batches/:batchId/execution-requests/new`; current request detail routes remain
+`/execution-requests/:requestLocator` and
+`/approvals/registration/:requestLocator`. The existing schedule-change deep
+link remains unchanged. These are deliberate temporary exceptions, not a new
+request-model design or an assertion that those routes already match the target.
+
+The user deferred [unified requests](./unified-request-feature-spec.md) until
+after refactoring. `/requests/new` and `/requests/:requestId` are that feature's
+target routes, not current registrations. Do not introduce query-selected whole
+request types, draft storage or multi-item processing to complete this cleanup.
+My Work's current purpose is preserved pending a separate product discussion.
+
+Update internal links with the route they target, preserving existing filters,
+scheduled occurrence/attempt context and the Pages basename. Keep provider
+source links separate and unchanged. Use the router's normal matching and link
+APIs, not a generic path registry or custom route dispatcher. Do not add new
+legacy-route compatibility layers without a current requirement.
+
+## Migration Status
+
+PR #198 established the Batch list as the first migrated vertical slice.
+Route screens and business components now live under their owning areas in
+`pages`; product-neutral controls live under `components`. No current
+implementation remains under `features` or `ui`. The inventory below records
+screen ownership, not blanket acceptance of every implementation detail.
+
+| Surface                        | Current Page                                                     | Status                                                                                                        |
+| ------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Batch list                     | `pages/batches/list/BatchListPage.tsx`                           | Migrated; first reference slice                                                                               |
+| Dashboard                      | `pages/dashboard/DashboardPage.tsx`                              | R5 product summary query and page-local operational sections                                                  |
+| My Work                        | `pages/my-work/MyWorkPage.tsx`                                   | R3 product-client work queue; preserves request and failure follow-up destinations                            |
+| Batch registration and change  | `pages/requests/changes/new/BatchRegistrationPage.tsx`           | Migrated route page; form, schedule, review, and command state belong to change requests                      |
+| Batch detail                   | `pages/batches/detail/BatchDetailPage.tsx`                       | Migrated R2-B route page; page-local detail/control query and remediation command consume `BatchPlaneClient`  |
+| Execution request creation     | `pages/requests/execution/new/ExecutionRequestPage.tsx`          | R3 route composition with page-local draft, preview, and submission responsibilities                          |
+| Execution request detail       | `pages/requests/execution/detail/ExecutionRequestDetailPage.tsx` | R3 product request, decision, evidence, and correlated attempt presentation                                   |
+| Execution list                 | `pages/executions/list/ExecutionListPage.tsx`                    | Product execution query and history view at `/executions`                                                     |
+| Failure list                   | `pages/executions/failures/FailureListPage.tsx`                  | Failure-owned route Page using the existing execution inspection behavior                                     |
+| Execution detail               | `pages/executions/detail/ExecutionDetailPage.tsx`                | R5 detail query, failure commands, evidence regions, and on-demand log presentation                           |
+| Workspace requests             | `pages/requests/list/RequestListPage.tsx`                        | R3 product request inventory; local search and filters; not the deferred unified-request model                |
+| Approvals                      | `pages/approvals/ApprovalsPage.tsx`                              | R3 product inbox and reusable execution approval action                                                       |
+| Change request approval detail | `pages/requests/changes/detail/ChangeRequestDetailPage.tsx`      | Migrated route page; provider-neutral change-request client only                                              |
+| Audit                          | `pages/audit/AuditPage.tsx`                                      | R5 product timeline query, local filtering, and exact execution destinations                                  |
+| Workspace connection and setup | `pages/workspace/WorkspacePage.tsx`                              | R6 shared settings Page; app composes the Lite credential form, adapter owns installation and policy requests |
+| Standalone schedule definition | None                                                             | Removed; schedules are edited inside the controlled Batch form and the deep link redirects there              |
+
+New route screens must start under `pages`. A migration is complete only when
+the route composition, page-only state and components, product-client boundary,
+and tests follow this document. Moving a file without separating those
+responsibilities is not a completed slice.
+
+Update this inventory in the same pull request that migrates, removes, or
+reconnects one of these Pages. Migrations remain vertical and reviewable; this
+table is not a reason to perform a cosmetic mass move.
+
+### R1/R2 Structural Completion
+
+Migrated Pages remain subject to the same readability and official-pattern
+criteria as new Pages. A short Page delegating all unrelated work to one large
+Hook is not the intended end state.
+
+- Change-request detail tracks committed request lifetime in Effects and event
+  handlers, never by mutating refs during render. Switching the request/client,
+  unmounting, and StrictMode cleanup must discard obsolete async results.
+- The Batch editor separates loading an editing session, local field/schedule
+  changes, preview synchronization, and submission. These are page-local
+  responsibilities, not a generic lifecycle or form framework.
+- Batch list queries keep language-neutral error state. Render chooses the
+  localized message; changing language must not issue another inventory query.
+  Provider error interpretation belongs to the adapter, not the Page Hook.
+- Batch detail renders adapter-projected schedule execution expressions, for
+  active definitions and verified deleted archives alike. UI does not regenerate
+  a GitHub cron expression or import a legacy workflow generator.
+- Runtime connects session/fixture dependencies. Touched list/detail use-case
+  orchestration belongs in the Lite adapter; this is not permission to move all
+  remaining legacy runtime code in one change.
+
+The completion checks preserve existing routes, values, request decisions,
+control states and user-facing journeys. They do not authorize a YAML parser
+replacement, package resolver migration, new query library, or R3 migration.
+
+Version-appropriate references:
+
+- [React 18 useRef caveats](https://18.react.dev/reference/react/useRef#caveats)
+- [React 18 custom Hooks](https://18.react.dev/learn/reusing-logic-with-custom-hooks)
+- [React 18 unnecessary Effects](https://18.react.dev/learn/you-might-not-need-an-effect)
+
+### R3 Execution And Approval Boundary
+
+The R3 vertical covers execution request creation/detail, the approval inbox,
+Workspace requests, and My Work. Their Pages use `BatchPlaneClient`; the Lite
+adapter owns request and decision evidence, provider source references,
+dispatcher projection, and request-to-attempt correlation. Run/log inspection
+and failure follow-up have their own R5 boundary below.
+
+- Draft loading captures the Batch context and approved revision. Preview
+  generation must not fetch or silently adopt a newer revision on each edit.
+  Submission retains the reviewed revision so existing mutation-time authority
+  checks can reject a stale or unapproved revision.
+- User events submit and decide requests. Effects synchronize queries and
+  discard stale results; language changes must not reload a query or reset a
+  draft. Route changes isolate the previous request's pending actions.
+- Commands return authoritative request and decision results. A successful
+  write must not depend on an immediately consistent provider list or detail
+  read. Auto-approval evidence disables further approval immediately while
+  Dispatcher and run visibility remain independent asynchronous outcomes.
+- Product capabilities drive approval controls. A pending self-request may
+  still offer rejection while approval is unavailable. An unavailable run
+  lookup differs from a successful lookup with no correlated run yet.
+- Source labels and opaque evidence remain inspectable, but UI does not parse
+  comments, labels, provider payloads, or source IDs to make product decisions.
+- My Work preserves approval, own-request, failure explanation, and manager
+  review work with internal detail destinations.
+
+Execution parameters are intended as business-runtime inputs. Their actual
+delivery is a separate functional task, [#212](https://github.com/always0ne/batchplane/issues/212).
+R3 preserves the existing evidence-only behavior; it does not implement binding,
+change Dispatcher/Gate bytes, or claim that parameter values reach the command.
+The approved UI correction is limited to containing existing mobile overflow in
+request creation/detail, without a layout redesign.
+
+### R5 Execution Inspection Boundary
+
+Run history, failures, run detail, audit, and Dashboard use `BatchPlaneClient`.
+Pages compose product results and page-local interaction; they do not construct
+a runtime, read session tokens, parse provider evidence, classify job names, or
+decide provider permissions. The Lite adapter owns execution correlation, Gate
+and result projection, failure records and review authority, audit aggregation,
+and business-log section selection. Runtime only supplies these operations with
+the existing connection and installation dependencies.
+
+- Page-local Hooks separate the query lifetime from log loading and user-caused
+  follow-up commands. A large Hook concealing the former Page is not completion.
+- Query errors remain language-neutral. Language changes must not refetch the
+  execution or clear an explanation draft. Route/client changes and unmounting
+  prevent old reads or completed commands from updating a different execution.
+- The adapter returns the complete log and its business section. UI owns view
+  selection, text search, download, and bounded scrolling, without interpreting
+  runner groups or Gate markers.
+- Dashboard uses the same actionable requests and verified execution/failure
+  results as the destination screens. My Work and Batch recent runs reuse the
+  same execution operations instead of retaining independent evidence policy.
+- Native occurrence/attempt identity, source-only runs, deleted history,
+  current follow-up authority, and existing internal routes remain unchanged.
+  A failed query is not an empty collection; an unavailable result is not a
+  fabricated terminal outcome.
+
+This slice does not add cancellation, result synchronization, schedule backfill,
+new review policy, caching, or a new runtime framework. Workspace setup follows
+the R6 boundary below; package-resolution cleanup remains in R7. Actions/Gate/Dispatcher
+protocols and shipped Action bundles are outside R5.
+
+Version-appropriate references:
+
+- [React 18 Effect synchronization and cleanup](https://18.react.dev/reference/react/useEffect)
+- [React 18 derived state and event handling](https://18.react.dev/learn/you-might-not-need-an-effect)
+- [React Router 6 search parameters](https://reactrouter.com/6.30.3/hooks/use-search-params)
+
+### R6 Workspace Connection And Setup Boundary
+
+The shared Workspace Page queries connection, installation and approval policy
+through `BatchPlaneClient`. It composes page-local status and command regions;
+it neither owns credentials nor generates or compares provider artifacts.
+The Lite adapter owns installation templates, inspection and setup/update/policy
+request creation. Runtime supplies the current connection and fixture selection.
+
+The router points directly to `WorkspacePage` and supplies the Lite connection
+editor as an ordinary component prop. Do not insert a `LiteWorkspaceRoute`
+wrapper merely to assemble the editor. The editor owns the
+owner/repository/token draft, explicit session-storage commands and stored
+session presentation. The Page receives connection-change and check events,
+not credential state, separate form/summary slots or a `prepareRequest`
+callback. No raw or masked token enters a shared Page, product-client model,
+URL, audit record or product request. This is a bounded React composition
+contract, not a dynamic form schema, provider registry or additional Context.
+
+Connection check explicitly saves the draft and inspects that connection.
+Editing, saving, disconnecting or failing a check invalidates the previous
+inspection and related request results. Installation/update and policy
+commands operate only after a successful current inspection; neither command
+saves editor fields. Disable unavailable actions with a localized reason and
+guard their handlers as well. Obsolete in-flight results cannot restore
+verification or results after invalidation. This is an approved behavior change
+from the former save-before-request callback, not behavior-preserving renaming.
+
+- Keep connection verification, installation inspection and policy commands
+  distinct. A request-created result is not an installed or applied result.
+- Display the currently applied policy separately from a requested replacement.
+  Browser state cannot grant approval permissions.
+- Product state and opaque source references drive shared rendering. Lite
+  labels may identify concrete source artifacts, but Pages do not parse paths,
+  pull requests, branch names or repository permission DTOs.
+- User events start save/check/disconnect and change requests. Effects manage
+  query lifetime; obsolete work from a disconnected/replaced connection cannot
+  update the current screen. Language changes do not erase drafts or refetch.
+- Preserve the single session-only connection, current setup route and actual
+  install/update/policy journeys. Do not add a form framework, storage layer,
+  identity provider, compatibility system or new dependency for this slice.
+
+Official composition reference:
+[React 18 JSX children and props](https://18.react.dev/learn/passing-props-to-a-component#passing-jsx-as-children).
+
+#### Workspace And Platform Extension Boundary
+
+Keep three different concepts separate: Lite/Main chooses the product runtime;
+Workspace is the business and policy context; a platform connection identifies
+an execution target environment. A connection editor is not a platform choice
+for the entire Workspace. Lite's browser GitHub session is not Main's engine
+credential-management implementation.
+
+The target UI has Workspace-level settings and a list of connections, with
+connection-specific editors and installation status. Multiple connections of
+the same or different platform types must not require copies of the Workspace
+Page. Main uses the common product client through Kotlin; the server selects
+the execution adapter, not React Router.
+
+When multi-Workspace functionality is implemented, scope queries and commands
+by Workspace and connection identity rather than a mutable global repository
+session. Use ordinary dynamic route parameters for the selected context, and
+keep identity independent of display names and ownership so transfer is not
+blocked by the UI. The server validates membership and permissions; URL IDs
+are not authority. Shared-connection ownership, transfer approval and history
+visibility need separate product decisions, not assumptions in React code.
+
+R6 still implements one session-storage connection, now at `/workspace`. It does
+not implement a connection list, multiple IDs, multi-Workspace routes, Main identity,
+Jenkins forms, sharing or transfer. Do not add fake identifiers, empty Pages or
+unused provider methods to imply readiness. The current single-session product
+client must still be extended in the multi-Workspace feature.
+
+Official routing reference:
+[React Router 6 dynamic segments](https://reactrouter.com/6.30.3/route/route#dynamic-segments).
+
+### Application Composition
+
+`app/router.tsx` declares the static route tree. `app/RootLayout.tsx` renders an
+`Outlet` and owns development fixture selection and the route-content
+remount boundary. `AppNavigation` owns menu groups
+and active links. `LanguageSelector` owns locale selection and persistence, and
+`RuntimeFixtureSwitcher` owns the development-only selector presentation.
+The not-found route screen lives under `pages/not-found`.
+
+`main.tsx` restores the Pages redirect before creating the browser router once
+and rendering `RouterProvider` inside the stable client provider. Importing route
+definitions does not create browser history. Changing a fixture remounts the route content, not the layout;
+changing language does not reset page state. The route table retains legacy
+schedule redirects and their encoded query and hash. This composition cleanup
+does not count the remaining legacy route Pages as migrated.
+
+### Runtime And Adapter Ownership
+
+The Web runtime selects the current session and live or fixture implementation,
+then injects the provider-neutral `BatchPlaneClient`. Resolve the current session
+for each operation so a saved or disconnected connection is not replaced by an
+old captured session. Preserve the list's disconnected outcome and the named
+connection error for other operations.
+
+The GitHub Lite adapter owns repository inventory, deleted Batch reconstruction,
+execution request evidence, approval orchestration, installation and product
+result projection. Compose these operations from the concrete GitHub client and
+repository context. Do not move a generic runtime Port aggregate into another
+package and rename it, or create a forwarding service hierarchy to keep its
+former shape alive.
+
+Development fixtures remain part of the selected implementation, with shared
+mock state and one-time approved-revision preparation. Fixture construction is
+not a product policy or a substitute for live GitHub verification. Production
+adapters must not import the Web application or its fixtures.
+
+When retiring a legacy helper, establish its real consumers first. Keep tests
+of current product behavior and repository integration at their new owner; keep
+session selection and React behavior tests in Web. Remove assertions of dead
+wrapper mechanics only when the current behavioral coverage is identified.
+Legacy external evidence readers and API versions are not dead merely because
+their name contains `legacy`.
+
+### R7 Readability Ownership
+
+Execution request Pages retain route input, query lifetime, form-session state
+and navigation. Page-local components own the form, parameter rows, request
+review, detail commands and evidence regions. Use the existing Button and
+ButtonLink for matching controls; preserve explicit submit semantics and
+accessible names and dimensions for icon-only controls. Extracting a region
+must not introduce a new state owner or a generic form/controller layer.
+
+The Batch form's cron preview and its deterministic timezone tests live together
+under `pages/requests/changes/new`. A retired schedule screen must not retain a separate
+implementation that passes tests while the active form uses untested code.
+
+Action entry points separate environment input/output, authorization or dispatch
+orchestration, GitHub transport, and evidence parsing. Keep each Action's real
+checks and side-effect order visible; do not replace them with a configurable
+verification pipeline or split every helper into a file. A structural extraction
+does not authorize new policy, retries, evidence formats, or public APIs.
+
+### Package Entry Points
+
+Internal packages resolve through pnpm workspace links and their `package.json`
+exports. TypeScript and Vite use the same declared package entry points; do not
+point either tool at sibling-package source files with paths or aliases.
+The packages expose compiled ESM under `dist`, and project references establish
+the prerequisite build order. Keep development, type checking, package builds,
+Pages output and self-contained Action bundles working through this boundary.
+
+The root development command must build its package prerequisites and run one
+TypeScript package-graph watcher alongside Vite. Contributors should not need
+repeated manual builds or an additional watch terminal. Use the existing pnpm
+and TypeScript commands, not a custom process manager, resolver or build system.
+Validate clean startup, package-source updates and child-process shutdown when
+changing this workflow.
+
+Package entry modules expose purposeful external contracts. Package-internal
+code and tests import their owning modules directly; tests alone do not justify
+adding production exports. Real runtime fixtures remain supported consumers.
+Do not replace one broad barrel with an arbitrary subpath for every source file.
+
+Use ESLint's existing static import restrictions for the approved product and
+adapter boundaries. Keep genuine test integrations distinct from production UI
+access. These checks do not prove dynamic import behavior or semantic policy
+correctness; they complement code review and behavioral tests.
+
+Official references:
+
+- [TypeScript workspace-package resolution](https://www.typescriptlang.org/docs/handbook/modules/reference.html#paths-should-not-point-to-monorepo-packages-or-node_modules-packages)
+- [TypeScript project references](https://www.typescriptlang.org/docs/handbook/project-references.html)
+- [pnpm 10 script execution](https://pnpm.io/10.x/cli/run)
+- [Node package entry points](https://nodejs.org/api/packages.html#package-entry-points)
+- [ESLint static import restrictions](https://eslint.org/docs/latest/rules/no-restricted-imports)
+
+## Page Contract
+
+A Page is a route boundary. It may:
+
+- read route parameters and query parameters;
+- call a page-local query or command Hook;
+- compose page-local and shared components;
+- choose loading, error, empty, disconnected, and success presentation;
+- navigate using authoritative results returned by commands.
+
+A Page must not:
+
+- call raw GitHub APIs or create a GitHub client;
+- know tokens, REST DTOs, Issue or pull request body formats, branches, repository
+  paths, YAML evidence, workflow event payloads, or provider-specific errors;
+- implement authorization, approval, Gate, scheduling, or audit policy;
+- contain transport, parsing, policy, form state, and all JSX in one large
+  function.
+
+A healthy Page reads as screen composition:
+
+```tsx
+export function BatchListPage() {
+  const batchList = useBatchList();
+
+  return (
+    <PageLayout>
+      <BatchListToolbar
+        isRefreshing={batchList.state.type === "loading"}
+        onRefresh={batchList.refresh}
+      />
+      <BatchListContent state={batchList.state} />
+    </PageLayout>
+  );
+}
+```
+
+## Business Component Ownership
+
+Business components stay under their owning area in `pages`, even when used by
+another screen. ExecutionApprovalActions belongs to execution requests, not to
+the approval inbox or global `components`. ChangeRequestPreviewPanel belongs
+to change requests. Their props describe the data and callbacks needed; local
+state belongs to the interaction. Neither component owns the complete use case.
+
+Keep single-page components, command/query Hooks, and presentation rules beside
+their owner. Extracting a component for readability or reusing it does not
+require promotion to a global folder. Similar markup alone is not proof of
+shared semantics.
+
+Business components use product-facing contracts and common components, not
+provider evidence parsing. They may compose other owned components but may not
+import route Pages. Page-specific navigation and command coordination stay with the Page.
+Co-locate supporting functions, component-owned Hooks, and tests with their
+actual owner; do not create an empty layer or Hook for anticipated reuse.
+
+### Extraction For Readability
+
+Reuse is not a prerequisite for component extraction. The acceptance test is
+whether reading the Page reveals the screen's composition and reading each
+component reveals its responsibility, not whether files became shorter.
+
+Extract a named region or interaction when it makes the flow easier to read,
+even with one caller. A failure-explanation review form or deletion confirmation
+can justify a page-local component; splitting each error message and button into
+separate files usually does not. Keep page-only components beside their Page
+and shared business components under their narrowest actual business owner.
+Only genuinely product-neutral controls belong in global `components`.
+
+Separate multi-state display decisions and data preparation from complex JSX
+using named values or pure functions, not artificial visual components. Simple
+conditional expressions and list rendering remain appropriate. Do not replace
+them with generic form, table, state, or rendering frameworks.
+
+Define each extracted component at module scope in its own file. Keeping several
+named region components in one Page or parent-component file is not sufficient
+separation for this project, even when the functions are individually short.
+This is a BatchPlane maintainability requirement, not a claim that React mandates
+one component per file. Supporting pure functions and types may remain with
+their owner; do not invent components for every heading or line of markup.
+
+Preserve state ownership, stable
+identity, keys and mount lifetime so extraction does not reset user input or
+change the interaction. Component boundaries must clarify the existing behavior,
+not introduce a new behavior or require more indirection to understand it.
+
+### Readable Conditional Markup
+
+Use a ternary when a short condition and its two values are immediately clear,
+such as `disabled ? disabledLabel : submitLabel`. Ternaries, `&&`, and `map` are
+not forbidden. The criterion is whether a maintainer can read the structure and
+meaning, not how many operators remain.
+
+Do not nest ternaries to compress several states or interleave substantial JSX
+branches. Make precedence explicit with named values and straightforward branches.
+Where states are genuinely exclusive, early returns can clarify the view; do
+not force independent notices or results into a single artificial state machine.
+
+Parent JSX must expose meaningful screen regions and their relationships.
+Move a substantial region or interaction into its own component file, keeping
+simple conditional inclusion visible in the parent. Replacing `?:` with `&&`
+or moving unreadable markup to a helper does not satisfy this requirement.
+Neither does hiding a long Page inside an equally opaque Hook or child component.
+
+Review the Page, child files, and state owner together. A reader should be able
+to identify the screen hierarchy, each component's responsibility, and why a
+region appears without reconstructing scattered or nested conditions. Include
+this minimum bar in delegated work and review instructions.
+
+## Common Component Contract
+
+`components` is the local common-component foundation. Its components do not understand Batch,
+Approval, GitHub, Gate, or any other product/provider concept. They accept
+bounded visual and interaction variants such as tone, size, disabled, loading,
+label, and accessible description.
+
+The initial foundation should grow from observed repetition and stable product
+needs. Expected early primitives include:
+
+- Button and IconButton;
+- FormField, TextField, SelectField, and TextAreaField;
+- Tooltip;
+- PageHeader and PageState;
+- stable status presentation primitives whose inputs are visual tones, not
+  domain status values.
+
+Tailwind remains an implementation detail. Semantic CSS variables and bounded
+component variants prevent every Page from recreating raw class combinations.
+Do not build a generic form builder, generic data-table engine, polymorphic
+component framework, or separate design-system package before a real second
+consumer or demonstrated complexity exists.
+
+Business visual components remain with their owner even when reusable. Global
+placement requires a genuinely product-neutral responsibility, not just a
+second caller. A component may still be extracted locally for naming,
+readability, state isolation, or testing even if it has one caller.
+
+## Assets And Icons
+
+BatchPlane brand assets belong under `assets/brand` once migrated from the
+legacy public asset layout. The mark, lockup, and edition variants must share a
+defined naming and spacing convention. Images must not contain translatable
+product copy.
+
+Use Lucide icons for familiar interface actions. Do not redraw familiar icons.
+Custom SVGs are reserved for BatchPlane-specific marks or visuals. Icon-only
+controls need accessible labels and tooltips when their meaning is not obvious.
+
+## State Ownership
+
+State is the smallest set of changing information the UI must remember.
+
+- Derive filtered lists, counts, labels, and readiness from props or state during
+  render rather than storing synchronized copies.
+- Group values that always transition together and avoid contradictory boolean
+  combinations.
+- Keep state at the closest component that clearly owns it. Lift it only when
+  multiple descendants need the same source of truth.
+- Start with `useState`. Use a reducer only when related transitions are spread
+  across handlers and a named action model makes the flow easier to understand.
+- Reducers are pure and never perform requests, navigation, timers, or storage
+  writes.
+- Context is for a real tree-wide dependency or distant shared state. It is not
+  the default answer to prop passing.
+
+`BatchPlaneClient` is an application-wide dependency, so a narrowly scoped
+provider and `useBatchPlaneClient` Hook under `client` are appropriate. Keeping
+this React bridge outside `app` prevents pages from importing the composition
+layer that already imports them. Page form data, dialog visibility, and table
+filters are not automatically global context.
+
+## Effects, Events, And Custom Hooks
+
+Rendering stays pure. Work caused by a user action starts in that event handler.
+Effects synchronize the mounted UI with an external system or component
+lifetime. Do not use Effects to derive display data or route a user action
+through a second state change.
+
+Custom Hooks make concrete stateful flows readable. Placement follows ownership:
+
+```text
+page-only         pages/batches/list/hooks/useBatchList.ts
+component-owned   beside the component that uses it
+generic browser   shared/hooks (only for actual reusable browser behavior)
+pure calculation  ordinary function without a use prefix
+```
+
+Avoid lifecycle-wrapper Hooks, a global miscellaneous Hooks folder, Hooks that
+do not call Hooks, or one giant Hook that merely hides a giant Page. A Hook name,
+inputs, result, and side effects must describe one high-level purpose.
+
+Lite queries call the injected client when a screen is entered or explicitly
+refreshed. Do not add a cache without an approved product requirement. Async
+Hooks must prevent stale or unmounted requests from overwriting the current
+screen state.
+
+## Product Client And Adapters
+
+Pages and owned business components use `packages/ui-client` product contracts.
+Global common components do not consume product models. Queries return
+provider-neutral view models. Commands return the authoritative product result
+needed for immediate internal navigation and display.
+
+The UI does not receive raw GitHub objects as product objects. GitHub API calls,
+transport DTOs, Issue and pull request evidence, repository files, YAML, and
+workflow logs are decoded in `packages/github-lite` or another bounded adapter.
+Main implements the same product client through its Kotlin-backed API.
+
+Provider-specific connection settings may appear only within a bounded
+connection capability. They must not leak into shared Batch, approval, run,
+failure, or audit screens.
+
+## Readability
+
+Code is maintained by people before it is optimized for abstraction count.
+
+- Names read like prose and state intent.
+- Each function is understandable within one screen.
+- A file owns one cohesive responsibility.
+- Broad `model.ts`, `utils.ts`, `helpers.ts`, and large barrel files are not used
+  as dumping grounds.
+- Comments explain a non-obvious policy or reason, not the syntax below them.
+- Hidden side effects and clever generic APIs are rejected in favor of explicit
+  product language.
+
+Splitting is based on responsibility, not a mechanical line limit. Moving a
+1,000-line Page into a 1,000-line Hook is not a refactor.
+
+Read the changed flow from its entry point as a maintainer. Names should expose
+the action and result; side effects should be visible; helpers should let the
+reader understand the main flow without chasing unnecessary forwarding layers.
+Review function size, file size, and navigation cost together. Extract coherent
+responsibilities when executable logic spans unrelated decisions or state
+lifetimes. Do not create one file per function or type just to meet a line count.
+Declaration lists and fixtures can be longer than executable logic, but mixed
+ownership still needs correction. Explain any retained large unit in the review.
+
+Readability, applicable official-library patterns, manageable function/file size,
+and absence of speculative engineering are mandatory acceptance checks. They
+apply to adapters and tests as well as React, and must be included in delegated
+instructions. Passing tests does not waive these checks. Official React guidance
+also does not prescribe our folder names or a numerical file-size threshold.
+
+## Refactoring Plan Discipline
+
+When the checkout has a local execution ledger, start or resume from its latest
+entry and linked active plan, then verify the branch and source state. The active
+plan owns the detailed work-item status; the ledger owns the current pointer and
+handoff. Historical records must not override that pointer. A local plan does not
+replace committed product requirements or authorize an unapproved feature.
+
+Record the approved scope, current item, source-to-target responsibilities,
+unchanged behavior, excluded work, decision owner, and observable completion
+criteria before delegation. Update that same plan when an item completes, a
+decision changes, work is handed off, or work stops. Keep implementation,
+verification, PR delivery, and user merge distinct; record the tested revision
+and unverified areas. Do not restart completed work or pick an easier issue
+without an explicit change to the agreed sequence.
+
+At each review, inspect the actual changed flow and dependency direction, not
+only filenames or test totals. A new behavior, parser replacement, dependency,
+fallback, or public-contract change requires an explicit scope decision before
+implementation. Future extensibility means keeping today's ownership clear,
+not building engines or defensive paths with no present requirement. Existing
+trust-boundary checks are not removable simply because they look defensive.
+
+## Tests
+
+Co-locate focused unit, Hook, and component tests with the implementation they
+protect. Put cross-page integration and browser end-to-end tests in dedicated
+test areas.
+
+Tests assert observable states and public contracts:
+
+- loading, disconnected, error, empty, and success;
+- enabled, disabled, loading, and failure actions;
+- internal navigation and authoritative command results;
+- English and Korean copy behavior where layout or meaning can differ;
+- stale async result protection when relevant;
+- provider-neutral client boundaries.
+
+Do not create production exports only to test implementation details. Prefer
+realistic component tests for behavior and direct tests for complex pure
+reducers or policy-free presentation functions.
+
+Tests are executable specifications, not a count to maximize. A reader should
+understand the condition, action, and observable expected result from the suite
+title and test body. Make a valid baseline explicit, vary the relevant condition,
+identify the target being changed, and wait for the relevant async work before
+asserting absence. A mock that returns a fixed success value does not establish
+that the right request was sent or the right destination was reached.
+
+Prefer correcting an existing case over adding a parallel test for the same
+contract. Keep related assertions together; do not split every field or assertion
+into a new test. Remove confirmed overlap only when its unique protection has
+another clear owner. Add a case only for a meaningful contract that the existing
+cases do not cover. Neither growth nor reduction in test count is an acceptance
+criterion. Avoid new testing frameworks and synthetic failure scenarios without
+a reachable path or an explicit contract.
+
+Describe the evidence honestly: type assertions require the TypeScript check;
+runtime object comparisons do not prove a forbidden type combination. DOM class
+checks do not prove layout. Tests preserving a known defect during refactoring
+must say they characterize current behavior, not define the desired requirement.
+Use the installed libraries' APIs, including Testing Library's async queries and
+React's `act`, rather than arbitrary delays or custom lifecycle wrappers.
+
+References: [Testing Library async methods](https://testing-library.com/docs/dom-testing-library/api-async/),
+[React act](https://react.dev/reference/react/act),
+[Vitest 1 type testing](https://v1.vitest.dev/guide/testing-types).
+
+## UI And UX Definition Of Done
+
+A screen change is complete only when:
+
+- its place in the end-to-end user journey is coherent;
+- Page, business component, common component, client, and adapter boundaries are respected;
+- loading, disconnected, error, empty, and success states are handled;
+- disabled actions communicate the reason, normally through the agreed tooltip
+  pattern;
+- internal product work navigates inside BatchPlane instead of sending the user
+  to GitHub when BatchPlane can complete the work;
+- English and Korean, long text, desktop, and mobile layouts are checked;
+- keyboard operation, focus visibility, labels, and semantic controls are
+  preserved;
+- the current UI/UX baseline in `docs/lite-ui-ux-baseline.md` and open issue #119
+  are reviewed;
+- the complete local verification sequence in `README.md` passes.
+
+## Evolution And Non-Goals
+
+Refactor through complete vertical slices. A slice should leave a working user
+path, preserve current behavior unless a defect is explicitly in scope, and be
+small enough to review honestly.
+
+Do not manufacture threats or exceptional states to justify extra engineering.
+Separate verified defects, explicit requirements, and unverified hypotheses in
+planning, worker instructions, and review. Before proposing a defensive change,
+identify how the condition can arise in the current system or which documented
+trust boundary is exposed, and state its concrete impact. Code evidence or a
+reproduction may establish a risk without a production incident; an imagined
+state alone cannot establish a defect.
+
+For example, a reader accepting failure follow-up records does not prove that a
+Gate-blocked execution can acquire such a record. Do not claim an existing
+navigation defect or extend explanation eligibility without verifying that path.
+If the evidence is missing, keep the concern a hypothesis and limit investigation
+to what is proportionate. Do not add defensive branches, states, abstractions,
+compatibility behavior, or backlog work just to accommodate it. A justified
+change outside the approved scope still needs a minimum solution, its cost and
+user approval before implementation.
+
+Do not introduce the following without an observed need and explicit approval:
+
+- a framework migration or React-version migration bundled with refactoring;
+- a state or query library and implicit cache;
+- Storybook or a separate design-system package;
+- generic provider SDKs or methods for providers not yet implemented;
+- empty layers, code generation, speculative interfaces, or duplicate policy;
+- broad visual redesign hidden inside an architecture-only change.
+
+The UI foundation is built before raw patterns are repeated, but it is validated
+through a real screen rather than completed as a speculative catalogue. The
+Batch list is the first proof surface.
+
+## Pull Request Checklist
+
+- [ ] React and library integration patterns follow applicable official
+      guidance; references and meaningful choices are stated, and any departure
+      was approved before implementation.
+- [ ] The approved vertical scope and explicit non-goals are stated.
+- [ ] Route screens and business components live under their owning area in
+      `pages`, with related Hooks and tests; request code is grouped by request type.
+- [ ] Global `components` contains only product-neutral common components,
+      not business controls promoted merely because they have multiple callers.
+- [ ] UI code depends on `BatchPlaneClient`, not provider internals.
+- [ ] Render is pure; events and Effects have the correct ownership.
+- [ ] State is minimal and has one clear owner.
+- [ ] Functions and files remain readable without speculative abstractions.
+- [ ] Pages reveal screen composition; named regions and interactions are
+      extracted where useful even without reuse, without trivial fragmentation
+      or changes to input state and component lifetime.
+- [ ] Changed entry points read clearly through their helpers; any retained
+      large function or file has a concrete reason, not merely a passing test.
+- [ ] The active plan records current status, evidence, unresolved decisions,
+      and the next step without claiming user merge or unperformed validation.
+- [ ] Tests cover the relevant observable states and remain correctly located.
+- [ ] UI/UX, accessibility, English/Korean, desktop/mobile checks are complete.
+- [ ] Verification matches the changed risk: full local verification for code,
+      configuration, dependency, or build changes; focused document checks for
+      documentation-only changes.
+- [ ] No unrelated feature, dependency, cache, framework, or design-system scope
+      was added.

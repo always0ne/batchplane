@@ -4,7 +4,11 @@ Status: Accepted
 
 Date: 2026-08-31
 
-Related issue: #191
+Related issue: #191. Reconciled against the 2026-10-05 roadmap in PR #192/#232.
+
+The monorepo decision is accepted. Main build/contracts remain planned; existing
+Lite package boundaries are already extracted. This ADR does not order another
+refactoring round or require speculative shared packages.
 
 ## Context
 
@@ -17,8 +21,7 @@ models:
 
 The editions nevertheless share product vocabulary, UI workflows, policy and
 Gate contracts, reason codes, audit semantics, and provider abstractions. These
-boundaries are still being extracted from the existing Lite-first codebase and
-will change together frequently while Main and the first shared GitHub Actions
+boundaries have been extracted in the Lite-first refactoring and can evolve together while Main and the first shared GitHub Actions
 provider are implemented.
 
 Splitting the source into separate repositories now would require versioned
@@ -55,7 +58,7 @@ The following rules are mandatory:
    edition-specific transport, storage, identity, or provider payload types.
 3. Main and Lite each have their own composition root, build entry point,
    runtime tests, deployment pipeline, and release artifact.
-4. The React feature source and test suite are shared, while Main and Lite
+4. The React product Page source and applicable behavioral tests are shared, while Main and Lite
    produce separate deployable UI builds.
 5. Root CI runs cross-edition contract and conformance tests. Path-scoped jobs
    may avoid unrelated builds, but changes to shared modules test every affected
@@ -125,5 +128,6 @@ Costs and risks:
   conformance tests fail the build;
 - GitHub Action distribution may eventually need a smaller release surface.
 
-The controls above are part of the decision rather than optional follow-up
-optimizations.
+Introduce build/CI controls with the actual runtime and affected consumers.
+A documentation-only delivery does not run both toolchains, and this ADR does
+not authorize empty modules, a separate UI kit or publishing unused contracts.
