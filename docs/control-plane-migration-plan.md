@@ -6,6 +6,21 @@ Status: Approved delivery order, reconciled 2026-10-05 in PR #192.
 Scope: product direction and acceptance boundaries, not approval to implement
 every API, table, permission or integration example in the architecture documents.
 
+## Approved Technology Baseline
+
+These are agreed implementation constraints, not technology options to select
+again at stage 6. The [product SRS](./control-plane-srs.md) makes Kotlin/Spring
+Boot and MySQL mandatory in CP-MAIN-001 and CP-MAIN-002; the
+[architecture decision](./control-plane-architecture.md) defines their boundaries.
+
+| Area                | Approved foundation                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Main server         | **Kotlin + Spring Boot**, as a modular monolith with hexagonal dependency boundaries.                                      |
+| Main database       | **MySQL**, with transactional product state and audit records.                                                             |
+| Lite runtime        | TypeScript, a React/Vite static UI on GitHub Pages, and GitHub APIs/Actions; no BatchPlane application server or database. |
+| Shared product UI   | The same React/TypeScript/Vite UI source for Lite and Main, connected through the provider-neutral product client.         |
+| Source and delivery | One modular monorepo; Lite/Main runtime implementations, build toolchains and deployment artifacts remain distinct.        |
+
 ## Current Baseline
 
 The reconciliation source is main commit
@@ -21,7 +36,7 @@ Native schedule delivery still needs live GitHub evidence in #202. Known
 authorization, parameter, lifecycle and query gaps remain below.
 
 Main is not implemented. A Main fixture or proposed interface is not a working
-Kotlin/MySQL edition. The current client contract is
+Kotlin/Spring Boot + MySQL edition. The current client contract is
 [`packages/ui-client`](../packages/ui-client/src/index.ts); do not replace it
 with speculative grouped interfaces solely to match an architecture diagram.
 
@@ -29,21 +44,21 @@ with speculative grouped interfaces solely to match an architecture diagram.
 
 Stage numbers are delivery positions, not milestone numbers or PR sizes.
 
-| Stage | Work                                     | Issues / milestone                  | Exit condition                                                                                                                                                                         |
-| ----- | ---------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | Baseline documents and user QA           | PR #192 / M0-A; #232 / M1           | Current implementation, known gaps, planned requirements and design candidates are distinguished; requirements, issues and reusable QA are linked.                                     |
-| 2a    | Lite approval consistency                | #223 / M0-R                         | Screen capability, actual approval command and Gate agree; approved-revision lookup is not truncated by the first 100 records (BF-7).                                                  |
-| 2b    | Approved execution inputs                | #212 / M0-R                         | Approved parameter values reach the actual business command; recording or dispatch success alone is insufficient.                                                                      |
-| 2c    | Request termination                      | #224 / M0-R                         | Expiry and confirmed dispatch failure terminate correctly and do not block valid new work; a failed dispatch requires a new request.                                                   |
-| 2d    | Withdrawal and real cancellation         | #225 / M0-R                         | Approved withdrawal, queued cancellation and running stop have state-specific confirmation, authority checks, real provider effects and audit evidence.                                |
-| 3     | Schedule and operating queries           | #206, #226 / M0-R                   | Cross-Batch schedule inventory/detail and cron preview agree with generated configuration (BF-3); older executions/audit and unresolved My Work remain accessible.                     |
-| 4     | Unified requests and multiple Workspaces | #142 / M0-R                         | Authorized aggregate queries and one multi-Batch/multi-operation/multi-Workspace request; a common approver for every target is required.                                              |
-| 5     | Lite acceptance                          | #65, #202 / M0-R; #232 evidence     | Existing and new core flows pass meaningful automated checks and user QA, including live native schedule/rerun evidence. Blocking correctness gaps are resolved.                       |
-| 6     | Main basic model and contracts           | #227 / M2                           | Workspace, account, membership, authorization, platform connection and unified-request relationships are approved before API/MySQL contracts and code.                                 |
-| 7     | Main registration and manual execution   | #228 / M4                           | Shared React UI through GitHub registration, approval, approved inputs, Gate, business execution, result/log/audit, request termination, withdrawal/cancel and result synchronization. |
-| 8     | Early real Jenkins validation            | #231 stage A / M6                   | In the same Main Workspace, GitHub and Jenkins execute the first control flow through real integrations. This is not full Jenkins support.                                             |
-| 9     | Remaining operations and platforms       | #228 / M4; #229 / M3; #231 B/C / M6 | Main change/delete/history, schedules/delay monitoring, failure follow-up/review, broader Jenkins support, and a separately selected third platform are validated.                     |
-| 10    | Combined acceptance                      | #230 / M5; #231 / M6                | Reuse valid per-flow evidence to accept shared Lite/Main behavior, declared Jenkins support and real third-platform validation.                                                        |
+| Stage | Work                                        | Issues / milestone                  | Exit condition                                                                                                                                                                                                 |
+| ----- | ------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Baseline documents and user QA              | PR #192 / M0-A; #232 / M1           | Current implementation, known gaps, planned requirements and design candidates are distinguished; requirements, issues and reusable QA are linked.                                                             |
+| 2a    | Lite approval consistency                   | #223 / M0-R                         | Screen capability, actual approval command and Gate agree; approved-revision lookup is not truncated by the first 100 records (BF-7).                                                                          |
+| 2b    | Approved execution inputs                   | #212 / M0-R                         | Approved parameter values reach the actual business command; recording or dispatch success alone is insufficient.                                                                                              |
+| 2c    | Request termination                         | #224 / M0-R                         | Expiry and confirmed dispatch failure terminate correctly and do not block valid new work; a failed dispatch requires a new request.                                                                           |
+| 2d    | Withdrawal and real cancellation            | #225 / M0-R                         | Approved withdrawal, queued cancellation and running stop have state-specific confirmation, authority checks, real provider effects and audit evidence.                                                        |
+| 3     | Schedule and operating queries              | #206, #226 / M0-R                   | Cross-Batch schedule inventory/detail and cron preview agree with generated configuration (BF-3); older executions/audit and unresolved My Work remain accessible.                                             |
+| 4     | Unified requests and multiple Workspaces    | #142 / M0-R                         | Authorized aggregate queries and one multi-Batch/multi-operation/multi-Workspace request; a common approver for every target is required.                                                                      |
+| 5     | Lite acceptance                             | #65, #202 / M0-R; #232 evidence     | Existing and new core flows pass meaningful automated checks and user QA, including live native schedule/rerun evidence. Blocking correctness gaps are resolved.                                               |
+| 6     | Main model, technical details and contracts | #227 / M2                           | Approve Workspace, account, membership, authorization, platform connection and unified-request relationships, then the Kotlin/Spring Boot implementation choices and API/MySQL contracts, before product code. |
+| 7     | Main registration and manual execution      | #228 / M4                           | Shared React UI through GitHub registration, approval, approved inputs, Gate, business execution, result/log/audit, request termination, withdrawal/cancel and result synchronization.                         |
+| 8     | Early real Jenkins validation               | #231 stage A / M6                   | In the same Main Workspace, GitHub and Jenkins execute the first control flow through real integrations. This is not full Jenkins support.                                                                     |
+| 9     | Remaining operations and platforms          | #228 / M4; #229 / M3; #231 B/C / M6 | Main change/delete/history, schedules/delay monitoring, failure follow-up/review, broader Jenkins support, and a separately selected third platform are validated.                                             |
+| 10    | Combined acceptance                         | #230 / M5; #231 / M6                | Reuse valid per-flow evidence to accept shared Lite/Main behavior, declared Jenkins support and real third-platform validation.                                                                                |
 
 Multi-Workspace work is Lite-first, not merely a Workspace switcher. If #142
 has demonstrated Lite cost or feasibility constraints, present the evidence and
@@ -54,6 +69,25 @@ with early Jenkins validation. Do not silently shrink it to read-only views.
 Main model preparation may overlap Lite user-QA waiting. Main product code
 starts only after Lite acceptance and model approval. No parallel implementation
 or extra agents are authorized by this roadmap.
+
+### Stage 6 Design Scope
+
+Stage 6 determines how to implement the approved Kotlin + Spring Boot + MySQL
+foundation, not whether to use it. Define and approve the product model first,
+then agree on the technical details needed for Main's first operating flow:
+
+- JDK, Kotlin, Spring Boot and MySQL versions, and server build configuration.
+- Persistence access, schema migration and transaction boundaries that fit the
+  approved data model.
+- Concrete business modules, packages, ports and adapters within the approved
+  hexagonal architecture.
+- Main API/authentication integration and the shared UI's Main client contract.
+- Server/client build and deployment boundaries within the existing monorepo.
+
+These are design outputs requiring review, not selections made by this roadmap
+or permission to add scaffolding now. Later platform-specific details remain
+with their assigned #228/#231 work. Main product implementation still requires
+Lite acceptance and approval of the relevant model, technical details and contracts.
 
 ## Lifecycle Decisions That Must Not Be Lost
 
@@ -127,8 +161,8 @@ functional readiness.
 
 ## Architecture Detail Still Requiring Approval
 
-Hexagonal boundaries, Kotlin/Spring Boot, MySQL, one source repository and shared
-React UI are accepted. Exact Main IDs, endpoints, schema/table layout, principal
+The technology baseline above is already approved; stage 6 specifies its
+implementation. Exact Main IDs, endpoints, schema/table layout, principal
 mapping, connector authentication, jobs/plugins and deployment packaging require
 #227/#228/#231 design approval. Do not pre-create empty modules or a generic SDK.
 
