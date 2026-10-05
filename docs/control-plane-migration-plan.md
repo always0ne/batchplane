@@ -130,9 +130,9 @@ React UI are accepted. Exact Main IDs, endpoints, schema/table layout, principal
 mapping, connector authentication, jobs/plugins and deployment packaging require
 #227/#228/#231 design approval. Do not pre-create empty modules or a generic SDK.
 
-Earlier #192 proposals for native-resource discovery/onboarding, audit export,
-external notification channels and failure recurrence analysis remain recorded
-in the SRS as **scope confirmation pending**. They are not deleted, silently
-promoted to this delivery's acceptance gates, or implemented here. Their existing
-proposal IDs allow a separate scope decision without reopening the approved
-roadmap order.
+Earlier #192 requirements for native-resource discovery/onboarding, audit export,
+external notification channels and failure recurrence analysis retain their
+original IDs and priority. Their detailed scope and placement in this roadmap
+need owner confirmation. Pending clarification is not a downgrade to optional
+features or authorization to omit them from a release. No new delivery stage is
+silently assigned, and no implementation is claimed.

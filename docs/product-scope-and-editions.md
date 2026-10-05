@@ -79,7 +79,9 @@ The source repository remains a [modular monorepo](./adr/0001-modular-monorepo.m
 with separate runtime artifacts. No new engine, speculative plugin loader,
 second UI, compatibility framework, automatic retry or backfill is approved.
 
-Older proposals for discovery/onboarding, export, external notifications and
-recurrence reports are preserved for scope confirmation, not deleted or treated
-as newly approved implementation. Exact Main contracts and provider integration
-details are designed at their roadmap stage.
+Earlier requirements for discovery/onboarding, export, external notifications
+and recurrence reports retain their original IDs and priority. Detailed scope
+and delivery placement require owner confirmation because the newly confirmed
+roadmap does not place them explicitly. They are not removed, made optional or
+claimed implemented. Exact Main contracts and provider integration details are
+designed at their roadmap stage.

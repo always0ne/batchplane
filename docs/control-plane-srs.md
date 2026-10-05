@@ -5,12 +5,14 @@ Delivery order and implementation readiness are separate from this normative
 target; see [the roadmap](./control-plane-migration-plan.md) and
 [requirements traceability](./requirements-traceability.md).
 
-The original proposal IDs are retained. CP-BAT-004/005/006, CP-FAL-003/006,
-CP-AUD-005 and CP-NOT-002/003/004/005 describe earlier proposals whose scope still
-needs confirmation. Their MUST/SHOULD wording is conditional on adoption, not
-new approval in this PR. Retention details, Main API/DB shapes and provider
-credentials require design at their assigned stage. No optional proposal may
-silently become a release gate.
+The original requirement IDs and priorities are retained. CP-BAT-004/005/006,
+CP-FAL-003/006, CP-AUD-005 and CP-NOT-002/003/004/005 were included in the earlier
+P0 baseline but have no explicit placement in the newly confirmed roadmap.
+Their existing MUST/SHOULD strength is not downgraded here. The owner must confirm
+delivery placement and detailed scope; neither omission from the roadmap nor
+this pending question means removal, optional status or implementation.
+Retention details, Main API/DB shapes and provider credentials require design
+at their assigned stage.
 
 This document defines product-level requirements shared by Main and Lite.
 Edition-specific specifications may refine storage, transport, and user handoff,

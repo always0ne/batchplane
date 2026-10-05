@@ -1,8 +1,9 @@
 # BatchPlane Audit And Evidence
 
 Status: Product evidence semantics and Main design candidates, 2026-10-05.
-Exact envelope/schema/retention design is not implemented. Export and recurrence
-reporting remain earlier proposals awaiting scope confirmation; see the
+Exact envelope/schema/retention design is not implemented. Earlier export and
+recurrence-reporting requirements retain their priority while detailed scope
+and roadmap placement await owner confirmation; see the
 [roadmap](./control-plane-migration-plan.md).
 
 ## Purpose
@@ -78,7 +79,7 @@ retention.
 
 ### Batch And Schedule
 
-- discovery and onboarding, if that proposed scope is adopted
+- discovery and onboarding (detailed scope/placement pending)
 - register/change/delete request submitted
 - approval/rejection/cancel
 - provider apply started/completed/failed
@@ -102,7 +103,7 @@ retention.
 - failure case opened
 - explanation/action submission
 - manager approval/rejection/change request
-- case closure; recurrence reports only if the proposal is adopted
+- case closure; recurrence reports retain their requirement, with details/placement pending
 
 ## Append-Only Rules
 
@@ -182,10 +183,11 @@ requires no new compatibility layer. Old delegated schedule approval is not
 valid execution authority. NATIVE_SCHEDULE_V2 uses the owning approved revision,
 source occurrence and exact job/attempt result.
 
-## Export Proposal
+## Export Requirement And Pending Delivery Design
 
-Scope confirmation is pending for this earlier proposal; it is not a new
-acceptance gate in #192/#232. If adopted, Main audit export should support machine-readable JSON/NDJSON and a human-readable
+The original requirement and priority are retained. Detailed format and delivery
+placement need owner confirmation; this document does not remove or implement
+export. The earlier Main export baseline calls for machine-readable JSON/NDJSON and a human-readable
 report format. An export includes:
 
 - explicit query scope and generated time

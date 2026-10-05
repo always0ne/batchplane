@@ -31,8 +31,9 @@ Describe actual supported operations and constraints:
 | Gate              | Pre-business enforcement and direct/full/partial rerun coverage                    |
 | Installation      | Required artifacts, permissions, current version and controlled upgrade            |
 
-Discovery/onboarding from the earlier proposal remains scope-confirmation work.
-Do not build a generic discovery API or configuration-schema renderer by default.
+Discovery/onboarding retains the earlier requirement and priority; concrete
+scope and roadmap placement need confirmation. This is not permission to drop it
+or to build a generic discovery API/configuration-schema renderer without design.
 
 ## Minimum Port Design
 

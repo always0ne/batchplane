@@ -29,9 +29,10 @@ proposal. Current source was consulted for documentation truth, not changed.
 
 ## Open Scope And Design
 
-Earlier proposals for native discovery/onboarding, audit export, external
-notifications and recurrence reports are retained as scope-confirmation items.
-They are not removed, newly approved or silently treated as implementation gates.
+Earlier requirements for native discovery/onboarding, audit export, external
+notifications and recurrence reports retain their IDs and original priority.
+The owner must confirm their detailed scope and roadmap placement. They are not
+removed, made optional or claimed implemented while that answer is pending.
 
 Exact Main membership/authority, IDs, API/MySQL contracts, provider integration,
 multi-Workspace evidence storage and cancellation permission mappings require
