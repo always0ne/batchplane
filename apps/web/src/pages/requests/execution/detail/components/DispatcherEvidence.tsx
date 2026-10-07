@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 
 import { formatGateReasonDisplay } from "../../../../../i18n/display-keys";
+import { executionRequestStatusHelpKey } from "../execution-request-detail-view";
 import { Fact } from "./Fact";
 
 export function DispatcherEvidence({
@@ -108,7 +109,7 @@ export function DispatcherEvidence({
       </dl>
       {!scheduled ? (
         <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-xs font-semibold text-bp-muted">
-          {t(`detail.statusHelp.${request.status}`)}
+          {t(executionRequestStatusHelpKey(request))}
         </p>
       ) : null}
     </article>

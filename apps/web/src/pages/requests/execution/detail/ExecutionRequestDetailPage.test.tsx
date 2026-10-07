@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { BatchPlaneClient, ExecutionRequest } from "@batchplane/ui-client";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -213,12 +213,84 @@ describe("ExecutionRequestDetailPage", () => {
     },
   );
 
-  it("shows a historical decision without claiming it is authorized by current policy", async () => {
+  it.each([
+    {
+      language: "en",
+      currentAuthorization: "DENIED",
+      authority: "Not authorized by current Workspace policy",
+      guidance:
+        "Approval is recorded, but current Workspace policy does not authorize execution.",
+    },
+    {
+      language: "ko",
+      currentAuthorization: "DENIED",
+      authority: "현재 Workspace 정책에서 허용되지 않는 결정",
+      guidance:
+        "승인 기록은 남아 있지만 현재 Workspace 정책으로는 실행이 허용되지 않습니다.",
+    },
+    {
+      language: "en",
+      currentAuthorization: "UNAVAILABLE",
+      authority: "Approval authority could not be verified.",
+      guidance:
+        "Approval is recorded, but current execution authority could not be verified.",
+    },
+    {
+      language: "ko",
+      currentAuthorization: "UNAVAILABLE",
+      authority: "승인 권한을 확인할 수 없습니다.",
+      guidance: "승인 기록은 남아 있지만 현재 실행 권한을 확인할 수 없습니다.",
+    },
+  ] as const)(
+    "preserves the approval record with $currentAuthorization guidance throughout the detail in $language, without promising dispatch",
+    async ({ language, currentAuthorization, authority, guidance }) => {
+      await i18next.changeLanguage(language);
+      renderDetail(
+        createClient({
+          getExecutionRequest: async () =>
+            request({
+              attempts: { type: "loaded", attempts: [] },
+              status: "APPROVED",
+              approvalDecision: {
+                actor: "auditor",
+                decidedAt: "2026-09-11T09:01:00.000Z",
+                decision: "APPROVED",
+                reason: "",
+                source: "USER",
+                currentAuthorization,
+              },
+            }),
+        }),
+      );
+      expect(
+        await screen.findByText(`APPROVED by @auditor (${authority})`),
+      ).toBeInTheDocument();
+      expect(screen.getByTitle(guidance)).toHaveTextContent(
+        language === "en" ? "Approval recorded" : "승인 기록됨",
+      );
+      const decisionTitle =
+        language === "en" ? "No approval action" : "승인 작업 없음";
+      for (const name of ["Dispatcher", decisionTitle]) {
+        const region = screen
+          .getByRole("heading", { name })
+          .closest("article")!;
+        expect(within(region).getByText(guidance)).toBeInTheDocument();
+      }
+      const waiting =
+        language === "en"
+          ? "Approval comment evidence exists. The dispatcher is expected to pick it up."
+          : "승인 comment 증적이 존재합니다. Dispatcher가 이를 감지해야 합니다.";
+      expect(screen.queryByText(waiting)).not.toBeInTheDocument();
+      expect(screen.queryByTitle(waiting)).not.toBeInTheDocument();
+    },
+  );
+
+  it("preserves recorded dispatch evidence and the execution link when current approval authority is denied", async () => {
     renderDetail(
       createClient({
         getExecutionRequest: async () =>
           request({
-            status: "APPROVED",
+            status: "DISPATCHED",
             approvalDecision: {
               actor: "auditor",
               decidedAt: "2026-09-11T09:01:00.000Z",
@@ -231,10 +303,18 @@ describe("ExecutionRequestDetailPage", () => {
       }),
     );
     expect(
-      await screen.findByText(
-        "APPROVED by @auditor (Not authorized by current Workspace policy)",
+      await screen.findByRole("link", { name: "View execution detail" }),
+    ).toHaveAttribute("href", "/executions/204");
+    expect(
+      screen.getByTitle(
+        "Dispatcher evidence says the batch workflow was dispatched.",
       ),
-    ).toBeInTheDocument();
+    ).toHaveTextContent("Dispatched");
+    expect(
+      screen.queryByText(
+        "Approval is recorded, but current Workspace policy does not authorize execution.",
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the localized failure fallback for a non-Error approval rejection", async () => {

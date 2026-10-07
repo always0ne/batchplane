@@ -5,6 +5,7 @@ import type {
 import { useTranslation } from "react-i18next";
 
 import { ExecutionApprovalActions } from "../../components/ExecutionApprovalActions";
+import { executionRequestStatusHelpKey } from "../execution-request-detail-view";
 
 export function ExecutionRequestDecision({
   canAct,
@@ -67,7 +68,7 @@ export function ExecutionRequestDecision({
           {t("detail.actions.closedTitle")}
         </h2>
         <p className="mt-2 text-sm font-semibold text-bp-muted">
-          {t(`detail.statusHelp.${request.status}`)}
+          {t(executionRequestStatusHelpKey(request))}
         </p>
       </article>
     );

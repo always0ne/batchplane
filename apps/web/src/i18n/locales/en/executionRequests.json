@@ -117,7 +117,9 @@
       "requesterIdentityUnverified": "The request's requester identity could not be verified.",
       "approverRoleRequired": "An approver role is required to approve or reject.",
       "authorizationUnavailable": "Approval authority could not be verified.",
-      "decisionAuthorityDenied": "Not authorized by current Workspace policy"
+      "decisionAuthorityDenied": "Not authorized by current Workspace policy",
+      "approvalNotAuthorized": "Approval is recorded, but current Workspace policy does not authorize execution.",
+      "approvalAuthorizationUnavailable": "Approval is recorded, but current execution authority could not be verified."
     }
   },
   "runDetail": {

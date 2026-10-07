@@ -246,8 +246,10 @@ describe("GitHub Lite execution approval client", () => {
     expect(context.client.createIssueComment).toHaveBeenCalledOnce();
   });
 
-  it("records automatic policy approval without requiring unavailable manual approver proof", async () => {
-    const context = createContext();
+  it("keeps automatic approval independent of manual proof and revalidates its policy and requester role on reads", async () => {
+    const context = createContext({
+      getExecutionRequestIssue: vi.fn().mockResolvedValue(createIssue()),
+    });
     const roles = context.client.state.files.find((file) =>
       file.path.endsWith("role-mapping.yml"),
     )!;
@@ -278,13 +280,83 @@ describe("GitHub Lite execution approval client", () => {
       targetRevision: "main",
     });
     expect(result.request).toMatchObject({
+      attempts: { attempts: [], type: "loaded" },
       status: "APPROVED",
+      workspaceLabel: "always0ne/batch",
       approvalDecision: {
         source: "WORKSPACE_POLICY",
         currentAuthorization: "VERIFIED",
       },
     });
     expect(result.postCreateError).toBeUndefined();
+    expect(context.client.createIssueComment).toHaveBeenCalledOnce();
+
+    const recordedComment = await vi.mocked(context.client.createIssueComment)
+      .mock.results[0]!.value;
+    context.client.listIssueComments = vi
+      .fn()
+      .mockResolvedValue([recordedComment]);
+    context.client.state.currentUser = { login: "auditor" };
+    roles.content = buildRoleMappingYaml();
+    const permissionLookup = vi.spyOn(
+      context.client,
+      "getRepositoryPermissionForUser",
+    );
+    const policy = context.client.state.files.find((file) =>
+      file.path.endsWith("workspace.yml"),
+    )!;
+    for (const mode of [
+      "SELF_APPROVAL_ALLOWED",
+      "SELF_APPROVAL_BLOCKED",
+    ] as const) {
+      policy.content = buildWorkspacePolicyYaml(mode);
+      permissionLookup
+        .mockClear()
+        .mockRejectedValue(new Error("Requester role lookup is unavailable"));
+      expect(
+        await product.getExecutionRequest({ requestLocator: "71" }),
+      ).toMatchObject({
+        status: "APPROVED",
+        approvalDecision: {
+          actor: "developer",
+          source: "WORKSPACE_POLICY",
+          currentAuthorization: "DENIED",
+        },
+      });
+      expect(
+        permissionLookup.mock.calls.some(
+          ([input]) => input.username === "developer",
+        ),
+      ).toBe(false);
+    }
+
+    policy.content = buildWorkspacePolicyYaml("AUTO_APPROVE");
+    expect(
+      (await product.getExecutionRequest({ requestLocator: "71" }))
+        ?.approvalDecision?.currentAuthorization,
+    ).toBe("UNAVAILABLE");
+    expect(permissionLookup).toHaveBeenCalledWith({
+      ...context.repositoryRef,
+      username: "developer",
+    });
+    permissionLookup.mockResolvedValue({
+      username: "developer",
+      permission: "read",
+      roleName: "read",
+    });
+    expect(
+      (await product.getExecutionRequest({ requestLocator: "71" }))
+        ?.approvalDecision?.currentAuthorization,
+    ).toBe("DENIED");
+    permissionLookup.mockResolvedValue({
+      username: "developer",
+      permission: "write",
+      roleName: "write",
+    });
+    expect(
+      (await product.getExecutionRequest({ requestLocator: "71" }))
+        ?.approvalDecision?.currentAuthorization,
+    ).toBe("VERIFIED");
     expect(context.client.createIssueComment).toHaveBeenCalledOnce();
   });
 

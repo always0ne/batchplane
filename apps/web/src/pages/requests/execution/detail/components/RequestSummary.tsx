@@ -19,10 +19,7 @@ export function RequestSummary({ request }: { request: ExecutionRequest }) {
             {request.title}
           </h2>
         </div>
-        <StatusBadge
-          scheduled={request.triggerType === "SCHEDULE"}
-          status={request.status}
-        />
+        <StatusBadge request={request} />
       </div>
       <dl className="mt-5 grid min-w-0 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <Fact

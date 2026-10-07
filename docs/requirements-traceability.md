@@ -107,6 +107,10 @@ history queries, #202's live schedule proof, or owner acceptance under #232.
 Approval and rejection controls remain inspectable with distinct no-authority
 and lookup-unavailable reasons. Historical decisions remain separate from
 whether current Workspace policy permits execution.
+The PR #233 self-review correction revalidates QA-L05/QA-L18 detail guidance
+and status tooltips, with no dispatch-wait promise for denied/unavailable
+approval authority and no rewriting of recorded execution outcomes. Adapter
+responsibility/input cleanup preserves the existing policy and evidence contract.
 
 When behavior changes, update the relevant requirement and readiness row, case
 preconditions/steps/observable outcome, and issue evidence. Use the QA sheet's

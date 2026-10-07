@@ -220,6 +220,11 @@ backfill, new review policy, or stronger evidence retention.
   authority even if the screen previously enabled the action.
 - An approval marker alone is not verified decision evidence. Request/digest,
   actual actor and edit validity must agree before presenting a valid decision.
+- Preserve an approval record separately from current execution authority. For
+  an APPROVED request with DENIED or UNAVAILABLE current authority, the detail
+  guidance and status tooltip must explain that outcome without also suggesting
+  waiting for dispatch. Do not rewrite recorded dispatch/Gate outcomes or native
+  schedule evidence based on a later authority check.
 
 ## Workspace Settings UX Rules
 

@@ -228,6 +228,12 @@ Approval evidence must match request ID, Batch ID and digest, use the platform's
 actual comment author, and retain its edit validity. Historical evidence does not
 by itself prove current permission. Evidence that cannot authorize execution must
 not be presented as a verified approval merely because its text says APPROVED.
+Execution decision inspection reuses the same domain approval policy as command
+recording and Gate. The adapter owns role lookup and evidence interpretation;
+UI uses the resulting current-authority field only for presentation. Detail
+guidance and status tooltips distinguish denied/unavailable authority from an
+approval awaiting dispatch while retaining historical decisions and execution
+outcomes. This does not introduce a new request status or retry operation.
 
 PR and approval-comment reads follow all continuation pages. A failed later page
 must not become a successful partial result or a false absence of approval.

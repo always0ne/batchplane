@@ -117,7 +117,9 @@
       "requesterIdentityUnverified": "이 요청의 요청자 신원을 확인할 수 없습니다.",
       "approverRoleRequired": "승인하거나 반려하려면 승인자 역할이 필요합니다.",
       "authorizationUnavailable": "승인 권한을 확인할 수 없습니다.",
-      "decisionAuthorityDenied": "현재 Workspace 정책에서 허용되지 않는 결정"
+      "decisionAuthorityDenied": "현재 Workspace 정책에서 허용되지 않는 결정",
+      "approvalNotAuthorized": "승인 기록은 남아 있지만 현재 Workspace 정책으로는 실행이 허용되지 않습니다.",
+      "approvalAuthorizationUnavailable": "승인 기록은 남아 있지만 현재 실행 권한을 확인할 수 없습니다."
     }
   },
   "runDetail": {

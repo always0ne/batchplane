@@ -122,6 +122,13 @@ lookup. The request remains readable. Use deterministic fixtures for missing rol
 mapping, stale draft mode, mismatched/edited comments and a failed continuation
 page; do not alter a real operating repository merely to simulate these conditions.
 
+For an existing approval record whose current authority is denied or unavailable,
+check that the detail guidance and status tooltip agree and do not also promise
+dispatch. The approval record remains visible. A recorded dispatched or blocked
+execution must retain its actual status and execution link. Check English and
+Korean at desktop/mobile widths; revalidate prior QA-L05 guidance results after
+this correction instead of carrying them forward.
+
 Expected: Relaxed modes do not grant missing approval authority. Blocked mode
 denies self-approval; allowed/automatic modes permit eligible self-approval.
 Automatic approval has separate policy evidence. Button, command and Gate agree
