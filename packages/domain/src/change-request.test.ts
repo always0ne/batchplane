@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  authorizeChangeRequestApproval,
+  authorizeManualApproval,
   authorizeChangeRequestCreation,
   resolveAutoApproval,
   validateRejectionReason,
-} from "./change-request";
+} from "./approval-policy";
 
 describe("change request authorization", () => {
   it("requires the requester role before a change can be created", () => {
@@ -16,7 +16,7 @@ describe("change request authorization", () => {
 
   it("keeps approver eligibility independent from self approval mode", () => {
     expect(
-      authorizeChangeRequestApproval({
+      authorizeManualApproval({
         actorHasApproverRole: false,
         actorHasRequesterRole: true,
         actorIsRequester: false,
@@ -27,7 +27,7 @@ describe("change request authorization", () => {
 
   it("blocks and allows self approval according to the Workspace policy", () => {
     expect(
-      authorizeChangeRequestApproval({
+      authorizeManualApproval({
         actorHasApproverRole: true,
         actorHasRequesterRole: true,
         actorIsRequester: true,
@@ -36,7 +36,7 @@ describe("change request authorization", () => {
     ).toEqual({ allowed: false, reason: "SELF_APPROVAL_BLOCKED" });
 
     expect(
-      authorizeChangeRequestApproval({
+      authorizeManualApproval({
         actorHasApproverRole: true,
         actorHasRequesterRole: true,
         actorIsRequester: true,

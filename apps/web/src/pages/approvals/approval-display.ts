@@ -8,6 +8,12 @@ export function approvalDisabledReason(
   t: (key: string) => string,
 ) {
   if (request.capability.canApprove) return "";
+  if (request.capability.approveUnavailableReason === "APPROVER_ROLE_REQUIRED")
+    return t("values.approverRoleRequired");
+  if (
+    request.capability.approveUnavailableReason === "AUTHORIZATION_UNAVAILABLE"
+  )
+    return t("values.authorizationUnavailable");
   if (
     request.capability.approveUnavailableReason ===
     "REQUESTER_IDENTITY_UNVERIFIED"
@@ -19,6 +25,20 @@ export function approvalDisabledReason(
   }
   if (request.gateDecision?.allowed === false)
     return t("values.gateApprovalBlocked");
+  return "";
+}
+
+export function rejectionDisabledReason(
+  request: ExecutionRequest,
+  t: (key: string) => string,
+) {
+  if (request.capability.canReject) return "";
+  if (request.capability.rejectUnavailableReason === "APPROVER_ROLE_REQUIRED")
+    return t("values.approverRoleRequired");
+  if (
+    request.capability.rejectUnavailableReason === "AUTHORIZATION_UNAVAILABLE"
+  )
+    return t("values.authorizationUnavailable");
   return "";
 }
 

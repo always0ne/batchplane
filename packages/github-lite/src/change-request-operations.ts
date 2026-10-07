@@ -1,6 +1,6 @@
 import {
-  authorizeChangeRequestApproval,
-  authorizeChangeRequestRejection,
+  authorizeManualApproval,
+  authorizeManualRejection,
   authorizeChangeRequestCreation,
   resolveAutoApproval,
   validateRejectionReason,
@@ -50,10 +50,10 @@ import {
   writePreparedChangeRequest,
 } from "./change-request-preparation.js";
 import {
-  hasChangeRequestRole,
-  loadChangeRequestPolicy,
-  loadChangeRequestRoles,
-} from "./change-request-policy.js";
+  hasWorkspaceRole,
+  loadHistoricalWorkspacePolicy,
+  loadWorkspaceRoles,
+} from "./workspace-authorization.js";
 import {
   hasAuthoritativeChangeRequest,
   hasChangedChangeRequestBase,
@@ -546,7 +546,7 @@ async function loadChangeRequestCreation({
     repository,
     baseRevisionSha,
   );
-  const actorHasRequesterRole = await hasChangeRequestRole(
+  const actorHasRequesterRole = await hasWorkspaceRole(
     client,
     repository,
     actor.login,
@@ -701,13 +701,13 @@ async function requireCurrentRejectionAuthorization(
   const actor = await client.getCurrentUser();
   const { authorizationRevisionSha, roleMapping } =
     await loadCurrentWorkspaceAuthorization(client, repository);
-  const actorHasApproverRole = await hasChangeRequestRole(
+  const actorHasApproverRole = await hasWorkspaceRole(
     client,
     repository,
     actor.login,
     roleMapping.roles.approver,
   );
-  const authorization = authorizeChangeRequestRejection({
+  const authorization = authorizeManualRejection({
     actorHasApproverRole,
   });
 
@@ -827,8 +827,8 @@ async function loadWorkspaceAuthorizationAtRevision(
   authorizationRevisionSha: string,
 ) {
   const [policy, roleMapping] = await Promise.all([
-    loadChangeRequestPolicy(client, repository, authorizationRevisionSha),
-    loadChangeRequestRoles(client, repository, authorizationRevisionSha),
+    loadHistoricalWorkspacePolicy(client, repository, authorizationRevisionSha),
+    loadWorkspaceRoles(client, repository, authorizationRevisionSha),
   ]);
 
   return { authorizationRevisionSha, policy, roleMapping };
@@ -1156,20 +1156,20 @@ async function requireCurrentApprovalAuthorization({
     loadCurrentWorkspaceAuthorization(client, repository),
   ]);
   const [actorHasApproverRole, actorHasRequesterRole] = await Promise.all([
-    hasChangeRequestRole(
+    hasWorkspaceRole(
       client,
       repository,
       actor.login,
       authorization.roleMapping.roles.approver,
     ),
-    hasChangeRequestRole(
+    hasWorkspaceRole(
       client,
       repository,
       actor.login,
       authorization.roleMapping.roles.requester,
     ),
   ]);
-  const decision = authorizeChangeRequestApproval({
+  const decision = authorizeManualApproval({
     actorHasApproverRole,
     actorHasRequesterRole,
     actorIsRequester: actor.login === evidence.requester,
@@ -1289,7 +1289,7 @@ async function applyWorkspaceAutoApproval({
   const { authorizationRevisionSha, policy, roleMapping } =
     await loadCurrentWorkspaceAuthorization(client, repository);
   const actorHasRequesterRole = evidence
-    ? await hasChangeRequestRole(
+    ? await hasWorkspaceRole(
         client,
         repository,
         actor.login,

@@ -1,21 +1,18 @@
 import type { ExecutionRequest } from "@batchplane/ui-client";
 import { useTranslation } from "react-i18next";
+import { executionRequestStatusHelpKey } from "../execution-request-detail-view";
 
-export function StatusBadge({
-  scheduled,
-  status,
-}: {
-  scheduled: boolean;
-  status: ExecutionRequest["status"];
-}) {
+export function StatusBadge({ request }: { request: ExecutionRequest }) {
   const { t } = useTranslation("executionRequests");
+  const scheduled = request.triggerType === "SCHEDULE";
+  const status = request.status;
   const displayStatus = scheduled ? "SCHEDULE_RECORDED" : status;
   return (
     <span
       className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${
         scheduled ? "bg-slate-100 text-slate-700" : statusPalette(status)
       }`}
-      title={t(`detail.statusHelp.${displayStatus}`)}
+      title={t(executionRequestStatusHelpKey(request))}
     >
       {t(`detail.status.${displayStatus}`)}
     </span>

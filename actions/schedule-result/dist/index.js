@@ -7558,6 +7558,22 @@ function createGitHubRequester({ apiBaseUrl = "https://api.github.com", fetcher 
     throw new GitHubLiteApiError("GitHub token is required.", "bad-request", 400);
   }
   return {
+    async requestList(path) {
+      const items = [];
+      let url = `${apiBaseUrl}${path}`;
+      while (url) {
+        const response = await fetcher(url, {
+          headers: buildHeaders(trimmedToken)
+        });
+        if (!response.ok)
+          throw await buildGitHubApiError(response);
+        if (response.status === 204)
+          return items;
+        items.push(...await response.json());
+        url = response.headers.get("link")?.match(/<([^>]+)>;\s*rel="next"/u)?.[1];
+      }
+      return items;
+    },
     async request(path, init = {}, options = {}) {
       const response = await fetcher(`${apiBaseUrl}${path}`, {
         ...init,
@@ -7843,7 +7859,7 @@ function createPullRequestOperations(requester) {
     },
     async listPullRequests({ owner, repo, state = "open", base, head }) {
       const query = buildQuery({ base, head, per_page: "100", state });
-      const pullRequests = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${query}`);
+      const pullRequests = await requester.requestList(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${query}`);
       return (pullRequests ?? []).map(mapPullRequestResponse);
     },
     async listPullRequestFiles({ owner, repo, pullNumber }) {
@@ -7923,7 +7939,7 @@ function createIssueOperations(requester) {
     },
     async listIssueComments({ owner, repo, issueNumber }) {
       const query = buildQuery({ per_page: "100" });
-      const comments = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments${query}`);
+      const comments = await requester.requestList(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments${query}`);
       return (comments ?? []).map((comment) => mapIssueCommentResponse(comment, issueNumber));
     },
     async listLabels({ owner, repo }) {
@@ -8074,30 +8090,6 @@ function createRepositoryAccessOperations(requester) {
         username
       };
     }
-  };
-}
-
-// ../../packages/github-lite/dist/repository-yaml.js
-var import_yaml = __toESM(require_dist(), 1);
-function parseRepositoryYaml(input) {
-  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
-  if (document.errors.length > 0) {
-    return {
-      diagnostics: document.errors.map(toYamlDiagnostic),
-      ok: false
-    };
-  }
-  return { ok: true, value: document.toJS() };
-}
-function formatRepositoryYamlDiagnostics(diagnostics) {
-  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
-}
-function toYamlDiagnostic(error) {
-  const position = error.linePos?.[0];
-  return {
-    column: position?.col ?? 1,
-    line: position?.line ?? 1,
-    message: error.message
   };
 }
 
@@ -8290,6 +8282,30 @@ function problem(code, field, message) {
 }
 var batchStatusValues = ["ACTIVE", "INACTIVE"];
 var criticalityValues = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+
+// ../../packages/github-lite/dist/repository-yaml.js
+var import_yaml = __toESM(require_dist(), 1);
+function parseRepositoryYaml(input) {
+  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
+  if (document.errors.length > 0) {
+    return {
+      diagnostics: document.errors.map(toYamlDiagnostic),
+      ok: false
+    };
+  }
+  return { ok: true, value: document.toJS() };
+}
+function formatRepositoryYamlDiagnostics(diagnostics) {
+  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
+}
+function toYamlDiagnostic(error) {
+  const position = error.linePos?.[0];
+  return {
+    column: position?.col ?? 1,
+    line: position?.line ?? 1,
+    message: error.message
+  };
+}
 
 // ../../packages/digest/dist/index.js
 function canonicalize(value) {

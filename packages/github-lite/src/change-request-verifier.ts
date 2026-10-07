@@ -14,9 +14,9 @@ import {
   type ChangeRequestEvidence,
 } from "./change-request-evidence.js";
 import {
-  hasChangeRequestRole,
-  loadChangeRequestRoles,
-} from "./change-request-policy.js";
+  hasWorkspaceRole,
+  loadWorkspaceRoles,
+} from "./workspace-authorization.js";
 import type {
   GitHubFile,
   GitHubLiteClient,
@@ -50,12 +50,12 @@ export async function hasAuthoritativeChangeRequest(
   }
 
   try {
-    const roleMapping = await loadChangeRequestRoles(
+    const roleMapping = await loadWorkspaceRoles(
       client,
       repository,
       request.baseRevisionSha,
     );
-    const authorHasRequesterRole = await hasChangeRequestRole(
+    const authorHasRequesterRole = await hasWorkspaceRole(
       client,
       repository,
       pullRequest.author,

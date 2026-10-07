@@ -1,5 +1,5 @@
 import {
-  authorizeChangeRequestApproval,
+  authorizeManualApproval,
   type WorkspacePolicy,
 } from "@batchplane/domain";
 import type { RoleMapping } from "./repository-schema.js";
@@ -25,10 +25,10 @@ import type {
   RepoRef,
 } from "./github-types.js";
 import {
-  hasChangeRequestRole,
-  loadChangeRequestPolicy,
-  loadChangeRequestRoles,
-} from "./change-request-policy.js";
+  hasWorkspaceRole,
+  loadHistoricalWorkspacePolicy,
+  loadWorkspaceRoles,
+} from "./workspace-authorization.js";
 import {
   hasAuthoritativeChangeRequest,
   hasChangedChangeRequestBase,
@@ -235,15 +235,15 @@ async function loadChangeRequestCapabilities(
       canWithdraw,
     };
   }
-  const actorHasApproverRole = await hasChangeRequestRole(
+  const actorHasApproverRole = await hasWorkspaceRole(
     client,
     repository,
     actor.login,
     roleMapping.roles.approver,
   );
-  const approval = authorizeChangeRequestApproval({
+  const approval = authorizeManualApproval({
     actorHasApproverRole,
-    actorHasRequesterRole: await hasChangeRequestRole(
+    actorHasRequesterRole: await hasWorkspaceRole(
       client,
       repository,
       actor.login,
@@ -551,7 +551,7 @@ async function hasStaleApprovedDecision(
     if (!authorization) continue;
     const { policy, roleMapping } = authorization;
 
-    const actorHasApproverRole = await hasChangeRequestRole(
+    const actorHasApproverRole = await hasWorkspaceRole(
       client,
       repository,
       comment.author,
@@ -561,7 +561,7 @@ async function hasStaleApprovedDecision(
       evidence.decisionSource === "WORKSPACE_POLICY" &&
       policy.approval.mode === "AUTO_APPROVE" &&
       comment.author === request.requester &&
-      (await hasChangeRequestRole(
+      (await hasWorkspaceRole(
         client,
         repository,
         comment.author,
@@ -569,9 +569,9 @@ async function hasStaleApprovedDecision(
       ));
     const isAuthorizedUserApproval =
       evidence.decisionSource === "USER" &&
-      authorizeChangeRequestApproval({
+      authorizeManualApproval({
         actorHasApproverRole,
-        actorHasRequesterRole: await hasChangeRequestRole(
+        actorHasRequesterRole: await hasWorkspaceRole(
           client,
           repository,
           comment.author,
@@ -621,11 +621,9 @@ async function findUnverifiedDisposition(
   comments: GitHubIssueComment[],
 ): Promise<GitHubIssueComment | undefined> {
   const roleMapping = pullRequest.baseSha
-    ? await loadChangeRequestRoles(
-        client,
-        repository,
-        pullRequest.baseSha,
-      ).catch(() => null)
+    ? await loadWorkspaceRoles(client, repository, pullRequest.baseSha).catch(
+        () => null,
+      )
     : null;
 
   for (const comment of comments) {
@@ -647,7 +645,7 @@ async function findUnverifiedDisposition(
     if (
       evidence.decision === "REJECTED_UNVERIFIED" &&
       roleMapping &&
-      (await hasChangeRequestRole(
+      (await hasWorkspaceRole(
         client,
         repository,
         comment.author,
@@ -734,13 +732,13 @@ async function isDecisionAuthorized({
   evidence: NonNullable<ReturnType<typeof parseChangeRequestDecisionEvidence>>;
   request: ChangeRequestEvidence;
 }): Promise<boolean> {
-  const actorHasApproverRole = await hasChangeRequestRole(
+  const actorHasApproverRole = await hasWorkspaceRole(
     client,
     repositoryForComment(request),
     comment.author,
     authorization.roleMapping.roles.approver,
   );
-  const actorHasRequesterRole = await hasChangeRequestRole(
+  const actorHasRequesterRole = await hasWorkspaceRole(
     client,
     repositoryForComment(request),
     comment.author,
@@ -760,7 +758,7 @@ async function isDecisionAuthorized({
 
   if (evidence.decision === "REJECTED") return actorHasApproverRole;
 
-  return authorizeChangeRequestApproval({
+  return authorizeManualApproval({
     actorHasApproverRole,
     actorHasRequesterRole,
     actorIsRequester: comment.author === request.requester,
@@ -780,8 +778,8 @@ async function loadWorkspaceAuthorizationAtRevision(
   authorizationRevisionSha: string,
 ): Promise<{ policy: WorkspacePolicy; roleMapping: RoleMapping }> {
   const [policy, roleMapping] = await Promise.all([
-    loadChangeRequestPolicy(client, repository, authorizationRevisionSha),
-    loadChangeRequestRoles(client, repository, authorizationRevisionSha),
+    loadHistoricalWorkspacePolicy(client, repository, authorizationRevisionSha),
+    loadWorkspaceRoles(client, repository, authorizationRevisionSha),
   ]);
 
   return { policy, roleMapping };

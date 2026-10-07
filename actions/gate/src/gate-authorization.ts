@@ -85,7 +85,6 @@ export async function verifyLiteAuthorization(
           input,
         })
       : await verifyManualAuthorization({
-          client: requestContext.client,
           evidence,
           input,
           repository: requestContext.repository,

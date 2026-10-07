@@ -110,6 +110,8 @@ export type ExecutionScheduleOccurrence = {
 };
 
 export type ExecutionDecision = {
+  /** Current policy permission, separate from the historical decision record. */
+  currentAuthorization?: "VERIFIED" | "DENIED" | "UNAVAILABLE";
   actor: string;
   decidedAt: string;
   decision: "APPROVED" | "REJECTED";
@@ -179,9 +181,14 @@ export type ExecutionRequestCapability = {
   canReject: boolean;
   approveUnavailableReason?:
     | "NOT_AWAITING_APPROVAL"
+    | "APPROVER_ROLE_REQUIRED"
+    | "AUTHORIZATION_UNAVAILABLE"
     | "REQUESTER_IDENTITY_UNVERIFIED"
     | "SELF_APPROVAL_BLOCKED";
-  rejectUnavailableReason?: "NOT_AWAITING_APPROVAL";
+  rejectUnavailableReason?:
+    | "NOT_AWAITING_APPROVAL"
+    | "APPROVER_ROLE_REQUIRED"
+    | "AUTHORIZATION_UNAVAILABLE";
 };
 
 export type ExecutionRequestApprovalNotice = {

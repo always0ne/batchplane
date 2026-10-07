@@ -107,7 +107,8 @@ retention/permissions is distinguished from no records.
 
 ### QA-L05: Approval UI, Actual Command And Gate Make The Same Authorization Decision
 
-Readiness: `KNOWN_GAP` #223, BF-7.
+Readiness: `AVAILABLE` after the #223/BF-7 correction. Owner/provider QA remains
+NOT_TESTED until a versioned result is recorded.
 
 Steps: Inspect A's request with the actual roles of A/B/C. Apply blocked,
 self-approval-allowed and automatic policies and check affected representative
@@ -115,11 +116,29 @@ flows. Check both unauthorized denial and eligible approval. Use prepared histor
 fixtures or a dedicated environment to retrieve/verify approval evidence beyond
 100 records; do not manually create 100 records each time.
 
+In both the approvals inbox and request detail, check the distinct disabled
+approval/rejection reasons for an ineligible actor and unavailable authorization
+lookup. The request remains readable. Use deterministic fixtures for missing role
+mapping, stale draft mode, mismatched/edited comments and a failed continuation
+page; do not alter a real operating repository merely to simulate these conditions.
+
+For an existing approval record whose current authority is denied or unavailable,
+check that the detail guidance and status tooltip agree and do not also promise
+dispatch. The approval record remains visible. A recorded dispatched or blocked
+execution must retain its actual status and execution link. Check English and
+Korean at desktop/mobile widths; revalidate prior QA-L05 guidance results after
+this correction instead of carrying them forward.
+
 Expected: Relaxed modes do not grant missing approval authority. Blocked mode
 denies self-approval; allowed/automatic modes permit eligible self-approval.
 Automatic approval has separate policy evidence. Button, command and Gate agree
-and valid approvals beyond page one are found. Record follow-up user QA as
-revalidation after #223 is fixed.
+and valid approvals beyond page one are found. Revalidate this flow against the
+corrected version; automated checks do not carry forward an owner QA pass.
+
+Expected evidence: a later-page decision is considered, including a later valid
+rejection, and an incomplete history remains unavailable rather than absent.
+Actual comment author and subject digest identify the decision. Automated fixture
+results, browser checks and owner/provider QA are recorded separately by version.
 
 ### QA-L06: Approved Parameters Become Actual Business Command Inputs
 

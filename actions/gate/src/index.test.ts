@@ -44,6 +44,153 @@ async function verifyApprovedRevision() {
 }
 
 describe("Gate action runtime", () => {
+  it("denies an ineligible manual actor and checks current policy and roles at the same default-branch SHA", async () => {
+    const denied = createGateFetchMock({
+      comments: [buildApprovalComment({ approver: "developer" })],
+      workspaceApprovalMode: "AUTO_APPROVE",
+      includeWorkspacePolicy: true,
+    });
+    const reads: string[] = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      reads.push(input.toString());
+      return denied(input, init);
+    };
+    expect(
+      await verifyLiteAuthorization(
+        { ...authorizedGateInput(), fetcher },
+        verifyApprovedRevision,
+      ),
+    ).toMatchObject({ result: "DENY", reasonCode: "APPROVER_NOT_AUTHORIZED" });
+    const authorizationReads = reads.filter(
+      (url) =>
+        url.includes("/workspace.yml") || url.includes("/role-mapping.yml"),
+    );
+    expect(authorizationReads).toHaveLength(2);
+    expect(
+      authorizationReads.every(
+        (url) => new URL(url).searchParams.get("ref") === verifiedSha,
+      ),
+    ).toBe(true);
+    const assertedMaintainer = {
+      ...buildApprovalComment(),
+      user: { login: "developer" },
+    };
+    expect(
+      await verifyLiteAuthorization(
+        {
+          ...authorizedGateInput(),
+          fetcher: createGateFetchMock({ comments: [assertedMaintainer] }),
+        },
+        verifyApprovedRevision,
+      ),
+    ).toMatchObject({ result: "DENY", reasonCode: "APPROVER_NOT_AUTHORIZED" });
+  });
+
+  it("requires requester role proof and explicit policy evidence for automatic approval", async () => {
+    const automatic = buildApprovalComment({
+      approvalType: "WORKSPACE_AUTO_APPROVED",
+      approver: "developer",
+    });
+    const missingRoles = createGateFetchMock({
+      comments: [automatic],
+      includeRoleMapping: false,
+      includeWorkspacePolicy: true,
+      workspaceApprovalMode: "AUTO_APPROVE",
+    });
+    expect(
+      await verifyLiteAuthorization(
+        { ...authorizedGateInput(), fetcher: missingRoles },
+        verifyApprovedRevision,
+      ),
+    ).toMatchObject({
+      result: "DENY",
+      reasonCode: "WORKSPACE_AUTHORIZATION_LOOKUP_FAILED",
+    });
+    const ineligibleRequester = createGateFetchMock({
+      comments: [automatic],
+      requesterGithubUsers: ["other"],
+      includeWorkspacePolicy: true,
+      workspaceApprovalMode: "AUTO_APPROVE",
+    });
+    expect(
+      await verifyLiteAuthorization(
+        { ...authorizedGateInput(), fetcher: ineligibleRequester },
+        verifyApprovedRevision,
+      ),
+    ).toMatchObject({ result: "DENY", reasonCode: "REQUESTER_NOT_AUTHORIZED" });
+    const missingSource = {
+      ...automatic,
+      body: automatic.body.replace("- Approval source: WORKSPACE_POLICY", ""),
+    };
+    expect(
+      await verifyLiteAuthorization(
+        {
+          ...authorizedGateInput(),
+          fetcher: createGateFetchMock({
+            comments: [missingSource],
+            includeWorkspacePolicy: true,
+            workspaceApprovalMode: "AUTO_APPROVE",
+          }),
+        },
+        verifyApprovedRevision,
+      ),
+    ).toMatchObject({
+      result: "DENY",
+      reasonCode: "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
+    });
+  });
+
+  it("follows comment continuation and uses the last matching decision without trusting edits or other requests", async () => {
+    const approved = buildApprovalComment();
+    const other = {
+      ...approved,
+      body: approved.body.replaceAll(requestId, "other-request"),
+    };
+    const rejection = {
+      ...approved,
+      body: approved.body.replace("decision=APPROVED", "decision=REJECTED"),
+    };
+    const base = createGateFetchMock({ comments: [approved] });
+    const nextUrl =
+      "https://api.github.com/repositories/123/issues/34/comments?page=2";
+    let later = [other];
+    let pageFails = false;
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = input.toString();
+      if (url.endsWith("/issues/34/comments?per_page=100"))
+        return Response.json(
+          Array.from({ length: 100 }, () => approved),
+          { headers: { Link: `<${nextUrl}>; rel="next"` } },
+        );
+      if (url === nextUrl)
+        return pageFails
+          ? Response.json({ message: "unavailable" }, { status: 503 })
+          : Response.json(later);
+      return base(input, init);
+    };
+    const input = { ...authorizedGateInput(), fetcher };
+    expect(
+      await verifyLiteAuthorization(input, verifyApprovedRevision),
+    ).toMatchObject({ result: "ALLOW" });
+    later = [other, rejection];
+    expect(
+      await verifyLiteAuthorization(input, verifyApprovedRevision),
+    ).toMatchObject({
+      result: "DENY",
+      reasonCode: "EXECUTION_REQUEST_NOT_APPROVED",
+    });
+    later = [{ ...approved, updated_at: "2026-05-13T01:05:00.000Z" }];
+    expect(
+      await verifyLiteAuthorization(input, verifyApprovedRevision),
+    ).toMatchObject({ result: "DENY", reasonCode: "APPROVAL_COMMENT_EDITED" });
+    pageFails = true;
+    expect(
+      await verifyLiteAuthorization(input, verifyApprovedRevision),
+    ).toMatchObject({
+      result: "DENY",
+      reasonCode: "GITHUB_EVIDENCE_LOOKUP_FAILED",
+    });
+  });
   afterEach(() => {
     process.exitCode = undefined;
     vi.restoreAllMocks();
@@ -380,6 +527,7 @@ describe("Gate action runtime", () => {
             configPath: ".batch-governance",
             fetcher: createGateFetchMock({
               comments: [buildApprovalComment({ approver: "DEVELOPER" })],
+              approverRepositoryRoles: ["write"],
               includeWorkspacePolicy,
             }),
             githubToken: "ghs_test",
@@ -433,7 +581,7 @@ describe("Gate action runtime", () => {
     });
   });
 
-  it("allows explicit Workspace self-approval without role mapping", async () => {
+  it("denies explicit Workspace self-approval without role mapping", async () => {
     await expect(
       verifyLiteAuthorization(
         {
@@ -458,15 +606,13 @@ describe("Gate action runtime", () => {
         },
         verifyApprovedRevision,
       ),
-    ).resolves.toEqual({
-      message:
-        "Execution request, approval evidence, and batch policy are verified.",
-      result: "ALLOW",
-      verifiedSha,
+    ).resolves.toMatchObject({
+      reasonCode: "WORKSPACE_AUTHORIZATION_LOOKUP_FAILED",
+      result: "DENY",
     });
   });
 
-  it("treats AUTO_APPROVE as including manual self-approval permission", async () => {
+  it("allows manual self-approval in AUTO_APPROVE only with an approver role", async () => {
     await expect(
       verifyLiteAuthorization(
         {
@@ -477,7 +623,7 @@ describe("Gate action runtime", () => {
           configPath: ".batch-governance",
           fetcher: createGateFetchMock({
             comments: [buildApprovalComment({ approver: "developer" })],
-            includeRoleMapping: false,
+            approverRepositoryRoles: ["write"],
             includeWorkspacePolicy: true,
             workspaceApprovalMode: "AUTO_APPROVE",
           }),
@@ -515,7 +661,7 @@ describe("Gate action runtime", () => {
                 approver: "developer",
               }),
             ],
-            includeRoleMapping: false,
+            approverRepositoryRoles: ["maintain"],
             includeWorkspacePolicy: true,
             workspaceApprovalMode: "AUTO_APPROVE",
           }),
@@ -564,7 +710,7 @@ describe("Gate action runtime", () => {
       }),
     ).resolves.toEqual({
       message:
-        "Workspace auto-approval evidence requires AUTO_APPROVE policy mode.",
+        "Workspace auto-approval evidence requires AUTO_APPROVE policy mode and explicit Workspace policy evidence.",
       reasonCode: "WORKSPACE_AUTO_APPROVAL_NOT_ALLOWED",
       result: "DENY",
     });
@@ -593,8 +739,8 @@ describe("Gate action runtime", () => {
       }),
     ).resolves.toEqual({
       message:
-        "Role mapping file was not found: .batch-governance/policies/role-mapping.yml.",
-      reasonCode: "APPROVER_NOT_AUTHORIZED",
+        "Workspace authorization lookup failed: Workspace role mapping is required.",
+      reasonCode: "WORKSPACE_AUTHORIZATION_LOOKUP_FAILED",
       result: "DENY",
     });
   });
@@ -1118,6 +1264,12 @@ function buildApprovalComment({
       `- Approver: @${approver}`,
       "- Approved at: 2026-05-13T01:03:03.000Z",
       ...(approvalType ? [`- Approval type: ${approvalType}`] : []),
+      ...(approvalType === "WORKSPACE_AUTO_APPROVED"
+        ? [
+            "- Approval source: WORKSPACE_POLICY",
+            "- Approval mode: AUTO_APPROVE",
+          ]
+        : []),
       `- Request ID: \`${requestId}\``,
       `- Batch ID: \`${batchId}\``,
       `- Request digest: \`${markerDigest}\``,
@@ -1167,7 +1319,10 @@ function buildBatchDefinitionYaml({
   ].join("\n");
 }
 
-function buildRoleMappingYamlWithRoles(repositoryRoles: string[]): string {
+function buildRoleMappingYamlWithRoles(
+  repositoryRoles: string[],
+  requesterGithubUsers = ["developer"],
+): string {
   return [
     'apiVersion: "batchplane.io/v1"',
     'kind: "RoleMapping"',
@@ -1176,7 +1331,7 @@ function buildRoleMappingYamlWithRoles(repositoryRoles: string[]): string {
     "spec:",
     "  roles:",
     "    requester:",
-    '      githubUsers: ["developer"]',
+    `      githubUsers: ${JSON.stringify(requesterGithubUsers)}`,
     "    approver:",
     `      repositoryRoles: ${JSON.stringify(repositoryRoles)}`,
     "    maintainer:",
@@ -1302,6 +1457,7 @@ function createNativeGateFetch(native: {
 
 function createGateFetchMock({
   issueAuthor = "Developer",
+  requesterGithubUsers = ["developer"],
   approverRepositoryRoles = ["maintain"],
   batchStatus = "ACTIVE",
   comments = [buildApprovalComment()],
@@ -1314,6 +1470,7 @@ function createGateFetchMock({
   workspaceApprovalMode = "SELF_APPROVAL_BLOCKED",
 }: {
   issueAuthor?: string;
+  requesterGithubUsers?: string[];
   approverRepositoryRoles?: string[];
   batchStatus?: "ACTIVE" | "INACTIVE";
   comments?: Array<{
@@ -1336,10 +1493,21 @@ function createGateFetchMock({
   const batchDefinitionYaml = buildBatchDefinitionYaml({ status: batchStatus });
   const roleMappingYaml = buildRoleMappingYamlWithRoles(
     approverRepositoryRoles,
+    requesterGithubUsers,
   );
 
   return (async (input: RequestInfo | URL) => {
     const url = input.toString();
+    if (url.endsWith("/repos/always0ne/batch"))
+      return Response.json({
+        owner: { login: "always0ne" },
+        name: "batch",
+        default_branch: "main",
+        private: true,
+        html_url: "https://example.test/batch",
+      });
+    if (url.endsWith("/repos/always0ne/batch/git/ref/heads/main"))
+      return Response.json({ object: { sha: verifiedSha } });
 
     if (
       url.endsWith(
@@ -1367,9 +1535,7 @@ function createGateFetchMock({
     }
 
     if (
-      url.endsWith(
-        "/repos/always0ne/batch/issues/34/comments?per_page=100&page=1",
-      )
+      url.endsWith("/repos/always0ne/batch/issues/34/comments?per_page=100")
     ) {
       return Response.json(comments);
     }

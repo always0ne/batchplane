@@ -4,7 +4,10 @@ import { useTranslation } from "react-i18next";
 import { ButtonLink } from "../../../components/ButtonLink";
 import { ExecutionApprovalActions } from "../../requests/execution/components/ExecutionApprovalActions";
 import type { ActionState, ExecutionAction } from "../approval-types";
-import { approvalDisabledReason } from "../approval-display";
+import {
+  approvalDisabledReason,
+  rejectionDisabledReason,
+} from "../approval-display";
 import { ApprovalMeta } from "./ApprovalMeta";
 
 export function ExecutionApproval({
@@ -119,6 +122,7 @@ export function ExecutionApproval({
         onReject={(reason) => void onAction(request, "reject", reason)}
         rejectLabel={t("actions.reject")}
         rejectDisabled={!request.capability.canReject}
+        rejectDisabledReason={rejectionDisabledReason(request, t)}
       />
     </article>
   );

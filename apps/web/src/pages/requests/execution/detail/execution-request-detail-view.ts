@@ -1,5 +1,22 @@
 import type { ExecutionAttempt, ExecutionRequest } from "@batchplane/ui-client";
 
+export function executionRequestStatusHelpKey(
+  request: ExecutionRequest,
+): string {
+  if (request.triggerType === "SCHEDULE") {
+    return "detail.statusHelp.SCHEDULE_RECORDED";
+  }
+  if (request.status === "APPROVED") {
+    if (request.approvalDecision?.currentAuthorization === "DENIED") {
+      return "detail.values.approvalNotAuthorized";
+    }
+    if (request.approvalDecision?.currentAuthorization === "UNAVAILABLE") {
+      return "detail.values.approvalAuthorizationUnavailable";
+    }
+  }
+  return `detail.statusHelp.${request.status}`;
+}
+
 export function initialRequestFrom(
   state: unknown,
   requestLocator: string,

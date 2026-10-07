@@ -74,9 +74,7 @@ export function ExecutionRequestDetailPage() {
   const attempt = latestAttempt(request);
   const isBusy = Boolean(detail.runningAction);
   const scheduled = request.triggerType === "SCHEDULE";
-  const canAct =
-    !scheduled &&
-    (request.capability.canApprove || request.capability.canReject);
+  const canAct = !scheduled && request.status === "REQUESTED";
 
   return (
     <section className="min-w-0">

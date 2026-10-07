@@ -339,11 +339,12 @@ function createPullRequestOperations(
 
     async listPullRequests({ owner, repo, state = "open", base, head }) {
       const query = buildQuery({ base, head, per_page: "100", state });
-      const pullRequests = await request<GitHubPullRequestResponse[]>(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo,
-        )}/pulls${query}`,
-      );
+      const pullRequests =
+        await requester.requestList<GitHubPullRequestResponse>(
+          `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+            repo,
+          )}/pulls${query}`,
+        );
 
       return (pullRequests ?? []).map(mapPullRequestResponse);
     },
@@ -525,7 +526,7 @@ function createIssueOperations(
 
     async listIssueComments({ owner, repo, issueNumber }) {
       const query = buildQuery({ per_page: "100" });
-      const comments = await request<GitHubCommentResponse[]>(
+      const comments = await requester.requestList<GitHubCommentResponse>(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
           repo,
         )}/issues/${issueNumber}/comments${query}`,

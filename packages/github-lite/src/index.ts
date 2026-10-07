@@ -6,6 +6,11 @@ export type {
   MockGitHubLiteClient,
 } from "./github-types.js";
 export { createGitHubLiteClient } from "./github-client.js";
+export {
+  hasWorkspaceRole,
+  loadCurrentExecutionApprovalPolicy,
+} from "./workspace-authorization.js";
+export { parseExecutionDecisionEvidence } from "./execution-approval-legacy.js";
 export { createGitHubLiteMockState } from "./mock-state.js";
 export { createMockGitHubLiteClient } from "./mock-client.js";
 export {

@@ -69,7 +69,11 @@ export async function listRecentExecutionRequestSummaries(
         ...(request.requestId ? { requestId: request.requestId } : {}),
         requestedAt: request.requestedAt,
         requester: request.requester,
-        status: deriveExecutionRequestStatus(request, comments),
+        status: deriveExecutionRequestStatus(
+          request,
+          comments,
+          parsed?.approvalDecision?.decision,
+        ),
         title: request.title,
       };
     }),
@@ -111,13 +115,8 @@ function toExecutionRequestCandidate(
 function deriveExecutionRequestStatus(
   request: ExecutionRequestCandidate,
   comments: GitHubIssueComment[],
+  approval: "APPROVED" | "REJECTED" | undefined,
 ): RecentExecutionRequestSummary["status"] {
-  const approval = findLatestMatchingStatus(
-    comments,
-    request,
-    "execution-approval",
-    ["APPROVED", "REJECTED"],
-  );
   const dispatcher =
     findLatestMatchingStatus(comments, request, "bgcp:dispatcher", [
       "DISPATCHING",
@@ -169,11 +168,7 @@ function deriveExecutionRequestStatus(
 function findLatestMatchingStatus(
   comments: GitHubIssueComment[],
   request: ExecutionRequestCandidate,
-  kind:
-    | "execution-approval"
-    | "bgcp:dispatcher"
-    | "execution-dispatch"
-    | "gate-decision",
+  kind: "bgcp:dispatcher" | "execution-dispatch" | "gate-decision",
   accepted: readonly string[],
 ): string | undefined {
   const sorted = comments
@@ -192,7 +187,7 @@ function findLatestMatchingStatus(
         ? marker.get("allowed") === "false"
           ? "allowed=false"
           : undefined
-        : marker.get(kind === "execution-approval" ? "decision" : "status");
+        : marker.get("status");
     if (status && accepted.includes(status)) return status;
   }
 

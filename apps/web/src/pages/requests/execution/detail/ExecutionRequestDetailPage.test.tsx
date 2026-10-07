@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { BatchPlaneClient, ExecutionRequest } from "@batchplane/ui-client";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -133,15 +133,47 @@ describe("ExecutionRequestDetailPage", () => {
       language: "en",
       approve: "Approve execution",
       reason: "The request's requester identity could not be verified.",
+      unavailableReason: "REQUESTER_IDENTITY_UNVERIFIED" as const,
+      canReject: true,
     },
     {
       language: "ko",
       approve: "실행 승인",
       reason: "이 요청의 요청자 신원을 확인할 수 없습니다.",
+      unavailableReason: "REQUESTER_IDENTITY_UNVERIFIED" as const,
+      canReject: true,
+    },
+    {
+      language: "en",
+      approve: "Approve execution",
+      reason: "An approver role is required to approve or reject.",
+      unavailableReason: "APPROVER_ROLE_REQUIRED" as const,
+      canReject: false,
+    },
+    {
+      language: "ko",
+      approve: "실행 승인",
+      reason: "승인하거나 반려하려면 승인자 역할이 필요합니다.",
+      unavailableReason: "APPROVER_ROLE_REQUIRED" as const,
+      canReject: false,
+    },
+    {
+      language: "en",
+      approve: "Approve execution",
+      reason: "Approval authority could not be verified.",
+      unavailableReason: "AUTHORIZATION_UNAVAILABLE" as const,
+      canReject: false,
+    },
+    {
+      language: "ko",
+      approve: "실행 승인",
+      reason: "승인 권한을 확인할 수 없습니다.",
+      unavailableReason: "AUTHORIZATION_UNAVAILABLE" as const,
+      canReject: false,
     },
   ])(
-    "keeps an unverified requester inspectable with disabled approval and localized reason in $language",
-    async ({ language, approve, reason }) => {
+    "keeps the request inspectable with disabled decision controls and the localized $unavailableReason reason in $language",
+    async ({ language, approve, reason, unavailableReason, canReject }) => {
       await i18next.changeLanguage(language);
       const approveExecutionRequest = vi.fn();
       renderDetail(
@@ -151,8 +183,12 @@ describe("ExecutionRequestDetailPage", () => {
             request({
               capability: {
                 canApprove: false,
-                canReject: true,
-                approveUnavailableReason: "REQUESTER_IDENTITY_UNVERIFIED",
+                canReject,
+                approveUnavailableReason: unavailableReason,
+                ...(!canReject &&
+                unavailableReason !== "REQUESTER_IDENTITY_UNVERIFIED"
+                  ? { rejectUnavailableReason: unavailableReason }
+                  : {}),
               },
             }),
         }),
@@ -161,6 +197,14 @@ describe("ExecutionRequestDetailPage", () => {
       expect(button).toBeDisabled();
       expect(button).toHaveAttribute("title", reason);
       expect(screen.getByText(reason)).toBeInTheDocument();
+      const reject = screen.getByRole("button", {
+        name: language === "en" ? "Reject" : "반려",
+      });
+      if (canReject) expect(reject).toBeEnabled();
+      else {
+        expect(reject).toBeDisabled();
+        expect(reject).toHaveAttribute("title", reason);
+      }
       expect(
         screen.getByText("#101 Run batch payment.daily-close"),
       ).toBeInTheDocument();
@@ -168,6 +212,110 @@ describe("ExecutionRequestDetailPage", () => {
       expect(approveExecutionRequest).not.toHaveBeenCalled();
     },
   );
+
+  it.each([
+    {
+      language: "en",
+      currentAuthorization: "DENIED",
+      authority: "Not authorized by current Workspace policy",
+      guidance:
+        "Approval is recorded, but current Workspace policy does not authorize execution.",
+    },
+    {
+      language: "ko",
+      currentAuthorization: "DENIED",
+      authority: "현재 Workspace 정책에서 허용되지 않는 결정",
+      guidance:
+        "승인 기록은 남아 있지만 현재 Workspace 정책으로는 실행이 허용되지 않습니다.",
+    },
+    {
+      language: "en",
+      currentAuthorization: "UNAVAILABLE",
+      authority: "Approval authority could not be verified.",
+      guidance:
+        "Approval is recorded, but current execution authority could not be verified.",
+    },
+    {
+      language: "ko",
+      currentAuthorization: "UNAVAILABLE",
+      authority: "승인 권한을 확인할 수 없습니다.",
+      guidance: "승인 기록은 남아 있지만 현재 실행 권한을 확인할 수 없습니다.",
+    },
+  ] as const)(
+    "preserves the approval record with $currentAuthorization guidance throughout the detail in $language, without promising dispatch",
+    async ({ language, currentAuthorization, authority, guidance }) => {
+      await i18next.changeLanguage(language);
+      renderDetail(
+        createClient({
+          getExecutionRequest: async () =>
+            request({
+              attempts: { type: "loaded", attempts: [] },
+              status: "APPROVED",
+              approvalDecision: {
+                actor: "auditor",
+                decidedAt: "2026-09-11T09:01:00.000Z",
+                decision: "APPROVED",
+                reason: "",
+                source: "USER",
+                currentAuthorization,
+              },
+            }),
+        }),
+      );
+      expect(
+        await screen.findByText(`APPROVED by @auditor (${authority})`),
+      ).toBeInTheDocument();
+      expect(screen.getByTitle(guidance)).toHaveTextContent(
+        language === "en" ? "Approval recorded" : "승인 기록됨",
+      );
+      const decisionTitle =
+        language === "en" ? "No approval action" : "승인 작업 없음";
+      for (const name of ["Dispatcher", decisionTitle]) {
+        const region = screen
+          .getByRole("heading", { name })
+          .closest("article")!;
+        expect(within(region).getByText(guidance)).toBeInTheDocument();
+      }
+      const waiting =
+        language === "en"
+          ? "Approval comment evidence exists. The dispatcher is expected to pick it up."
+          : "승인 comment 증적이 존재합니다. Dispatcher가 이를 감지해야 합니다.";
+      expect(screen.queryByText(waiting)).not.toBeInTheDocument();
+      expect(screen.queryByTitle(waiting)).not.toBeInTheDocument();
+    },
+  );
+
+  it("preserves recorded dispatch evidence and the execution link when current approval authority is denied", async () => {
+    renderDetail(
+      createClient({
+        getExecutionRequest: async () =>
+          request({
+            status: "DISPATCHED",
+            approvalDecision: {
+              actor: "auditor",
+              decidedAt: "2026-09-11T09:01:00.000Z",
+              decision: "APPROVED",
+              reason: "",
+              source: "USER",
+              currentAuthorization: "DENIED",
+            },
+          }),
+      }),
+    );
+    expect(
+      await screen.findByRole("link", { name: "View execution detail" }),
+    ).toHaveAttribute("href", "/executions/204");
+    expect(
+      screen.getByTitle(
+        "Dispatcher evidence says the batch workflow was dispatched.",
+      ),
+    ).toHaveTextContent("Dispatched");
+    expect(
+      screen.queryByText(
+        "Approval is recorded, but current Workspace policy does not authorize execution.",
+      ),
+    ).not.toBeInTheDocument();
+  });
 
   it("renders the localized failure fallback for a non-Error approval rejection", async () => {
     renderDetail(

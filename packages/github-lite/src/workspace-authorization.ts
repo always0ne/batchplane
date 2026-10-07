@@ -6,17 +6,17 @@ import {
   type ApproverSelector,
   type RoleMapping,
   validateRoleMappingFile,
-  validateWorkspacePolicyFile,
 } from "./repository-schema.js";
 
 import { parseRepositoryYaml } from "./repository-yaml.js";
 import type { GitHubLiteClient, RepoRef } from "./github-types.js";
+import { parseWorkspacePolicyFile } from "./inspection-context.js";
+import { isSameGitHubLogin } from "./execution-request-evidence.js";
 
-const roleMappingPath = ".batch-governance/policies/role-mapping.yml";
 const workspacePolicyPath = ".batch-governance/workspace.yml";
 
-/** Reads Workspace policy at the explicitly authoritative repository revision. */
-export async function loadChangeRequestPolicy(
+/** Reads historical change authorization at the explicitly authoritative revision. */
+export async function loadHistoricalWorkspacePolicy(
   client: GitHubLiteClient,
   repository: RepoRef,
   ref: string,
@@ -29,22 +29,18 @@ export async function loadChangeRequestPolicy(
 
   if (!file) return defaultWorkspacePolicy;
 
-  const parsed = parseRepositoryYaml(file.content);
-  const validated = parsed.ok
-    ? validateWorkspacePolicyFile(parsed.value)
-    : null;
-
-  return validated?.ok ? validated.value.spec : defaultWorkspacePolicy;
+  return parseWorkspacePolicyFile(file.content);
 }
 
-export async function loadChangeRequestRoles(
+export async function loadWorkspaceRoles(
   client: GitHubLiteClient,
   repository: RepoRef,
   ref: string,
+  configPath = ".batch-governance",
 ): Promise<RoleMapping> {
   const file = await client.getFile({
     ...repository,
-    path: roleMappingPath,
+    path: `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`,
     ref,
   });
 
@@ -58,23 +54,27 @@ export async function loadChangeRequestRoles(
   return validated.value.spec;
 }
 
-export async function hasChangeRequestRole(
+export async function hasWorkspaceRole(
   client: GitHubLiteClient,
   repository: RepoRef,
   login: string,
   selector: ApproverSelector,
 ): Promise<boolean> {
-  if (selector.githubUsers?.includes(login)) return true;
+  if (selector.githubUsers?.some((user) => isSameGitHubLogin(user, login)))
+    return true;
 
   if (selector.repositoryRoles?.length) {
     const permission = await client.getRepositoryPermissionForUser({
       ...repository,
-      username: login,
+      username: login.trim().toLowerCase(),
     });
 
     if (
-      selector.repositoryRoles.includes(
-        permission.permission as "admin" | "maintain" | "write" | "triage",
+      isSameGitHubLogin(permission.username, login) &&
+      selector.repositoryRoles.some(
+        (role) =>
+          role === permission.roleName?.toLowerCase() ||
+          role === permission.permission.toLowerCase(),
       )
     ) {
       return true;
@@ -88,10 +88,38 @@ export async function hasChangeRequestRole(
       client.getTeamMembershipForUser({
         org: repository.owner,
         teamSlug,
-        username: login,
+        username: login.trim().toLowerCase(),
       }),
     ),
   );
 
   return memberships.some((membership) => membership?.state === "active");
+}
+
+/** Resolve once so policy and role proof cannot come from different branch revisions. */
+export async function loadCurrentExecutionApprovalPolicy(
+  client: GitHubLiteClient,
+  repository: RepoRef,
+  configPath = ".batch-governance",
+) {
+  const metadata = await client.getRepository(repository);
+  const revision = await client.getBranchHeadSha({
+    ...repository,
+    branch: metadata.defaultBranch,
+  });
+  const [file, roleMapping] = await Promise.all([
+    client.getFile({
+      ...repository,
+      path: `${configPath.replace(/\/+$/u, "")}/workspace.yml`,
+      ref: revision,
+    }),
+    loadWorkspaceRoles(client, repository, revision, configPath),
+  ]);
+  return {
+    policy: file
+      ? parseWorkspacePolicyFile(file.content)
+      : defaultWorkspacePolicy,
+    roleMapping,
+    revision,
+  };
 }

@@ -16,6 +16,12 @@ describe("recent execution request summaries", () => {
     state.issueComments = state.issueComments.filter((comment) =>
       selectedIssueNumbers.has(comment.issueNumber),
     );
+    const otherDecision = state.issueComments.find(
+      (comment) =>
+        comment.issueNumber === 104 &&
+        comment.body.includes("execution-approval"),
+    )!;
+    state.issueComments.push({ ...otherDecision, id: 9998, issueNumber: 102 });
     state.issueComments.push({
       author: "github-actions[bot]",
       body: [
@@ -48,5 +54,24 @@ describe("recent execution request summaries", () => {
     expect(
       state.issues.every((issue) => issue.body.includes("status=REQUESTED")),
     ).toBe(true);
+    const matchingDecision = state.issueComments.find(
+      (comment) => comment.issueNumber === 102 && comment.id !== 9998,
+    )!;
+    client.state.issueComments.push({
+      ...matchingDecision,
+      id: 10000,
+      updatedAt: "2999-01-01T00:00:00.000Z",
+    });
+    const refreshed = await listRecentExecutionRequestSummaries(
+      client,
+      repository,
+      "payment.daily-close",
+    );
+    expect(refreshed.find((item) => item.locator === "102")?.status).toBe(
+      "REQUESTED",
+    );
+    expect(state.issueComments).toContainEqual(
+      expect.objectContaining({ id: 9998, body: otherDecision.body }),
+    );
   });
 });

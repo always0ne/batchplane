@@ -292,4 +292,84 @@ describe("approval model", () => {
       ])?.status,
     ).toBe("DISPATCHED");
   });
+
+  it("binds decisions to this request, actual author and edit validity while retaining raw comments", () => {
+    const other = {
+      ...approvalComment,
+      body: approvalComment.body.replaceAll(
+        "btr-20260509010203-payment.daily-close-abcdef12",
+        "other-request",
+      ),
+    };
+    const wrongBatch = {
+      ...approvalComment,
+      body: approvalComment.body.replaceAll(
+        "payment.daily-close",
+        "other.batch",
+      ),
+    };
+    const wrongDigest = {
+      ...approvalComment,
+      body: approvalComment.body.replaceAll(
+        "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "sha256:other",
+      ),
+    };
+    const raw = [other, wrongBatch, wrongDigest];
+    expect(parseExecutionRequestDetail(executionIssue, raw)).toMatchObject({
+      status: "REQUESTED",
+      comments: raw,
+    });
+    expect(
+      parseExecutionRequestDetail(executionIssue, [approvalComment, ...raw])
+        ?.approvalDecision,
+    ).toMatchObject({
+      actor: "maintainer",
+      decision: "APPROVED",
+      source: "USER",
+    });
+    const spoofedActor = {
+      ...approvalComment,
+      body: approvalComment.body.replace(
+        "- Approver: @maintainer",
+        "- Approver: @forged",
+      ),
+      author: "actual-author",
+    };
+    expect(
+      parseExecutionRequestDetail(executionIssue, [spoofedActor])
+        ?.approvalDecision?.actor,
+    ).toBe("actual-author");
+    const edited = {
+      ...approvalComment,
+      updatedAt: "2026-05-09T03:04:00.000Z",
+    };
+    expect(
+      parseExecutionRequestDetail(executionIssue, [approvalComment, edited])
+        ?.approvalDecision,
+    ).toBeUndefined();
+    expect(
+      parseExecutionRequestDetail(executionIssue, [
+        { ...approvalComment, author: "" },
+      ])?.approvalDecision,
+    ).toBeUndefined();
+    const request = parseExecutionRequestDetail(executionIssue)!;
+    const rejection = {
+      ...approvalComment,
+      body: buildExecutionRejectionComment({
+        rejectedAt: new Date(),
+        rejector: "maintainer",
+        reason: "Correction required",
+        request,
+      }),
+    };
+    expect(
+      parseExecutionRequestDetail(executionIssue, [approvalComment, rejection])
+        ?.approvalDecision,
+    ).toMatchObject({
+      decision: "REJECTED",
+      actor: "maintainer",
+      reason: "Correction required",
+    });
+  });
 });

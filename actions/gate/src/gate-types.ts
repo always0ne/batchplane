@@ -87,6 +87,9 @@ export type ExecutionRequestEvidence = {
 };
 
 export type ExecutionApprovalEvidence = {
+  decision: "APPROVED" | "REJECTED";
+  approvalMode?: string;
+  source: "WORKSPACE_POLICY" | "USER";
   approvalType?: string;
   approver: string;
   batchId: string;

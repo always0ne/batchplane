@@ -71,7 +71,9 @@
       "REGISTER": "등록",
       "CHANGE": "변경",
       "DELETE": "삭제"
-    }
+    },
+    "approverRoleRequired": "승인하거나 반려하려면 승인자 역할이 필요합니다.",
+    "authorizationUnavailable": "승인 권한을 확인할 수 없습니다."
   },
   "states": {
     "empty": "{{branch}} 브랜치에 대기 중인 승인이 없습니다.",

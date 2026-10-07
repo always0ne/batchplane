@@ -211,6 +211,20 @@ backfill, new review policy, or stronger evidence retention.
 - Self-approval must be disabled with an explicit reason unless the effective
   Workspace policy permits eligible self-approval through `SELF_APPROVAL_ALLOWED`
   or `AUTO_APPROVE`.
+- Approval inbox and execution request detail use the same provider-neutral
+  capabilities. Both approval and rejection show a concise unavailable reason;
+  distinguish missing authority from inability to verify it without hiding the
+  request itself. Do not add a large permission-explanation panel.
+- A recorded automatic approval must appear in the immediate command result,
+  without offering a second enabled approval. The current command rechecks
+  authority even if the screen previously enabled the action.
+- An approval marker alone is not verified decision evidence. Request/digest,
+  actual actor and edit validity must agree before presenting a valid decision.
+- Preserve an approval record separately from current execution authority. For
+  an APPROVED request with DENIED or UNAVAILABLE current authority, the detail
+  guidance and status tooltip must explain that outcome without also suggesting
+  waiting for dispatch. Do not rewrite recorded dispatch/Gate outcomes or native
+  schedule evidence based on a later authority check.
 
 ## Workspace Settings UX Rules
 
