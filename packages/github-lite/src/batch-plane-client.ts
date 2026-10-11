@@ -18,6 +18,11 @@ import { toProductReadError } from "./product-read-errors.js";
 import type { createGitHubLiteBatchRevisionClient } from "./batch-revision-client.js";
 import { formatGeneratedScheduleCrons } from "./github-workflow.js";
 import type { createGitHubLiteChangeRequestClient } from "./change-request-client.js";
+import {
+  toNeutralParameterDefinitions,
+  toNeutralSchedules,
+  type SavedParameterScope,
+} from "./parameter-storage.js";
 
 type BatchRevisionReadClient = Pick<
   ReturnType<typeof createGitHubLiteBatchRevisionClient>,
@@ -100,7 +105,14 @@ export function createGitHubLiteBatchReadClient({
           await changeRequestClient.getBatchRemediationCapability({ batchId }),
         );
         return {
-          batch: toBatchDetailDefinition(batch),
+          batch: toBatchDetailDefinition(batch, {
+            repositoryId: repository.id,
+            batchId: batch.batchId,
+            sourceRevision:
+              control.status === "VERIFIED"
+                ? control.approvedRevision.verifiedSha
+                : "",
+          }),
           control,
           defaultBranch: repository.defaultBranch,
           recentExecutionRequests,
@@ -130,6 +142,11 @@ export function createGitHubLiteBatchReadClient({
 
 function toBatchDetailDefinition(
   batch: GitHubBatchDefinition,
+  scope: SavedParameterScope = {
+    repositoryId: "",
+    batchId: batch.batchId,
+    sourceRevision: "",
+  },
 ): BatchDetailDefinition {
   return {
     batchId: batch.batchId,
@@ -141,6 +158,7 @@ function toBatchDetailDefinition(
     labels: batch.labels,
     name: batch.name,
     owner: batch.owner,
+    parameters: toNeutralParameterDefinitions(batch, scope),
     status: batch.status,
     executionTarget: {
       ...(batch.execution
@@ -163,7 +181,7 @@ function toBatchDetailDefinition(
       targetName: batch.workflow.path,
       targetRevision: batch.workflow.ref,
     },
-    schedules: batch.schedules?.map((schedule) => ({
+    schedules: toNeutralSchedules(batch, scope)?.map((schedule) => ({
       ...schedule,
       generatedCron: formatGeneratedScheduleCrons(schedule),
     })),

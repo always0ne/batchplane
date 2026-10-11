@@ -18,6 +18,12 @@ import {
 } from "./change-request-evidence.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 import type { GitHubLiteClient, RepoRef } from "./github-types.js";
+import {
+  assertStoredScheduleParameters,
+  toNeutralParameterDefinitions,
+  toNeutralSchedules,
+  type SavedParameterScope,
+} from "./parameter-storage.js";
 
 export type PreparedChangeRequest = {
   batch: GitHubBatchDefinition;
@@ -35,7 +41,27 @@ export type PreparedChangeRequestFile = {
 export function prepareChangeRequest(
   draft: BatchChangeDraft,
   changeRequestId: string,
+  storedParameters?: Pick<GitHubBatchDefinition, "parameters" | "schedules">,
 ): PreparedChangeRequest {
+  if (
+    !storedParameters &&
+    (draft.parameters?.length ||
+      draft.schedules.some((schedule) => schedule.parameters?.length))
+  )
+    throw new Error("PARAMETER_MATERIALIZATION_REQUIRED");
+  const parameterSettings = storedParameters ?? {
+    parameters: draft.parameters?.length === 0 ? [] : undefined,
+    schedules: draft.schedules.map(
+      ({ scheduleId, name, cron, timezone, enabled }) => ({
+        scheduleId,
+        name,
+        cron,
+        timezone,
+        enabled,
+      }),
+    ),
+  };
+  assertStoredScheduleParameters(parameterSettings);
   const currentArtifactPath = draft.execution.existingFile?.locator;
   const nextArtifactPath = resolveArtifactPath(draft, currentArtifactPath);
   const batch = toBatchDefinition(
@@ -48,7 +74,7 @@ export function prepareChangeRequest(
     {
       artifactPath: nextArtifactPath,
       governedChangeId: changeRequestId,
-      schedules: draft.schedules,
+      ...parameterSettings,
     },
   );
   const batchPath = getBatchDefinitionPath(batch.batchId);
@@ -413,8 +439,15 @@ export async function loadExistingBatchDefinition(
 
 export function toBatchChangeDraft(
   batch: GitHubBatchDefinition,
-): Pick<BatchChangeDraft, "batch" | "execution"> {
+  scope: SavedParameterScope = {
+    repositoryId: "",
+    batchId: batch.batchId,
+    sourceRevision: "",
+  },
+): Pick<BatchChangeDraft, "batch" | "execution" | "parameters" | "schedules"> {
   return {
+    parameters: toNeutralParameterDefinitions(batch, scope),
+    schedules: toNeutralSchedules(batch, scope) ?? [],
     batch: {
       batchId: batch.batchId,
       criticality: batch.criticality,

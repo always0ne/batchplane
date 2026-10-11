@@ -1,6 +1,7 @@
 import type { RepoRef } from "./github-types.js";
 import type { ExecutionRunJob, GateDecision } from "@batchplane/domain";
 import { parseExecutionGateResult } from "./execution-gate-result.js";
+import { inputPreparationStepName } from "./github-workflow.js";
 import {
   parseBatchIdFromRun,
   parseRequestIdFromRun,
@@ -108,8 +109,21 @@ export async function loadGateDecisionForRun({
   repositoryRef: RepoRef;
   run: GitHubWorkflowRun;
 }): Promise<GateDecision | undefined> {
-  const gateJob = jobs.find((job) => job.name === "BatchPlane Gate");
-  const gateStep = gateJob?.steps?.find(isGateVerificationStep);
+  const preparationJob = jobs.find((job) =>
+    job.steps?.some(
+      (step) =>
+        step.name === inputPreparationStepName &&
+        step.status === "completed" &&
+        step.conclusion !== "skipped",
+    ),
+  );
+  const gateJob =
+    preparationJob ?? jobs.find((job) => job.name === "BatchPlane Gate");
+  const gateStep = preparationJob
+    ? preparationJob.steps?.find(
+        (step) => step.name === inputPreparationStepName,
+      )
+    : gateJob?.steps?.find(isGateVerificationStep);
 
   if (!gateJob || !gateStep) {
     return undefined;

@@ -46,6 +46,17 @@ export function canonicalize(value: CanonicalValue): string {
   return JSON.stringify(normalize(value));
 }
 
+/** Sort keys while retaining literal strings, empty values and own property names. */
+export function canonicalizeExact(value: CanonicalValue): string {
+  return JSON.stringify(normalizeExact(value));
+}
+
+export async function createExactCanonicalDigest(
+  value: CanonicalValue,
+): Promise<string> {
+  return `sha256:${await sha256Hex(canonicalizeExact(value))}`;
+}
+
 export async function createCanonicalDigest(
   value: CanonicalValue,
 ): Promise<string> {
@@ -103,6 +114,19 @@ function digestToHex(digest: ArrayBuffer): string {
   return Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, "0"),
   ).join("");
+}
+
+function normalizeExact(value: CanonicalValue): unknown {
+  if (Array.isArray(value)) return value.map(normalizeExact);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .filter((key) => value[key] !== undefined)
+        .map((key) => [key, normalizeExact(value[key]!)]),
+    );
+  }
+  return value;
 }
 
 function normalize(value: CanonicalValue): unknown {

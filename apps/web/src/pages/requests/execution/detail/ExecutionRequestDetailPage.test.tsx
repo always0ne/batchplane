@@ -41,6 +41,56 @@ describe("ExecutionRequestDetailPage", () => {
     ).toBeInTheDocument();
   });
 
+  it.each(["en", "ko"])(
+    "shows projected parameter sources and exact ordinary values without revealing protected values in %s",
+    async (locale) => {
+      await i18next.changeLanguage(locale);
+      const exact = " 001\n한글\n ";
+      renderDetail(
+        createClient({
+          getExecutionRequest: async () =>
+            request({
+              parameters: [
+                {
+                  name: "Report",
+                  sensitive: false,
+                  source: "VALUE",
+                  value: exact,
+                },
+                { name: "Empty", sensitive: false, source: "VALUE", value: "" },
+                { name: "Token", sensitive: true, source: "DEFAULT" },
+                { name: "Optional", sensitive: false, source: "OMIT" },
+              ],
+            }),
+        }),
+      );
+      await screen.findByRole("heading", {
+        name: locale === "en" ? "Execution request detail" : "실행 요청 상세",
+      });
+      const displayedValue = screen.getByText(
+        (_, element) => element?.textContent === exact,
+      );
+      expect(displayedValue.textContent).toBe(exact);
+      expect(
+        screen.getByText(locale === "en" ? "Empty string" : "빈 문자열"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(locale === "en" ? "Protected value" : "보호된 값"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          locale === "en" ? "Use batch default" : "배치 기본값 사용",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(locale === "en" ? "Omit" : "생략"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Show entered|입력한 값 표시/ }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it.each([false, undefined])(
     "does not infer required Gate evidence from a target when gateRequired is %s",
     async (gateRequired) => {

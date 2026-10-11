@@ -7715,10 +7715,43 @@ function isRateLimitedResponse(response, message) {
   return message.toLowerCase().includes("rate limit");
 }
 
+// ../../packages/github-lite/dist/github-actions-secrets.js
+function createGitHubActionsSecretOperations({ request }) {
+  function base(owner, repo) {
+    return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/secrets`;
+  }
+  return {
+    async getActionsSecretPublicKey({ owner, repo }) {
+      const result = await request(`${base(owner, repo)}/public-key`);
+      if (!result)
+        throw new GitHubLiteApiError("Actions upload key is unavailable.", "unknown", 500);
+      return { keyId: result.key_id, key: result.key };
+    },
+    async getActionsSecret({ owner, repo, name }) {
+      const result = await request(`${base(owner, repo)}/${encodeURIComponent(name)}`, {}, { allowNotFound: true });
+      return result ? {
+        name: result.name,
+        createdAt: result.created_at,
+        updatedAt: result.updated_at
+      } : null;
+    },
+    async putActionsSecret({ owner, repo, name, encryptedValue, keyId }) {
+      await request(`${base(owner, repo)}/${encodeURIComponent(name)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          encrypted_value: encryptedValue,
+          key_id: keyId
+        })
+      });
+    }
+  };
+}
+
 // ../../packages/github-lite/dist/github-client.js
 function createGitHubLiteClient(options) {
   const requester = createGitHubRequester(options);
   return {
+    ...createGitHubActionsSecretOperations(requester),
     ...createRepositoryOperations(requester),
     ...createPullRequestOperations(requester),
     ...createIssueOperations(requester),
@@ -7742,6 +7775,7 @@ function createRepositoryOperations(requester) {
         throw new GitHubLiteApiError("GitHub repository was empty.", "unknown", 500);
       }
       return {
+        id: String(repository.id),
         owner: repository.owner.login,
         repo: repository.name,
         defaultBranch: repository.default_branch,
@@ -8104,12 +8138,182 @@ function isBatchPlaneApiVersion(value) {
   return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
 }
 
+// ../../packages/domain/dist/parameters.js
+function validateParameterNames(names) {
+  const seen = /* @__PURE__ */ new Set();
+  for (const name of names) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) {
+      throw new Error("PARAMETER_NAME_INVALID");
+    }
+    const identity = name.toLowerCase();
+    if (seen.has(identity))
+      throw new Error("PARAMETER_NAME_DUPLICATED");
+    seen.add(identity);
+  }
+}
+function validateParameterString(value) {
+  if (typeof value !== "string")
+    throw new Error("PARAMETER_VALUE_INVALID");
+  if (value.includes("\0"))
+    throw new Error("PARAMETER_NUL_UNSUPPORTED");
+}
+
 // ../../packages/domain/dist/workspace-policy.js
 var defaultWorkspacePolicy = {
   approval: {
     mode: "SELF_APPROVAL_BLOCKED"
   }
 };
+
+// ../../packages/github-lite/dist/repository-yaml.js
+var import_yaml = __toESM(require_dist(), 1);
+function parseRepositoryYaml(input) {
+  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
+  if (document.errors.length > 0) {
+    return {
+      diagnostics: document.errors.map(toYamlDiagnostic),
+      ok: false
+    };
+  }
+  return { ok: true, value: document.toJS() };
+}
+function formatRepositoryYamlDiagnostics(diagnostics) {
+  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
+}
+function toYamlDiagnostic(error) {
+  const position = error.linePos?.[0];
+  return {
+    column: position?.col ?? 1,
+    line: position?.line ?? 1,
+    message: error.message
+  };
+}
+
+// ../../packages/github-lite/dist/parameter-storage.js
+function assertStoredParameterValue(value, sensitive) {
+  if (!isParameterRecord(value))
+    throw new Error("PARAMETER_VALUE_INVALID");
+  if (sensitive) {
+    if (value.sensitive !== true || !hasOnlyParameterKeys(value, ["sensitive", "encrypted"]))
+      throw new Error("PARAMETER_SENSITIVITY_MISMATCH");
+    const encrypted = value.encrypted;
+    if (!isParameterRecord(encrypted) || !hasOnlyParameterKeys(encrypted, ["version", "keyId", "jwe"]) || encrypted.version !== 1 || typeof encrypted.keyId !== "string" || !encrypted.keyId || typeof encrypted.jwe !== "string" || !encrypted.jwe)
+      throw new Error("PARAMETER_ENCRYPTED_VALUE_INVALID");
+  } else {
+    if (value.sensitive !== void 0 && value.sensitive !== false || !hasOnlyParameterKeys(value, ["sensitive", "value"]))
+      throw new Error("PARAMETER_SENSITIVITY_MISMATCH");
+    validateParameterString(value.value);
+  }
+}
+function assertStoredParameterDefinitions(parameters) {
+  if (parameters === void 0)
+    return;
+  if (!Array.isArray(parameters))
+    throw new Error("PARAMETER_DEFINITIONS_INVALID");
+  for (const item of parameters) {
+    if (!isParameterRecord(item) || !hasOnlyParameterKeys(item, [
+      "name",
+      "required",
+      "sensitive",
+      "defaultValue"
+    ]) || typeof item.name !== "string" || typeof item.required !== "boolean" || typeof item.sensitive !== "boolean")
+      throw new Error("PARAMETER_DEFINITION_INVALID");
+    if (Object.hasOwn(item, "defaultValue"))
+      assertStoredParameterValue(item.defaultValue, item.sensitive);
+  }
+  validateParameterNames(parameters.map((item) => item.name));
+}
+function assertStoredScheduleParameters(batch) {
+  assertStoredParameterDefinitions(batch.parameters);
+  if (!batch.parameters?.length && !batch.schedules?.some((schedule) => schedule.parameters !== void 0))
+    return;
+  const definitions = new Map(batch.parameters?.map((definition) => [definition.name, definition]));
+  const scheduleIds = /* @__PURE__ */ new Set();
+  for (const schedule of batch.schedules ?? []) {
+    if (scheduleIds.has(schedule.scheduleId))
+      throw new Error("PARAMETER_SCHEDULE_DUPLICATED");
+    scheduleIds.add(schedule.scheduleId);
+    if (schedule.parameters !== void 0 && !Array.isArray(schedule.parameters))
+      throw new Error("PARAMETER_SELECTION_INVALID");
+    const selections = schedule.parameters ?? [];
+    validateParameterNames(selections.map((item) => item.name));
+    for (const selection of selections) {
+      if (!isParameterRecord(selection))
+        throw new Error("PARAMETER_SELECTION_INVALID");
+      const definition = definitions.get(selection.name);
+      if (!definition)
+        throw new Error("PARAMETER_NAME_UNKNOWN");
+      if (selection.source === "VALUE") {
+        if (!hasOnlyParameterKeys(selection, ["name", "source", "value"]))
+          throw new Error("PARAMETER_SELECTION_INVALID");
+        assertStoredParameterValue(selection.value, definition.sensitive);
+      } else if (selection.source === "DEFAULT" || selection.source === "OMIT") {
+        if (!hasOnlyParameterKeys(selection, ["name", "source"]))
+          throw new Error("PARAMETER_SELECTION_INVALID");
+        if (selection.source === "OMIT" && definition.required)
+          throw new Error("PARAMETER_REQUIRED");
+        if (selection.source === "DEFAULT" && definition.defaultValue === void 0)
+          throw new Error("PARAMETER_DEFAULT_UNAVAILABLE");
+      } else
+        throw new Error("PARAMETER_SELECTION_INVALID");
+    }
+    for (const definition of definitions.values()) {
+      if (definition.required && definition.defaultValue === void 0 && !selections.some((selection) => selection.name === definition.name && selection.source === "VALUE"))
+        throw new Error("PARAMETER_REQUIRED");
+    }
+  }
+}
+function isParameterRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function hasOnlyParameterKeys(value, keys) {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
+
+// ../../packages/digest/dist/index.js
+function canonicalize(value) {
+  return JSON.stringify(normalize(value));
+}
+async function createCanonicalDigest(value) {
+  return `sha256:${await sha256Hex(canonicalize(value))}`;
+}
+async function sha256Hex(value) {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return digestToHex(digest);
+}
+async function sha256BytesHex(value) {
+  const bytes = toByteView(value);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return digestToHex(digest);
+}
+function toByteView(value) {
+  const source = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  const copiedBytes = new Uint8Array(source.byteLength);
+  copiedBytes.set(source);
+  return copiedBytes;
+}
+function digestToHex(digest) {
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function normalize(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalize(item));
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((acc, key) => {
+      const entry = value[key];
+      if (entry === void 0 || entry === null || entry === "") {
+        return acc;
+      }
+      acc[key] = normalize(entry);
+      return acc;
+    }, {});
+  }
+  if (typeof value === "string") {
+    return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  }
+  return value;
+}
 
 // ../../packages/github-lite/dist/repository-schema.js
 function isCanonicalBatchId(value) {
@@ -8132,6 +8336,18 @@ function validateBatchDefinition(definition) {
   validateExecution(record.execution, diagnostics);
   validateStringArray(record.labels, "labels", diagnostics, false);
   validateSchedules(record.schedules, "schedules", diagnostics);
+  try {
+    assertStoredParameterDefinitions(record.parameters);
+    if (record.schedules === void 0 || Array.isArray(record.schedules)) {
+      assertStoredScheduleParameters({
+        parameters: record.parameters,
+        schedules: record.schedules
+      });
+    }
+  } catch (error) {
+    const code = error instanceof Error && error.message.startsWith("PARAMETER_") ? error.message : "PARAMETER_DEFINITION_INVALID";
+    diagnostics.push(problem(code, "parameters", code));
+  }
   return diagnostics;
 }
 function validateBatchDefinitionFile(file) {
@@ -8151,7 +8367,8 @@ function validateBatchDefinitionFile(file) {
         enabled: item.enabled,
         name: item.name,
         scheduleId: item.id,
-        timezone: item.timezone
+        timezone: item.timezone,
+        parameters: item.parameters
       };
     }) : void 0;
     diagnostics.push(...validateBatchDefinition({
@@ -8164,6 +8381,7 @@ function validateBatchDefinitionFile(file) {
       labels: metadata.labels,
       name: metadata.name,
       owner: spec.owner,
+      parameters: spec.parameters,
       schedules,
       status: spec.status,
       workflow: spec.workflow
@@ -8393,144 +8611,6 @@ var roleMappingRoles = [
   "auditor"
 ];
 
-// ../../packages/github-lite/dist/repository-yaml.js
-var import_yaml = __toESM(require_dist(), 1);
-function parseRepositoryYaml(input) {
-  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
-  if (document.errors.length > 0) {
-    return {
-      diagnostics: document.errors.map(toYamlDiagnostic),
-      ok: false
-    };
-  }
-  return { ok: true, value: document.toJS() };
-}
-function formatRepositoryYamlDiagnostics(diagnostics) {
-  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
-}
-function toYamlDiagnostic(error) {
-  const position = error.linePos?.[0];
-  return {
-    column: position?.col ?? 1,
-    line: position?.line ?? 1,
-    message: error.message
-  };
-}
-
-// ../../packages/digest/dist/index.js
-function canonicalize(value) {
-  return JSON.stringify(normalize(value));
-}
-async function createCanonicalDigest(value) {
-  return `sha256:${await sha256Hex(canonicalize(value))}`;
-}
-async function sha256Hex(value) {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return digestToHex(digest);
-}
-async function sha256BytesHex(value) {
-  const bytes = toByteView(value);
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
-  return digestToHex(digest);
-}
-function toByteView(value) {
-  const source = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  const copiedBytes = new Uint8Array(source.byteLength);
-  copiedBytes.set(source);
-  return copiedBytes;
-}
-function digestToHex(digest) {
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-function normalize(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => normalize(item));
-  }
-  if (value && typeof value === "object") {
-    return Object.keys(value).sort().reduce((acc, key) => {
-      const entry = value[key];
-      if (entry === void 0 || entry === null || entry === "") {
-        return acc;
-      }
-      acc[key] = normalize(entry);
-      return acc;
-    }, {});
-  }
-  if (typeof value === "string") {
-    return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  }
-  return value;
-}
-
-// ../../packages/github-lite/dist/execution-request-evidence.js
-function isSameGitHubLogin(left, right) {
-  return Boolean(left.trim() && right.trim()) && left.trim().toLowerCase() === right.trim().toLowerCase();
-}
-function hasAuthoritativeExecutionRequester({ author, requestedBy, canonicalRequestedBy }) {
-  return typeof canonicalRequestedBy === "string" && isSameGitHubLogin(author, requestedBy) && isSameGitHubLogin(author, canonicalRequestedBy);
-}
-
-// ../../packages/github-lite/dist/inspection-context.js
-function parseWorkspacePolicyFile(content) {
-  const parsed = parseRepositoryYaml(content);
-  if (!parsed.ok) {
-    throw new Error(formatRepositoryYamlDiagnostics(parsed.diagnostics));
-  }
-  const validated = validateWorkspacePolicyFile(parsed.value);
-  if (!validated.ok) {
-    throw new Error(validated.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; "));
-  }
-  return validated.value.spec;
-}
-
-// ../../packages/github-lite/dist/workspace-authorization.js
-var workspacePolicyPath = ".batch-governance/workspace.yml";
-async function loadHistoricalWorkspacePolicy(client, repository, ref) {
-  const file = await client.getFile({
-    ...repository,
-    path: workspacePolicyPath,
-    ref
-  });
-  if (!file)
-    return defaultWorkspacePolicy;
-  return parseWorkspacePolicyFile(file.content);
-}
-async function loadWorkspaceRoles(client, repository, ref, configPath = ".batch-governance") {
-  const file = await client.getFile({
-    ...repository,
-    path: `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`,
-    ref
-  });
-  if (!file)
-    throw new Error("Workspace role mapping is required.");
-  const parsed = parseRepositoryYaml(file.content);
-  const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
-  if (!validated?.ok)
-    throw new Error("Workspace role mapping is invalid.");
-  return validated.value.spec;
-}
-async function hasWorkspaceRole(client, repository, login, selector) {
-  if (selector.githubUsers?.some((user) => isSameGitHubLogin(user, login)))
-    return true;
-  if (selector.repositoryRoles?.length) {
-    const permission = await client.getRepositoryPermissionForUser({
-      ...repository,
-      username: login.trim().toLowerCase()
-    });
-    if (isSameGitHubLogin(permission.username, login) && selector.repositoryRoles.some((role) => role === permission.roleName?.toLowerCase() || role === permission.permission.toLowerCase())) {
-      return true;
-    }
-  }
-  if (!selector.githubTeams?.length)
-    return false;
-  const memberships = await Promise.all(selector.githubTeams.map((teamSlug) => client.getTeamMembershipForUser({
-    org: repository.owner,
-    teamSlug,
-    username: login.trim().toLowerCase()
-  })));
-  return memberships.some((membership) => membership?.state === "active");
-}
-
 // ../../packages/github-lite/dist/batch-definition-codec.js
 function getBatchDefinitionPath(batchId) {
   return `.batch-governance/batches/${assertCanonicalBatchId(batchId)}.yml`;
@@ -8588,6 +8668,9 @@ function parseBatchDefinitionYaml(yaml) {
       command,
       runsOn: runsOn || ""
     } : void 0,
+    ...spec.parameters !== void 0 ? {
+      parameters: spec.parameters
+    } : {},
     schedules: schedules.length > 0 ? schedules : void 0
   };
 }
@@ -8624,7 +8707,10 @@ function readYamlSchedules(record, key) {
     enabled: readYamlBoolean(item, "enabled"),
     name: readYamlString(item, "name"),
     scheduleId: readYamlString(item, "id"),
-    timezone: readYamlString(item, "timezone")
+    timezone: readYamlString(item, "timezone"),
+    ...item.parameters !== void 0 ? {
+      parameters: item.parameters
+    } : {}
   })).filter((schedule) => Boolean(schedule.scheduleId) || Boolean(schedule.name) || Boolean(schedule.cron) || Boolean(schedule.timezone));
 }
 function parseCriticality(value) {
@@ -8644,6 +8730,9 @@ function toFileNameSlug(value) {
 }
 
 // ../../packages/github-lite/dist/github-workflow.js
+var inputPreparationActionRef = "always0ne/batchplane/actions/gate/input-preparation@main";
+var parameterEnvironmentExpression = "${{ fromJSON(steps.prepare.outputs.environment) }}";
+var inputPreparationStepName = "Prepare approved batch inputs";
 var batchPlaneGateActionRef = "always0ne/batchplane/actions/gate@main";
 var batchPlaneScheduleRequestActionRef = "always0ne/batchplane/actions/schedule-request@main";
 var batchPlaneScheduleResultActionRef = "always0ne/batchplane/actions/schedule-result@main";
@@ -8733,15 +8822,26 @@ function buildBatchWorkflowYaml(definition) {
     "    if: github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''",
     `    runs-on: ${runner}`,
     "    needs: batchplane-gate",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
     "    permissions:",
     "      contents: read",
+    "      issues: read",
+    "      pull-requests: read",
     "    steps:",
     "      - name: Checkout registered assets",
     "        uses: actions/checkout@v4",
     "        with:",
     "          ref: ${{ needs.batchplane-gate.outputs.verified_sha }}",
     "",
+    ...buildInputPreparationLines({
+      batchId: "${{ inputs.batch_id }}",
+      requestId: "${{ inputs.request_id }}",
+      requestDigest: "${{ inputs.request_digest }}",
+      jobName: "Run governed batch"
+    }),
     "      - name: Run batch",
+    `        env: ${parameterEnvironmentExpression}`,
     "        run: |",
     '          echo "::group::BatchPlane batch command"',
     `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
@@ -8854,8 +8954,17 @@ function buildScheduledRequestJobLines({ batchId, batchPath, runCommand, runner,
     "        uses: actions/checkout@v4",
     "        with:",
     "          ref: ${{ steps.verify.outputs.verified_sha }}",
+    ...buildInputPreparationLines({
+      batchId,
+      requestId: `\${{ needs.${jobId}.outputs.request-id }}`,
+      requestDigest: `\${{ needs.${jobId}.outputs.request-digest }}`,
+      issueNumber: `\${{ needs.${jobId}.outputs.issue-number }}`,
+      scheduleId: schedule.scheduleId,
+      jobName: businessJobName
+    }),
     "      - name: Run batch",
     "        if: steps.verify.outputs.verified_sha != ''",
+    `        env: ${parameterEnvironmentExpression}`,
     "        run: |",
     '          echo "::group::BatchPlane batch command"',
     `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
@@ -8894,6 +9003,27 @@ function buildScheduledRequestJobLines({ batchId, batchPath, runCommand, runner,
     ""
   ];
 }
+function buildInputPreparationLines({ batchId, requestId, requestDigest, issueNumber, scheduleId, jobName }) {
+  return [
+    `      - name: ${inputPreparationStepName}`,
+    "        id: prepare",
+    `        uses: ${inputPreparationActionRef}`,
+    "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    `          request-id: ${yamlString(requestId)}`,
+    `          request-digest: ${yamlString(requestDigest)}`,
+    "          approval-source: issue",
+    `          approval-ref: ${yamlString(requestId)}`,
+    ...issueNumber ? [`          issue-number: ${yamlString(issueNumber)}`] : [],
+    ...scheduleId ? [`          schedule-id: ${yamlString(scheduleId)}`] : [],
+    `          gate-job-name: ${yamlString(jobName)}`,
+    `          gate-step-name: ${inputPreparationStepName}`,
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "          private-key: ${{ secrets.BATCHPLANE_INPUT_KEY }}"
+  ];
+}
 function getNativeScheduleWorkflowJobIdentity(schedule) {
   const controlJobId = toScheduleWorkflowJobId(schedule.scheduleId);
   return {
@@ -8921,6 +9051,75 @@ function toWorkflowJobId(value) {
 function toScheduleWorkflowJobId(scheduleId) {
   const encoded = Array.from(scheduleId).map((character) => character.codePointAt(0).toString(16)).join("_");
   return `schedule_${encoded}`;
+}
+
+// ../../packages/github-lite/dist/execution-request-evidence.js
+function isSameGitHubLogin(left, right) {
+  return Boolean(left.trim() && right.trim()) && left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+function hasAuthoritativeExecutionRequester({ author, requestedBy, canonicalRequestedBy }) {
+  return typeof canonicalRequestedBy === "string" && isSameGitHubLogin(author, requestedBy) && isSameGitHubLogin(author, canonicalRequestedBy);
+}
+
+// ../../packages/github-lite/dist/inspection-context.js
+function parseWorkspacePolicyFile(content) {
+  const parsed = parseRepositoryYaml(content);
+  if (!parsed.ok) {
+    throw new Error(formatRepositoryYamlDiagnostics(parsed.diagnostics));
+  }
+  const validated = validateWorkspacePolicyFile(parsed.value);
+  if (!validated.ok) {
+    throw new Error(validated.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; "));
+  }
+  return validated.value.spec;
+}
+
+// ../../packages/github-lite/dist/workspace-authorization.js
+var workspacePolicyPath = ".batch-governance/workspace.yml";
+async function loadHistoricalWorkspacePolicy(client, repository, ref) {
+  const file = await client.getFile({
+    ...repository,
+    path: workspacePolicyPath,
+    ref
+  });
+  if (!file)
+    return defaultWorkspacePolicy;
+  return parseWorkspacePolicyFile(file.content);
+}
+async function loadWorkspaceRoles(client, repository, ref, configPath = ".batch-governance") {
+  const file = await client.getFile({
+    ...repository,
+    path: `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`,
+    ref
+  });
+  if (!file)
+    throw new Error("Workspace role mapping is required.");
+  const parsed = parseRepositoryYaml(file.content);
+  const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
+  if (!validated?.ok)
+    throw new Error("Workspace role mapping is invalid.");
+  return validated.value.spec;
+}
+async function hasWorkspaceRole(client, repository, login, selector) {
+  if (selector.githubUsers?.some((user) => isSameGitHubLogin(user, login)))
+    return true;
+  if (selector.repositoryRoles?.length) {
+    const permission = await client.getRepositoryPermissionForUser({
+      ...repository,
+      username: login.trim().toLowerCase()
+    });
+    if (isSameGitHubLogin(permission.username, login) && selector.repositoryRoles.some((role) => role === permission.roleName?.toLowerCase() || role === permission.permission.toLowerCase())) {
+      return true;
+    }
+  }
+  if (!selector.githubTeams?.length)
+    return false;
+  const memberships = await Promise.all(selector.githubTeams.map((teamSlug) => client.getTeamMembershipForUser({
+    org: repository.owner,
+    teamSlug,
+    username: login.trim().toLowerCase()
+  })));
+  return memberships.some((membership) => membership?.state === "active");
 }
 
 // ../../packages/github-lite/dist/change-request-evidence.js

@@ -13,6 +13,11 @@ import {
 import type { BatchControl, BatchPlaneClient } from "@batchplane/ui-client";
 
 import { readGitHubSession, type GitHubSession } from "./github-session";
+import { notifyRuntimeConnectionChanged } from "./runtime-connection-lifecycle";
+import {
+  prepareApprovedParameterFixture,
+  withApprovedFixtureParameters,
+} from "./approved-parameters-fixture";
 import {
   buildSampleTargetWorkflowYaml,
   buildWorkspacePolicyYaml,
@@ -28,6 +33,7 @@ export const runtimeFixtureIds = [
   "batch-control-verified",
   "live",
   "happy-path",
+  "approved-parameters",
   "approval-pending",
   "business-failed",
   "dispatch-failed",
@@ -70,6 +76,7 @@ const fixtureScenarioStates: Partial<
   "requestless-gate-deny": "gate-blocked",
   "gate-verification-unknown": "gate-blocked",
   "happy-path": "dispatched",
+  "approved-parameters": "dispatched",
 };
 
 let activeFixtureId: RuntimeFixtureId | null = null;
@@ -109,6 +116,7 @@ export function writeRuntimeFixtureSelection(
   activeFixtureId = null;
   activeMockClient = null;
   approvedRevisionFixtureSetup.clear();
+  notifyRuntimeConnectionChanged();
 }
 
 export function readRuntimeSession(): GitHubSession | null {
@@ -162,6 +170,14 @@ export function createSelectedBatchPlaneClient(
       await ensureApprovedRevisionFixture(fixtureId);
       return client.loadExecutionRequestDraft(input);
     },
+    async loadBatchChangeDraft(input) {
+      await ensureApprovedRevisionFixture(fixtureId);
+      return client.loadBatchChangeDraft(input);
+    },
+    async inspectWorkspaceEncryption() {
+      await ensureApprovedRevisionFixture(fixtureId);
+      return client.inspectWorkspaceEncryption();
+    },
     async getBatchRemediationCapability(input) {
       await ensureApprovedRevisionFixture(fixtureId);
       return client.getBatchRemediationCapability(input);
@@ -187,7 +203,8 @@ async function ensureApprovedRevisionFixture(
   if (
     fixtureId !== "batch-control-verified" &&
     fixtureId !== "batch-control-bypassed-clean" &&
-    fixtureId !== "happy-path"
+    fixtureId !== "happy-path" &&
+    fixtureId !== "approved-parameters"
   ) {
     return;
   }
@@ -211,7 +228,8 @@ export async function prepareRuntimeFixtureClient(
   if (
     fixtureId !== "batch-control-verified" &&
     fixtureId !== "batch-control-bypassed-clean" &&
-    fixtureId !== "happy-path"
+    fixtureId !== "happy-path" &&
+    fixtureId !== "approved-parameters"
   ) {
     return;
   }
@@ -220,6 +238,9 @@ export async function prepareRuntimeFixtureClient(
     mockRuntimeSession,
     client,
   );
+  if (fixtureId === "approved-parameters") {
+    await prepareApprovedParameterFixture(client);
+  }
   // The baseline's open execution Issue exercises list/run fixtures, but it
   // must not block this distinct approved-revision setup.
   client.state.executionScenarios = [];
@@ -231,7 +252,11 @@ export async function prepareRuntimeFixtureClient(
     batchId: "payment.daily-close",
     mode: "change",
   });
-  const created = await changeRequests.createBatchChangeRequest(draft);
+  const created = await changeRequests.createBatchChangeRequest(
+    fixtureId === "approved-parameters"
+      ? withApprovedFixtureParameters(draft)
+      : draft,
+  );
 
   if (created.request.reviewState !== "MERGED") {
     client.state.currentUser.login = "maintainer";

@@ -1,0 +1,47 @@
+{
+  "title": "파라미터",
+  "definitions": "파라미터 정의",
+  "empty": "정의된 파라미터가 없습니다.",
+  "add": "파라미터 추가",
+  "remove": "파라미터 삭제",
+  "name": "이름",
+  "required": "필수",
+  "optional": "선택",
+  "sensitive": "민감 값",
+  "ordinary": "일반 값",
+  "hasDefault": "기본값 지정",
+  "defaultValue": "기본값",
+  "noDefault": "기본값 없음",
+  "protected": "보호된 값",
+  "emptyValue": "빈 문자열",
+  "valueUnavailable": "값 확인 불가",
+  "value": "{{name}} 값",
+  "source": "{{name}} 값 출처",
+  "sources": {
+    "DEFAULT": "배치 기본값 사용",
+    "VALUE": "값 직접 지정",
+    "OMIT": "생략"
+  },
+  "show": "입력한 값 표시",
+  "hide": "입력한 값 숨기기",
+  "savedSensitiveCaution": "저장한 민감 값의 원문은 다시 열람할 수 없습니다.",
+  "replace": "보호된 값 교체",
+  "notReady": "민감 값을 입력할 수 없습니다. Workspace 설정과 접근 권한을 확인하세요.",
+  "workspace": "Workspace 열기",
+  "unavailableReasons": {
+    "NOT_CONFIGURED": "Workspace의 민감 값 입력 설정이 없습니다.",
+    "KEY_NOT_REGISTERED": "Workspace의 보호 키가 등록되지 않았습니다.",
+    "STATUS_UNAVAILABLE": "Workspace의 민감 값 입력 준비 상태를 확인하지 못했습니다. 접근 권한을 확인하고 다시 시도하세요.",
+    "INVALID_CONFIGURATION": "Workspace의 민감 값 입력 설정이 올바르지 않습니다."
+  },
+  "workflowUpdate": "파라미터를 전달하려면 배치를 업데이트해야 합니다.",
+  "updateBatch": "배치 업데이트 요청",
+  "validation": {
+    "PARAMETER_NAME_INVALID": "이름은 영문자 또는 밑줄로 시작하고 영문자, 숫자, 밑줄만 포함해야 합니다.",
+    "PARAMETER_NAME_DUPLICATED": "대소문자만 다른 이름을 포함하여 파라미터 이름은 중복될 수 없습니다.",
+    "PARAMETER_NUL_UNSUPPORTED": "파라미터 값에는 NUL 문자를 포함할 수 없습니다.",
+    "DEFAULT_REQUIRED": "{{name}}의 기본값이 없습니다. 값을 직접 지정하세요.",
+    "REQUIRED": "{{name}}의 값이 필요합니다.",
+    "SENSITIVE_UNAVAILABLE": "{{name}}의 민감 값을 사용하려면 Workspace 준비 상태를 확인해야 합니다."
+  }
+}

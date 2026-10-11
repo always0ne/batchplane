@@ -19,6 +19,7 @@ export function BatchChangeSubmissionReview({
   showSubmissionProgress: boolean;
 }) {
   const { t } = useTranslation("registration");
+  const { t: parameterText } = useTranslation("parameters");
   const noChanges =
     previewState.type === "ready" && !previewState.preview.hasEffectiveChanges;
   const canSubmit =
@@ -28,7 +29,7 @@ export function BatchChangeSubmissionReview({
     !noChanges &&
     !showSubmissionProgress;
   const requiredFieldsMessage = t("errors.required", {
-    fields: formatMissingFields(missingFields, t),
+    fields: formatMissingFields(missingFields, t, parameterText("definitions")),
   });
   let disabledReason: string | undefined;
   if (artifactBlockedReason) {
@@ -108,8 +109,10 @@ function previewErrorMessage(
 function formatMissingFields(
   fields: string[],
   t: (key: string) => string,
+  parametersLabel: string,
 ): string {
   const labels: Record<string, string> = {
+    parameters: parametersLabel,
     "execution.command": t("form.runCommand"),
     "execution.ref": t("form.workflowRef"),
     "execution.runnerLabel": t("form.runnerLabel"),

@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createScheduledExecutionRequestId,
+  serializeBatchDefinitionYaml,
   stringifyRepositoryYaml,
   type GitHubBatchDefinition,
 } from "@batchplane/github-lite";
@@ -104,12 +105,46 @@ describe("schedule request Action", () => {
     expect(dist).not.toMatch(/from\s+["']cron-parser["']/u);
   });
 
-  it("creates the initial native occurrence with the full digest identifier", async () => {
+  it("records the initial occurrence with the selected schedule's exact inputs and approved source revision", async () => {
+    const scheduledBatch: GitHubBatchDefinition = {
+      ...batch,
+      parameters: [
+        {
+          name: "Mode",
+          required: true,
+          sensitive: false,
+          defaultValue: { value: " 001 " },
+        },
+        { name: "Note", required: true, sensitive: false },
+        { name: "Optional", required: false, sensitive: false },
+      ],
+      schedules: [
+        {
+          ...batch.schedules![0]!,
+          parameters: [
+            { name: "Mode", source: "DEFAULT" },
+            { name: "Note", source: "VALUE", value: { value: "" } },
+            { name: "Optional", source: "OMIT" },
+          ],
+        },
+        {
+          ...batch.schedules![0]!,
+          scheduleId: "other-schedule",
+          parameters: [
+            { name: "Mode", source: "VALUE", value: { value: "other" } },
+            { name: "Note", source: "VALUE", value: { value: "other note" } },
+          ],
+        },
+      ],
+    };
+    let requestBody = "";
     const fetcher: typeof fetch = async (url, init) => {
       const path = String(url);
       if (path.includes("/contents/")) {
         return json({
-          content: Buffer.from(batchYaml).toString("base64"),
+          content: Buffer.from(
+            serializeBatchDefinitionYaml(scheduledBatch),
+          ).toString("base64"),
           encoding: "base64",
           path: ".batch-governance/batches/payment.daily-close.yml",
         });
@@ -117,6 +152,7 @@ describe("schedule request Action", () => {
       if (path.includes("/issues?state=all")) return json([]);
       if (path.endsWith("/labels")) return json({});
       if (path.endsWith("/issues") && init?.method === "POST") {
+        requestBody = JSON.parse(String(init.body)).body;
         return json({ body: "", number: 77, title: "Scheduled run" });
       }
       throw new Error(`Unexpected request: ${path}`);
@@ -127,6 +163,35 @@ describe("schedule request Action", () => {
     });
     expect(result).toMatchObject({ issueNumber: 77, status: "created" });
     expect(result.requestId).toMatch(/^btr-schedule-[0-9a-f]{64}$/u);
+    const payload = JSON.parse(
+      requestBody.match(/```json\n([\s\S]*?)\n```/u)![1]!,
+    );
+    expect(payload.spec).toMatchObject({
+      parameterContractVersion: "PARAMETER_DELIVERY_V1",
+      parameterSourceRevision: sha,
+      parameters: {
+        Mode: {
+          value: " 001 ",
+          source: { origin: { type: "BATCH_DEFAULT" }, revision: sha },
+        },
+        Note: {
+          value: "",
+          source: {
+            origin: {
+              type: "SCHEDULE_VALUE",
+              scheduleId: "payment.daily-close-daily",
+            },
+            revision: sha,
+          },
+        },
+        Optional: { source: { origin: { type: "OMIT" } } },
+      },
+    });
+    expect(Object.keys(payload.spec.parameters)).toEqual([
+      "Mode",
+      "Note",
+      "Optional",
+    ]);
   });
 
   it("fails closed for a pre-seeded occurrence instead of returning a permit", async () => {

@@ -139,6 +139,7 @@ describe("ChangeRequestDetailPage", () => {
     expect(approveChangeRequest).toHaveBeenCalledWith({
       requestLocator: "42",
     });
+    expect(await screen.findByText("Applied")).toBeInTheDocument();
   });
 
   it("applies an already approved change without a loading refetch", async () => {
@@ -247,7 +248,9 @@ describe("ChangeRequestDetailPage", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Workspace 정책")).toBeInTheDocument();
-    await i18next.changeLanguage("en");
+    await act(async () => {
+      await i18next.changeLanguage("en");
+    });
   });
 
   it("keeps the latest same-request refresh result through StrictMode cleanup", async () => {
@@ -442,6 +445,8 @@ function createClient(
     getMyWork: unsupported,
     listExecutionRuns: unsupported,
     inspectWorkspace: unsupported,
+    inspectWorkspaceEncryption: unsupported,
+    initializeWorkspaceEncryption: unsupported,
     requestWorkspaceInstallation: unsupported,
     requestWorkspaceUpdate: unsupported,
     requestWorkspacePolicyChange: unsupported,

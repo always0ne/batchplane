@@ -271,7 +271,7 @@ function writeGateSummary(
   appendFileSync(summaryPath, `${lines.join("\n")}\n`, "utf8");
 }
 
-function writeGateLogRecord(
+export function writeGateLogRecord(
   result: GateResult,
   input: GateInput,
   env: Record<string, string | undefined>,

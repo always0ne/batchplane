@@ -13,6 +13,15 @@ import {
   type BatchChangeFormValues,
   type ScheduleDraft,
 } from "../batch-change-form";
+import { useBatchParameterDefinitions } from "./useBatchParameterDefinitions";
+import {
+  parameterDefinitionProblems,
+  reconcileScheduleParameters,
+} from "../batch-parameter-definitions";
+import {
+  initialParameterSelection,
+  parameterSelectionProblems,
+} from "../../../parameters/parameter-selections";
 
 export function useBatchChangeForm({
   initialDraft,
@@ -33,6 +42,26 @@ export function useBatchChangeForm({
   const [scheduleDrafts, setScheduleDrafts] = useState<ScheduleDraft[]>(() =>
     toScheduleDrafts(initialDraft.schedules),
   );
+  const parameterEditor = useBatchParameterDefinitions(
+    initialDraft.parameters ?? [],
+    (previous, next) => {
+      setScheduleDrafts((current) =>
+        current.map((schedule) => {
+          const values = { ...schedule.values };
+          if (next.length === 0) delete values.parameters;
+          else
+            values.parameters = reconcileScheduleParameters(
+              previous,
+              next,
+              schedule.values.parameters,
+            );
+          return { ...schedule, values };
+        }),
+      );
+    },
+  );
+  const sensitiveInputsAvailable =
+    initialDraft.sensitiveInputsAvailable === true;
   const [artifactError, setArtifactError] = useState<string>();
   const [isReadingArtifact, setIsReadingArtifact] = useState(false);
   const artifactReadSequence = useRef(0);
@@ -59,6 +88,14 @@ export function useBatchChangeForm({
         scheduleDrafts,
         targetBatchId: mode === "create" ? undefined : targetBatchId,
         values: resolvedValues,
+        parameters:
+          initialDraft.parameters !== undefined ||
+          parameterEditor.definitions.length > 0
+            ? parameterEditor.definitions
+            : undefined,
+        sensitiveInputsAvailable: initialDraft.sensitiveInputsAvailable,
+        sensitiveInputsUnavailableReason:
+          initialDraft.sensitiveInputsUnavailableReason,
       }),
     [
       initialDraft.changeRequestId,
@@ -67,18 +104,44 @@ export function useBatchChangeForm({
       targetBatchId,
       execution,
       resolvedValues,
+      parameterEditor.definitions,
+      initialDraft.sensitiveInputsAvailable,
+      initialDraft.sensitiveInputsUnavailableReason,
+      initialDraft.parameters,
     ],
   );
-  const missingFields = useMemo(
-    () =>
-      findBatchChangeMissingFields({
-        mode,
-        execution,
-        scheduleDrafts,
-        values: resolvedValues,
-      }),
-    [execution, mode, resolvedValues, scheduleDrafts],
-  );
+  const missingFields = useMemo(() => {
+    const fields = findBatchChangeMissingFields({
+      mode,
+      execution,
+      scheduleDrafts,
+      values: resolvedValues,
+    });
+    const parameterProblems = parameterDefinitionProblems(
+      parameterEditor.definitions,
+      sensitiveInputsAvailable,
+    );
+    const scheduleProblems = scheduleDrafts
+      .filter((schedule) => schedule.status === "active")
+      .some(
+        (schedule) =>
+          parameterSelectionProblems(
+            parameterEditor.definitions,
+            schedule.values.parameters ?? [],
+            sensitiveInputsAvailable,
+          ).length > 0,
+      );
+    if (mode !== "delete" && (parameterProblems.length > 0 || scheduleProblems))
+      fields.push("parameters");
+    return fields;
+  }, [
+    execution,
+    mode,
+    resolvedValues,
+    scheduleDrafts,
+    parameterEditor.definitions,
+    sensitiveInputsAvailable,
+  ]);
 
   const updateValue = useCallback(
     (field: keyof BatchChangeFormValues, value: string) => {
@@ -123,10 +186,19 @@ export function useBatchChangeForm({
         key,
         source: "new",
         status: "active",
-        values: { ...defaultScheduleValues },
+        values: {
+          ...defaultScheduleValues,
+          ...(parameterEditor.definitions.length > 0
+            ? {
+                parameters: parameterEditor.definitions.map(
+                  initialParameterSelection,
+                ),
+              }
+            : {}),
+        },
       },
     ]);
-  }, []);
+  }, [parameterEditor.definitions]);
   const updateSchedule = useCallback((key: string, values: BatchSchedule) => {
     setScheduleDrafts((current) =>
       current.map((schedule) =>
@@ -153,7 +225,11 @@ export function useBatchChangeForm({
   }, []);
 
   return {
+    parameterEditor,
+    sensitiveInputsAvailable,
     addSchedule,
+    sensitiveInputsUnavailableReason:
+      initialDraft.sensitiveInputsUnavailableReason,
     artifactError,
     isReadingArtifact,
     draft,

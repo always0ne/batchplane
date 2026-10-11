@@ -7,6 +7,22 @@ export type {
 } from "./github-types.js";
 export { createGitHubLiteClient } from "./github-client.js";
 export {
+  decryptParameterValue,
+  encryptParameterValue,
+  generateParameterEncryptionKey,
+  parameterPrivateKeySecretName,
+} from "./parameter-encryption.js";
+export type { WorkspaceEncryptionConfiguration } from "./parameter-encryption.js";
+export { loadWorkspaceEncryptionConfiguration } from "./workspace-encryption-configuration.js";
+export {
+  resolveScheduledParameters,
+  validateApprovedParameters,
+} from "./parameter-materialization.js";
+export type { GitHubResolvedParameter } from "./parameter-storage.js";
+export type { ExecutionRequestPayload } from "./execution-request-evidence.js";
+export { hasParameterDelivery } from "./parameter-workflow.js";
+export { inputPreparationStepName } from "./github-workflow.js";
+export {
   hasWorkspaceRole,
   loadCurrentExecutionApprovalPolicy,
 } from "./workspace-authorization.js";
@@ -24,6 +40,7 @@ export {
 } from "./repository-schema.js";
 export {
   buildExecutionRequestIssue,
+  createExecutionRequestDigest,
   createScheduledExecutionRequestId,
   hasAuthoritativeExecutionRequester,
   isSameGitHubLogin,

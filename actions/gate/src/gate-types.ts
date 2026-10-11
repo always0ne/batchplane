@@ -1,3 +1,5 @@
+import type { GitHubResolvedParameter } from "@batchplane/github-lite";
+
 export type GateMode = "lite" | "server";
 
 export type GateInput = {
@@ -36,6 +38,8 @@ export type GateResult = {
   reasonCode?: string;
   message: string;
   verifiedSha?: string;
+  /** Internal verified values only; never written to Gate outputs or logs. */
+  approvedParameters?: Record<string, GitHubResolvedParameter>;
 };
 
 export type GateRepositoryRef = {

@@ -9,6 +9,7 @@ import {
   serializeBatchDefinitionYaml,
 } from "./batch-definition-codec.js";
 import { buildBatchWorkflowYaml } from "./github-workflow.js";
+import { hasParameterDelivery } from "./parameter-workflow.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
 const definition: GitHubBatchDefinition = {
@@ -153,10 +154,39 @@ describe("GitHub workflow generation", () => {
         }),
         expect.objectContaining({
           name: "Run batch",
+          env: "${{ fromJSON(steps.prepare.outputs.environment) }}",
           run: expect.stringContaining("java -jar close.jar"),
         }),
       ]),
     });
+    expect(hasParameterDelivery(workflow, definition)).toBe(true);
+    expect(
+      hasParameterDelivery(
+        workflow.replaceAll(
+          "env: ${{ fromJSON(steps.prepare.outputs.environment) }}",
+          "env: {}",
+        ),
+        definition,
+      ),
+    ).toBe(false);
+    expect(workflow).not.toContain("GITHUB_ENV");
+    const parsedJobs = parsedWorkflow.jobs as Record<
+      string,
+      { steps?: Array<Record<string, unknown>> }
+    >;
+    for (const job of Object.values(parsedJobs)) {
+      const business = job.steps?.find((step) => step.name === "Run batch");
+      if (!business) continue;
+      expect(business.env).toBe(
+        "${{ fromJSON(steps.prepare.outputs.environment) }}",
+      );
+      const preparation = job.steps?.find((step) => step.id === "prepare");
+      expect(preparation).toMatchObject({
+        uses: "always0ne/batchplane/actions/gate/input-preparation@main",
+        with: { "private-key": "${{ secrets.BATCHPLANE_INPUT_KEY }}" },
+      });
+      expect(business.run).toContain("exit $status");
+    }
     expect(workflow).toContain('- cron: "0 5 * * *"');
     expect(workflow).toContain('timezone: "Asia/Seoul"');
 

@@ -7715,10 +7715,43 @@ function isRateLimitedResponse(response, message) {
   return message.toLowerCase().includes("rate limit");
 }
 
+// ../../packages/github-lite/dist/github-actions-secrets.js
+function createGitHubActionsSecretOperations({ request }) {
+  function base(owner, repo) {
+    return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/secrets`;
+  }
+  return {
+    async getActionsSecretPublicKey({ owner, repo }) {
+      const result = await request(`${base(owner, repo)}/public-key`);
+      if (!result)
+        throw new GitHubLiteApiError("Actions upload key is unavailable.", "unknown", 500);
+      return { keyId: result.key_id, key: result.key };
+    },
+    async getActionsSecret({ owner, repo, name }) {
+      const result = await request(`${base(owner, repo)}/${encodeURIComponent(name)}`, {}, { allowNotFound: true });
+      return result ? {
+        name: result.name,
+        createdAt: result.created_at,
+        updatedAt: result.updated_at
+      } : null;
+    },
+    async putActionsSecret({ owner, repo, name, encryptedValue, keyId }) {
+      await request(`${base(owner, repo)}/${encodeURIComponent(name)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          encrypted_value: encryptedValue,
+          key_id: keyId
+        })
+      });
+    }
+  };
+}
+
 // ../../packages/github-lite/dist/github-client.js
 function createGitHubLiteClient(options) {
   const requester = createGitHubRequester(options);
   return {
+    ...createGitHubActionsSecretOperations(requester),
     ...createRepositoryOperations(requester),
     ...createPullRequestOperations(requester),
     ...createIssueOperations(requester),
@@ -7742,6 +7775,7 @@ function createRepositoryOperations(requester) {
         throw new GitHubLiteApiError("GitHub repository was empty.", "unknown", 500);
       }
       return {
+        id: String(repository.id),
         owner: repository.owner.login,
         repo: repository.name,
         defaultBranch: repository.default_branch,
@@ -8104,6 +8138,311 @@ function isBatchPlaneApiVersion(value) {
   return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
 }
 
+// ../../packages/domain/dist/parameters.js
+function validateParameterNames(names) {
+  const seen = /* @__PURE__ */ new Set();
+  for (const name of names) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) {
+      throw new Error("PARAMETER_NAME_INVALID");
+    }
+    const identity = name.toLowerCase();
+    if (seen.has(identity))
+      throw new Error("PARAMETER_NAME_DUPLICATED");
+    seen.add(identity);
+  }
+}
+function validateParameterString(value) {
+  if (typeof value !== "string")
+    throw new Error("PARAMETER_VALUE_INVALID");
+  if (value.includes("\0"))
+    throw new Error("PARAMETER_NUL_UNSUPPORTED");
+}
+
+// ../../packages/github-lite/dist/repository-yaml.js
+var import_yaml = __toESM(require_dist(), 1);
+function parseRepositoryYaml(input) {
+  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
+  if (document.errors.length > 0) {
+    return {
+      diagnostics: document.errors.map(toYamlDiagnostic),
+      ok: false
+    };
+  }
+  return { ok: true, value: document.toJS() };
+}
+function formatRepositoryYamlDiagnostics(diagnostics) {
+  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
+}
+function toYamlDiagnostic(error) {
+  const position = error.linePos?.[0];
+  return {
+    column: position?.col ?? 1,
+    line: position?.line ?? 1,
+    message: error.message
+  };
+}
+
+// ../../packages/github-lite/dist/parameter-storage.js
+function copyStoredParameterValue(value) {
+  return value.sensitive ? { sensitive: true, encrypted: { ...value.encrypted } } : { value: value.value };
+}
+function assertStoredParameterValue(value, sensitive) {
+  if (!isParameterRecord(value))
+    throw new Error("PARAMETER_VALUE_INVALID");
+  if (sensitive) {
+    if (value.sensitive !== true || !hasOnlyParameterKeys(value, ["sensitive", "encrypted"]))
+      throw new Error("PARAMETER_SENSITIVITY_MISMATCH");
+    const encrypted = value.encrypted;
+    if (!isParameterRecord(encrypted) || !hasOnlyParameterKeys(encrypted, ["version", "keyId", "jwe"]) || encrypted.version !== 1 || typeof encrypted.keyId !== "string" || !encrypted.keyId || typeof encrypted.jwe !== "string" || !encrypted.jwe)
+      throw new Error("PARAMETER_ENCRYPTED_VALUE_INVALID");
+  } else {
+    if (value.sensitive !== void 0 && value.sensitive !== false || !hasOnlyParameterKeys(value, ["sensitive", "value"]))
+      throw new Error("PARAMETER_SENSITIVITY_MISMATCH");
+    validateParameterString(value.value);
+  }
+}
+function assertStoredParameterDefinitions(parameters) {
+  if (parameters === void 0)
+    return;
+  if (!Array.isArray(parameters))
+    throw new Error("PARAMETER_DEFINITIONS_INVALID");
+  for (const item of parameters) {
+    if (!isParameterRecord(item) || !hasOnlyParameterKeys(item, [
+      "name",
+      "required",
+      "sensitive",
+      "defaultValue"
+    ]) || typeof item.name !== "string" || typeof item.required !== "boolean" || typeof item.sensitive !== "boolean")
+      throw new Error("PARAMETER_DEFINITION_INVALID");
+    if (Object.hasOwn(item, "defaultValue"))
+      assertStoredParameterValue(item.defaultValue, item.sensitive);
+  }
+  validateParameterNames(parameters.map((item) => item.name));
+}
+function assertStoredScheduleParameters(batch) {
+  assertStoredParameterDefinitions(batch.parameters);
+  if (!batch.parameters?.length && !batch.schedules?.some((schedule) => schedule.parameters !== void 0))
+    return;
+  const definitions = new Map(batch.parameters?.map((definition) => [definition.name, definition]));
+  const scheduleIds = /* @__PURE__ */ new Set();
+  for (const schedule of batch.schedules ?? []) {
+    if (scheduleIds.has(schedule.scheduleId))
+      throw new Error("PARAMETER_SCHEDULE_DUPLICATED");
+    scheduleIds.add(schedule.scheduleId);
+    if (schedule.parameters !== void 0 && !Array.isArray(schedule.parameters))
+      throw new Error("PARAMETER_SELECTION_INVALID");
+    const selections = schedule.parameters ?? [];
+    validateParameterNames(selections.map((item) => item.name));
+    for (const selection of selections) {
+      if (!isParameterRecord(selection))
+        throw new Error("PARAMETER_SELECTION_INVALID");
+      const definition = definitions.get(selection.name);
+      if (!definition)
+        throw new Error("PARAMETER_NAME_UNKNOWN");
+      if (selection.source === "VALUE") {
+        if (!hasOnlyParameterKeys(selection, ["name", "source", "value"]))
+          throw new Error("PARAMETER_SELECTION_INVALID");
+        assertStoredParameterValue(selection.value, definition.sensitive);
+      } else if (selection.source === "DEFAULT" || selection.source === "OMIT") {
+        if (!hasOnlyParameterKeys(selection, ["name", "source"]))
+          throw new Error("PARAMETER_SELECTION_INVALID");
+        if (selection.source === "OMIT" && definition.required)
+          throw new Error("PARAMETER_REQUIRED");
+        if (selection.source === "DEFAULT" && definition.defaultValue === void 0)
+          throw new Error("PARAMETER_DEFAULT_UNAVAILABLE");
+      } else
+        throw new Error("PARAMETER_SELECTION_INVALID");
+    }
+    for (const definition of definitions.values()) {
+      if (definition.required && definition.defaultValue === void 0 && !selections.some((selection) => selection.name === definition.name && selection.source === "VALUE"))
+        throw new Error("PARAMETER_REQUIRED");
+    }
+  }
+}
+function isParameterRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function hasOnlyParameterKeys(value, keys) {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
+
+// ../../packages/digest/dist/index.js
+function canonicalize(value) {
+  return JSON.stringify(normalize(value));
+}
+function canonicalizeExact(value) {
+  return JSON.stringify(normalizeExact(value));
+}
+async function createExactCanonicalDigest(value) {
+  return `sha256:${await sha256Hex(canonicalizeExact(value))}`;
+}
+async function createCanonicalDigest(value) {
+  return `sha256:${await sha256Hex(canonicalize(value))}`;
+}
+async function createRequestDigest(input) {
+  return createCanonicalDigest(isDigestEnvelope(input) ? input.payload : input);
+}
+async function sha256Hex(value) {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return digestToHex(digest);
+}
+function digestToHex(digest) {
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function normalizeExact(value) {
+  if (Array.isArray(value))
+    return value.map(normalizeExact);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().filter((key) => value[key] !== void 0).map((key) => [key, normalizeExact(value[key])]));
+  }
+  return value;
+}
+function normalize(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalize(item));
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((acc, key) => {
+      const entry = value[key];
+      if (entry === void 0 || entry === null || entry === "") {
+        return acc;
+      }
+      acc[key] = normalize(entry);
+      return acc;
+    }, {});
+  }
+  if (typeof value === "string") {
+    return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  }
+  return value;
+}
+function isDigestEnvelope(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payload" in value);
+}
+
+// ../../packages/github-lite/dist/parameter-validation.js
+function resolveDefaultOrOmission(definition, source, revision) {
+  if (source === "OMIT") {
+    if (definition.required)
+      throw new Error("PARAMETER_REQUIRED");
+    return {
+      sensitive: definition.sensitive,
+      source: { origin: { type: "OMIT" } }
+    };
+  }
+  if (definition.defaultValue === void 0)
+    throw new Error("PARAMETER_DEFAULT_UNAVAILABLE");
+  return {
+    ...copyStoredParameterValue(definition.defaultValue),
+    source: { origin: { type: "BATCH_DEFAULT" }, revision }
+  };
+}
+function resolveScheduledParameters(batch, scheduleId, sourceRevision) {
+  assertStoredScheduleParameters(batch);
+  const matches = batch.schedules?.filter((schedule2) => schedule2.scheduleId === scheduleId) ?? [];
+  if (matches.length !== 1)
+    throw new Error("PARAMETER_SCHEDULE_UNKNOWN");
+  if (batch.parameters?.length && !sourceRevision)
+    throw new Error("PARAMETER_SOURCE_REVISION_INVALID");
+  const schedule = matches[0];
+  return Object.fromEntries((batch.parameters ?? []).map((definition) => {
+    const selection = schedule.parameters?.find((candidate) => candidate.name === definition.name);
+    if (selection?.source === "VALUE")
+      return [
+        definition.name,
+        {
+          ...copyStoredParameterValue(selection.value),
+          source: {
+            origin: { type: "SCHEDULE_VALUE", scheduleId },
+            revision: sourceRevision
+          }
+        }
+      ];
+    const inherited = definition.defaultValue !== void 0 ? "DEFAULT" : "OMIT";
+    return [
+      definition.name,
+      resolveDefaultOrOmission(definition, selection?.source ?? inherited, sourceRevision)
+    ];
+  }));
+}
+function validateApprovedParameters(payload, batch, sourceRevision) {
+  if (!isParameterRecord(payload.metadata) || !isParameterRecord(payload.spec))
+    throw new Error("PARAMETER_CONTRACT_INVALID");
+  assertStoredParameterDefinitions(batch.parameters);
+  const definitions = batch.parameters ?? [];
+  const records = payload.spec.parameters;
+  if (!definitions.length && records === void 0 && payload.spec.parameterContractVersion === void 0)
+    return {};
+  assertParameterContract(payload, batch, sourceRevision, records);
+  if (payload.spec.triggerType === "SCHEDULE")
+    assertScheduledEvidence(payload, batch, sourceRevision, records);
+  const selected = [];
+  for (const definition of definitions) {
+    const parameter = validateParameterRecord(records[definition.name], definition, payload, sourceRevision);
+    if (parameter)
+      selected.push([definition.name, parameter]);
+  }
+  return Object.fromEntries(selected);
+}
+function assertParameterContract(payload, batch, sourceRevision, records) {
+  if (payload.metadata.batchId !== batch.batchId || payload.spec.parameterContractVersion !== "PARAMETER_DELIVERY_V1" || payload.spec.parameterSourceRevision !== sourceRevision || !sourceRevision || !isParameterRecord(records))
+    throw new Error("PARAMETER_CONTRACT_INVALID");
+  const names = Object.keys(records);
+  validateParameterNames(names);
+  const definitions = batch.parameters ?? [];
+  if (names.length !== definitions.length || names.some((name) => !definitions.some((definition) => definition.name === name)))
+    throw new Error("PARAMETER_DEFINITIONS_MISMATCH");
+}
+function assertScheduledEvidence(payload, batch, revision, records) {
+  if (!payload.spec.schedule || !sameParameterEvidence(records, resolveScheduledParameters(batch, payload.spec.schedule.scheduleId, revision)))
+    throw new Error("PARAMETER_SCHEDULE_SOURCE_MISMATCH");
+}
+function validateParameterRecord(record, definition, payload, revision) {
+  if (!isParameterRecord(record) || !isParameterRecord(record.source) || !isParameterRecord(record.source.origin))
+    throw new Error("PARAMETER_SOURCE_INVALID");
+  const source = record.source;
+  const origin = record.source.origin;
+  if (origin.type === "OMIT") {
+    if (definition.required || record.sensitive !== definition.sensitive || !hasOnlyParameterKeys(record, ["sensitive", "source"]) || !hasOnlyParameterKeys(source, ["origin"]) || !hasOnlyParameterKeys(origin, ["type"]))
+      throw new Error("PARAMETER_REQUIRED");
+    return void 0;
+  }
+  const value = { ...record };
+  delete value.source;
+  assertStoredParameterValue(value, definition.sensitive);
+  const verifiedSource = validateValueSource(source, origin, value, definition, payload, revision);
+  return { ...copyStoredParameterValue(value), source: verifiedSource };
+}
+function validateValueSource(source, origin, value, definition, payload, revision) {
+  switch (origin.type) {
+    case "BATCH_DEFAULT":
+      if (!hasOnlyParameterKeys(source, ["origin", "revision"]) || !hasOnlyParameterKeys(origin, ["type"]) || source.revision !== revision || definition.defaultValue === void 0 || !sameParameterEvidence(value, copyStoredParameterValue(definition.defaultValue)))
+        throw new Error("PARAMETER_DEFAULT_SOURCE_MISMATCH");
+      return { origin: { type: "BATCH_DEFAULT" }, revision };
+    case "REQUEST_VALUE":
+      if (payload.spec.triggerType === "SCHEDULE" || !hasOnlyParameterKeys(source, ["origin"]) || !hasOnlyParameterKeys(origin, ["type", "requestId"]) || origin.requestId !== payload.metadata.requestId)
+        throw new Error("PARAMETER_REQUEST_SOURCE_MISMATCH");
+      return {
+        origin: {
+          type: "REQUEST_VALUE",
+          requestId: payload.metadata.requestId
+        }
+      };
+    case "SCHEDULE_VALUE":
+      if (payload.spec.triggerType !== "SCHEDULE" || !hasOnlyParameterKeys(source, ["origin", "revision"]) || !hasOnlyParameterKeys(origin, ["type", "scheduleId"]) || source.revision !== revision || typeof origin.scheduleId !== "string" || origin.scheduleId !== payload.spec.schedule?.scheduleId)
+        throw new Error("PARAMETER_SCHEDULE_SOURCE_MISMATCH");
+      return {
+        origin: { type: "SCHEDULE_VALUE", scheduleId: origin.scheduleId },
+        revision
+      };
+    default:
+      throw new Error("PARAMETER_SOURCE_INVALID");
+  }
+}
+function sameParameterEvidence(left, right) {
+  return canonicalizeExact(left) === canonicalizeExact(right);
+}
+
 // ../../packages/github-lite/dist/repository-schema.js
 function isCanonicalBatchId(value) {
   return typeof value === "string" && /^[A-Za-z0-9](?:[A-Za-z0-9]|[.-](?=[A-Za-z0-9]))*$/.test(value);
@@ -8125,6 +8464,18 @@ function validateBatchDefinition(definition) {
   validateExecution(record.execution, diagnostics);
   validateStringArray(record.labels, "labels", diagnostics, false);
   validateSchedules(record.schedules, "schedules", diagnostics);
+  try {
+    assertStoredParameterDefinitions(record.parameters);
+    if (record.schedules === void 0 || Array.isArray(record.schedules)) {
+      assertStoredScheduleParameters({
+        parameters: record.parameters,
+        schedules: record.schedules
+      });
+    }
+  } catch (error) {
+    const code = error instanceof Error && error.message.startsWith("PARAMETER_") ? error.message : "PARAMETER_DEFINITION_INVALID";
+    diagnostics.push(problem(code, "parameters", code));
+  }
   return diagnostics;
 }
 function validateBatchDefinitionFile(file) {
@@ -8144,7 +8495,8 @@ function validateBatchDefinitionFile(file) {
         enabled: item.enabled,
         name: item.name,
         scheduleId: item.id,
-        timezone: item.timezone
+        timezone: item.timezone,
+        parameters: item.parameters
       };
     }) : void 0;
     diagnostics.push(...validateBatchDefinition({
@@ -8157,6 +8509,7 @@ function validateBatchDefinitionFile(file) {
       labels: metadata.labels,
       name: metadata.name,
       owner: spec.owner,
+      parameters: spec.parameters,
       schedules,
       status: spec.status,
       workflow: spec.workflow
@@ -8283,70 +8636,6 @@ function problem(code, field, message) {
 var batchStatusValues = ["ACTIVE", "INACTIVE"];
 var criticalityValues = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
-// ../../packages/github-lite/dist/repository-yaml.js
-var import_yaml = __toESM(require_dist(), 1);
-function parseRepositoryYaml(input) {
-  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
-  if (document.errors.length > 0) {
-    return {
-      diagnostics: document.errors.map(toYamlDiagnostic),
-      ok: false
-    };
-  }
-  return { ok: true, value: document.toJS() };
-}
-function formatRepositoryYamlDiagnostics(diagnostics) {
-  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
-}
-function toYamlDiagnostic(error) {
-  const position = error.linePos?.[0];
-  return {
-    column: position?.col ?? 1,
-    line: position?.line ?? 1,
-    message: error.message
-  };
-}
-
-// ../../packages/digest/dist/index.js
-function canonicalize(value) {
-  return JSON.stringify(normalize(value));
-}
-async function createCanonicalDigest(value) {
-  return `sha256:${await sha256Hex(canonicalize(value))}`;
-}
-async function createRequestDigest(input) {
-  return createCanonicalDigest(isDigestEnvelope(input) ? input.payload : input);
-}
-async function sha256Hex(value) {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return digestToHex(digest);
-}
-function digestToHex(digest) {
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-function normalize(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => normalize(item));
-  }
-  if (value && typeof value === "object") {
-    return Object.keys(value).sort().reduce((acc, key) => {
-      const entry = value[key];
-      if (entry === void 0 || entry === null || entry === "") {
-        return acc;
-      }
-      acc[key] = normalize(entry);
-      return acc;
-    }, {});
-  }
-  if (typeof value === "string") {
-    return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  }
-  return value;
-}
-function isDigestEnvelope(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payload" in value);
-}
-
 // ../../packages/github-lite/dist/batch-definition-codec.js
 function parseBatchDefinitionYaml(yaml) {
   const result = parseRepositoryYaml(yaml);
@@ -8387,6 +8676,9 @@ function parseBatchDefinitionYaml(yaml) {
       command,
       runsOn: runsOn || ""
     } : void 0,
+    ...spec.parameters !== void 0 ? {
+      parameters: spec.parameters
+    } : {},
     schedules: schedules.length > 0 ? schedules : void 0
   };
 }
@@ -8423,7 +8715,10 @@ function readYamlSchedules(record, key) {
     enabled: readYamlBoolean(item, "enabled"),
     name: readYamlString(item, "name"),
     scheduleId: readYamlString(item, "id"),
-    timezone: readYamlString(item, "timezone")
+    timezone: readYamlString(item, "timezone"),
+    ...item.parameters !== void 0 ? {
+      parameters: item.parameters
+    } : {}
   })).filter((schedule) => Boolean(schedule.scheduleId) || Boolean(schedule.name) || Boolean(schedule.cron) || Boolean(schedule.timezone));
 }
 function parseCriticality(value) {
@@ -8440,6 +8735,7 @@ function parseBatchStatus(value) {
 }
 
 // ../../packages/github-lite/dist/github-workflow.js
+var inputPreparationStepName = "Prepare approved batch inputs";
 function getNativeScheduleWorkflowJobIdentity(schedule) {
   const controlJobId = toScheduleWorkflowJobId(schedule.scheduleId);
   return {
@@ -8452,6 +8748,15 @@ function getNativeScheduleWorkflowJobIdentity(schedule) {
 function toScheduleWorkflowJobId(scheduleId) {
   const encoded = Array.from(scheduleId).map((character) => character.codePointAt(0).toString(16)).join("_");
   return `schedule_${encoded}`;
+}
+
+// ../../packages/github-lite/dist/execution-request-evidence.js
+function createExecutionRequestDigest(payload) {
+  const value = payload;
+  if (payload.spec.parameterContractVersion === "PARAMETER_DELIVERY_V1") {
+    return createExactCanonicalDigest(value);
+  }
+  return createRequestDigest(value);
 }
 
 // ../../packages/github-lite/dist/execution-gate-result.js
@@ -8592,7 +8897,7 @@ async function collectNativeScheduleEvidence({ client, expectedOccurrence, expec
     expectedJobId: businessJobId,
     expectedJobName: businessJobName,
     expectedOccurrence,
-    expectedStepName: "Reverify approved native schedule evidence",
+    expectedStepName: nativeEntryGateStepName(business),
     job: business,
     repository,
     run: run2
@@ -8607,6 +8912,10 @@ async function collectNativeScheduleEvidence({ client, expectedOccurrence, expec
     run: run2,
     runContextMatches: true
   };
+}
+function nativeEntryGateStepName(business) {
+  const preparation = business.steps?.find((step) => step.name === inputPreparationStepName && step.status === "completed" && step.conclusion !== "skipped");
+  return preparation ? inputPreparationStepName : "Reverify approved native schedule evidence";
 }
 function classifyNativeScheduleEvidence(evidence) {
   const { business, control, controlGate, entryGate, run: run2, runContextMatches } = evidence;
@@ -8702,7 +9011,10 @@ async function verifyNativeScheduleRequestIssue(body, expected) {
   }
   let digest;
   try {
-    digest = await createRequestDigest(payload);
+    if (expected.batch.parameters?.length || payload.spec.parameters !== void 0) {
+      validateApprovedParameters(payload, expected.batch, expected.parameterSourceRevision ?? "");
+    }
+    digest = await createExecutionRequestDigest(payload);
   } catch {
     return null;
   }

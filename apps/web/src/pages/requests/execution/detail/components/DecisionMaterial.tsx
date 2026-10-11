@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Fact } from "./Fact";
 import { LinkedFact } from "./LinkedFact";
+import { ExecutionRequestParameterSummary } from "../../components/ExecutionRequestParameterSummary";
 
 export function DecisionMaterial({ request }: { request: ExecutionRequest }) {
   const { t } = useTranslation("executionRequests");
@@ -56,6 +57,7 @@ export function DecisionMaterial({ request }: { request: ExecutionRequest }) {
           />
         </dl>
       </div>
+      <ExecutionRequestParameterSummary parameters={request.parameters} />
     </article>
   );
 }

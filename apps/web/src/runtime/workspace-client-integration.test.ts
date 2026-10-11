@@ -5,6 +5,8 @@ import { createRuntimeBatchPlaneClient } from "./runtime-batch-plane-client";
 describe("Workspace runtime client connection boundary", () => {
   it.each([
     "inspectWorkspace",
+    "inspectWorkspaceEncryption",
+    "initializeWorkspaceEncryption",
     "requestWorkspaceInstallation",
     "requestWorkspaceUpdate",
     "requestWorkspacePolicyChange",

@@ -12,6 +12,8 @@ import type {
   WorkspaceInstallationRequest,
   WorkspacePolicy,
   WorkspacePolicyRequest,
+  WorkspaceEncryptionStatus,
+  WorkspaceEncryptionSetupResult,
 } from "./workspace.js";
 
 import type {
@@ -53,6 +55,8 @@ import type {
 } from "./request-inventory.js";
 
 export type BatchPlaneClient = {
+  inspectWorkspaceEncryption(): Promise<WorkspaceEncryptionStatus>;
+  initializeWorkspaceEncryption(): Promise<WorkspaceEncryptionSetupResult>;
   inspectWorkspace(): Promise<WorkspaceInspection>;
   requestWorkspaceInstallation(): Promise<WorkspaceInstallationRequest>;
   requestWorkspaceUpdate(): Promise<WorkspaceInstallationRequest>;

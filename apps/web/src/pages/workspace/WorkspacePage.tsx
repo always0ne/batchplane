@@ -4,6 +4,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { WorkspaceConnectionStatus } from "./components/WorkspaceConnectionStatus";
 import { WorkspaceInstallation } from "./components/installation/WorkspaceInstallation";
 import { WorkspacePolicy } from "./components/policy/WorkspacePolicy";
+import { WorkspaceEncryption } from "./components/encryption/WorkspaceEncryption";
 import { useWorkspaceInspection } from "./hooks/useWorkspaceInspection";
 
 export function WorkspacePage({
@@ -31,6 +32,7 @@ export function WorkspacePage({
           </div>
           <WorkspaceInstallation inspection={inspection} />
           <WorkspacePolicy inspection={inspection} />
+          <WorkspaceEncryption inspection={inspection} />
         </div>
       </div>
     </section>

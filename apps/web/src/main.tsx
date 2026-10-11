@@ -6,6 +6,7 @@ import { createAppRouter } from "./app/router";
 import { BatchPlaneClientContext } from "./client/batch-plane-client-context";
 import "./i18n/i18n";
 import { createRuntimeBatchPlaneClient } from "./runtime/runtime-batch-plane-client";
+import { runtimeConnectionChangedEvent } from "./runtime/runtime-connection-lifecycle";
 import "./components/tokens.css";
 import "./shared/styles/global.css";
 
@@ -14,6 +15,19 @@ restoreGitHubPagesRedirect();
 const browserBaseName =
   import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL;
 const batchPlaneClient = createRuntimeBatchPlaneClient();
+window.addEventListener(
+  runtimeConnectionChangedEvent,
+  batchPlaneClient.resetConnection,
+);
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    window.removeEventListener(
+      runtimeConnectionChangedEvent,
+      batchPlaneClient.resetConnection,
+    );
+    batchPlaneClient.resetConnection();
+  });
+}
 const router = createAppRouter(browserBaseName);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

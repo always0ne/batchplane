@@ -48,6 +48,7 @@ function createContext() {
     createGitHubLiteMockState({
       currentUser: { login: "operator" },
       repository: {
+        id: "222",
         owner: "workspace-owner",
         repo: "workspace",
         defaultBranch: "main",

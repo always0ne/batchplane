@@ -1,3 +1,5 @@
+import { notifyRuntimeConnectionChanged } from "./runtime-connection-lifecycle";
+
 export const githubSessionStorageKey = "batchplane.github.session.v1";
 export const legacyGitHubSessionStorageKey = "batchtrail.github.session.v1";
 
@@ -39,6 +41,7 @@ export function writeGitHubSession(
   }
 
   storage.setItem(githubSessionStorageKey, JSON.stringify(session));
+  notifyRuntimeConnectionChanged();
   return session;
 }
 
@@ -47,6 +50,7 @@ export function clearGitHubSession(
 ) {
   storage.removeItem(githubSessionStorageKey);
   storage.removeItem(legacyGitHubSessionStorageKey);
+  notifyRuntimeConnectionChanged();
 }
 
 export function hasGitHubSession(

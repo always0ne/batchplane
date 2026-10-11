@@ -1,4 +1,7 @@
-import type { BatchSchedule } from "@batchplane/domain";
+import type {
+  BatchParameterDefinition,
+  BatchSchedule,
+} from "@batchplane/domain";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,6 +10,8 @@ import type { ScheduleDraft } from "../../batch-change-form";
 import { getCronPreview } from "./cron-preview";
 import { ScheduleCronPreview } from "./ScheduleCronPreview";
 import { TextField } from "../TextField";
+import { ParameterSelections } from "../../../../parameters/components/ParameterSelections";
+import type { WorkspaceEncryptionUnavailableReason } from "@batchplane/ui-client";
 
 export function ScheduleCard({
   draft,
@@ -14,12 +19,18 @@ export function ScheduleCard({
   onRemove,
   onRestore,
   onUpdate,
+  definitions,
+  sensitiveInputsAvailable,
+  sensitiveInputsUnavailableReason,
 }: {
   draft: ScheduleDraft;
   index: number;
   onRemove: (key: string) => void;
   onRestore: (key: string) => void;
   onUpdate: (key: string, values: BatchSchedule) => void;
+  definitions: BatchParameterDefinition[];
+  sensitiveInputsAvailable: boolean;
+  sensitiveInputsUnavailableReason?: WorkspaceEncryptionUnavailableReason;
 }) {
   const { i18n, t } = useTranslation("registration");
   const isDeleted = draft.status === "deleted";
@@ -115,6 +126,17 @@ export function ScheduleCard({
           cronPreview={cronPreview}
           locale={i18n.language}
           timezone={draft.values.timezone.trim()}
+        />
+      ) : null}
+      {!isDeleted && definitions.length > 0 ? (
+        <ParameterSelections
+          definitions={definitions}
+          onChange={(parameters) =>
+            onUpdate(draft.key, { ...draft.values, parameters })
+          }
+          selections={draft.values.parameters ?? []}
+          sensitiveInputsAvailable={sensitiveInputsAvailable}
+          sensitiveInputsUnavailableReason={sensitiveInputsUnavailableReason}
         />
       ) : null}
     </section>

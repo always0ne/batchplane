@@ -37,6 +37,7 @@ import {
   uniqueStrings,
 } from "./mock-state.js";
 import { createGitHubLiteMockState } from "./mock-state.js";
+import { createMockActionsSecretOperations } from "./mock-actions-secrets.js";
 
 export function createMockGitHubLiteClient(
   initialState = createGitHubLiteMockState(),
@@ -44,6 +45,7 @@ export function createMockGitHubLiteClient(
   const baselineState = cloneJson(initialState);
   const state = cloneJson(initialState);
   const client: GitHubLiteClient = {
+    ...createMockActionsSecretOperations(state),
     ...createMockRepositoryOperations(state),
     ...createMockIssueOperations(state),
     ...createMockPullRequestOperations(state),

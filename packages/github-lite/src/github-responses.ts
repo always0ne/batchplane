@@ -22,6 +22,7 @@ export type GitHubUserResponse = {
 };
 
 export type GitHubRepositoryResponse = {
+  id: number;
   name: string;
   owner: { login: string };
   default_branch: string;

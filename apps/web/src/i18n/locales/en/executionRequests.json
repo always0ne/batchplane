@@ -282,16 +282,6 @@
     "workflowRef": "Workflow ref",
     "targetRevision": "Target revision"
   },
-  "parameters": {
-    "add": "Add parameter",
-    "empty": "No parameters",
-    "name": "Name",
-    "remove": "Remove parameter",
-    "sensitive": "Sensitive",
-    "sensitiveHint": "Sensitive values are never written to the source request. BatchPlane stores only a value digest for audit comparison.",
-    "title": "Parameters",
-    "value": "Value"
-  },
   "payload": {
     "idle": "Complete the request details to preview the canonical payload.",
     "loading": "Updating digest preview...",
@@ -333,7 +323,6 @@
     "gateRequired": "BatchPlane Gate is mandatory before execution can be requested.",
     "inactive": "Inactive batches cannot be requested for execution.",
     "missingCommand": "The batch command is not recorded in the batch definition.",
-    "parameterName": "Parameter name is required when a value is entered.",
     "reason": "Reason is required.",
     "workflowRef": "Workflow ref is required.",
     "targetRevision": "Target revision is required."

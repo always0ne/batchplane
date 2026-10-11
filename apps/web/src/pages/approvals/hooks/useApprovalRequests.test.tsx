@@ -81,6 +81,8 @@ function createClient(
     getMyWork: unsupported,
     listExecutionRuns: unsupported,
     inspectWorkspace: unsupported,
+    inspectWorkspaceEncryption: unsupported,
+    initializeWorkspaceEncryption: unsupported,
     requestWorkspaceInstallation: unsupported,
     requestWorkspaceUpdate: unsupported,
     requestWorkspacePolicyChange: unsupported,

@@ -382,12 +382,12 @@ var require_directives = __commonJS({
        * Given a fully resolved tag, returns its printable string form,
        * taking into account current tag prefixes and defaults.
        */
-      tagString(tag) {
+      tagString(tag2) {
         for (const [handle, prefix] of Object.entries(this.tags)) {
-          if (tag.startsWith(prefix))
-            return handle + escapeTagName(tag.substring(prefix.length));
+          if (tag2.startsWith(prefix))
+            return handle + escapeTagName(tag2.substring(prefix.length));
         }
-        return tag[0] === "!" ? tag : `!<${tag}>`;
+        return tag2[0] === "!" ? tag2 : `!<${tag2}>`;
       }
       toString(doc) {
         const lines = this.yaml.explicit ? [`%YAML ${this.yaml.version || "1.2"}`] : [];
@@ -1364,7 +1364,7 @@ ${indent}${start}${value}${end}`;
       const str = value.replace(/\n+/g, `$&
 ${indent}`);
       if (actualString) {
-        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
+        const test = (tag2) => tag2.default && tag2.tag !== "tag:yaml.org,2002:str" && tag2.test?.test(str);
         const { compat, tags } = ctx.doc.schema;
         if (tags.some(test) || compat?.some(test))
           return quotedString(value, ctx);
@@ -1494,9 +1494,9 @@ var require_stringify = __commonJS({
         anchors$1.add(anchor);
         props.push(`&${anchor}`);
       }
-      const tag = node.tag ?? (tagObj.default ? null : tagObj.tag);
-      if (tag)
-        props.push(doc.directives.tagString(tag));
+      const tag2 = node.tag ?? (tagObj.default ? null : tagObj.tag);
+      if (tag2)
+        props.push(doc.directives.tagString(tag2));
       return props.join(" ");
     }
     function stringify2(item, ctx, onComment, onChompKeep) {
@@ -1704,7 +1704,7 @@ var require_merge = __commonJS({
       }),
       stringify: () => MERGE_KEY
     };
-    var isMergeKey = (ctx, key) => (merge.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge.tag && tag.default);
+    var isMergeKey = (ctx, key) => (merge.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge.identify(key.value)) && ctx?.doc.schema.tags.some((tag2) => tag2.tag === merge.tag && tag2.default);
     function addMergeToJSMap(ctx, map, value) {
       const source = resolveAliasValue(ctx, value);
       if (identity.isSeq(source))
@@ -2371,14 +2371,14 @@ var require_bool = __commonJS({
 var require_stringifyNumber = __commonJS({
   "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
     "use strict";
-    function stringifyNumber({ format, minFractionDigits, tag, value }) {
+    function stringifyNumber({ format, minFractionDigits, tag: tag2, value }) {
       if (typeof value === "bigint")
         return String(value);
       const num = typeof value === "number" ? value : Number(value);
       if (!isFinite(num))
         return isNaN(num) ? ".nan" : num < 0 ? "-.inf" : ".inf";
       let n = Object.is(value, -0) ? "-0" : JSON.stringify(value);
-      if (!format && minFractionDigits && (!tag || tag === "tag:yaml.org,2002:float") && /^-?\d/.test(n) && !n.includes("e")) {
+      if (!format && minFractionDigits && (!tag2 || tag2 === "tag:yaml.org,2002:float") && /^-?\d/.test(n) && !n.includes("e")) {
         let i = n.indexOf(".");
         if (i < 0) {
           i = n.length;
@@ -3253,17 +3253,17 @@ var require_tags = __commonJS({
         }
       }
       if (Array.isArray(customTags)) {
-        for (const tag of customTags)
-          tags = tags.concat(tag);
+        for (const tag2 of customTags)
+          tags = tags.concat(tag2);
       } else if (typeof customTags === "function") {
         tags = customTags(tags.slice());
       }
       if (addMergeTag)
         tags = tags.concat(merge.merge);
-      return tags.reduce((tags2, tag) => {
-        const tagObj = typeof tag === "string" ? tagsByName[tag] : tag;
+      return tags.reduce((tags2, tag2) => {
+        const tagObj = typeof tag2 === "string" ? tagsByName[tag2] : tag2;
         if (!tagObj) {
-          const tagName = JSON.stringify(tag);
+          const tagName = JSON.stringify(tag2);
           const keys = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
           throw new Error(`Unknown custom tag ${tagName}; use one of ${keys}`);
         }
@@ -3503,7 +3503,7 @@ var require_Document = __commonJS({
           options = replacer;
           replacer = void 0;
         }
-        const { aliasDuplicateObjects, anchorPrefix, flow, keepUndefined, onTagObj, tag } = options ?? {};
+        const { aliasDuplicateObjects, anchorPrefix, flow, keepUndefined, onTagObj, tag: tag2 } = options ?? {};
         const { onAnchor, setAnchors, sourceObjects } = anchors.createNodeAnchors(
           this,
           // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
@@ -3518,7 +3518,7 @@ var require_Document = __commonJS({
           schema: this.schema,
           sourceObjects
         };
-        const node = createNode.createNode(value, tag, ctx);
+        const node = createNode.createNode(value, tag2, ctx);
         if (flow && identity.isCollection(node))
           node.flow = true;
         setAnchors();
@@ -3703,22 +3703,22 @@ var require_errors = __commonJS({
   "../../node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js"(exports) {
     "use strict";
     var YAMLError = class extends Error {
-      constructor(name, pos, code, message) {
+      constructor(name, pos, code, message2) {
         super();
         this.name = name;
         this.code = code;
-        this.message = message;
+        this.message = message2;
         this.pos = pos;
       }
     };
     var YAMLParseError = class extends YAMLError {
-      constructor(pos, code, message) {
-        super("YAMLParseError", pos, code, message);
+      constructor(pos, code, message2) {
+        super("YAMLParseError", pos, code, message2);
       }
     };
     var YAMLWarning = class extends YAMLError {
-      constructor(pos, code, message) {
-        super("YAMLWarning", pos, code, message);
+      constructor(pos, code, message2) {
+        super("YAMLWarning", pos, code, message2);
       }
     };
     var prettifyError = (src, lc) => (error) => {
@@ -3777,7 +3777,7 @@ var require_resolve_props = __commonJS({
       let reqSpace = false;
       let tab = null;
       let anchor = null;
-      let tag = null;
+      let tag2 = null;
       let newlineAfterProp = null;
       let comma = null;
       let found = null;
@@ -3823,7 +3823,7 @@ var require_resolve_props = __commonJS({
               commentSep += token.source;
             atNewline = true;
             hasNewline = true;
-            if (anchor || tag)
+            if (anchor || tag2)
               newlineAfterProp = token;
             hasSpace = true;
             break;
@@ -3839,9 +3839,9 @@ var require_resolve_props = __commonJS({
             reqSpace = true;
             break;
           case "tag": {
-            if (tag)
+            if (tag2)
               onError(token, "MULTIPLE_TAGS", "A node can have at most one tag");
-            tag = token;
+            tag2 = token;
             start ?? (start = token.offset);
             atNewline = false;
             hasSpace = false;
@@ -3849,7 +3849,7 @@ var require_resolve_props = __commonJS({
             break;
           }
           case indicator:
-            if (anchor || tag)
+            if (anchor || tag2)
               onError(token, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token.source} indicator`);
             if (found)
               onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.source} in ${flow ?? "collection"}`);
@@ -3887,7 +3887,7 @@ var require_resolve_props = __commonJS({
         comment,
         hasNewline,
         anchor,
-        tag,
+        tag: tag2,
         newlineAfterProp,
         end,
         start: start ?? end
@@ -3984,8 +3984,8 @@ var require_resolve_block_map = __commonJS({
     var utilFlowIndentCheck = require_util_flow_indent_check();
     var utilMapIncludes = require_util_map_includes();
     var startColMsg = "All mapping items must start at the same column";
-    function resolveBlockMap({ composeNode, composeEmptyNode }, ctx, bm, onError, tag) {
-      const NodeClass = tag?.nodeClass ?? YAMLMap.YAMLMap;
+    function resolveBlockMap({ composeNode, composeEmptyNode }, ctx, bm, onError, tag2) {
+      const NodeClass = tag2?.nodeClass ?? YAMLMap.YAMLMap;
       const map = new NodeClass(ctx.schema);
       if (ctx.atRoot)
         ctx.atRoot = false;
@@ -4088,8 +4088,8 @@ var require_resolve_block_seq = __commonJS({
     var YAMLSeq = require_YAMLSeq();
     var resolveProps = require_resolve_props();
     var utilFlowIndentCheck = require_util_flow_indent_check();
-    function resolveBlockSeq({ composeNode, composeEmptyNode }, ctx, bs, onError, tag) {
-      const NodeClass = tag?.nodeClass ?? YAMLSeq.YAMLSeq;
+    function resolveBlockSeq({ composeNode, composeEmptyNode }, ctx, bs, onError, tag2) {
+      const NodeClass = tag2?.nodeClass ?? YAMLSeq.YAMLSeq;
       const seq = new NodeClass(ctx.schema);
       if (ctx.atRoot)
         ctx.atRoot = false;
@@ -4189,10 +4189,10 @@ var require_resolve_flow_collection = __commonJS({
     var utilMapIncludes = require_util_map_includes();
     var blockMsg = "Block collections are not allowed within flow collections";
     var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
-    function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
+    function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag2) {
       const isMap = fc.start.source === "{";
       const fcName = isMap ? "flow map" : "flow sequence";
-      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const NodeClass = tag2?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
       const coll = new NodeClass(ctx.schema);
       coll.flow = true;
       const atRoot = ctx.atRoot;
@@ -4380,8 +4380,8 @@ var require_compose_collection = __commonJS({
     var resolveBlockMap = require_resolve_block_map();
     var resolveBlockSeq = require_resolve_block_seq();
     var resolveFlowCollection = require_resolve_flow_collection();
-    function resolveCollection(CN, ctx, token, onError, tagName, tag) {
-      const coll = token.type === "block-map" ? resolveBlockMap.resolveBlockMap(CN, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq.resolveBlockSeq(CN, ctx, token, onError, tag) : resolveFlowCollection.resolveFlowCollection(CN, ctx, token, onError, tag);
+    function resolveCollection(CN, ctx, token, onError, tagName, tag2) {
+      const coll = token.type === "block-map" ? resolveBlockMap.resolveBlockMap(CN, ctx, token, onError, tag2) : token.type === "block-seq" ? resolveBlockSeq.resolveBlockSeq(CN, ctx, token, onError, tag2) : resolveFlowCollection.resolveFlowCollection(CN, ctx, token, onError, tag2);
       const Coll = coll.constructor;
       if (tagName === "!" || tagName === Coll.tagName) {
         coll.tag = Coll.tagName;
@@ -4398,20 +4398,20 @@ var require_compose_collection = __commonJS({
         const { anchor, newlineAfterProp: nl } = props;
         const lastProp = anchor && tagToken ? anchor.offset > tagToken.offset ? anchor : tagToken : anchor ?? tagToken;
         if (lastProp && (!nl || nl.offset < lastProp.offset)) {
-          const message = "Missing newline after block sequence props";
-          onError(lastProp, "MISSING_CHAR", message);
+          const message2 = "Missing newline after block sequence props";
+          onError(lastProp, "MISSING_CHAR", message2);
         }
       }
       const expType = token.type === "block-map" ? "map" : token.type === "block-seq" ? "seq" : token.start.source === "{" ? "map" : "seq";
       if (!tagToken || !tagName || tagName === "!" || tagName === YAMLMap.YAMLMap.tagName && expType === "map" || tagName === YAMLSeq.YAMLSeq.tagName && expType === "seq") {
         return resolveCollection(CN, ctx, token, onError, tagName);
       }
-      let tag = ctx.schema.tags.find((t) => t.tag === tagName && t.collection === expType);
-      if (!tag) {
+      let tag2 = ctx.schema.tags.find((t) => t.tag === tagName && t.collection === expType);
+      if (!tag2) {
         const kt = ctx.schema.knownTags[tagName];
         if (kt?.collection === expType) {
           ctx.schema.tags.push(Object.assign({}, kt, { default: false }));
-          tag = kt;
+          tag2 = kt;
         } else {
           if (kt) {
             onError(tagToken, "BAD_COLLECTION_TYPE", `${kt.tag} used for ${expType} collection, but expects ${kt.collection ?? "scalar"}`, true);
@@ -4421,13 +4421,13 @@ var require_compose_collection = __commonJS({
           return resolveCollection(CN, ctx, token, onError, tagName);
         }
       }
-      const coll = resolveCollection(CN, ctx, token, onError, tagName, tag);
-      const res = tag.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll;
+      const coll = resolveCollection(CN, ctx, token, onError, tagName, tag2);
+      const res = tag2.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll;
       const node = identity.isNode(res) ? res : new Scalar.Scalar(res);
       node.range = coll.range;
       node.tag = tagName;
-      if (tag?.format)
-        node.format = tag.format;
+      if (tag2?.format)
+        node.format = tag2.format;
       return node;
     }
     exports.composeCollection = composeCollection;
@@ -4471,15 +4471,15 @@ var require_resolve_block_scalar = __commonJS({
             trimIndent = indent.length;
         } else {
           if (indent.length < trimIndent) {
-            const message = "Block scalars with more-indented leading empty lines must use an explicit indentation indicator";
-            onError(offset + indent.length, "MISSING_CHAR", message);
+            const message2 = "Block scalars with more-indented leading empty lines must use an explicit indentation indicator";
+            onError(offset + indent.length, "MISSING_CHAR", message2);
           }
           if (header.indent === 0)
             trimIndent = indent.length;
           contentStart = i;
           if (trimIndent === 0 && !ctx.atRoot) {
-            const message = "Block scalar values in collections must be indented";
-            onError(offset, "BAD_INDENT", message);
+            const message2 = "Block scalar values in collections must be indented";
+            onError(offset, "BAD_INDENT", message2);
           }
           break;
         }
@@ -4502,8 +4502,8 @@ var require_resolve_block_scalar = __commonJS({
           content = content.slice(0, -1);
         if (content && indent.length < trimIndent) {
           const src = header.indent ? "explicit indentation indicator" : "first line";
-          const message = `Block scalar lines must not be less indented than their ${src}`;
-          onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message);
+          const message2 = `Block scalar lines must not be less indented than their ${src}`;
+          onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message2);
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
@@ -4581,8 +4581,8 @@ var require_resolve_block_scalar = __commonJS({
             break;
           case "comment":
             if (strict && !hasSpace) {
-              const message = "Comments must be separated from other tokens by white space characters";
-              onError(token, "MISSING_CHAR", message);
+              const message2 = "Comments must be separated from other tokens by white space characters";
+              onError(token, "MISSING_CHAR", message2);
             }
             length += token.source.length;
             comment = token.source.substring(1);
@@ -4593,8 +4593,8 @@ var require_resolve_block_scalar = __commonJS({
             break;
           /* istanbul ignore next should not happen */
           default: {
-            const message = `Unexpected token in block scalar header: ${token.type}`;
-            onError(token, "UNEXPECTED_TOKEN", message);
+            const message2 = `Unexpected token in block scalar header: ${token.type}`;
+            onError(token, "UNEXPECTED_TOKEN", message2);
             const ts = token.source;
             if (ts && typeof ts === "string")
               length += ts.length;
@@ -4848,18 +4848,18 @@ var require_compose_scalar = __commonJS({
     function composeScalar(ctx, token, tagToken, onError) {
       const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar.resolveBlockScalar(ctx, token, onError) : resolveFlowScalar.resolveFlowScalar(token, ctx.options.strict, onError);
       const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
-      let tag;
+      let tag2;
       if (ctx.options.stringKeys && ctx.atKey) {
-        tag = ctx.schema[identity.SCALAR];
+        tag2 = ctx.schema[identity.SCALAR];
       } else if (tagName)
-        tag = findScalarTagByName(ctx.schema, value, tagName, tagToken, onError);
+        tag2 = findScalarTagByName(ctx.schema, value, tagName, tagToken, onError);
       else if (token.type === "scalar")
-        tag = findScalarTagByTest(ctx, value, token, onError);
+        tag2 = findScalarTagByTest(ctx, value, token, onError);
       else
-        tag = ctx.schema[identity.SCALAR];
+        tag2 = ctx.schema[identity.SCALAR];
       let scalar;
       try {
-        const res = tag.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
+        const res = tag2.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
         scalar = identity.isScalar(res) ? res : new Scalar.Scalar(res);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -4872,8 +4872,8 @@ var require_compose_scalar = __commonJS({
         scalar.type = type;
       if (tagName)
         scalar.tag = tagName;
-      if (tag.format)
-        scalar.format = tag.format;
+      if (tag2.format)
+        scalar.format = tag2.format;
       if (comment)
         scalar.comment = comment;
       return scalar;
@@ -4882,17 +4882,17 @@ var require_compose_scalar = __commonJS({
       if (tagName === "!")
         return schema[identity.SCALAR];
       const matchWithTest = [];
-      for (const tag of schema.tags) {
-        if (!tag.collection && tag.tag === tagName) {
-          if (tag.default && tag.test)
-            matchWithTest.push(tag);
+      for (const tag2 of schema.tags) {
+        if (!tag2.collection && tag2.tag === tagName) {
+          if (tag2.default && tag2.test)
+            matchWithTest.push(tag2);
           else
-            return tag;
+            return tag2;
         }
       }
-      for (const tag of matchWithTest)
-        if (tag.test?.test(value))
-          return tag;
+      for (const tag2 of matchWithTest)
+        if (tag2.test?.test(value))
+          return tag2;
       const kt = schema.knownTags[tagName];
       if (kt && !kt.collection) {
         schema.tags.push(Object.assign({}, kt, { default: false, test: void 0 }));
@@ -4902,17 +4902,17 @@ var require_compose_scalar = __commonJS({
       return schema[identity.SCALAR];
     }
     function findScalarTagByTest({ atKey, directives, schema }, value, token, onError) {
-      const tag = schema.tags.find((tag2) => (tag2.default === true || atKey && tag2.default === "key") && tag2.test?.test(value)) || schema[identity.SCALAR];
+      const tag2 = schema.tags.find((tag3) => (tag3.default === true || atKey && tag3.default === "key") && tag3.test?.test(value)) || schema[identity.SCALAR];
       if (schema.compat) {
-        const compat = schema.compat.find((tag2) => tag2.default && tag2.test?.test(value)) ?? schema[identity.SCALAR];
-        if (tag.tag !== compat.tag) {
-          const ts = directives.tagString(tag.tag);
+        const compat = schema.compat.find((tag3) => tag3.default && tag3.test?.test(value)) ?? schema[identity.SCALAR];
+        if (tag2.tag !== compat.tag) {
+          const ts = directives.tagString(tag2.tag);
           const cs = directives.tagString(compat.tag);
           const msg = `Value may be parsed as either ${ts} or ${cs}`;
           onError(token, "TAG_RESOLVE_FAILED", msg, true);
         }
       }
-      return tag;
+      return tag2;
     }
     exports.composeScalar = composeScalar;
   }
@@ -4961,20 +4961,20 @@ var require_compose_node = __commonJS({
     var CN = { composeNode, composeEmptyNode };
     function composeNode(ctx, token, props, onError) {
       const atKey = ctx.atKey;
-      const { spaceBefore, comment, anchor, tag } = props;
+      const { spaceBefore, comment, anchor, tag: tag2 } = props;
       let node;
       let isSrcToken = true;
       switch (token.type) {
         case "alias":
           node = composeAlias(ctx, token, onError);
-          if (anchor || tag)
+          if (anchor || tag2)
             onError(token, "ALIAS_PROPS", "An alias node must not specify any properties");
           break;
         case "scalar":
         case "single-quoted-scalar":
         case "double-quoted-scalar":
         case "block-scalar":
-          node = composeScalar.composeScalar(ctx, token, tag, onError);
+          node = composeScalar.composeScalar(ctx, token, tag2, onError);
           if (anchor)
             node.anchor = anchor.source.substring(1);
           break;
@@ -4986,13 +4986,13 @@ var require_compose_node = __commonJS({
             if (anchor)
               node.anchor = anchor.source.substring(1);
           } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            onError(token, "RESOURCE_EXHAUSTION", message);
+            const message2 = error instanceof Error ? error.message : String(error);
+            onError(token, "RESOURCE_EXHAUSTION", message2);
           }
           break;
         default: {
-          const message = token.type === "error" ? token.message : `Unsupported token (type: ${token.type})`;
-          onError(token, "UNEXPECTED_TOKEN", message);
+          const message2 = token.type === "error" ? token.message : `Unsupported token (type: ${token.type})`;
+          onError(token, "UNEXPECTED_TOKEN", message2);
           isSrcToken = false;
         }
       }
@@ -5001,7 +5001,7 @@ var require_compose_node = __commonJS({
         onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
       if (atKey && ctx.options.stringKeys && (!identity.isScalar(node) || typeof node.value !== "string" || node.tag && node.tag !== "tag:yaml.org,2002:str")) {
         const msg = "With stringKeys, all keys must be strings";
-        onError(tag ?? token, "NON_STRING_KEY", msg);
+        onError(tag2 ?? token, "NON_STRING_KEY", msg);
       }
       if (spaceBefore)
         node.spaceBefore = true;
@@ -5015,14 +5015,14 @@ var require_compose_node = __commonJS({
         node.srcToken = token;
       return node;
     }
-    function composeEmptyNode(ctx, offset, before, pos, { spaceBefore, comment, anchor, tag, end }, onError) {
+    function composeEmptyNode(ctx, offset, before, pos, { spaceBefore, comment, anchor, tag: tag2, end }, onError) {
       const token = {
         type: "scalar",
         offset: utilEmptyScalarPosition.emptyScalarPosition(offset, before, pos),
         indent: -1,
         source: ""
       };
-      const node = composeScalar.composeScalar(ctx, token, tag, onError);
+      const node = composeScalar.composeScalar(ctx, token, tag2, onError);
       if (anchor) {
         node.anchor = anchor.source.substring(1);
         if (node.anchor === "")
@@ -5148,12 +5148,12 @@ var require_composer = __commonJS({
         this.prelude = [];
         this.errors = [];
         this.warnings = [];
-        this.onError = (source, code, message, warning) => {
+        this.onError = (source, code, message2, warning) => {
           const pos = getErrorPos(source);
           if (warning)
-            this.warnings.push(new errors.YAMLWarning(pos, code, message));
+            this.warnings.push(new errors.YAMLWarning(pos, code, message2));
           else
-            this.errors.push(new errors.YAMLParseError(pos, code, message));
+            this.errors.push(new errors.YAMLParseError(pos, code, message2));
         };
         this.directives = new directives.Directives({ version: options.version || "1.2" });
         this.options = options;
@@ -5223,10 +5223,10 @@ ${cb}` : comment;
           console.dir(token, { depth: null });
         switch (token.type) {
           case "directive":
-            this.directives.add(token.source, (offset, message, warning) => {
+            this.directives.add(token.source, (offset, message2, warning) => {
               const pos = getErrorPos(token);
               pos[0] += offset;
-              this.onError(pos, "BAD_DIRECTIVE", message, warning);
+              this.onError(pos, "BAD_DIRECTIVE", message2, warning);
             });
             this.prelude.push(token.source);
             this.atDirectives = true;
@@ -5315,12 +5315,12 @@ var require_cst_scalar = __commonJS({
     var stringifyString = require_stringifyString();
     function resolveAsScalar(token, strict = true, onError) {
       if (token) {
-        const _onError = (pos, code, message) => {
+        const _onError = (pos, code, message2) => {
           const offset = typeof pos === "number" ? pos : Array.isArray(pos) ? pos[0] : pos.offset;
           if (onError)
-            onError(offset, code, message);
+            onError(offset, code, message2);
           else
-            throw new errors.YAMLParseError([offset, offset + 1], code, message);
+            throw new errors.YAMLParseError([offset, offset + 1], code, message2);
         };
         switch (token.type) {
           case "scalar":
@@ -6480,8 +6480,8 @@ var require_parser = __commonJS({
         }
         const type = cst.tokenType(source);
         if (!type) {
-          const message = `Not a YAML token: ${source}`;
-          yield* this.pop({ type: "error", offset: this.offset, message, source });
+          const message2 = `Not a YAML token: ${source}`;
+          yield* this.pop({ type: "error", offset: this.offset, message: message2, source });
           this.offset += source.length;
         } else if (type === "scalar") {
           this.atNewLine = false;
@@ -6571,8 +6571,8 @@ var require_parser = __commonJS({
       *pop(error) {
         const token = error ?? this.stack.pop();
         if (!token) {
-          const message = "Tried to pop an empty stack";
-          yield { type: "error", offset: this.offset, source: "", message };
+          const message2 = "Tried to pop an empty stack";
+          yield { type: "error", offset: this.offset, source: "", message: message2 };
         } else if (this.stack.length === 0) {
           yield token;
         } else {
@@ -7366,8 +7366,8 @@ import { pathToFileURL } from "node:url";
 var GitHubLiteApiError = class extends Error {
   code;
   status;
-  constructor(message, code, status) {
-    super(message);
+  constructor(message2, code, status) {
+    super(message2);
     this.name = "GitHubLiteApiError";
     this.code = code;
     this.status = status;
@@ -7700,10 +7700,10 @@ function mapStatusToErrorCode(status) {
   return "unknown";
 }
 async function buildGitHubApiError(response) {
-  const message = await readErrorMessage(response);
-  return new GitHubLiteApiError(message, isRateLimitedResponse(response, message) ? "rate-limited" : mapStatusToErrorCode(response.status), response.status);
+  const message2 = await readErrorMessage(response);
+  return new GitHubLiteApiError(message2, isRateLimitedResponse(response, message2) ? "rate-limited" : mapStatusToErrorCode(response.status), response.status);
 }
-function isRateLimitedResponse(response, message) {
+function isRateLimitedResponse(response, message2) {
   if (response.status === 429) {
     return true;
   }
@@ -7716,13 +7716,46 @@ function isRateLimitedResponse(response, message) {
   if (response.headers.has("retry-after")) {
     return true;
   }
-  return message.toLowerCase().includes("rate limit");
+  return message2.toLowerCase().includes("rate limit");
+}
+
+// ../../packages/github-lite/dist/github-actions-secrets.js
+function createGitHubActionsSecretOperations({ request }) {
+  function base(owner, repo) {
+    return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/secrets`;
+  }
+  return {
+    async getActionsSecretPublicKey({ owner, repo }) {
+      const result = await request(`${base(owner, repo)}/public-key`);
+      if (!result)
+        throw new GitHubLiteApiError("Actions upload key is unavailable.", "unknown", 500);
+      return { keyId: result.key_id, key: result.key };
+    },
+    async getActionsSecret({ owner, repo, name }) {
+      const result = await request(`${base(owner, repo)}/${encodeURIComponent(name)}`, {}, { allowNotFound: true });
+      return result ? {
+        name: result.name,
+        createdAt: result.created_at,
+        updatedAt: result.updated_at
+      } : null;
+    },
+    async putActionsSecret({ owner, repo, name, encryptedValue, keyId }) {
+      await request(`${base(owner, repo)}/${encodeURIComponent(name)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          encrypted_value: encryptedValue,
+          key_id: keyId
+        })
+      });
+    }
+  };
 }
 
 // ../../packages/github-lite/dist/github-client.js
 function createGitHubLiteClient(options) {
   const requester = createGitHubRequester(options);
   return {
+    ...createGitHubActionsSecretOperations(requester),
     ...createRepositoryOperations(requester),
     ...createPullRequestOperations(requester),
     ...createIssueOperations(requester),
@@ -7746,6 +7779,7 @@ function createRepositoryOperations(requester) {
         throw new GitHubLiteApiError("GitHub repository was empty.", "unknown", 500);
       }
       return {
+        id: String(repository.id),
         owner: repository.owner.login,
         repo: repository.name,
         defaultBranch: repository.default_branch,
@@ -7798,13 +7832,13 @@ function createRepositoryOperations(requester) {
         body: JSON.stringify({ ref: `refs/heads/${branch}`, sha })
       });
     },
-    async putFile({ owner, repo, path, branch, message, content, encoding = "utf-8", sha }) {
+    async putFile({ owner, repo, path, branch, message: message2, content, encoding = "utf-8", sha }) {
       const response = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}`, {
         method: "PUT",
         body: JSON.stringify({
           branch,
           content: encoding === "base64" ? content : encodeBase64(content),
-          message,
+          message: message2,
           ...sha ? { sha } : {}
         })
       });
@@ -7816,12 +7850,12 @@ function createRepositoryOperations(requester) {
         sha: response.content.sha
       };
     },
-    async deleteFile({ owner, repo, path, branch, message, sha }) {
+    async deleteFile({ owner, repo, path, branch, message: message2, sha }) {
       const response = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodePath(path)}`, {
         method: "DELETE",
         body: JSON.stringify({
           branch,
-          message,
+          message: message2,
           sha
         })
       });
@@ -8108,12 +8142,1362 @@ function isBatchPlaneApiVersion(value) {
   return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
 }
 
+// ../../packages/domain/dist/parameters.js
+function validateParameterNames(names) {
+  const seen = /* @__PURE__ */ new Set();
+  for (const name of names) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) {
+      throw new Error("PARAMETER_NAME_INVALID");
+    }
+    const identity = name.toLowerCase();
+    if (seen.has(identity))
+      throw new Error("PARAMETER_NAME_DUPLICATED");
+    seen.add(identity);
+  }
+}
+function validateParameterString(value) {
+  if (typeof value !== "string")
+    throw new Error("PARAMETER_VALUE_INVALID");
+  if (value.includes("\0"))
+    throw new Error("PARAMETER_NUL_UNSUPPORTED");
+}
+
 // ../../packages/domain/dist/workspace-policy.js
 var defaultWorkspacePolicy = {
   approval: {
     mode: "SELF_APPROVAL_BLOCKED"
   }
 };
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/buffer_utils.js
+var encoder = new TextEncoder();
+var decoder = new TextDecoder();
+var strictDecoder = new TextDecoder("utf-8", { fatal: true });
+var MAX_INT32 = 2 ** 32;
+function concat(...buffers) {
+  const size = buffers.reduce((acc, { length }) => acc + length, 0), buf = new Uint8Array(size);
+  let i = 0;
+  for (const buffer of buffers)
+    buf.set(buffer, i), i += buffer.length;
+  return buf;
+}
+function writeUInt32BE(buf, value, offset) {
+  if (value < 0 || value >= MAX_INT32)
+    throw new RangeError(`value must be >= 0 and <= ${MAX_INT32 - 1}. Received ${value}`);
+  buf.set([value >>> 24, value >>> 16, value >>> 8, value & 255], offset);
+}
+function uint64be(value) {
+  const high = Math.floor(value / MAX_INT32), low = value % MAX_INT32, buf = new Uint8Array(8);
+  return writeUInt32BE(buf, high, 0), writeUInt32BE(buf, low, 4), buf;
+}
+function uint32be(value) {
+  const buf = new Uint8Array(4);
+  return writeUInt32BE(buf, value), buf;
+}
+var NON_ASCII = /[^\x00-\x7f]/;
+function encode(string) {
+  if (typeof string == "string" && string.length >= 128) {
+    if (NON_ASCII.test(string))
+      throw new TypeError("non-ASCII string encountered in encode()");
+    return encoder.encode(string);
+  }
+  const bytes = new Uint8Array(string.length);
+  for (let i = 0; i < string.length; i++) {
+    const code = string.charCodeAt(i);
+    if (code > 127)
+      throw new TypeError("non-ASCII string encountered in encode()");
+    bytes[i] = code;
+  }
+  return bytes;
+}
+function encodeBase642(input, url = false) {
+  if (Uint8Array.prototype.toBase64)
+    return input.toBase64({ alphabet: url ? "base64url" : "base64", omitPadding: url });
+  const CHUNK_SIZE = 32768, arr = [];
+  for (let i = 0; i < input.length; i += CHUNK_SIZE)
+    arr.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
+  const encoded = btoa(arr.join(""));
+  return url ? encoded.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_") : encoded;
+}
+function decodeBase642(encoded, url = false) {
+  if (Uint8Array.fromBase64)
+    return Uint8Array.fromBase64(encoded, { alphabet: url ? "base64url" : "base64" });
+  if (url) {
+    if (encoded.includes("+") || encoded.includes("/"))
+      throw new TypeError("Invalid base64url");
+    encoded = encoded.replace(/-/g, "+").replace(/_/g, "/");
+  }
+  const binary = atob(encoded), bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++)
+    bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+async function digest(algorithm, data) {
+  const subtleDigest = `SHA-${algorithm.slice(-3)}`;
+  return new Uint8Array(await crypto.subtle.digest(subtleDigest, data));
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/util/errors.js
+var JOSEError = class extends Error {
+  static code = "ERR_JOSE_GENERIC";
+  code = "ERR_JOSE_GENERIC";
+  constructor(message2, options) {
+    super(message2, options), this.name = this.constructor.name, Error.captureStackTrace?.(this, this.constructor);
+  }
+};
+var JOSENotSupported = class extends JOSEError {
+  static code = "ERR_JOSE_NOT_SUPPORTED";
+  code = "ERR_JOSE_NOT_SUPPORTED";
+};
+var JWEInvalid = class extends JOSEError {
+  static code = "ERR_JWE_INVALID";
+  code = "ERR_JWE_INVALID";
+};
+var JWKInvalid = class extends JOSEError {
+  static code = "ERR_JWK_INVALID";
+  code = "ERR_JWK_INVALID";
+};
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/util/base64url.js
+var invalid = "The input to be decoded is not correctly encoded.";
+function decode(input) {
+  try {
+    return decodeBase642(typeof input == "string" ? input : decoder.decode(input), true);
+  } catch (cause) {
+    throw new TypeError(invalid, { cause });
+  }
+}
+function encode2(input) {
+  return encodeBase642(typeof input == "string" ? encoder.encode(input) : input, true);
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/validate.js
+function assertUint8Array(input, label) {
+  if (!(input instanceof Uint8Array))
+    throw new TypeError(`${label} must be an instance of Uint8Array`);
+}
+function isObject(input) {
+  if (typeof input != "object" || input === null || Object.prototype.toString.call(input) !== "[object Object]")
+    return false;
+  const prototype = Object.getPrototypeOf(input);
+  return prototype === null || Object.getPrototypeOf(prototype) === null;
+}
+function isDisjoint(...headers) {
+  const parameters = /* @__PURE__ */ new Set();
+  for (const header of headers)
+    if (header)
+      for (const parameter of Object.keys(header)) {
+        if (parameters.has(parameter))
+          return false;
+        parameters.add(parameter);
+      }
+  return true;
+}
+function assertNotSet(value, name) {
+  if (value !== void 0)
+    throw new TypeError(`${name} can only be called once`);
+}
+function decodeBase64url(value, label, ErrorClass) {
+  try {
+    return decode(value);
+  } catch {
+    throw new ErrorClass(`Failed to base64url decode the ${label}`);
+  }
+}
+var JWE_RECOGNIZED = { __proto__: null };
+function validateCritDuplicates(Err, protectedHeader) {
+  const { crit } = protectedHeader ?? {};
+  if (Array.isArray(crit) && new Set(crit).size !== crit.length)
+    throw new Err('"crit" (Critical) Header Parameter MUST NOT contain duplicate values');
+}
+function validateCrit(Err, recognizedDefault, recognizedOption, protectedHeader, joseHeader) {
+  if (joseHeader.crit !== void 0 && protectedHeader?.crit === void 0)
+    throw new Err('"crit" (Critical) Header Parameter MUST be integrity protected');
+  if (!protectedHeader || protectedHeader.crit === void 0)
+    return [];
+  if (!Array.isArray(protectedHeader.crit) || protectedHeader.crit.length === 0 || protectedHeader.crit.some((input) => typeof input != "string" || input.length === 0))
+    throw new Err('"crit" (Critical) Header Parameter MUST be an array of non-empty strings when present');
+  const recognized = recognizedOption === void 0 ? recognizedDefault : { __proto__: null, ...recognizedOption, ...recognizedDefault };
+  for (const parameter of protectedHeader.crit) {
+    if (!(parameter in recognized))
+      throw new JOSENotSupported(`Extension Header Parameter "${parameter}" is not recognized`);
+    if (!Object.hasOwn(joseHeader, parameter) || joseHeader[parameter] === void 0)
+      throw new Err(`Extension Header Parameter "${parameter}" is missing`);
+    if (recognized[parameter] && (!Object.hasOwn(protectedHeader, parameter) || protectedHeader[parameter] === void 0))
+      throw new Err(`Extension Header Parameter "${parameter}" MUST be integrity protected`);
+  }
+  return protectedHeader.crit;
+}
+function serializeJoseHeader(Err, header) {
+  let serialized, parsed;
+  try {
+    serialized = JSON.stringify(header), parsed = JSON.parse(serialized);
+  } catch (cause) {
+    throw new Err("JOSE Header is not valid JSON", { cause });
+  }
+  if (!isObject(parsed))
+    throw new Err("JOSE Header is not a JSON object");
+  return [parsed, serialized];
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/key.js
+var tag = (key) => key[Symbol.toStringTag];
+var jwkMatchesOp = (entry, key, usage) => {
+  const { alg } = entry;
+  if (key.use !== void 0) {
+    const expected = usage === "sign" || usage === "verify" ? "sig" : "enc";
+    if (key.use !== expected)
+      throw new TypeError(`Invalid key for this operation, its "use" must be "${expected}" when present`);
+  }
+  if (key.alg !== void 0 && key.alg !== alg)
+    throw new TypeError(`Invalid key for this operation, its "alg" must be "${alg}" when present`);
+  if (Array.isArray(key.key_ops)) {
+    const expectedKeyOp = usage === "encrypt" || usage === "decrypt" ? entry.ops?.[usage === "encrypt" ? 0 : 1] : usage;
+    if (expectedKeyOp && !key.key_ops.includes(expectedKeyOp))
+      throw new TypeError(`Invalid key for this operation, its "key_ops" must include "${expectedKeyOp}" when present`);
+  }
+};
+async function prepareKey(entry, key, usage) {
+  const { alg, secret } = entry, privateKey = usage === "decrypt" || usage === "sign";
+  if (secret && key instanceof Uint8Array)
+    return key;
+  let normalized, keyObject;
+  if (isObject(key)) {
+    if (normalized = normalizeJwk(key), typeof normalized.kty != "string")
+      throw invalidKeyType(alg, key, secret);
+    if (!(secret ? normalized.kty === "oct" && typeof normalized.k == "string" : normalized.kty !== "oct" && (privateKey ? normalized.kty === "AKP" && typeof normalized.priv == "string" || typeof normalized.d == "string" : normalized.d === void 0 && normalized.priv === void 0)))
+      throw new TypeError(secret ? 'JSON Web Key for symmetric algorithms must have JWK "kty" (Key Type) equal to "oct" and the JWK "k" (Key Value) present' : `JSON Web Key for this operation must be a ${privateKey ? "private" : "public"} JWK`);
+    if (jwkMatchesOp(entry, normalized, usage), normalized.kty === "oct")
+      return decode(normalized.k);
+    if (!Object.isFrozen(key)) {
+      const { key_ops } = key;
+      Array.isArray(key_ops) && Object.freeze(key_ops), Object.freeze(key);
+    }
+  } else {
+    if (!isKeyLike(key))
+      throw invalidKeyType(alg, key, secret);
+    const expectedType = secret ? "secret" : privateKey ? "private" : "public";
+    if (key.type !== expectedType && (secret || ["secret", "public", "private"].includes(key.type)))
+      throw new TypeError(`${tag(key)} instances must be of type "${expectedType}" for the ${alg} algorithm`);
+    if (isCryptoKey(key))
+      return key;
+    if (keyObject = key, keyObject.type === "secret")
+      return keyObject.export();
+  }
+  cache ||= /* @__PURE__ */ new WeakMap();
+  const cacheKey = key;
+  let cached = cache.get(cacheKey);
+  if (cached?.[alg])
+    return cached[alg];
+  if (cached || cache.set(cacheKey, cached = {}), keyObject && typeof keyObject.toCryptoKey == "function") {
+    const isPublic = keyObject.type === "public", crv = nist[keyObject.asymmetricKeyDetails?.namedCurve], params = entry.resolve?.({ crv, asymmetricKeyType: keyObject.asymmetricKeyType }) ?? entry.subtle;
+    return cached[alg] = keyObject.toCryptoKey(params, isPublic, entry.usages[isPublic ? 0 : 1]);
+  }
+  return normalized ??= keyObject.export({ format: "jwk" }), normalized.alg = alg, cached[alg] = await jwkToKey(entry, normalized);
+}
+var cache;
+var nist = {
+  __proto__: null,
+  prime256v1: "P-256",
+  secp384r1: "P-384",
+  secp521r1: "P-521"
+};
+function assertCryptoKey(key) {
+  if (!isCryptoKey(key))
+    throw new Error("CryptoKey instance expected");
+}
+var isCryptoKey = (key) => {
+  if (key?.[Symbol.toStringTag] === "CryptoKey")
+    return true;
+  try {
+    return key instanceof CryptoKey;
+  } catch {
+    return false;
+  }
+};
+var isKeyObject = (key) => key?.[Symbol.toStringTag] === "KeyObject";
+var isKeyLike = (key) => isCryptoKey(key) || isKeyObject(key);
+function message(msg, actual, ...types) {
+  if (types.length > 2) {
+    const last = types.pop();
+    msg += `one of type ${types.join(", ")}, or ${last}.`;
+  } else types.length === 2 ? msg += `one of type ${types[0]} or ${types[1]}.` : msg += `of type ${types[0]}.`;
+  return actual == null ? msg += ` Received ${actual}` : typeof actual == "function" && actual.name ? msg += ` Received function ${actual.name}` : typeof actual == "object" && actual != null && actual.constructor?.name && (msg += ` Received an instance of ${actual.constructor.name}`), msg;
+}
+var invalidKeyInput = (actual, ...types) => message("Key must be ", actual, ...types);
+function invalidKeyType(alg, actual, secret) {
+  const types = ["CryptoKey", "KeyObject", "JSON Web Key"];
+  return secret && types.push("Uint8Array"), new TypeError(message(`Key for the ${alg} algorithm must be `, actual, ...types));
+}
+var unusable = (name, prop = "algorithm.name") => new TypeError(`CryptoKey does not support this operation, its ${prop} must be ${name}`);
+function checkUsage(key, usage) {
+  if (usage && !key.usages.includes(usage))
+    throw new TypeError(`CryptoKey does not support this operation, its usages must include ${usage}.`);
+}
+function checkModulusLength(alg, key) {
+  const { modulusLength } = key.algorithm;
+  if (typeof modulusLength != "number" || modulusLength < 2048)
+    throw new TypeError(`${alg} requires key modulusLength to be 2048 bits or larger`);
+}
+function checkCryptoKey(key, expected, usage) {
+  const algorithm = key.algorithm;
+  if (algorithm.name !== expected.name)
+    throw unusable(expected.name);
+  if (expected.hash && algorithm.hash?.name !== expected.hash)
+    throw unusable(expected.hash, "algorithm.hash");
+  if (expected.namedCurve && algorithm.namedCurve !== expected.namedCurve)
+    throw unusable(expected.namedCurve, "algorithm.namedCurve");
+  if (expected.length !== void 0 && algorithm.length !== expected.length)
+    throw unusable(expected.length, "algorithm.length");
+  checkUsage(key, usage);
+}
+function snapshotJwk(jwk) {
+  return { __proto__: null, ...jwk };
+}
+function normalizeJwk(jwk) {
+  const normalized = snapshotJwk(jwk);
+  if (normalized.ext !== void 0 && typeof normalized.ext != "boolean")
+    throw new TypeError('"ext" (Extractable) Parameter must be a boolean');
+  if (normalized.key_ops !== void 0) {
+    const value = normalized.key_ops, keyOps = Array.isArray(value) ? [...value] : void 0;
+    if (!keyOps || keyOps.some((operation) => typeof operation != "string") || new Set(keyOps).size !== keyOps.length)
+      throw new TypeError('"key_ops" (Key Operations) Parameter must be an array of unique strings');
+    normalized.key_ops = keyOps;
+  }
+  return normalized;
+}
+function validateExtractableOption(extractable) {
+  if (extractable !== void 0 && typeof extractable != "boolean")
+    throw new TypeError('"extractable" option must be a boolean');
+  return extractable;
+}
+async function jwkToKey(entry, jwk, extractable) {
+  if (!entry.kty.includes(jwk.kty))
+    throw new JOSENotSupported('Invalid or unsupported JWK "alg" (Algorithm) Parameter value');
+  const algorithm = entry.resolve?.({ kty: jwk.kty, crv: jwk.crv }) ?? entry.subtle, isPrivate = !!(jwk.d || jwk.priv), keyData = { ...jwk, ext: extractable ?? jwk.ext };
+  return keyData.kty !== "AKP" && delete keyData.alg, delete keyData.use, crypto.subtle.importKey("jwk", keyData, algorithm, keyData.ext ?? !isPrivate, jwk.key_ops ?? entry.usages[isPrivate ? 1 : 0]);
+}
+async function rawKey(key, expected, usage, extractable = false) {
+  return key instanceof Uint8Array && (key = await crypto.subtle.importKey("raw", key, expected, extractable, [usage])), checkCryptoKey(key, expected, usage), key;
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/content_encryption.js
+var generateCek = (enc) => crypto.getRandomValues(new Uint8Array(enc.cekBits >> 3));
+function checkCekLength(cek, expected) {
+  const actual = cek.byteLength << 3;
+  if (actual !== expected)
+    throw new JWEInvalid(`Invalid Content Encryption Key length. Expected ${expected} bits, got ${actual} bits`);
+}
+var generateIv = (enc) => crypto.getRandomValues(new Uint8Array(enc.ivBits >> 3));
+function checkIvLength(enc, iv) {
+  if (iv.length << 3 !== enc.ivBits)
+    throw new JWEInvalid("Invalid Initialization Vector length");
+}
+async function cbcKeySetup(enc, cek, usage) {
+  if (!(cek instanceof Uint8Array))
+    throw new TypeError(invalidKeyInput(cek, "Uint8Array"));
+  const keySize = enc.cekBits >> 1, encKey = await crypto.subtle.importKey("raw", cek.subarray(keySize >> 3), "AES-CBC", false, [usage]), macKey = await crypto.subtle.importKey("raw", cek.subarray(0, keySize >> 3), {
+    hash: `SHA-${keySize << 1}`,
+    name: "HMAC"
+  }, false, ["sign"]);
+  return [encKey, macKey, keySize];
+}
+async function cbcHmacTag(macKey, macData, keySize) {
+  return new Uint8Array((await crypto.subtle.sign("HMAC", macKey, macData)).slice(0, keySize >> 3));
+}
+async function cbcEncrypt(enc, plaintext, cek, iv, aad) {
+  const [encKey, macKey, keySize] = await cbcKeySetup(enc, cek, "encrypt"), ciphertext = new Uint8Array(await crypto.subtle.encrypt({
+    iv,
+    name: "AES-CBC"
+  }, encKey, plaintext)), macData = concat(aad, iv, ciphertext, uint64be(aad.length * 8)), tag2 = await cbcHmacTag(macKey, macData, keySize);
+  return { ciphertext, tag: tag2, iv };
+}
+async function encrypt(enc, plaintext, cek, iv, aad) {
+  if (!isCryptoKey(cek) && !(cek instanceof Uint8Array))
+    throw new TypeError(invalidKeyInput(cek, "CryptoKey", "KeyObject", "Uint8Array", "JSON Web Key"));
+  if (iv ? checkIvLength(enc, iv) : iv = generateIv(enc), cek instanceof Uint8Array && checkCekLength(cek, enc.cekBits), enc.cbc)
+    return cbcEncrypt(enc, plaintext, cek, iv, aad);
+  const encKey = await rawKey(cek, enc.subtle, "encrypt"), encrypted = new Uint8Array(await crypto.subtle.encrypt({
+    additionalData: aad,
+    iv,
+    name: "AES-GCM",
+    tagLength: 128
+  }, encKey, plaintext));
+  return { ciphertext: encrypted.subarray(0, -16), tag: encrypted.subarray(-16), iv };
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/key_descriptor.js
+function table(entries) {
+  const out = { __proto__: null };
+  for (const alg in entries)
+    out[alg] = { ...entries[alg], alg };
+  return out;
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/jwe_algorithms.js
+var wrap = [
+  ["encrypt", "wrapKey"],
+  ["decrypt", "unwrapKey"]
+];
+var derive = [[], ["deriveBits"]];
+var none = [[], []];
+function rsaes(bits) {
+  return {
+    kty: ["RSA"],
+    mode: "key-encryption",
+    subtle: { name: "RSA-OAEP", hash: `SHA-${bits}` },
+    usages: wrap,
+    ops: ["wrapKey", "unwrapKey"]
+  };
+}
+function ecdh(mode) {
+  return {
+    kty: ["EC", "OKP"],
+    mode,
+    subtle: { name: "ECDH" },
+    resolve: ({ kty, crv, asymmetricKeyType }) => {
+      if (crv === "X25519" || asymmetricKeyType === "x25519")
+        return { name: "X25519" };
+      if (kty === "OKP")
+        throw new JOSENotSupported('Invalid or unsupported JWK "alg" (Algorithm) Parameter value');
+      return { name: "ECDH", namedCurve: crv };
+    },
+    usages: derive,
+    ops: [void 0, "deriveBits"]
+  };
+}
+function aeskw(bits, gcm = false) {
+  return {
+    kty: ["oct"],
+    mode: "key-wrapping",
+    secret: true,
+    subtle: { name: gcm ? "AES-GCM" : "AES-KW", length: bits },
+    usages: none,
+    ops: gcm ? ["encrypt", "decrypt"] : ["wrapKey", "unwrapKey"]
+  };
+}
+function pbes2() {
+  return {
+    kty: ["oct"],
+    mode: "key-wrapping",
+    secret: true,
+    subtle: { name: "PBKDF2" },
+    usages: none,
+    ops: ["deriveBits", "deriveBits"]
+  };
+}
+var JWE = table({
+  dir: {
+    kty: ["oct"],
+    mode: "direct-encryption",
+    secret: true,
+    subtle: { name: "AES-GCM" },
+    usages: none,
+    ops: ["encrypt", "decrypt"]
+  },
+  "RSA-OAEP": rsaes(1),
+  "RSA-OAEP-256": rsaes(256),
+  "RSA-OAEP-384": rsaes(384),
+  "RSA-OAEP-512": rsaes(512),
+  "ECDH-ES": ecdh("direct-key-agreement"),
+  "ECDH-ES+A128KW": ecdh("key-agreement-with-key-wrapping"),
+  "ECDH-ES+A192KW": ecdh("key-agreement-with-key-wrapping"),
+  "ECDH-ES+A256KW": ecdh("key-agreement-with-key-wrapping"),
+  A128KW: aeskw(128),
+  A192KW: aeskw(192),
+  A256KW: aeskw(256),
+  A128GCMKW: aeskw(128, true),
+  A192GCMKW: aeskw(192, true),
+  A256GCMKW: aeskw(256, true),
+  "PBES2-HS256+A128KW": pbes2(),
+  "PBES2-HS384+A192KW": pbes2(),
+  "PBES2-HS512+A256KW": pbes2()
+});
+var contentOps = ["encrypt", "decrypt"];
+function contentEncryption(bits, cbc = false) {
+  return {
+    kty: ["oct"],
+    secret: true,
+    subtle: { name: cbc ? "AES-CBC" : "AES-GCM", length: bits },
+    usages: none,
+    ops: contentOps,
+    cekBits: bits,
+    ivBits: cbc ? 128 : 96,
+    cbc
+  };
+}
+var ENC = table({
+  A128GCM: contentEncryption(128),
+  A192GCM: contentEncryption(192),
+  A256GCM: contentEncryption(256),
+  "A128CBC-HS256": contentEncryption(256, true),
+  "A192CBC-HS384": contentEncryption(384, true),
+  "A256CBC-HS512": contentEncryption(512, true)
+});
+function unsupported(parameter, name) {
+  throw new JOSENotSupported(`Invalid or unsupported "${parameter}" (JWE ${name}) header value`);
+}
+function jweAlgorithm(alg) {
+  return (typeof alg == "string" ? JWE[alg] : void 0) ?? unsupported("alg", "Algorithm");
+}
+function isJWECEKTransport(algorithm) {
+  return algorithm.mode === "key-wrapping" || algorithm.mode === "key-encryption" || algorithm.mode === "key-agreement-with-key-wrapping";
+}
+function jweEncryption(enc) {
+  return (typeof enc == "string" ? ENC[enc] : void 0) ?? unsupported("enc", "Encryption Algorithm");
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/key_management.js
+function checkEcdhCryptoKey(key, usage) {
+  if (key.algorithm.name !== "ECDH" && key.algorithm.name !== "X25519")
+    throw new TypeError("CryptoKey does not support this operation, its algorithm.name must be ECDH or X25519");
+  checkUsage(key, usage);
+}
+async function aeskwWrap(alg, key, cek) {
+  const cryptoKey = await rawKey(key, jweAlgorithm(alg).subtle, "wrapKey", true), cryptoKeyCek = await crypto.subtle.importKey("raw", cek, { hash: "SHA-256", name: "HMAC" }, true, ["sign"]);
+  return new Uint8Array(await crypto.subtle.wrapKey("raw", cryptoKeyCek, cryptoKey, "AES-KW"));
+}
+function checkRsaKey(alg, key, usage) {
+  checkCryptoKey(key, jweAlgorithm(alg).subtle, usage), checkModulusLength(alg, key);
+}
+async function deriveKey(p2s, alg, p2c, key) {
+  if (!(p2s instanceof Uint8Array) || p2s.length < 8)
+    throw new JWEInvalid("PBES2 Salt Input must be 8 or more octets");
+  if (!Number.isSafeInteger(p2c) || Math.sign(p2c) !== 1)
+    throw new JWEInvalid("PBES2 Count Input must be a positive integer");
+  const salt = concat(encode(alg), Uint8Array.of(0), p2s), keylen = parseInt(alg.slice(13, 16), 10), subtleAlg = {
+    hash: `SHA-${alg.slice(8, 11)}`,
+    iterations: p2c,
+    name: "PBKDF2",
+    salt
+  }, cryptoKey = await rawKey(key, jweAlgorithm(alg).subtle, "deriveBits");
+  return new Uint8Array(await crypto.subtle.deriveBits(subtleAlg, cryptoKey, keylen));
+}
+function lengthAndInput(input) {
+  return concat(uint32be(input.length), input);
+}
+async function concatKdf(Z, L, OtherInfo) {
+  const dkLen = L >> 3, hashLen = 32, reps = Math.ceil(dkLen / hashLen), dk = new Uint8Array(reps * hashLen);
+  for (let i = 1; i <= reps; i++) {
+    const hashResult = await digest("sha256", concat(uint32be(i), Z, OtherInfo));
+    dk.set(hashResult, (i - 1) * hashLen);
+  }
+  return dk.slice(0, dkLen);
+}
+async function ecdhesDeriveKey(publicKey, privateKey, algorithm, keyLength, apu = new Uint8Array(), apv = new Uint8Array()) {
+  checkEcdhCryptoKey(publicKey), checkEcdhCryptoKey(privateKey, "deriveBits");
+  const otherInfo = concat(lengthAndInput(encode(algorithm)), lengthAndInput(apu), lengthAndInput(apv), uint32be(keyLength)), Z = new Uint8Array(await crypto.subtle.deriveBits({
+    name: publicKey.algorithm.name,
+    public: publicKey
+  }, privateKey, publicKey.algorithm.name === "X25519" ? 256 : Math.ceil(parseInt(publicKey.algorithm.namedCurve.slice(-3), 10) / 8) << 3));
+  return concatKdf(Z, keyLength, otherInfo);
+}
+function assertEcdhKey(key) {
+  assertCryptoKey(key);
+  const curve = key.algorithm.namedCurve;
+  if (curve !== "P-256" && curve !== "P-384" && curve !== "P-521" && key.algorithm.name !== "X25519")
+    throw new JOSENotSupported("ECDH with the provided key is not allowed or not supported by your javascript runtime");
+}
+function partyInfo(joseHeader, name) {
+  const value = joseHeader[name];
+  if (value !== void 0) {
+    if (typeof value != "string")
+      throw new JWEInvalid(`JOSE Header "${name}" (Agreement Party${name === "apu" ? "U" : "V"}Info) invalid`);
+    return decodeBase64url(value, name, JWEInvalid);
+  }
+}
+function checkPartyInfo(apu, apv) {
+  if (!(apu === void 0 || apv === void 0 || apu.byteLength !== apv.byteLength)) {
+    for (let i = 0; i < apu.byteLength; i++)
+      if (apu[i] !== apv[i])
+        return;
+    throw new JWEInvalid('JOSE Header "apu" and "apv" values must be distinct');
+  }
+}
+async function encryptKeyManagement(entry, enc, inputKey, joseHeader, providedCek, providedParameters = {}) {
+  const { alg, mode } = entry, transport = isJWECEKTransport(entry);
+  if (providedCek !== void 0 && !transport)
+    throw new TypeError(`setContentEncryptionKey cannot be called with JWE "alg" (Algorithm) Header ${alg}`);
+  let key = await prepareKey(mode === "direct-encryption" ? enc : entry, inputKey, "encrypt");
+  if (mode === "direct-encryption")
+    return [key, void 0, void 0];
+  const cek = transport ? providedCek ?? generateCek(enc) : void 0;
+  cek && checkCekLength(cek, enc.cekBits);
+  let encryptedKey, parameters;
+  switch (entry.subtle.name) {
+    case "ECDH": {
+      assertEcdhKey(key);
+      const { apu: providedApu, apv: providedApv } = providedParameters;
+      providedApu !== void 0 && assertUint8Array(providedApu, '"apu"'), providedApv !== void 0 && assertUint8Array(providedApv, '"apv"');
+      const apu = providedApu ?? partyInfo(joseHeader, "apu"), apv = providedApv ?? partyInfo(joseHeader, "apv");
+      checkPartyInfo(apu, apv);
+      let ephemeralKey;
+      providedParameters.epk !== void 0 ? ephemeralKey = await prepareKey(entry, providedParameters.epk, "decrypt") : ephemeralKey = (await crypto.subtle.generateKey(key.algorithm, true, ["deriveBits"])).privateKey;
+      const subtle = crypto.subtle;
+      let exportableEpk = ephemeralKey;
+      if (!exportableEpk.extractable) {
+        if (typeof subtle.getPublicKey != "function")
+          throw new TypeError('CryptoKey for "epk" must be extractable');
+        exportableEpk = await subtle.getPublicKey(ephemeralKey, []);
+      }
+      const { x, y, crv, kty } = await subtle.exportKey("jwk", exportableEpk), direct = mode === "direct-key-agreement", sharedSecret = await ecdhesDeriveKey(key, ephemeralKey, direct ? enc.alg : alg, direct ? enc.cekBits : parseInt(alg.slice(-5, -2), 10), apu, apv), epk = { x, crv, kty };
+      if (kty === "EC" && (epk.y = y), parameters = { epk }, providedApu !== void 0 && (parameters.apu = encode2(providedApu)), providedApv !== void 0 && (parameters.apv = encode2(providedApv)), direct)
+        return [sharedSecret, void 0, parameters];
+      key = sharedSecret;
+      break;
+    }
+    case "RSA-OAEP": {
+      assertCryptoKey(key), checkRsaKey(alg, key, "encrypt"), encryptedKey = new Uint8Array(await crypto.subtle.encrypt("RSA-OAEP", key, cek));
+      break;
+    }
+    case "PBKDF2": {
+      const { p2c = 2048, p2s = crypto.getRandomValues(new Uint8Array(16)) } = providedParameters;
+      key = await deriveKey(p2s, alg, p2c, key), parameters = { p2c, p2s: encode2(p2s) };
+      break;
+    }
+    case "AES-GCM": {
+      const iv = providedParameters.iv === void 0 ? crypto.getRandomValues(new Uint8Array(12)) : providedParameters.iv;
+      if (!(iv instanceof Uint8Array))
+        throw new TypeError('"iv" must be an instance of Uint8Array');
+      const wrapped = await encrypt(jweEncryption(alg.slice(0, -2)), cek, key, iv, new Uint8Array());
+      encryptedKey = wrapped.ciphertext, parameters = { iv: encode2(wrapped.iv), tag: encode2(wrapped.tag) };
+    }
+  }
+  if (encryptedKey ??= await aeskwWrap(alg.slice(-6), key, cek), !(encryptedKey instanceof Uint8Array) || !encryptedKey.byteLength)
+    throw new TypeError("JWE key management algorithm did not produce an Encrypted Key");
+  return [cek, encryptedKey, parameters];
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/deflate.js
+function validateZip(joseHeader, protectedHeader) {
+  if (joseHeader.zip !== void 0 && joseHeader.zip !== "DEF")
+    throw new JOSENotSupported('Unsupported JWE "zip" (Compression Algorithm) Header Parameter value.');
+  if (joseHeader.zip !== void 0 && !protectedHeader?.zip)
+    throw new JWEInvalid('JWE "zip" (Compression Algorithm) Header Parameter MUST be in a protected header.');
+}
+function supported(name) {
+  if (typeof globalThis[name] > "u")
+    throw new JOSENotSupported(`JWE "zip" (Compression Algorithm) Header Parameter requires the ${name} API.`);
+}
+async function transform(stream, input, maxLength = 1 / 0) {
+  const writer = stream.writable.getWriter();
+  writer.write(input).catch(() => {
+  }), writer.close().catch(() => {
+  });
+  const chunks = [];
+  let length = 0;
+  const reader = stream.readable.getReader();
+  for (; ; ) {
+    const { value, done } = await reader.read();
+    if (done)
+      break;
+    if (chunks.push(value), length += value.byteLength, maxLength !== 1 / 0 && length > maxLength)
+      throw new JWEInvalid("Decompressed plaintext exceeded the configured limit");
+  }
+  return concat(...chunks);
+}
+async function compress(input) {
+  return supported("CompressionStream"), transform(new CompressionStream("deflate-raw"), input);
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/jwe_encrypt.js
+function checkDisjoint(protectedHeader, unprotectedHeader, sharedUnprotectedHeader) {
+  if (!isDisjoint(protectedHeader, unprotectedHeader, sharedUnprotectedHeader))
+    throw new JWEInvalid("JWE Protected, JWE Shared Unprotected and JWE Per-Recipient Header Parameter names must be disjoint");
+}
+function checkEncryptHeaders(input, options, sharedHeadersNormalized = false) {
+  if (!input[1] && !input[2] && !input[3])
+    throw new JWEInvalid("either setProtectedHeader, setUnprotectedHeader, or sharedUnprotectedHeader must be called before #encrypt()");
+  options !== void 0 && (input[8] = options?.crit);
+  let [, protectedHeader, unprotectedHeader, sharedUnprotectedHeader, aad, cek, iv, keyManagementParameters, crit] = input;
+  if (aad !== void 0 && assertUint8Array(aad, "JWE Additional Authenticated Data"), cek !== void 0 && assertUint8Array(cek, "JWE Content Encryption Key"), iv !== void 0 && assertUint8Array(iv, "JWE Initialization Vector"), !sharedHeadersNormalized && protectedHeader !== void 0 && (protectedHeader = serializeJoseHeader(JWEInvalid, protectedHeader)[0], input[1] = protectedHeader), unprotectedHeader !== void 0 && (unprotectedHeader = serializeJoseHeader(JWEInvalid, unprotectedHeader)[0], input[2] = unprotectedHeader), !sharedHeadersNormalized && sharedUnprotectedHeader !== void 0 && (sharedUnprotectedHeader = serializeJoseHeader(JWEInvalid, sharedUnprotectedHeader)[0], input[3] = sharedUnprotectedHeader), keyManagementParameters !== void 0 && !isObject(keyManagementParameters))
+    throw new TypeError("JWE Key Management Parameters must be an object");
+  checkDisjoint(protectedHeader, unprotectedHeader, sharedUnprotectedHeader);
+  const joseHeader = {
+    ...protectedHeader,
+    ...unprotectedHeader,
+    ...sharedUnprotectedHeader
+  };
+  validateCritDuplicates(JWEInvalid, protectedHeader), validateCrit(JWEInvalid, JWE_RECOGNIZED, crit, protectedHeader, joseHeader), validateZip(joseHeader, protectedHeader);
+  const { alg, enc } = joseHeader;
+  if (typeof alg != "string" || !alg)
+    throw new JWEInvalid('JWE "alg" (Algorithm) Header Parameter missing or invalid');
+  const algEntry = JWE[alg];
+  if (algEntry?.mode === "integrated-encryption") {
+    if (enc !== void 0)
+      throw new JWEInvalid('JWE "enc" (Encryption Algorithm) Header Parameter must not be present for integrated encryption');
+    if (cek !== void 0)
+      throw new TypeError(`setContentEncryptionKey cannot be called with JWE "alg" (Algorithm) Header ${alg}`);
+    if (iv !== void 0)
+      throw new TypeError(`setInitializationVector cannot be called with JWE "alg" (Algorithm) Header ${alg}`);
+    return [joseHeader, void 0, algEntry];
+  }
+  if (typeof enc != "string" || !enc)
+    throw new JWEInvalid('JWE "enc" (Encryption Algorithm) Header Parameter missing or invalid');
+  return [joseHeader, jweEncryption(enc), algEntry];
+}
+async function encryptJWE(input, checked, key) {
+  const [joseHeader, encEntry, selected] = checked, [inputPlaintext, inputProtectedHeader, inputUnprotectedHeader, sharedUnprotectedHeader, aad, providedCek, inputIv, keyManagementParameters, , unprotectedParameters] = input;
+  let protectedHeader = inputProtectedHeader, unprotectedHeader = inputUnprotectedHeader;
+  const algEntry = selected ?? jweAlgorithm(joseHeader.alg);
+  let encryptedKey, parameters, cek;
+  algEntry.mode === "integrated-encryption" ? cek = await prepareKey(algEntry, key, "encrypt") : [cek, encryptedKey, parameters] = await encryptKeyManagement(algEntry, encEntry, key, joseHeader, providedCek, keyManagementParameters), parameters && (unprotectedParameters ? unprotectedHeader = unprotectedHeader ? { ...unprotectedHeader, ...parameters } : parameters : protectedHeader = protectedHeader ? { ...protectedHeader, ...parameters } : parameters, checkDisjoint(protectedHeader, unprotectedHeader, sharedUnprotectedHeader));
+  const protectedHeaderS = protectedHeader ? encode2(JSON.stringify(protectedHeader)) : "", aadMember = aad?.byteLength ? encode2(aad) : void 0, additionalData = encode(aadMember ? `${protectedHeaderS}.${aadMember}` : protectedHeaderS);
+  let plaintext = inputPlaintext;
+  joseHeader.zip === "DEF" && (plaintext = await compress(plaintext).catch((cause) => {
+    throw new JWEInvalid("Failed to compress plaintext", { cause });
+  }));
+  let ciphertext, tag2, iv;
+  algEntry.mode === "integrated-encryption" ? [encryptedKey, ciphertext] = await algEntry.encrypt(cek, plaintext, additionalData, protectedHeader, joseHeader, keyManagementParameters) : { ciphertext, tag: tag2, iv } = await encrypt(encEntry, plaintext, cek, inputIv, additionalData);
+  const jwe = {
+    ciphertext: encode2(ciphertext)
+  };
+  return iv && (jwe.iv = encode2(iv)), tag2 && (jwe.tag = encode2(tag2)), encryptedKey?.byteLength && (jwe.encrypted_key = encode2(encryptedKey)), aadMember && (jwe.aad = aadMember), protectedHeader && (jwe.protected = protectedHeaderS), sharedUnprotectedHeader && (jwe.unprotected = sharedUnprotectedHeader), unprotectedHeader && (jwe.header = unprotectedHeader), jwe;
+}
+async function createJWE(input, key, options) {
+  return encryptJWE(input, checkEncryptHeaders(input, options), key);
+}
+function compactJWE(jwe) {
+  return [jwe.protected, jwe.encrypted_key, jwe.iv, jwe.ciphertext, jwe.tag].join(".");
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/jws_algorithms.js
+var sig = [["verify"], ["sign"]];
+function hmac(bits) {
+  const subtle = { name: "HMAC", hash: `SHA-${bits}` };
+  return { kty: ["oct"], secret: true, subtle, signing: subtle, usages: sig };
+}
+function rsa(bits, saltLength) {
+  const subtle = { name: saltLength ? "RSA-PSS" : "RSASSA-PKCS1-v1_5", hash: `SHA-${bits}` };
+  return {
+    kty: ["RSA"],
+    subtle,
+    signing: saltLength ? { ...subtle, saltLength } : subtle,
+    usages: sig,
+    minRsaBits: 2048
+  };
+}
+function ecdsa(crv, bits) {
+  return {
+    kty: ["EC"],
+    crv,
+    subtle: { name: "ECDSA", namedCurve: crv },
+    signing: { name: "ECDSA", hash: `SHA-${bits}` },
+    usages: sig
+  };
+}
+function eddsa() {
+  const subtle = { name: "Ed25519" };
+  return {
+    kty: ["OKP"],
+    crv: "Ed25519",
+    subtle,
+    signing: subtle,
+    usages: sig
+  };
+}
+function mldsa(bits) {
+  const subtle = { name: `ML-DSA-${bits}` };
+  return {
+    kty: ["AKP"],
+    subtle,
+    signing: subtle,
+    usages: sig
+  };
+}
+var JWS = table({
+  HS256: hmac(256),
+  HS384: hmac(384),
+  HS512: hmac(512),
+  RS256: rsa(256),
+  RS384: rsa(384),
+  RS512: rsa(512),
+  PS256: rsa(256, 32),
+  PS384: rsa(384, 48),
+  PS512: rsa(512, 64),
+  ES256: ecdsa("P-256", 256),
+  ES384: ecdsa("P-384", 384),
+  ES512: ecdsa("P-521", 512),
+  EdDSA: eddsa(),
+  Ed25519: eddsa(),
+  "ML-DSA-44": mldsa(44),
+  "ML-DSA-65": mldsa(65),
+  "ML-DSA-87": mldsa(87)
+});
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/jwe/compact/encrypt.js
+var CompactEncrypt = class {
+  #input;
+  constructor(plaintext) {
+    assertUint8Array(plaintext, "plaintext"), this.#input = [plaintext];
+  }
+  setContentEncryptionKey(cek) {
+    return assertNotSet(this.#input[5], "setContentEncryptionKey"), this.#input[5] = cek, this;
+  }
+  setInitializationVector(iv) {
+    return assertNotSet(this.#input[6], "setInitializationVector"), this.#input[6] = iv, this;
+  }
+  setProtectedHeader(protectedHeader) {
+    return assertNotSet(this.#input[1], "setProtectedHeader"), this.#input[1] = protectedHeader, this;
+  }
+  setKeyManagementParameters(parameters) {
+    return assertNotSet(this.#input[7], "setKeyManagementParameters"), this.#input[7] = parameters, this;
+  }
+  async encrypt(key, options) {
+    return compactJWE(await createJWE([...this.#input], key, options));
+  }
+};
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/key_algorithm.js
+function unsupportedAlg(source = 'JWK "alg" (Algorithm) Parameter') {
+  throw new JOSENotSupported(`Invalid or unsupported ${source} value`);
+}
+function keyAlgorithm(alg, source) {
+  return (typeof alg == "string" ? JWS[alg] ?? JWE[alg] : void 0) ?? unsupportedAlg(source);
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/key/export.js
+async function exportJWK(key) {
+  if (isKeyObject(key))
+    if (key.type === "secret")
+      key = key.export();
+    else
+      return key.export({ format: "jwk" });
+  if (key instanceof Uint8Array)
+    return {
+      kty: "oct",
+      k: encode2(key)
+    };
+  if (!isCryptoKey(key))
+    throw new TypeError(invalidKeyInput(key, "CryptoKey", "KeyObject", "Uint8Array"));
+  if (!key.extractable)
+    throw new TypeError("non-extractable CryptoKey cannot be exported as a JWK");
+  const jwk = await crypto.subtle.exportKey("jwk", key);
+  delete jwk.ext, delete jwk.key_ops, delete jwk.use, jwk.kty !== "AKP" && delete jwk.alg;
+  for (const parameter of Object.keys(jwk))
+    jwk[parameter] === void 0 && delete jwk[parameter];
+  return jwk;
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/jwk/thumbprint.js
+var check = (value, description) => {
+  if (typeof value != "string" || !value)
+    throw new JWKInvalid(`${description} missing or invalid`);
+};
+async function calculateJwkThumbprint(key, digestAlgorithm) {
+  let jwk;
+  if (isObject(key)) {
+    if (jwk = snapshotJwk(key), typeof jwk.kty != "string")
+      throw new TypeError(invalidKeyInput(key, "CryptoKey", "KeyObject", "JSON Web Key"));
+  } else if (isKeyLike(key))
+    jwk = snapshotJwk(await exportJWK(key));
+  else
+    throw new TypeError(invalidKeyInput(key, "CryptoKey", "KeyObject", "JSON Web Key"));
+  if (digestAlgorithm ??= "sha256", digestAlgorithm !== "sha256" && digestAlgorithm !== "sha384" && digestAlgorithm !== "sha512")
+    throw new TypeError('digestAlgorithm must one of "sha256", "sha384", or "sha512"');
+  let components;
+  switch (jwk.kty) {
+    case "AKP":
+      check(jwk.alg, '"alg" (Algorithm) Parameter'), check(jwk.pub, '"pub" (Public key) Parameter'), components = { alg: jwk.alg, kty: jwk.kty, pub: jwk.pub };
+      break;
+    case "EC":
+      check(jwk.crv, '"crv" (Curve) Parameter'), check(jwk.x, '"x" (X Coordinate) Parameter'), check(jwk.y, '"y" (Y Coordinate) Parameter'), components = { crv: jwk.crv, kty: jwk.kty, x: jwk.x, y: jwk.y };
+      break;
+    case "OKP":
+      check(jwk.crv, '"crv" (Subtype of Key Pair) Parameter'), check(jwk.x, '"x" (Public Key) Parameter'), components = { crv: jwk.crv, kty: jwk.kty, x: jwk.x };
+      break;
+    case "RSA":
+      check(jwk.e, '"e" (Exponent) Parameter'), check(jwk.n, '"n" (Modulus) Parameter'), components = { e: jwk.e, kty: jwk.kty, n: jwk.n };
+      break;
+    case "oct":
+      if (typeof jwk.k != "string")
+        throw new JWKInvalid('"k" (Key Value) Parameter missing or invalid');
+      components = { k: jwk.k, kty: jwk.kty };
+      break;
+    default:
+      throw new JOSENotSupported('"kty" (Key Type) Parameter missing or unsupported');
+  }
+  const data = encode(JSON.stringify(components));
+  return encode2(await digest(digestAlgorithm, data));
+}
+
+// ../../node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/key/import.js
+async function importJWK(jwk, alg, options) {
+  if (!isObject(jwk))
+    throw new TypeError("JWK must be an object");
+  const normalized = normalizeJwk(jwk), extractable = validateExtractableOption(options?.extractable), { alg: jwkAlg } = normalized;
+  if (alg ??= jwkAlg, normalized.kty !== "oct" && !alg)
+    throw new TypeError('"alg" argument is required when "jwk.alg" is not present');
+  switch (normalized.kty) {
+    case "oct":
+      if (typeof normalized.k != "string")
+        throw new TypeError('missing "k" (Key Value) Parameter value');
+      return decode(normalized.k);
+    case "AKP": {
+      if (typeof jwkAlg != "string" || !jwkAlg)
+        throw new TypeError('missing "alg" (Algorithm) Parameter value');
+      if (alg !== jwkAlg)
+        throw new TypeError("JWK alg and alg option value mismatch");
+      return jwkToKey(keyAlgorithm(alg), normalized, extractable);
+    }
+    case "RSA":
+    case "EC":
+    case "OKP":
+      return jwkToKey(keyAlgorithm(alg), normalized, extractable);
+    default:
+      throw new JOSENotSupported('Unsupported "kty" (Key Type) Parameter value');
+  }
+}
+
+// ../../packages/github-lite/dist/parameter-encryption.js
+var keyAlgorithm2 = "RSA-OAEP-256";
+var contentAlgorithm = "A256GCM";
+async function encryptParameterValue(value, configuration, context) {
+  validateParameterString(value);
+  const validatedContext = readParameterContext(context);
+  const validatedConfiguration = await readEncryptionConfiguration(configuration);
+  try {
+    const publicKey = await importJWK(validatedConfiguration.publicKey, keyAlgorithm2);
+    const jwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify({ value, context: validatedContext }))).setProtectedHeader({
+      alg: keyAlgorithm2,
+      enc: contentAlgorithm,
+      kid: validatedConfiguration.keyId
+    }).encrypt(publicKey);
+    return {
+      sensitive: true,
+      encrypted: { version: 1, keyId: validatedConfiguration.keyId, jwe }
+    };
+  } catch {
+    throw new Error("PARAMETER_ENCRYPTION_FAILED");
+  }
+}
+async function readEncryptionConfiguration(value) {
+  if (!isRecord(value) || value.version !== 1 || !isIdentifier(value.keyId) || !isRecord(value.publicKey) || value.publicKey.kty !== "RSA" || !isIdentifier(value.publicKey.n) || !isIdentifier(value.publicKey.e)) {
+    throw new Error("PARAMETER_ENCRYPTION_CONFIGURATION_INVALID");
+  }
+  const configuration = {
+    version: 1,
+    keyId: value.keyId,
+    publicKey: { kty: "RSA", n: value.publicKey.n, e: value.publicKey.e }
+  };
+  try {
+    const keyId = await calculateJwkThumbprint(configuration.publicKey, "sha256");
+    if (keyId !== configuration.keyId) {
+      throw new Error("PARAMETER_ENCRYPTION_CONFIGURATION_INVALID");
+    }
+  } catch {
+    throw new Error("PARAMETER_ENCRYPTION_CONFIGURATION_INVALID");
+  }
+  return configuration;
+}
+function readParameterContext(value) {
+  if (!isRecord(value) || !isIdentifier(value.repositoryId) || !isIdentifier(value.batchId) || typeof value.parameterName !== "string" || !isRecord(value.origin)) {
+    throw new Error("PARAMETER_ENCRYPTION_CONTEXT_INVALID");
+  }
+  validateParameterNames([value.parameterName]);
+  const source = value.origin;
+  let origin;
+  if (source.type === "BATCH_DEFAULT") {
+    origin = { type: "BATCH_DEFAULT" };
+  } else if (source.type === "SCHEDULE_VALUE" && isIdentifier(source.scheduleId)) {
+    origin = { type: "SCHEDULE_VALUE", scheduleId: source.scheduleId };
+  } else if (source.type === "REQUEST_VALUE" && isIdentifier(source.requestId)) {
+    origin = { type: "REQUEST_VALUE", requestId: source.requestId };
+  } else {
+    throw new Error("PARAMETER_ENCRYPTION_CONTEXT_INVALID");
+  }
+  return {
+    repositoryId: value.repositoryId,
+    batchId: value.batchId,
+    parameterName: value.parameterName,
+    origin
+  };
+}
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isIdentifier(value) {
+  return typeof value === "string" && value.length > 0 && !value.includes("\0");
+}
+
+// ../../packages/github-lite/dist/repository-yaml.js
+var import_yaml = __toESM(require_dist(), 1);
+function parseRepositoryYaml(input) {
+  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
+  if (document.errors.length > 0) {
+    return {
+      diagnostics: document.errors.map(toYamlDiagnostic),
+      ok: false
+    };
+  }
+  return { ok: true, value: document.toJS() };
+}
+function formatRepositoryYamlDiagnostics(diagnostics) {
+  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
+}
+function toYamlDiagnostic(error) {
+  const position = error.linePos?.[0];
+  return {
+    column: position?.col ?? 1,
+    line: position?.line ?? 1,
+    message: error.message
+  };
+}
+
+// ../../packages/github-lite/dist/parameter-storage.js
+function savedParameterReference(scope, name, origin) {
+  const identity = [
+    scope.repositoryId,
+    scope.batchId,
+    scope.sourceRevision,
+    name,
+    origin.type,
+    parameterOriginIdentity(origin)
+  ];
+  return `batchplane:saved-parameter:v1:${encodeURIComponent(JSON.stringify(identity))}`;
+}
+function parameterOriginIdentity(origin) {
+  if (origin.type === "SCHEDULE_VALUE")
+    return origin.scheduleId;
+  if (origin.type === "REQUEST_VALUE")
+    return origin.requestId;
+  return null;
+}
+function copyStoredParameterValue(value) {
+  return value.sensitive ? { sensitive: true, encrypted: { ...value.encrypted } } : { value: value.value };
+}
+function assertStoredParameterValue(value, sensitive) {
+  if (!isParameterRecord(value))
+    throw new Error("PARAMETER_VALUE_INVALID");
+  if (sensitive) {
+    if (value.sensitive !== true || !hasOnlyParameterKeys(value, ["sensitive", "encrypted"]))
+      throw new Error("PARAMETER_SENSITIVITY_MISMATCH");
+    const encrypted = value.encrypted;
+    if (!isParameterRecord(encrypted) || !hasOnlyParameterKeys(encrypted, ["version", "keyId", "jwe"]) || encrypted.version !== 1 || typeof encrypted.keyId !== "string" || !encrypted.keyId || typeof encrypted.jwe !== "string" || !encrypted.jwe)
+      throw new Error("PARAMETER_ENCRYPTED_VALUE_INVALID");
+  } else {
+    if (value.sensitive !== void 0 && value.sensitive !== false || !hasOnlyParameterKeys(value, ["sensitive", "value"]))
+      throw new Error("PARAMETER_SENSITIVITY_MISMATCH");
+    validateParameterString(value.value);
+  }
+}
+function assertStoredParameterDefinitions(parameters) {
+  if (parameters === void 0)
+    return;
+  if (!Array.isArray(parameters))
+    throw new Error("PARAMETER_DEFINITIONS_INVALID");
+  for (const item of parameters) {
+    if (!isParameterRecord(item) || !hasOnlyParameterKeys(item, [
+      "name",
+      "required",
+      "sensitive",
+      "defaultValue"
+    ]) || typeof item.name !== "string" || typeof item.required !== "boolean" || typeof item.sensitive !== "boolean")
+      throw new Error("PARAMETER_DEFINITION_INVALID");
+    if (Object.hasOwn(item, "defaultValue"))
+      assertStoredParameterValue(item.defaultValue, item.sensitive);
+  }
+  validateParameterNames(parameters.map((item) => item.name));
+}
+function assertStoredScheduleParameters(batch) {
+  assertStoredParameterDefinitions(batch.parameters);
+  if (!batch.parameters?.length && !batch.schedules?.some((schedule) => schedule.parameters !== void 0))
+    return;
+  const definitions = new Map(batch.parameters?.map((definition) => [definition.name, definition]));
+  const scheduleIds = /* @__PURE__ */ new Set();
+  for (const schedule of batch.schedules ?? []) {
+    if (scheduleIds.has(schedule.scheduleId))
+      throw new Error("PARAMETER_SCHEDULE_DUPLICATED");
+    scheduleIds.add(schedule.scheduleId);
+    if (schedule.parameters !== void 0 && !Array.isArray(schedule.parameters))
+      throw new Error("PARAMETER_SELECTION_INVALID");
+    const selections = schedule.parameters ?? [];
+    validateParameterNames(selections.map((item) => item.name));
+    for (const selection of selections) {
+      if (!isParameterRecord(selection))
+        throw new Error("PARAMETER_SELECTION_INVALID");
+      const definition = definitions.get(selection.name);
+      if (!definition)
+        throw new Error("PARAMETER_NAME_UNKNOWN");
+      if (selection.source === "VALUE") {
+        if (!hasOnlyParameterKeys(selection, ["name", "source", "value"]))
+          throw new Error("PARAMETER_SELECTION_INVALID");
+        assertStoredParameterValue(selection.value, definition.sensitive);
+      } else if (selection.source === "DEFAULT" || selection.source === "OMIT") {
+        if (!hasOnlyParameterKeys(selection, ["name", "source"]))
+          throw new Error("PARAMETER_SELECTION_INVALID");
+        if (selection.source === "OMIT" && definition.required)
+          throw new Error("PARAMETER_REQUIRED");
+        if (selection.source === "DEFAULT" && definition.defaultValue === void 0)
+          throw new Error("PARAMETER_DEFAULT_UNAVAILABLE");
+      } else
+        throw new Error("PARAMETER_SELECTION_INVALID");
+    }
+    for (const definition of definitions.values()) {
+      if (definition.required && definition.defaultValue === void 0 && !selections.some((selection) => selection.name === definition.name && selection.source === "VALUE"))
+        throw new Error("PARAMETER_REQUIRED");
+    }
+  }
+}
+function isParameterRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function hasOnlyParameterKeys(value, keys) {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
+
+// ../../packages/digest/dist/index.js
+function canonicalize(value) {
+  return JSON.stringify(normalize(value));
+}
+function canonicalizeExact(value) {
+  return JSON.stringify(normalizeExact(value));
+}
+async function createExactCanonicalDigest(value) {
+  return `sha256:${await sha256Hex(canonicalizeExact(value))}`;
+}
+async function createCanonicalDigest(value) {
+  return `sha256:${await sha256Hex(canonicalize(value))}`;
+}
+async function createRequestDigest(input) {
+  return createCanonicalDigest(isDigestEnvelope(input) ? input.payload : input);
+}
+async function sha256Hex(value) {
+  const digest2 = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return digestToHex(digest2);
+}
+async function sha256BytesHex(value) {
+  const bytes = toByteView(value);
+  const digest2 = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return digestToHex(digest2);
+}
+function toByteView(value) {
+  const source = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  const copiedBytes = new Uint8Array(source.byteLength);
+  copiedBytes.set(source);
+  return copiedBytes;
+}
+function digestToHex(digest2) {
+  return Array.from(new Uint8Array(digest2), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function normalizeExact(value) {
+  if (Array.isArray(value))
+    return value.map(normalizeExact);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().filter((key) => value[key] !== void 0).map((key) => [key, normalizeExact(value[key])]));
+  }
+  return value;
+}
+function normalize(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalize(item));
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((acc, key) => {
+      const entry = value[key];
+      if (entry === void 0 || entry === null || entry === "") {
+        return acc;
+      }
+      acc[key] = normalize(entry);
+      return acc;
+    }, {});
+  }
+  if (typeof value === "string") {
+    return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  }
+  return value;
+}
+function isDigestEnvelope(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payload" in value);
+}
+
+// ../../packages/github-lite/dist/parameter-validation.js
+function resolveDefaultOrOmission(definition, source, revision) {
+  if (source === "OMIT") {
+    if (definition.required)
+      throw new Error("PARAMETER_REQUIRED");
+    return {
+      sensitive: definition.sensitive,
+      source: { origin: { type: "OMIT" } }
+    };
+  }
+  if (definition.defaultValue === void 0)
+    throw new Error("PARAMETER_DEFAULT_UNAVAILABLE");
+  return {
+    ...copyStoredParameterValue(definition.defaultValue),
+    source: { origin: { type: "BATCH_DEFAULT" }, revision }
+  };
+}
+function resolveScheduledParameters(batch, scheduleId, sourceRevision) {
+  assertStoredScheduleParameters(batch);
+  const matches = batch.schedules?.filter((schedule2) => schedule2.scheduleId === scheduleId) ?? [];
+  if (matches.length !== 1)
+    throw new Error("PARAMETER_SCHEDULE_UNKNOWN");
+  if (batch.parameters?.length && !sourceRevision)
+    throw new Error("PARAMETER_SOURCE_REVISION_INVALID");
+  const schedule = matches[0];
+  return Object.fromEntries((batch.parameters ?? []).map((definition) => {
+    const selection = schedule.parameters?.find((candidate) => candidate.name === definition.name);
+    if (selection?.source === "VALUE")
+      return [
+        definition.name,
+        {
+          ...copyStoredParameterValue(selection.value),
+          source: {
+            origin: { type: "SCHEDULE_VALUE", scheduleId },
+            revision: sourceRevision
+          }
+        }
+      ];
+    const inherited = definition.defaultValue !== void 0 ? "DEFAULT" : "OMIT";
+    return [
+      definition.name,
+      resolveDefaultOrOmission(definition, selection?.source ?? inherited, sourceRevision)
+    ];
+  }));
+}
+function validateApprovedParameters(payload, batch, sourceRevision) {
+  if (!isParameterRecord(payload.metadata) || !isParameterRecord(payload.spec))
+    throw new Error("PARAMETER_CONTRACT_INVALID");
+  assertStoredParameterDefinitions(batch.parameters);
+  const definitions = batch.parameters ?? [];
+  const records = payload.spec.parameters;
+  if (!definitions.length && records === void 0 && payload.spec.parameterContractVersion === void 0)
+    return {};
+  assertParameterContract(payload, batch, sourceRevision, records);
+  if (payload.spec.triggerType === "SCHEDULE")
+    assertScheduledEvidence(payload, batch, sourceRevision, records);
+  const selected = [];
+  for (const definition of definitions) {
+    const parameter = validateParameterRecord(records[definition.name], definition, payload, sourceRevision);
+    if (parameter)
+      selected.push([definition.name, parameter]);
+  }
+  return Object.fromEntries(selected);
+}
+function assertParameterContract(payload, batch, sourceRevision, records) {
+  if (payload.metadata.batchId !== batch.batchId || payload.spec.parameterContractVersion !== "PARAMETER_DELIVERY_V1" || payload.spec.parameterSourceRevision !== sourceRevision || !sourceRevision || !isParameterRecord(records))
+    throw new Error("PARAMETER_CONTRACT_INVALID");
+  const names = Object.keys(records);
+  validateParameterNames(names);
+  const definitions = batch.parameters ?? [];
+  if (names.length !== definitions.length || names.some((name) => !definitions.some((definition) => definition.name === name)))
+    throw new Error("PARAMETER_DEFINITIONS_MISMATCH");
+}
+function assertScheduledEvidence(payload, batch, revision, records) {
+  if (!payload.spec.schedule || !sameParameterEvidence(records, resolveScheduledParameters(batch, payload.spec.schedule.scheduleId, revision)))
+    throw new Error("PARAMETER_SCHEDULE_SOURCE_MISMATCH");
+}
+function validateParameterRecord(record, definition, payload, revision) {
+  if (!isParameterRecord(record) || !isParameterRecord(record.source) || !isParameterRecord(record.source.origin))
+    throw new Error("PARAMETER_SOURCE_INVALID");
+  const source = record.source;
+  const origin = record.source.origin;
+  if (origin.type === "OMIT") {
+    if (definition.required || record.sensitive !== definition.sensitive || !hasOnlyParameterKeys(record, ["sensitive", "source"]) || !hasOnlyParameterKeys(source, ["origin"]) || !hasOnlyParameterKeys(origin, ["type"]))
+      throw new Error("PARAMETER_REQUIRED");
+    return void 0;
+  }
+  const value = { ...record };
+  delete value.source;
+  assertStoredParameterValue(value, definition.sensitive);
+  const verifiedSource = validateValueSource(source, origin, value, definition, payload, revision);
+  return { ...copyStoredParameterValue(value), source: verifiedSource };
+}
+function validateValueSource(source, origin, value, definition, payload, revision) {
+  switch (origin.type) {
+    case "BATCH_DEFAULT":
+      if (!hasOnlyParameterKeys(source, ["origin", "revision"]) || !hasOnlyParameterKeys(origin, ["type"]) || source.revision !== revision || definition.defaultValue === void 0 || !sameParameterEvidence(value, copyStoredParameterValue(definition.defaultValue)))
+        throw new Error("PARAMETER_DEFAULT_SOURCE_MISMATCH");
+      return { origin: { type: "BATCH_DEFAULT" }, revision };
+    case "REQUEST_VALUE":
+      if (payload.spec.triggerType === "SCHEDULE" || !hasOnlyParameterKeys(source, ["origin"]) || !hasOnlyParameterKeys(origin, ["type", "requestId"]) || origin.requestId !== payload.metadata.requestId)
+        throw new Error("PARAMETER_REQUEST_SOURCE_MISMATCH");
+      return {
+        origin: {
+          type: "REQUEST_VALUE",
+          requestId: payload.metadata.requestId
+        }
+      };
+    case "SCHEDULE_VALUE":
+      if (payload.spec.triggerType !== "SCHEDULE" || !hasOnlyParameterKeys(source, ["origin", "revision"]) || !hasOnlyParameterKeys(origin, ["type", "scheduleId"]) || source.revision !== revision || typeof origin.scheduleId !== "string" || origin.scheduleId !== payload.spec.schedule?.scheduleId)
+        throw new Error("PARAMETER_SCHEDULE_SOURCE_MISMATCH");
+      return {
+        origin: { type: "SCHEDULE_VALUE", scheduleId: origin.scheduleId },
+        revision
+      };
+    default:
+      throw new Error("PARAMETER_SOURCE_INVALID");
+  }
+}
+function sameParameterEvidence(left, right) {
+  return canonicalizeExact(left) === canonicalizeExact(right);
+}
+
+// ../../packages/github-lite/dist/parameter-materialization.js
+async function materializeInput(input, definition, origin, context, saved) {
+  if (!isParameterRecord(input))
+    throw new Error("PARAMETER_INPUT_INVALID");
+  if (input.kind === "SAVED")
+    return resolveSavedInput(input, definition, origin, context, saved);
+  if (input.kind !== "VALUE" || !hasOnlyParameterKeys(input, ["kind", "value"]))
+    throw new Error("PARAMETER_INPUT_INVALID");
+  validateParameterString(input.value);
+  if (!definition.sensitive)
+    return { value: input.value };
+  if (!context.configuration)
+    throw new Error("PARAMETER_ENCRYPTION_SETUP_REQUIRED");
+  return encryptParameterValue(input.value, context.configuration, {
+    repositoryId: context.repositoryId,
+    batchId: context.batchId,
+    parameterName: definition.name,
+    origin
+  });
+}
+function resolveSavedInput(input, definition, origin, context, saved) {
+  if (!hasOnlyParameterKeys(input, ["kind", "reference"]) || !saved || !context.repositoryId || !context.sourceRevision || context.approvedSource?.batchId !== context.batchId || input.reference !== savedParameterReference(context, definition.name, origin))
+    throw new Error("PARAMETER_SAVED_REFERENCE_INVALID");
+  assertStoredParameterValue(saved, definition.sensitive);
+  return copyStoredParameterValue(saved);
+}
+async function materializeRequestParameters(batch, selections, requestId, context) {
+  assertStoredParameterDefinitions(batch.parameters);
+  validateRequestSelections(batch, selections);
+  const entries = await Promise.all((batch.parameters ?? []).map(async (definition) => {
+    const selection = selections.find((candidate) => candidate.name === definition.name);
+    if (selection.source !== "VALUE")
+      return [
+        definition.name,
+        resolveDefaultOrOmission(definition, selection.source, context.sourceRevision)
+      ];
+    const origin = { type: "REQUEST_VALUE", requestId };
+    const value = await materializeInput(selection.value, definition, origin, context);
+    return [definition.name, { ...value, source: { origin } }];
+  }));
+  return Object.fromEntries(entries);
+}
+function validateRequestSelections(batch, selections) {
+  if (!Array.isArray(selections))
+    throw new Error("PARAMETER_SELECTION_INVALID");
+  const definitions = batch.parameters ?? [];
+  for (const selection of selections) {
+    assertInputSelection(selection);
+    if (!definitions.some((definition) => definition.name === selection.name))
+      throw new Error("PARAMETER_NAME_UNKNOWN");
+  }
+  validateParameterNames(selections.map((selection) => selection.name));
+  if (selections.length !== definitions.length)
+    throw new Error("PARAMETER_SELECTION_REQUIRED");
+}
+function assertInputSelection(selection) {
+  if (!isParameterRecord(selection) || typeof selection.name !== "string")
+    throw new Error("PARAMETER_SELECTION_INVALID");
+  if (selection.source !== "DEFAULT" && selection.source !== "VALUE" && selection.source !== "OMIT")
+    throw new Error("PARAMETER_SELECTION_INVALID");
+  const keys = selection.source === "VALUE" ? ["name", "source", "value"] : ["name", "source"];
+  if (!hasOnlyParameterKeys(selection, keys))
+    throw new Error("PARAMETER_SELECTION_INVALID");
+}
 
 // ../../packages/github-lite/dist/repository-schema.js
 function isCanonicalBatchId(value) {
@@ -8136,6 +9520,18 @@ function validateBatchDefinition(definition) {
   validateExecution(record.execution, diagnostics);
   validateStringArray(record.labels, "labels", diagnostics, false);
   validateSchedules(record.schedules, "schedules", diagnostics);
+  try {
+    assertStoredParameterDefinitions(record.parameters);
+    if (record.schedules === void 0 || Array.isArray(record.schedules)) {
+      assertStoredScheduleParameters({
+        parameters: record.parameters,
+        schedules: record.schedules
+      });
+    }
+  } catch (error) {
+    const code = error instanceof Error && error.message.startsWith("PARAMETER_") ? error.message : "PARAMETER_DEFINITION_INVALID";
+    diagnostics.push(problem(code, "parameters", code));
+  }
   return diagnostics;
 }
 function validateBatchDefinitionFile(file) {
@@ -8149,13 +9545,14 @@ function validateBatchDefinitionFile(file) {
   const spec = requireRecord(record.spec, "spec", diagnostics);
   if (metadata && spec) {
     const schedules = Array.isArray(spec.schedules) ? spec.schedules.map((schedule) => {
-      const item = isRecord(schedule) ? schedule : {};
+      const item = isRecord2(schedule) ? schedule : {};
       return {
         cron: item.cron,
         enabled: item.enabled,
         name: item.name,
         scheduleId: item.id,
-        timezone: item.timezone
+        timezone: item.timezone,
+        parameters: item.parameters
       };
     }) : void 0;
     diagnostics.push(...validateBatchDefinition({
@@ -8168,6 +9565,7 @@ function validateBatchDefinitionFile(file) {
       labels: metadata.labels,
       name: metadata.name,
       owner: spec.owner,
+      parameters: spec.parameters,
       schedules,
       status: spec.status,
       workflow: spec.workflow
@@ -8187,13 +9585,15 @@ function batchDefinitionFromFile(file) {
     ...file.metadata.labels ? { labels: file.metadata.labels } : {},
     name: file.metadata.name,
     owner: file.spec.owner,
+    ...file.spec.parameters !== void 0 ? { parameters: file.spec.parameters } : {},
     ...file.spec.schedules ? {
       schedules: file.spec.schedules.map((schedule) => ({
         cron: schedule.cron,
         enabled: schedule.enabled,
         name: schedule.name,
         scheduleId: schedule.id,
-        timezone: schedule.timezone
+        timezone: schedule.timezone,
+        ...schedule.parameters !== void 0 ? { parameters: schedule.parameters } : {}
       }))
     } : {},
     status: file.spec.status,
@@ -8259,12 +9659,12 @@ function withSpecPrefix(diagnostics) {
   }));
 }
 function requireRecord(value, field, diagnostics) {
-  if (isRecord(value))
+  if (isRecord2(value))
     return value;
   diagnostics.push(problem(value === void 0 ? "required" : "invalid_type", field, value === void 0 ? `${field} is required.` : `${field} must be an object.`));
   return void 0;
 }
-function isRecord(value) {
+function isRecord2(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 function requireCanonicalBatchId(value, diagnostics) {
@@ -8404,8 +9804,8 @@ function mapBatchDiagnosticToFile(diagnostic) {
     };
   return { ...diagnostic, field: `spec.${diagnostic.field}` };
 }
-function problem(code, field, message) {
-  return { code, field, message, severity: "error" };
+function problem(code, field, message2) {
+  return { code, field, message: message2, severity: "error" };
 }
 var batchStatusValues = ["ACTIVE", "INACTIVE"];
 var criticalityValues = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
@@ -8421,288 +9821,6 @@ var roleMappingRoles = [
   "maintainer",
   "auditor"
 ];
-
-// ../../packages/github-lite/dist/repository-yaml.js
-var import_yaml = __toESM(require_dist(), 1);
-function parseRepositoryYaml(input) {
-  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
-  if (document.errors.length > 0) {
-    return {
-      diagnostics: document.errors.map(toYamlDiagnostic),
-      ok: false
-    };
-  }
-  return { ok: true, value: document.toJS() };
-}
-function formatRepositoryYamlDiagnostics(diagnostics) {
-  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
-}
-function toYamlDiagnostic(error) {
-  const position = error.linePos?.[0];
-  return {
-    column: position?.col ?? 1,
-    line: position?.line ?? 1,
-    message: error.message
-  };
-}
-
-// ../../packages/digest/dist/index.js
-function canonicalize(value) {
-  return JSON.stringify(normalize(value));
-}
-async function createCanonicalDigest(value) {
-  return `sha256:${await sha256Hex(canonicalize(value))}`;
-}
-async function createParameterDigest(parameters) {
-  return createCanonicalDigest({ parameters });
-}
-async function createRequestDigest(input) {
-  return createCanonicalDigest(isDigestEnvelope(input) ? input.payload : input);
-}
-async function sha256Hex(value) {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return digestToHex(digest);
-}
-async function sha256BytesHex(value) {
-  const bytes = toByteView(value);
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
-  return digestToHex(digest);
-}
-function toByteView(value) {
-  const source = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  const copiedBytes = new Uint8Array(source.byteLength);
-  copiedBytes.set(source);
-  return copiedBytes;
-}
-function digestToHex(digest) {
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-function normalize(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => normalize(item));
-  }
-  if (value && typeof value === "object") {
-    return Object.keys(value).sort().reduce((acc, key) => {
-      const entry = value[key];
-      if (entry === void 0 || entry === null || entry === "") {
-        return acc;
-      }
-      acc[key] = normalize(entry);
-      return acc;
-    }, {});
-  }
-  if (typeof value === "string") {
-    return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  }
-  return value;
-}
-function isDigestEnvelope(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payload" in value);
-}
-
-// ../../packages/github-lite/dist/execution-request-evidence.js
-function isSameGitHubLogin(left, right) {
-  return Boolean(left.trim() && right.trim()) && left.trim().toLowerCase() === right.trim().toLowerCase();
-}
-async function buildExecutionRequestIssue({ approvedBatchRevision, batch, expiresAt, parameters = [], reason = "Manual request from BatchPlane Lite.", requestId, requestedAt, requestedBy, schedule, triggerType = "MANUAL", workflowRef }) {
-  if (!approvedBatchRevision.governedChangeId.trim() || !approvedBatchRevision.targetRevisionDigest.startsWith("sha256:")) {
-    throw new Error("Execution requests require an approved governed Batch revision binding.");
-  }
-  const effectiveRequestId = requestId ?? (triggerType === "SCHEDULE" && schedule ? await createScheduledExecutionRequestId(batch.batchId, schedule.scheduleId, schedule.repositoryId, schedule.sourceRunId) : createExecutionRequestId(batch.batchId, requestedAt));
-  if (triggerType !== "SCHEDULE" && !expiresAt)
-    throw new Error("Manual execution requests require an expiration time.");
-  const requestedAtIso = requestedAt.toISOString();
-  const expiresAtIso = expiresAt?.toISOString();
-  const parameterPayload = await buildParameterPayload(parameters);
-  const payload = {
-    apiVersion: batchPlaneApiVersion,
-    kind: "ExecutionRequest",
-    metadata: { batchId: batch.batchId, requestId: effectiveRequestId },
-    spec: {
-      approvedBatchRevision: {
-        governedChangeId: approvedBatchRevision.governedChangeId.trim(),
-        targetRevisionDigest: approvedBatchRevision.targetRevisionDigest.trim()
-      },
-      batch: {
-        criticality: batch.criticality,
-        domain: batch.domain,
-        environment: batch.environment,
-        gateRequired: batch.gateRequired,
-        name: batch.name,
-        owner: batch.owner
-      },
-      ...batch.execution ? {
-        execution: {
-          ...batch.execution.artifactPath ? { artifactPath: batch.execution.artifactPath } : {},
-          command: batch.execution.command,
-          gateRequired: batch.gateRequired,
-          runsOn: batch.execution.runsOn
-        }
-      } : {},
-      ...expiresAtIso ? { expiresAt: expiresAtIso } : {},
-      ...triggerType === "SCHEDULE" ? { contractVersion: "NATIVE_SCHEDULE_V2" } : {},
-      ...parameterPayload ? { parameters: parameterPayload } : {},
-      reason,
-      requestedAt: requestedAtIso,
-      requestedBy,
-      ...triggerType !== "MANUAL" ? { triggerType } : {},
-      workflow: {
-        path: batch.workflow.path,
-        ref: workflowRef?.trim() || batch.workflow.ref
-      },
-      ...schedule ? { schedule } : {}
-    }
-  };
-  const requestDigest = await createRequestDigest(payload);
-  const request = {
-    approvedBatchRevision: payload.spec.approvedBatchRevision,
-    batchId: batch.batchId,
-    ...expiresAtIso ? { expiresAt: expiresAtIso } : {},
-    requestDigest,
-    requestedAt: requestedAtIso,
-    requestedBy,
-    requestId: effectiveRequestId,
-    status: "REQUESTED",
-    ...reason ? { reason } : {},
-    ...triggerType !== "MANUAL" ? { triggerType } : {}
-  };
-  return {
-    body: buildExecutionRequestBody(payload, request),
-    labels: triggerType === "SCHEDULE" ? ["batchplane:execution-request", "batchplane:scheduled-execution"] : ["batchplane:execution-request"],
-    payload,
-    request,
-    title: triggerType === "SCHEDULE" ? `Scheduled run ${batch.batchId}` : `Run batch ${batch.batchId}`
-  };
-}
-function createExecutionRequestId(batchId, date = /* @__PURE__ */ new Date(), entropy = createEntropy()) {
-  return `btr-${date.toISOString().replaceAll("-", "").replaceAll(":", "").replaceAll(".", "").replaceAll("T", "").replaceAll("Z", "").slice(0, 14)}-${toRequestSlug(batchId)}-${entropy}`;
-}
-async function createScheduledExecutionRequestId(batchId, scheduleId, repositoryId, sourceRunId) {
-  const run2 = String(sourceRunId).trim();
-  if (!repositoryId.trim() || !run2)
-    throw new Error("Scheduled execution requests require the native repository and Run identifiers.");
-  const digest = await createRequestDigest({
-    batchId,
-    repositoryId,
-    scheduleId,
-    sourceRunId: run2
-  });
-  return `btr-schedule-${digest.slice("sha256:".length)}`;
-}
-async function buildParameterPayload(parameters) {
-  const entries = await Promise.all(parameters.map(async ({ name, sensitive, value }) => {
-    const key = name.trim();
-    if (!key)
-      return void 0;
-    return sensitive ? [
-      key,
-      {
-        sensitive: true,
-        valueDigest: await createParameterDigest({ [key]: value })
-      }
-    ] : [key, { value }];
-  }));
-  const present = entries.filter((entry) => Boolean(entry));
-  return present.length ? Object.fromEntries(present) : void 0;
-}
-function buildExecutionRequestBody(payload, request) {
-  return [
-    "## BatchPlane Execution Request",
-    "",
-    `- Request ID: \`${request.requestId}\``,
-    `- Batch ID: \`${request.batchId}\``,
-    `- Requested by: @${request.requestedBy}`,
-    `- Requested at: ${request.requestedAt}`,
-    ...request.expiresAt ? [`- Expires at: ${request.expiresAt}`] : [],
-    `- Trigger type: \`${request.triggerType ?? "MANUAL"}\``,
-    `- Approved Batch change: \`${request.approvedBatchRevision.governedChangeId}\``,
-    `- Approved Batch digest: \`${request.approvedBatchRevision.targetRevisionDigest}\``,
-    `- Request digest: \`${request.requestDigest}\``,
-    `- Status: ${request.status}`,
-    "",
-    "### Canonical payload",
-    "",
-    "```json",
-    JSON.stringify(payload, null, 2),
-    "```",
-    "",
-    "<!-- batchplane:execution-request",
-    `requestId=${request.requestId}`,
-    `batchId=${request.batchId}`,
-    `requestDigest=${request.requestDigest}`,
-    `status=${request.status}`,
-    "-->"
-  ].join("\n");
-}
-function createEntropy() {
-  const bytes = new Uint8Array(4);
-  globalThis.crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-function toRequestSlug(value) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "batch";
-}
-
-// ../../packages/github-lite/dist/inspection-context.js
-function parseWorkspacePolicyFile(content) {
-  const parsed = parseRepositoryYaml(content);
-  if (!parsed.ok) {
-    throw new Error(formatRepositoryYamlDiagnostics(parsed.diagnostics));
-  }
-  const validated = validateWorkspacePolicyFile(parsed.value);
-  if (!validated.ok) {
-    throw new Error(validated.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; "));
-  }
-  return validated.value.spec;
-}
-
-// ../../packages/github-lite/dist/workspace-authorization.js
-var workspacePolicyPath = ".batch-governance/workspace.yml";
-async function loadHistoricalWorkspacePolicy(client, repository, ref) {
-  const file = await client.getFile({
-    ...repository,
-    path: workspacePolicyPath,
-    ref
-  });
-  if (!file)
-    return defaultWorkspacePolicy;
-  return parseWorkspacePolicyFile(file.content);
-}
-async function loadWorkspaceRoles(client, repository, ref, configPath = ".batch-governance") {
-  const file = await client.getFile({
-    ...repository,
-    path: `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`,
-    ref
-  });
-  if (!file)
-    throw new Error("Workspace role mapping is required.");
-  const parsed = parseRepositoryYaml(file.content);
-  const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
-  if (!validated?.ok)
-    throw new Error("Workspace role mapping is invalid.");
-  return validated.value.spec;
-}
-async function hasWorkspaceRole(client, repository, login, selector) {
-  if (selector.githubUsers?.some((user) => isSameGitHubLogin(user, login)))
-    return true;
-  if (selector.repositoryRoles?.length) {
-    const permission = await client.getRepositoryPermissionForUser({
-      ...repository,
-      username: login.trim().toLowerCase()
-    });
-    if (isSameGitHubLogin(permission.username, login) && selector.repositoryRoles.some((role) => role === permission.roleName?.toLowerCase() || role === permission.permission.toLowerCase())) {
-      return true;
-    }
-  }
-  if (!selector.githubTeams?.length)
-    return false;
-  const memberships = await Promise.all(selector.githubTeams.map((teamSlug) => client.getTeamMembershipForUser({
-    org: repository.owner,
-    teamSlug,
-    username: login.trim().toLowerCase()
-  })));
-  return memberships.some((membership) => membership?.state === "active");
-}
 
 // ../../packages/github-lite/dist/batch-definition-codec.js
 function getBatchDefinitionPath(batchId) {
@@ -8761,6 +9879,9 @@ function parseBatchDefinitionYaml(yaml) {
       command,
       runsOn: runsOn || ""
     } : void 0,
+    ...spec.parameters !== void 0 ? {
+      parameters: spec.parameters
+    } : {},
     schedules: schedules.length > 0 ? schedules : void 0
   };
 }
@@ -8797,7 +9918,10 @@ function readYamlSchedules(record, key) {
     enabled: readYamlBoolean(item, "enabled"),
     name: readYamlString(item, "name"),
     scheduleId: readYamlString(item, "id"),
-    timezone: readYamlString(item, "timezone")
+    timezone: readYamlString(item, "timezone"),
+    ...item.parameters !== void 0 ? {
+      parameters: item.parameters
+    } : {}
   })).filter((schedule) => Boolean(schedule.scheduleId) || Boolean(schedule.name) || Boolean(schedule.cron) || Boolean(schedule.timezone));
 }
 function parseCriticality(value) {
@@ -8817,6 +9941,9 @@ function toFileNameSlug(value) {
 }
 
 // ../../packages/github-lite/dist/github-workflow.js
+var inputPreparationActionRef = "always0ne/batchplane/actions/gate/input-preparation@main";
+var parameterEnvironmentExpression = "${{ fromJSON(steps.prepare.outputs.environment) }}";
+var inputPreparationStepName = "Prepare approved batch inputs";
 var batchPlaneGateActionRef = "always0ne/batchplane/actions/gate@main";
 var batchPlaneScheduleRequestActionRef = "always0ne/batchplane/actions/schedule-request@main";
 var batchPlaneScheduleResultActionRef = "always0ne/batchplane/actions/schedule-result@main";
@@ -8906,15 +10033,26 @@ function buildBatchWorkflowYaml(definition) {
     "    if: github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''",
     `    runs-on: ${runner}`,
     "    needs: batchplane-gate",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
     "    permissions:",
     "      contents: read",
+    "      issues: read",
+    "      pull-requests: read",
     "    steps:",
     "      - name: Checkout registered assets",
     "        uses: actions/checkout@v4",
     "        with:",
     "          ref: ${{ needs.batchplane-gate.outputs.verified_sha }}",
     "",
+    ...buildInputPreparationLines({
+      batchId: "${{ inputs.batch_id }}",
+      requestId: "${{ inputs.request_id }}",
+      requestDigest: "${{ inputs.request_digest }}",
+      jobName: "Run governed batch"
+    }),
     "      - name: Run batch",
+    `        env: ${parameterEnvironmentExpression}`,
     "        run: |",
     '          echo "::group::BatchPlane batch command"',
     `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
@@ -9027,8 +10165,17 @@ function buildScheduledRequestJobLines({ batchId, batchPath, runCommand, runner,
     "        uses: actions/checkout@v4",
     "        with:",
     "          ref: ${{ steps.verify.outputs.verified_sha }}",
+    ...buildInputPreparationLines({
+      batchId,
+      requestId: `\${{ needs.${jobId}.outputs.request-id }}`,
+      requestDigest: `\${{ needs.${jobId}.outputs.request-digest }}`,
+      issueNumber: `\${{ needs.${jobId}.outputs.issue-number }}`,
+      scheduleId: schedule.scheduleId,
+      jobName: businessJobName
+    }),
     "      - name: Run batch",
     "        if: steps.verify.outputs.verified_sha != ''",
+    `        env: ${parameterEnvironmentExpression}`,
     "        run: |",
     '          echo "::group::BatchPlane batch command"',
     `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
@@ -9067,6 +10214,27 @@ function buildScheduledRequestJobLines({ batchId, batchPath, runCommand, runner,
     ""
   ];
 }
+function buildInputPreparationLines({ batchId, requestId, requestDigest, issueNumber, scheduleId, jobName }) {
+  return [
+    `      - name: ${inputPreparationStepName}`,
+    "        id: prepare",
+    `        uses: ${inputPreparationActionRef}`,
+    "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    `          request-id: ${yamlString(requestId)}`,
+    `          request-digest: ${yamlString(requestDigest)}`,
+    "          approval-source: issue",
+    `          approval-ref: ${yamlString(requestId)}`,
+    ...issueNumber ? [`          issue-number: ${yamlString(issueNumber)}`] : [],
+    ...scheduleId ? [`          schedule-id: ${yamlString(scheduleId)}`] : [],
+    `          gate-job-name: ${yamlString(jobName)}`,
+    `          gate-step-name: ${inputPreparationStepName}`,
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "          private-key: ${{ secrets.BATCHPLANE_INPUT_KEY }}"
+  ];
+}
 function getNativeScheduleWorkflowJobIdentity(schedule) {
   const controlJobId = toScheduleWorkflowJobId(schedule.scheduleId);
   return {
@@ -9094,6 +10262,212 @@ function toWorkflowJobId(value) {
 function toScheduleWorkflowJobId(scheduleId) {
   const encoded = Array.from(scheduleId).map((character) => character.codePointAt(0).toString(16)).join("_");
   return `schedule_${encoded}`;
+}
+
+// ../../packages/github-lite/dist/execution-request-evidence.js
+function createExecutionRequestDigest(payload) {
+  const value = payload;
+  if (payload.spec.parameterContractVersion === "PARAMETER_DELIVERY_V1") {
+    return createExactCanonicalDigest(value);
+  }
+  return createRequestDigest(value);
+}
+function isSameGitHubLogin(left, right) {
+  return Boolean(left.trim() && right.trim()) && left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+async function buildExecutionRequestIssue({ approvedBatchRevision, batch, expiresAt, parameters = [], parameterPayload: suppliedParameterPayload, parameterSourceRevision, repositoryId = "", encryptionConfiguration, reason = "Manual request from BatchPlane Lite.", requestId, requestedAt, requestedBy, schedule, triggerType = "MANUAL", workflowRef }) {
+  if (!approvedBatchRevision.governedChangeId.trim() || !approvedBatchRevision.targetRevisionDigest.startsWith("sha256:")) {
+    throw new Error("Execution requests require an approved governed Batch revision binding.");
+  }
+  const effectiveRequestId = requestId ?? (triggerType === "SCHEDULE" && schedule ? await createScheduledExecutionRequestId(batch.batchId, schedule.scheduleId, schedule.repositoryId, schedule.sourceRunId) : createExecutionRequestId(batch.batchId, requestedAt));
+  if (triggerType !== "SCHEDULE" && !expiresAt)
+    throw new Error("Manual execution requests require an expiration time.");
+  const requestedAtIso = requestedAt.toISOString();
+  const expiresAtIso = expiresAt?.toISOString();
+  const parameterPayload = suppliedParameterPayload ?? await materializeRequestParameters(batch, parameters, effectiveRequestId, {
+    repositoryId,
+    batchId: batch.batchId,
+    sourceRevision: parameterSourceRevision ?? "",
+    configuration: encryptionConfiguration
+  });
+  const hasParameters = Boolean(batch.parameters?.length || Object.keys(parameterPayload).length);
+  const payload = {
+    apiVersion: batchPlaneApiVersion,
+    kind: "ExecutionRequest",
+    metadata: { batchId: batch.batchId, requestId: effectiveRequestId },
+    spec: {
+      approvedBatchRevision: {
+        governedChangeId: approvedBatchRevision.governedChangeId.trim(),
+        targetRevisionDigest: approvedBatchRevision.targetRevisionDigest.trim()
+      },
+      batch: {
+        criticality: batch.criticality,
+        domain: batch.domain,
+        environment: batch.environment,
+        gateRequired: batch.gateRequired,
+        name: batch.name,
+        owner: batch.owner
+      },
+      ...batch.execution ? {
+        execution: {
+          ...batch.execution.artifactPath ? { artifactPath: batch.execution.artifactPath } : {},
+          command: batch.execution.command,
+          gateRequired: batch.gateRequired,
+          runsOn: batch.execution.runsOn
+        }
+      } : {},
+      ...expiresAtIso ? { expiresAt: expiresAtIso } : {},
+      ...triggerType === "SCHEDULE" ? { contractVersion: "NATIVE_SCHEDULE_V2" } : {},
+      ...hasParameters ? {
+        parameters: parameterPayload,
+        parameterContractVersion: "PARAMETER_DELIVERY_V1",
+        parameterSourceRevision
+      } : {},
+      reason,
+      requestedAt: requestedAtIso,
+      requestedBy,
+      ...triggerType !== "MANUAL" ? { triggerType } : {},
+      workflow: {
+        path: batch.workflow.path,
+        ref: workflowRef?.trim() || batch.workflow.ref
+      },
+      ...schedule ? { schedule } : {}
+    }
+  };
+  validateApprovedParameters(payload, batch, parameterSourceRevision ?? "");
+  const requestDigest = await createExecutionRequestDigest(payload);
+  const request = {
+    approvedBatchRevision: payload.spec.approvedBatchRevision,
+    batchId: batch.batchId,
+    ...expiresAtIso ? { expiresAt: expiresAtIso } : {},
+    requestDigest,
+    requestedAt: requestedAtIso,
+    requestedBy,
+    requestId: effectiveRequestId,
+    status: "REQUESTED",
+    ...reason ? { reason } : {},
+    ...triggerType !== "MANUAL" ? { triggerType } : {}
+  };
+  return {
+    body: buildExecutionRequestBody(payload, request),
+    labels: triggerType === "SCHEDULE" ? ["batchplane:execution-request", "batchplane:scheduled-execution"] : ["batchplane:execution-request"],
+    payload,
+    request,
+    title: triggerType === "SCHEDULE" ? `Scheduled run ${batch.batchId}` : `Run batch ${batch.batchId}`
+  };
+}
+function createExecutionRequestId(batchId, date = /* @__PURE__ */ new Date(), entropy = createEntropy()) {
+  return `btr-${date.toISOString().replaceAll("-", "").replaceAll(":", "").replaceAll(".", "").replaceAll("T", "").replaceAll("Z", "").slice(0, 14)}-${toRequestSlug(batchId)}-${entropy}`;
+}
+async function createScheduledExecutionRequestId(batchId, scheduleId, repositoryId, sourceRunId) {
+  const run2 = String(sourceRunId).trim();
+  if (!repositoryId.trim() || !run2)
+    throw new Error("Scheduled execution requests require the native repository and Run identifiers.");
+  const digest2 = await createRequestDigest({
+    batchId,
+    repositoryId,
+    scheduleId,
+    sourceRunId: run2
+  });
+  return `btr-schedule-${digest2.slice("sha256:".length)}`;
+}
+function buildExecutionRequestBody(payload, request) {
+  return [
+    "## BatchPlane Execution Request",
+    "",
+    `- Request ID: \`${request.requestId}\``,
+    `- Batch ID: \`${request.batchId}\``,
+    `- Requested by: @${request.requestedBy}`,
+    `- Requested at: ${request.requestedAt}`,
+    ...request.expiresAt ? [`- Expires at: ${request.expiresAt}`] : [],
+    `- Trigger type: \`${request.triggerType ?? "MANUAL"}\``,
+    `- Approved Batch change: \`${request.approvedBatchRevision.governedChangeId}\``,
+    `- Approved Batch digest: \`${request.approvedBatchRevision.targetRevisionDigest}\``,
+    `- Request digest: \`${request.requestDigest}\``,
+    `- Status: ${request.status}`,
+    "",
+    "### Canonical payload",
+    "",
+    "```json",
+    JSON.stringify(payload, null, 2),
+    "```",
+    "",
+    "<!-- batchplane:execution-request",
+    `requestId=${request.requestId}`,
+    `batchId=${request.batchId}`,
+    `requestDigest=${request.requestDigest}`,
+    `status=${request.status}`,
+    "-->"
+  ].join("\n");
+}
+function createEntropy() {
+  const bytes = new Uint8Array(4);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function toRequestSlug(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "batch";
+}
+
+// ../../packages/github-lite/dist/inspection-context.js
+function parseWorkspacePolicyFile(content) {
+  const parsed = parseRepositoryYaml(content);
+  if (!parsed.ok) {
+    throw new Error(formatRepositoryYamlDiagnostics(parsed.diagnostics));
+  }
+  const validated = validateWorkspacePolicyFile(parsed.value);
+  if (!validated.ok) {
+    throw new Error(validated.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; "));
+  }
+  return validated.value.spec;
+}
+
+// ../../packages/github-lite/dist/workspace-authorization.js
+var workspacePolicyPath = ".batch-governance/workspace.yml";
+async function loadHistoricalWorkspacePolicy(client, repository, ref) {
+  const file = await client.getFile({
+    ...repository,
+    path: workspacePolicyPath,
+    ref
+  });
+  if (!file)
+    return defaultWorkspacePolicy;
+  return parseWorkspacePolicyFile(file.content);
+}
+async function loadWorkspaceRoles(client, repository, ref, configPath = ".batch-governance") {
+  const file = await client.getFile({
+    ...repository,
+    path: `${configPath.replace(/\/+$/u, "")}/policies/role-mapping.yml`,
+    ref
+  });
+  if (!file)
+    throw new Error("Workspace role mapping is required.");
+  const parsed = parseRepositoryYaml(file.content);
+  const validated = parsed.ok ? validateRoleMappingFile(parsed.value) : null;
+  if (!validated?.ok)
+    throw new Error("Workspace role mapping is invalid.");
+  return validated.value.spec;
+}
+async function hasWorkspaceRole(client, repository, login, selector) {
+  if (selector.githubUsers?.some((user) => isSameGitHubLogin(user, login)))
+    return true;
+  if (selector.repositoryRoles?.length) {
+    const permission = await client.getRepositoryPermissionForUser({
+      ...repository,
+      username: login.trim().toLowerCase()
+    });
+    if (isSameGitHubLogin(permission.username, login) && selector.repositoryRoles.some((role) => role === permission.roleName?.toLowerCase() || role === permission.permission.toLowerCase())) {
+      return true;
+    }
+  }
+  if (!selector.githubTeams?.length)
+    return false;
+  const memberships = await Promise.all(selector.githubTeams.map((teamSlug) => client.getTeamMembershipForUser({
+    org: repository.owner,
+    teamSlug,
+    username: login.trim().toLowerCase()
+  })));
+  return memberships.some((membership) => membership?.state === "active");
 }
 
 // ../../packages/github-lite/dist/change-request-evidence.js
@@ -9497,7 +10871,7 @@ async function hasMatchingRevisionDigests({ candidate, client, currentSha, execu
   if (executionWorkflowSha)
     refs.push(executionWorkflowSha);
   const digests = await Promise.all(refs.map(async (ref) => createTargetRevisionDigest(await loadArtifacts(client, repository, candidate.evidence.artifacts, ref))));
-  return digests.every((digest) => digest === candidate.evidence.targetRevisionDigest);
+  return digests.every((digest2) => digest2 === candidate.evidence.targetRevisionDigest);
 }
 async function loadMergedBatchCandidates(client, repository, batchId) {
   const changes = await client.listPullRequests({
@@ -9696,6 +11070,15 @@ async function createNativeScheduledExecutionRequest(input) {
   const issue = await buildExecutionRequestIssue({
     approvedBatchRevision: revision.approvedRevision,
     batch,
+    ...batch.parameters?.length ? {
+      parameterPayload: resolveScheduledParameters(
+        batch,
+        input.scheduleId,
+        revision.verifiedSha
+      ),
+      parameterSourceRevision: revision.verifiedSha,
+      repositoryId: input.repositoryId
+    } : {},
     reason: "Native GitHub Actions schedule occurrence from an approved BatchPlane schedule.",
     requestId,
     requestedAt: input.now ?? /* @__PURE__ */ new Date(),
@@ -9764,8 +11147,8 @@ async function run(env = process.env) {
   return result;
 }
 function toReasonCode(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  const match = /^([A-Z][A-Z0-9_]+):/u.exec(message);
+  const message2 = error instanceof Error ? error.message : String(error);
+  const match = /^([A-Z][A-Z0-9_]+):/u.exec(message2);
   return match?.[1] ?? "SCHEDULE_REQUEST_FAILED";
 }
 function createScheduleRequestGitHubClient({

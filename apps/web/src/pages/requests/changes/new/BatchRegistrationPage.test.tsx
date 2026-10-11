@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { Link, MemoryRouter, Route, Routes, useParams } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -41,7 +42,9 @@ const newBatchDraft: BatchChangeDraft = {
 
 describe("BatchRegistrationPage", () => {
   afterEach(async () => {
-    await i18next.changeLanguage("en");
+    await act(async () => {
+      await i18next.changeLanguage("en");
+    });
     vi.useRealTimers();
     vi.unstubAllEnvs();
   });
@@ -83,7 +86,7 @@ describe("BatchRegistrationPage", () => {
     expect(addedLine.textContent).toBe(`+ ${nextContent.trimEnd()}`);
   });
 
-  it("keeps business, GitHub execution, and schedules in order and submits the uploaded file with the explicit command", async () => {
+  it("keeps business, execution, parameter definitions and schedules in order and submits defaults with the uploaded file and explicit command", async () => {
     const previewBatchChange = vi
       .fn<
         Parameters<BatchPlaneClient["previewBatchChange"]>,
@@ -102,10 +105,30 @@ describe("BatchRegistrationPage", () => {
     expect(
       screen
         .getAllByRole("heading", { level: 2 })
-        .slice(0, 3)
+        .slice(0, 4)
         .map((heading) => heading.textContent),
-    ).toEqual(["Batch definition", "Workflow", "Schedules"]);
+    ).toEqual([
+      "Batch definition",
+      "Workflow",
+      "Parameter definitions",
+      "Schedules",
+    ]);
     fillRequiredRegistrationFields();
+    fireEvent.click(screen.getByRole("button", { name: "Add parameter" }));
+    const parameterSection = screen
+      .getByRole("heading", { name: "Parameter definitions" })
+      .closest("article")!;
+    fireEvent.change(within(parameterSection).getByLabelText("Name"), {
+      target: { value: "Report" },
+    });
+    fireEvent.click(within(parameterSection).getByLabelText("Required"));
+    fireEvent.click(
+      within(parameterSection).getByLabelText("Set a default value"),
+    );
+    const exact = " 001\n한글\n ";
+    fireEvent.change(within(parameterSection).getByLabelText("Default value"), {
+      target: { value: exact },
+    });
     fireEvent.change(screen.getByLabelText("Workflow ref"), {
       target: { value: "release/close" },
     });
@@ -138,6 +161,14 @@ describe("BatchRegistrationPage", () => {
       },
       changeRequestId: newBatchDraft.changeRequestId,
       mode: "create",
+      parameters: [
+        {
+          name: "Report",
+          required: true,
+          sensitive: false,
+          defaultValue: { kind: "VALUE", value: exact },
+        },
+      ],
     });
     expect(previewBatchChange.mock.lastCall?.[0].batch).not.toHaveProperty(
       "runnerLabel",
@@ -707,6 +738,8 @@ function createClient(
     getMyWork: unsupported,
     listExecutionRuns: unsupported,
     inspectWorkspace: unsupported,
+    inspectWorkspaceEncryption: unsupported,
+    initializeWorkspaceEncryption: unsupported,
     requestWorkspaceInstallation: unsupported,
     requestWorkspaceUpdate: unsupported,
     requestWorkspacePolicyChange: unsupported,

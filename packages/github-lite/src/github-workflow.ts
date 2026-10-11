@@ -3,6 +3,12 @@ import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
 import { getBatchDefinitionPath } from "./batch-definition-codec.js";
 
+export const inputPreparationActionRef =
+  "always0ne/batchplane/actions/gate/input-preparation@main";
+export const parameterEnvironmentExpression =
+  "${{ fromJSON(steps.prepare.outputs.environment) }}";
+export const inputPreparationStepName = "Prepare approved batch inputs";
+
 const batchPlaneGateActionRef = "always0ne/batchplane/actions/gate@main";
 const batchPlaneScheduleRequestActionRef =
   "always0ne/batchplane/actions/schedule-request@main";
@@ -127,15 +133,26 @@ export function buildBatchWorkflowYaml(
     "    if: github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''",
     `    runs-on: ${runner}`,
     "    needs: batchplane-gate",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
     "    permissions:",
     "      contents: read",
+    "      issues: read",
+    "      pull-requests: read",
     "    steps:",
     "      - name: Checkout registered assets",
     "        uses: actions/checkout@v4",
     "        with:",
     "          ref: ${{ needs.batchplane-gate.outputs.verified_sha }}",
     "",
+    ...buildInputPreparationLines({
+      batchId: "${{ inputs.batch_id }}",
+      requestId: "${{ inputs.request_id }}",
+      requestDigest: "${{ inputs.request_digest }}",
+      jobName: "Run governed batch",
+    }),
     "      - name: Run batch",
+    `        env: ${parameterEnvironmentExpression}`,
     "        run: |",
     '          echo "::group::BatchPlane batch command"',
     "          trap 'status=$?; echo \"::endgroup::\"; exit $status' EXIT",
@@ -182,7 +199,10 @@ function buildScheduledRequestJobLines({
   batchPath: string;
   runCommand: string;
   runner: string;
-  schedule: BatchSchedule;
+  schedule: Pick<
+    BatchSchedule,
+    "scheduleId" | "name" | "cron" | "timezone" | "enabled"
+  >;
 }): string[] {
   const identity = getNativeScheduleWorkflowJobIdentity(schedule);
   const {
@@ -272,8 +292,17 @@ function buildScheduledRequestJobLines({
     "        uses: actions/checkout@v4",
     "        with:",
     "          ref: ${{ steps.verify.outputs.verified_sha }}",
+    ...buildInputPreparationLines({
+      batchId,
+      requestId: `\${{ needs.${jobId}.outputs.request-id }}`,
+      requestDigest: `\${{ needs.${jobId}.outputs.request-digest }}`,
+      issueNumber: `\${{ needs.${jobId}.outputs.issue-number }}`,
+      scheduleId: schedule.scheduleId,
+      jobName: businessJobName,
+    }),
     "      - name: Run batch",
     "        if: steps.verify.outputs.verified_sha != ''",
+    `        env: ${parameterEnvironmentExpression}`,
     "        run: |",
     '          echo "::group::BatchPlane batch command"',
     "          trap 'status=$?; echo \"::endgroup::\"; exit $status' EXIT",
@@ -310,6 +339,44 @@ function buildScheduledRequestJobLines({
     `          definition-path: ${yamlString(batchPath)}`,
     "          github-token: ${{ secrets.GITHUB_TOKEN }}",
     "",
+  ];
+}
+
+function buildInputPreparationLines({
+  batchId,
+  requestId,
+  requestDigest,
+  issueNumber,
+  scheduleId,
+  jobName,
+}: {
+  batchId: string;
+  requestId: string;
+  requestDigest: string;
+  issueNumber?: string;
+  scheduleId?: string;
+  jobName: string;
+}): string[] {
+  return [
+    `      - name: ${inputPreparationStepName}`,
+    "        id: prepare",
+    `        uses: ${inputPreparationActionRef}`,
+    "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    `          request-id: ${yamlString(requestId)}`,
+    `          request-digest: ${yamlString(requestDigest)}`,
+    "          approval-source: issue",
+    `          approval-ref: ${yamlString(requestId)}`,
+    ...(issueNumber
+      ? [`          issue-number: ${yamlString(issueNumber)}`]
+      : []),
+    ...(scheduleId ? [`          schedule-id: ${yamlString(scheduleId)}`] : []),
+    `          gate-job-name: ${yamlString(jobName)}`,
+    `          gate-step-name: ${inputPreparationStepName}`,
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "          private-key: ${{ secrets.BATCHPLANE_INPUT_KEY }}",
   ];
 }
 

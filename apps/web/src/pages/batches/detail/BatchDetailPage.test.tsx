@@ -84,8 +84,73 @@ const activeDetail: Extract<BatchDetailResult, { type: "active" }> = {
 
 describe("BatchDetailPage", () => {
   afterEach(async () => {
-    await i18next.changeLanguage("en");
+    await act(async () => {
+      await i18next.changeLanguage("en");
+    });
   });
+
+  it.each(["en", "ko"])(
+    "shows exact ordinary defaults and schedule overrides, but only protected status for saved defaults in %s",
+    async (locale) => {
+      await i18next.changeLanguage(locale);
+      const exact = " 001\n한글\n ";
+      renderDetail(
+        createClient({
+          ...activeDetail,
+          batch: {
+            ...activeDetail.batch,
+            parameters: [
+              {
+                name: "Report",
+                required: true,
+                sensitive: false,
+                defaultValue: { kind: "VALUE", value: exact },
+              },
+              {
+                name: "Token",
+                required: true,
+                sensitive: true,
+                defaultValue: {
+                  kind: "SAVED",
+                  reference: "opaque-must-not-appear",
+                },
+              },
+            ],
+            schedules: [
+              {
+                ...activeDetail.batch.schedules![0]!,
+                parameters: [
+                  {
+                    name: "Report",
+                    source: "VALUE",
+                    value: { kind: "VALUE", value: "" },
+                  },
+                  { name: "Token", source: "DEFAULT" },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+      await screen.findByText("Daily Close");
+      const ordinaryDefault = screen.getByText(
+        (_, element) => element?.textContent === exact,
+      );
+      expect(ordinaryDefault.textContent).toBe(exact);
+      expect(
+        screen.getByText(locale === "en" ? "Empty string" : "빈 문자열"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByText(locale === "en" ? "Protected value" : "보호된 값"),
+      ).toHaveLength(2);
+      expect(
+        screen.queryByText(/opaque-must-not-appear/),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Show entered|입력한 값 표시/ }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it.each(["en", "ko"])(
     "keeps target and file details visible without a command in %s",
@@ -553,6 +618,8 @@ function createClient(
     getMyWork: unsupported,
     listExecutionRuns: unsupported,
     inspectWorkspace: unsupported,
+    inspectWorkspaceEncryption: unsupported,
+    initializeWorkspaceEncryption: unsupported,
     requestWorkspaceInstallation: unsupported,
     requestWorkspaceUpdate: unsupported,
     requestWorkspacePolicyChange: unsupported,

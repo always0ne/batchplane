@@ -9,6 +9,7 @@ import executionsEn from "./locales/en/executions.json";
 import failuresEn from "./locales/en/failures.json";
 import myWorkEn from "./locales/en/myWork.json";
 import navigationEn from "./locales/en/navigation.json";
+import parametersEn from "./locales/en/parameters.json";
 import registrationEn from "./locales/en/registration.json";
 import requestsEn from "./locales/en/requests.json";
 import schedulesEn from "./locales/en/schedules.json";
@@ -24,10 +25,13 @@ import executionsKo from "./locales/ko/executions.json";
 import failuresKo from "./locales/ko/failures.json";
 import myWorkKo from "./locales/ko/myWork.json";
 import navigationKo from "./locales/ko/navigation.json";
+import parametersKo from "./locales/ko/parameters.json";
 import registrationKo from "./locales/ko/registration.json";
 import requestsKo from "./locales/ko/requests.json";
 import schedulesKo from "./locales/ko/schedules.json";
 import settingsKo from "./locales/ko/settings.json";
+import workspaceEncryptionEn from "./locales/en/workspaceEncryption.json";
+import workspaceEncryptionKo from "./locales/ko/workspaceEncryption.json";
 
 export const defaultNamespace = "common";
 
@@ -47,6 +51,8 @@ export const namespaces = [
   "audit",
   "settings",
   "errors",
+  "parameters",
+  "workspaceEncryption",
 ] as const;
 
 export const resources = {
@@ -66,6 +72,8 @@ export const resources = {
     requests: requestsEn,
     schedules: schedulesEn,
     settings: settingsEn,
+    parameters: parametersEn,
+    workspaceEncryption: workspaceEncryptionEn,
   },
   ko: {
     audit: auditKo,
@@ -83,6 +91,8 @@ export const resources = {
     requests: requestsKo,
     schedules: schedulesKo,
     settings: settingsKo,
+    parameters: parametersKo,
+    workspaceEncryption: workspaceEncryptionKo,
   },
 } as const;
 

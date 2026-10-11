@@ -52,6 +52,7 @@ import {
   type GitHubLiteClient,
   type GitHubLiteClientOptions,
 } from "./github-types.js";
+import { createGitHubActionsSecretOperations } from "./github-actions-secrets.js";
 
 export function createGitHubLiteClient(
   options: GitHubLiteClientOptions,
@@ -59,6 +60,7 @@ export function createGitHubLiteClient(
   const requester = createGitHubRequester(options);
 
   return {
+    ...createGitHubActionsSecretOperations(requester),
     ...createRepositoryOperations(requester),
     ...createPullRequestOperations(requester),
     ...createIssueOperations(requester),
@@ -107,6 +109,7 @@ function createRepositoryOperations(
       }
 
       return {
+        id: String(repository.id),
         owner: repository.owner.login,
         repo: repository.name,
         defaultBranch: repository.default_branch,

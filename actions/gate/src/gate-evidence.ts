@@ -202,7 +202,7 @@ export function parseApproverSelectorFromRoleMappingFile(
   };
 }
 
-function parseCanonicalPayload(issueBody: string): unknown {
+export function parseCanonicalPayload(issueBody: string): unknown {
   const match = issueBody.match(/```json\s*([\s\S]*?)```/);
 
   if (!match?.[1]) {

@@ -4,7 +4,9 @@ import {
   canonicalExecutionRequestDigestFixture,
   canonicalExecutionRequestPayloadFixture,
   canonicalize,
+  canonicalizeExact,
   createCanonicalDigest,
+  createExactCanonicalDigest,
   createParameterDigest,
   createReasonDigest,
   createRequestDigest,
@@ -23,6 +25,24 @@ describe("canonicalize", () => {
     expect(canonicalize({ a: "1", b: "", c: null, d: undefined })).toBe(
       '{"a":"1"}',
     );
+  });
+
+  it("signs literal strings and own property names without legacy normalization", async () => {
+    const input = JSON.parse(
+      '{"__proto__":{"value":"first"},"empty":"","none":null,"line":"a\\r\\nb"}',
+    );
+    expect(canonicalizeExact(input)).toBe(
+      '{"__proto__":{"value":"first"},"empty":"","line":"a\\r\\nb","none":null}',
+    );
+    const digest = await createExactCanonicalDigest(input);
+    const changes = [
+      { ...input, line: "a\nb" },
+      { ...input, ["__proto__"]: { value: "second" } },
+      { ...input, empty: undefined },
+    ];
+    for (const changed of changes) {
+      expect(await createExactCanonicalDigest(changed)).not.toBe(digest);
+    }
   });
 
   it("creates SHA-256 digests", async () => {

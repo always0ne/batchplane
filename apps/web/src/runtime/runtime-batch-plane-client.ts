@@ -4,32 +4,82 @@ import {
 } from "@batchplane/ui-client";
 import {
   createSelectedBatchPlaneClient,
+  readRuntimeFixtureSelection,
   readRuntimeSession,
 } from "./runtime-fixtures";
+import type { GitHubSession } from "./github-session";
 
 type RuntimeBatchPlaneClientDependencies = {
   createClient?: typeof createSelectedBatchPlaneClient;
   readSession?: typeof readRuntimeSession;
+  readFixture?: typeof readRuntimeFixtureSelection;
 };
 
-/** Resolve the selected connection anew for each product operation. */
+export type RuntimeBatchPlaneClient = BatchPlaneClient & {
+  resetConnection(): void;
+};
+
+/** Retain only the product client for the current connection, never API results. */
 export function createRuntimeBatchPlaneClient({
   createClient = createSelectedBatchPlaneClient,
   readSession = readRuntimeSession,
-}: RuntimeBatchPlaneClientDependencies = {}): BatchPlaneClient {
-  function connectedClient() {
+  readFixture = readRuntimeFixtureSelection,
+}: RuntimeBatchPlaneClientDependencies = {}): RuntimeBatchPlaneClient {
+  let selectedConnection:
+    | {
+        session: GitHubSession;
+        fixtureId: ReturnType<typeof readRuntimeFixtureSelection>;
+        client: BatchPlaneClient;
+      }
+    | undefined;
+
+  function resetConnection() {
+    selectedConnection = undefined;
+  }
+
+  function selectedClient(): BatchPlaneClient | null {
     const session = readSession();
-    if (!session) throw new WorkspaceNotConnectedError();
-    return createClient(session);
+    if (!session) {
+      resetConnection();
+      return null;
+    }
+
+    const fixtureId = readFixture();
+    if (
+      !selectedConnection ||
+      selectedConnection.fixtureId !== fixtureId ||
+      selectedConnection.session.owner !== session.owner ||
+      selectedConnection.session.repo !== session.repo ||
+      selectedConnection.session.token !== session.token
+    ) {
+      resetConnection();
+      selectedConnection = {
+        session: { ...session },
+        fixtureId,
+        client: createClient(session),
+      };
+    }
+    return selectedConnection.client;
+  }
+
+  function connectedClient(): BatchPlaneClient {
+    const client = selectedClient();
+    if (!client) throw new WorkspaceNotConnectedError();
+    return client;
   }
 
   return {
+    resetConnection,
     async listBatches() {
-      const session = readSession();
-      if (!session) return { type: "workspace-not-connected" };
-      return createClient(session).listBatches();
+      const client = selectedClient();
+      if (!client) return { type: "workspace-not-connected" };
+      return client.listBatches();
     },
     inspectWorkspace: async () => connectedClient().inspectWorkspace(),
+    inspectWorkspaceEncryption: async () =>
+      connectedClient().inspectWorkspaceEncryption(),
+    initializeWorkspaceEncryption: async () =>
+      connectedClient().initializeWorkspaceEncryption(),
     requestWorkspaceInstallation: async () =>
       connectedClient().requestWorkspaceInstallation(),
     requestWorkspaceUpdate: async () =>

@@ -32,6 +32,35 @@ export type WorkspaceChangeRequest = {
   sourceUrl: string;
 };
 
+export type WorkspaceEncryptionStatus = {
+  state:
+    | "NOT_CONFIGURED"
+    | "PENDING_APPROVAL"
+    | "SETUP_RECORDED"
+    | "INCOMPLETE"
+    | "STATUS_UNAVAILABLE"
+    | "INVALID_CONFIGURATION";
+  keyId?: string;
+  configurationPublished: boolean;
+  privateKeyStored: "PRESENT" | "ABSENT" | "UNKNOWN";
+  canInitialize: boolean;
+  canRetryUpload: boolean;
+  request?: WorkspaceChangeRequest;
+};
+
+export type WorkspaceEncryptionUnavailableReason =
+  | "NOT_CONFIGURED"
+  | "KEY_NOT_REGISTERED"
+  | "STATUS_UNAVAILABLE"
+  | "INVALID_CONFIGURATION";
+
+export type WorkspaceEncryptionSetupResult = {
+  status: WorkspaceEncryptionStatus;
+  upload: "RECORDED" | "FAILED" | "NOT_ATTEMPTED";
+  error?: BatchListError;
+  failureStage?: "STATUS_CHECK" | "PRIVATE_KEY_UPLOAD";
+};
+
 export type WorkspaceInstallationRequest = {
   request: WorkspaceChangeRequest;
   installation: WorkspaceInstallation;
