@@ -76,6 +76,9 @@ importers:
 
   actions/gate:
     dependencies:
+      "@actions/core":
+        specifier: 3.0.1
+        version: 3.0.1
       "@batchplane/domain":
         specifier: workspace:*
         version: link:../../packages/domain
@@ -159,6 +162,12 @@ importers:
       cron-parser:
         specifier: ^5.5.0
         version: 5.5.0
+      jose:
+        specifier: 6.2.12
+        version: 6.2.12
+      libsodium-wrappers:
+        specifier: 0.8.4
+        version: 0.8.4
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -170,6 +179,30 @@ importers:
         version: link:../domain
 
 packages:
+  "@actions/core@3.0.1":
+    resolution:
+      {
+        integrity: sha512-a6d/Nwahm9fliVGRhdhofo40HjHQasUPusmc7vBfyky+7Z+P2A1J68zyFVaNcEclc/Se+eO595oAr5nwEIoIUA==,
+      }
+
+  "@actions/exec@3.0.0":
+    resolution:
+      {
+        integrity: sha512-6xH/puSoNBXb72VPlZVm7vQ+svQpFyA96qdDBvhB8eNZOE8LtPf9L4oAsfzK/crCL8YZ+19fKYVnM63Sl+Xzlw==,
+      }
+
+  "@actions/http-client@4.0.1":
+    resolution:
+      {
+        integrity: sha512-+Nvd1ImaOZBSoPbsUtEhv+1z99H12xzncCkz0a3RuehINE81FZSe2QTj3uvAPTcJX/SCzUQHQ0D1GrPMbrPitg==,
+      }
+
+  "@actions/io@3.0.2":
+    resolution:
+      {
+        integrity: sha512-nRBchcMM+QK1pdjO7/idu86rbJI5YHUKCvKs0KxnSYbVe3F51UfGxuZX4Qy/fWlp6l7gWFwIkrOzN+oUK03kfw==,
+      }
+
   "@adobe/css-tools@4.4.4":
     resolution:
       {
@@ -2356,6 +2389,12 @@ packages:
       }
     hasBin: true
 
+  jose@6.2.12:
+    resolution:
+      {
+        integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==,
+      }
+
   js-tokens@4.0.0:
     resolution:
       {
@@ -2433,6 +2472,18 @@ packages:
         integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==,
       }
     engines: { node: ">= 0.8.0" }
+
+  libsodium-wrappers@0.8.4:
+    resolution:
+      {
+        integrity: sha512-mu8aAWucZjTB5O/BtGXtW4e1agy7uHxNYG7zPthmmD1jU43LCDmSWZLN4JhflbdPXj3yDO4lxM1O9hLDgIOXDw==,
+      }
+
+  libsodium@0.8.4:
+    resolution:
+      {
+        integrity: sha512-lMcYaRi0zcs7tarATsQUYC7rstliIXZuoq0c6zXSgNtSNtdvBgkSegjWhpMJAXzKX3SUSwIp7+zEsob+j3LuRw==,
+      }
 
   lilconfig@3.1.3:
     resolution:
@@ -3277,6 +3328,13 @@ packages:
         integrity: sha512-Y/arvbn+rrz3JCKl9C4kVNfTfSm2/mEp5FSz5EsZSANGPSlQrpRI5M4PKF+mJnE52jOO90PnPSc3Ur3bTQw0gA==,
       }
 
+  tunnel@0.0.6:
+    resolution:
+      {
+        integrity: sha512-1h/Lnq9yajKY2PEbBadPXj3VxsDDu844OnaAo52UVmIzIvwwtBPIuNvkjuzBlTWpfJyUbG3ez0KSBibQkj4ojg==,
+      }
+    engines: { node: ">=0.6.11 <=0.7.0 || >=0.7.3" }
+
   type-check@0.4.0:
     resolution:
       {
@@ -3320,6 +3378,13 @@ packages:
       {
         integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==,
       }
+
+  undici@6.29.0:
+    resolution:
+      {
+        integrity: sha512-R+RODBqp6i2pPflGdq+xIOUkl+RNfGgHwoinecKu/JCuf2uO06cOKoDbI2P7Dn6KcswdKwrczbU6IYJ6K8X+wg==,
+      }
+    engines: { node: ">=18.17" }
 
   universalify@0.2.0:
     resolution:
@@ -3548,6 +3613,22 @@ packages:
     engines: { node: ">=12.20" }
 
 snapshots:
+  "@actions/core@3.0.1":
+    dependencies:
+      "@actions/exec": 3.0.0
+      "@actions/http-client": 4.0.1
+
+  "@actions/exec@3.0.0":
+    dependencies:
+      "@actions/io": 3.0.2
+
+  "@actions/http-client@4.0.1":
+    dependencies:
+      tunnel: 0.0.6
+      undici: 6.29.0
+
+  "@actions/io@3.0.2": {}
+
   "@adobe/css-tools@4.4.4": {}
 
   "@alloc/quick-lru@5.2.0": {}
@@ -4777,6 +4858,8 @@ snapshots:
 
   jiti@1.21.7: {}
 
+  jose@6.2.12: {}
+
   js-tokens@4.0.0: {}
 
   js-tokens@9.0.1: {}
@@ -4831,6 +4914,12 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
+
+  libsodium-wrappers@0.8.4:
+    dependencies:
+      libsodium: 0.8.4
+
+  libsodium@0.8.4: {}
 
   lilconfig@3.1.3: {}
 
@@ -5290,6 +5379,8 @@ snapshots:
 
   ts-interface-checker@0.1.13: {}
 
+  tunnel@0.0.6: {}
+
   type-check@0.4.0:
     dependencies:
       prelude-ls: 1.2.1
@@ -5312,6 +5403,8 @@ snapshots:
   ufo@1.6.4: {}
 
   undici-types@7.18.2: {}
+
+  undici@6.29.0: {}
 
   universalify@0.2.0: {}
 

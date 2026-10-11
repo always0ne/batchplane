@@ -1,9 +1,13 @@
-import type { BatchSchedule } from "@batchplane/domain";
+import type {
+  BatchParameterDefinition,
+  BatchSchedule,
+} from "@batchplane/domain";
 import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../../../../components/Button";
 import type { ScheduleDraft } from "../../batch-change-form";
 import { ScheduleCard } from "./ScheduleCard";
+import type { WorkspaceEncryptionUnavailableReason } from "@batchplane/ui-client";
 
 export function BatchScheduleEditor({
   drafts,
@@ -11,12 +15,18 @@ export function BatchScheduleEditor({
   onRemove,
   onRestore,
   onUpdate,
+  definitions,
+  sensitiveInputsAvailable,
+  sensitiveInputsUnavailableReason,
 }: {
   drafts: ScheduleDraft[];
   onAdd: () => void;
   onRemove: (key: string) => void;
   onRestore: (key: string) => void;
   onUpdate: (key: string, values: BatchSchedule) => void;
+  definitions: BatchParameterDefinition[];
+  sensitiveInputsAvailable: boolean;
+  sensitiveInputsUnavailableReason?: WorkspaceEncryptionUnavailableReason;
 }) {
   const { t } = useTranslation("registration");
 
@@ -53,6 +63,9 @@ export function BatchScheduleEditor({
             onRemove={onRemove}
             onRestore={onRestore}
             onUpdate={onUpdate}
+            definitions={definitions}
+            sensitiveInputsAvailable={sensitiveInputsAvailable}
+            sensitiveInputsUnavailableReason={sensitiveInputsUnavailableReason}
           />
         ))}
       </div>

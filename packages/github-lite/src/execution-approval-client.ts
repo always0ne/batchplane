@@ -53,6 +53,17 @@ import {
 } from "./execution-request-evidence.js";
 import { resolveAutoApproval } from "@batchplane/domain";
 import {
+  getBatchDefinitionPath,
+  parseBatchDefinitionYaml,
+} from "./batch-definition-codec.js";
+import {
+  toNeutralParameterDefinitions,
+  projectParameterSummaries,
+} from "./parameter-storage.js";
+import { loadWorkspaceEncryptionReadiness } from "./workspace-encryption-readiness.js";
+import { requireParameterEncryptionConfiguration } from "./parameter-materialization.js";
+import { hasParameterDelivery } from "./parameter-workflow.js";
+import {
   executionApprovalCapabilityFor,
   executionApprovalNoticeFor,
   executionDecisionAuthorizationFor,
@@ -110,12 +121,31 @@ export function createGitHubLiteExecutionApprovalClient(
           batchId,
         },
       );
+      const snapshot = await loadExecutionParameterSnapshot(
+        context,
+        batch,
+        approvedBatchRevision.verifiedSha,
+      );
+      const readiness = await loadWorkspaceEncryptionReadiness({
+        ...context,
+        ref: approvedBatchRevision.verifiedSha,
+      });
 
       return {
         draft: {
           approvedBatchRevision,
-          batch: toDraftBatch(batch),
-          creationCapability: creationCapabilityFor(batch),
+          batch: toDraftBatch(snapshot.batch),
+          parameters: toNeutralParameterDefinitions(snapshot.batch, {
+            repositoryId: repository.id,
+            batchId: batch.batchId,
+            sourceRevision: approvedBatchRevision.verifiedSha,
+          }),
+          sensitiveInputsAvailable: readiness.available,
+          sensitiveInputsUnavailableReason: readiness.unavailableReason,
+          creationCapability: creationCapabilityFor(
+            snapshot.batch,
+            snapshot.parameterDeliveryAvailable,
+          ),
           requestId: createExecutionRequestId(batch.batchId, requestedAt),
           requestedAt: requestedAt.toISOString(),
           requestedBy: user.login,
@@ -370,18 +400,89 @@ async function buildRequestIssue(
     throw new Error("The authoritative batch definition is unavailable.");
   }
   const user = await context.client.getCurrentUser();
+  const revision = await getApprovedExecutionRevision(context, {
+    batchId: batch.batchId,
+  });
+  if (
+    revision.governedChangeId !==
+      input.draft.approvedBatchRevision.governedChangeId ||
+    revision.targetRevisionDigest !==
+      input.draft.approvedBatchRevision.targetRevisionDigest
+  )
+    throw new Error("PARAMETER_APPROVED_REVISION_CHANGED");
+  const snapshot = await loadExecutionParameterSnapshot(
+    context,
+    batch,
+    revision.verifiedSha,
+  );
+  const capability = creationCapabilityFor(
+    snapshot.batch,
+    snapshot.parameterDeliveryAvailable,
+  );
+  if (!capability.canCreate)
+    throw new ExecutionRequestCreationUnavailableError(
+      capability.unavailableReasons,
+    );
+  const usesSensitiveInput = input.parameters.some(
+    (selection) =>
+      selection.source !== "OMIT" &&
+      snapshot.batch.parameters?.some(
+        (definition) =>
+          definition.name === selection.name && definition.sensitive,
+      ),
+  );
+  const configuration = usesSensitiveInput
+    ? requireParameterEncryptionConfiguration(
+        await loadWorkspaceEncryptionReadiness({
+          ...context,
+          ref: revision.verifiedSha,
+        }),
+      )
+    : undefined;
 
   return buildExecutionRequestIssue({
     approvedBatchRevision: input.draft.approvedBatchRevision,
-    batch,
+    batch: snapshot.batch,
     expiresAt,
     parameters: input.parameters,
+    parameterSourceRevision: revision.verifiedSha,
+    repositoryId: repository.id,
+    encryptionConfiguration: configuration,
     reason: input.reason,
     requestId: input.draft.requestId,
     requestedAt,
     requestedBy: user.login,
     workflowRef: input.targetRevision,
   });
+}
+
+async function loadExecutionParameterSnapshot(
+  context: GitHubRepositoryContext,
+  batch: GitHubBatchDefinition,
+  ref: string,
+) {
+  if (!batch.parameters?.length)
+    return { batch, parameterDeliveryAvailable: true };
+  const [definition, workflow] = await Promise.all([
+    context.client.getFile({
+      ...context.repositoryRef,
+      path: getBatchDefinitionPath(batch.batchId),
+      ref,
+    }),
+    context.client.getFile({
+      ...context.repositoryRef,
+      path: batch.workflow.path,
+      ref,
+    }),
+  ]);
+  if (!definition) throw new Error("PARAMETER_SAVED_SOURCE_UNAVAILABLE");
+  const snapshot = parseBatchDefinitionYaml(definition.content);
+  return {
+    batch: snapshot,
+    parameterDeliveryAvailable: Boolean(
+      workflow && hasParameterDelivery(workflow.content, snapshot),
+    ),
+  };
 }
 
 function projectPreview(
@@ -640,6 +741,13 @@ function projectRequest({
     },
     batchId: request.batchId,
     capability,
+    ...(request.canonicalPayload?.spec.parameters !== undefined
+      ? {
+          parameters: projectParameterSummaries(
+            request.canonicalPayload.spec.parameters,
+          ),
+        }
+      : {}),
     ...(request.dispatcherStatus
       ? { dispatcher: request.dispatcherStatus }
       : {}),
@@ -1033,12 +1141,18 @@ function toDraftBatch(
   };
 }
 
-function creationCapabilityFor(batch: GitHubBatchDefinition) {
+function creationCapabilityFor(
+  batch: GitHubBatchDefinition,
+  parameterDeliveryAvailable = true,
+) {
   const unavailableReasons = [
     ...(batch.status !== "ACTIVE" ? (["BATCH_INACTIVE"] as const) : []),
     ...(!batch.gateRequired ? (["GATE_NOT_REQUIRED"] as const) : []),
     ...(!batch.execution?.command.trim()
       ? (["EXECUTION_COMMAND_UNAVAILABLE"] as const)
+      : []),
+    ...(batch.parameters?.length && !parameterDeliveryAvailable
+      ? (["PARAMETER_WORKFLOW_UPDATE_REQUIRED"] as const)
       : []),
   ];
 

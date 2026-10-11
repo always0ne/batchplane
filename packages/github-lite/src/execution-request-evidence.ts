@@ -3,14 +3,21 @@ import {
   type ExecutionRequest,
   type ExecutionTriggerType,
   type WorkspaceApprovalMode,
+  type ParameterSelection,
 } from "@batchplane/domain";
 import {
-  createParameterDigest,
+  createExactCanonicalDigest,
   createRequestDigest,
   type CanonicalValue,
 } from "@batchplane/digest";
 
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import type { WorkspaceEncryptionConfiguration } from "./parameter-encryption.js";
+import type { GitHubCanonicalParameters } from "./parameter-storage.js";
+import {
+  materializeRequestParameters,
+  validateApprovedParameters,
+} from "./parameter-materialization.js";
 
 /** Native GitHub schedule evidence bound into a canonical request payload. */
 export type ScheduleOccurrenceRef = {
@@ -44,11 +51,15 @@ export type ExecutionRequestPayload = {
       gateRequired: boolean;
     };
     expiresAt?: string;
-    parameters?: Record<
-      string,
-      | { sensitive?: false; value: string }
-      | { sensitive: true; valueDigest: string }
-    >;
+    parameters?:
+      | Record<
+          string,
+          | { sensitive?: false; value: string }
+          | { sensitive: true; valueDigest: string }
+        >
+      | GitHubCanonicalParameters;
+    parameterContractVersion?: "PARAMETER_DELIVERY_V1";
+    parameterSourceRevision?: string;
     reason?: string;
     requestedAt: string;
     requestedBy: string;
@@ -58,11 +69,16 @@ export type ExecutionRequestPayload = {
   };
 };
 
-export type ExecutionRequestParameterInput = {
-  name: string;
-  sensitive: boolean;
-  value: string;
-};
+export type ExecutionRequestParameterInput = ParameterSelection;
+
+/** Keep historical evidence unchanged; parameter delivery signs exact input strings. */
+export function createExecutionRequestDigest(payload: ExecutionRequestPayload) {
+  const value = payload as unknown as CanonicalValue;
+  if (payload.spec.parameterContractVersion === "PARAMETER_DELIVERY_V1") {
+    return createExactCanonicalDigest(value);
+  }
+  return createRequestDigest(value);
+}
 
 export type ExecutionRequestIssue = {
   body: string;
@@ -80,6 +96,10 @@ export type BuildExecutionRequestIssueParams = {
   batch: GitHubBatchDefinition;
   expiresAt?: Date;
   parameters?: ExecutionRequestParameterInput[];
+  parameterPayload?: GitHubCanonicalParameters;
+  parameterSourceRevision?: string;
+  repositoryId?: string;
+  encryptionConfiguration?: WorkspaceEncryptionConfiguration | null;
   reason?: string;
   requestId?: string;
   requestedAt: Date;
@@ -128,6 +148,10 @@ export async function buildExecutionRequestIssue({
   batch,
   expiresAt,
   parameters = [],
+  parameterPayload: suppliedParameterPayload,
+  parameterSourceRevision,
+  repositoryId = "",
+  encryptionConfiguration,
   reason = "Manual request from BatchPlane Lite.",
   requestId,
   requestedAt,
@@ -159,7 +183,17 @@ export async function buildExecutionRequestIssue({
 
   const requestedAtIso = requestedAt.toISOString();
   const expiresAtIso = expiresAt?.toISOString();
-  const parameterPayload = await buildParameterPayload(parameters);
+  const parameterPayload =
+    suppliedParameterPayload ??
+    (await materializeRequestParameters(batch, parameters, effectiveRequestId, {
+      repositoryId,
+      batchId: batch.batchId,
+      sourceRevision: parameterSourceRevision ?? "",
+      configuration: encryptionConfiguration,
+    }));
+  const hasParameters = Boolean(
+    batch.parameters?.length || Object.keys(parameterPayload).length,
+  );
   const payload: ExecutionRequestPayload = {
     apiVersion: batchPlaneApiVersion,
     kind: "ExecutionRequest",
@@ -193,7 +227,13 @@ export async function buildExecutionRequestIssue({
       ...(triggerType === "SCHEDULE"
         ? { contractVersion: "NATIVE_SCHEDULE_V2" as const }
         : {}),
-      ...(parameterPayload ? { parameters: parameterPayload } : {}),
+      ...(hasParameters
+        ? {
+            parameters: parameterPayload,
+            parameterContractVersion: "PARAMETER_DELIVERY_V1" as const,
+            parameterSourceRevision,
+          }
+        : {}),
       reason,
       requestedAt: requestedAtIso,
       requestedBy,
@@ -205,9 +245,8 @@ export async function buildExecutionRequestIssue({
       ...(schedule ? { schedule } : {}),
     },
   };
-  const requestDigest = await createRequestDigest(
-    payload as unknown as CanonicalValue,
-  );
+  validateApprovedParameters(payload, batch, parameterSourceRevision ?? "");
+  const requestDigest = await createExecutionRequestDigest(payload);
   const request: ExecutionRequest = {
     approvedBatchRevision: payload.spec.approvedBatchRevision,
     batchId: batch.batchId,
@@ -316,30 +355,6 @@ export function buildExecutionApprovalComment({
       : []),
     "-->",
   ].join("\n");
-}
-
-async function buildParameterPayload(
-  parameters: ExecutionRequestParameterInput[],
-): Promise<ExecutionRequestPayload["spec"]["parameters"] | undefined> {
-  const entries = await Promise.all(
-    parameters.map(async ({ name, sensitive, value }) => {
-      const key = name.trim();
-      if (!key) return undefined;
-      return sensitive
-        ? ([
-            key,
-            {
-              sensitive: true as const,
-              valueDigest: await createParameterDigest({ [key]: value }),
-            },
-          ] as const)
-        : ([key, { value }] as const);
-    }),
-  );
-  const present = entries.filter((entry): entry is NonNullable<typeof entry> =>
-    Boolean(entry),
-  );
-  return present.length ? Object.fromEntries(present) : undefined;
 }
 
 function buildExecutionRequestBody(

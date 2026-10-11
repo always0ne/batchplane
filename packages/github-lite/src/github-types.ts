@@ -8,9 +8,21 @@ export type GitHubUser = {
 };
 
 export type GitHubRepository = RepoRef & {
+  id: string;
   defaultBranch: string;
   private: boolean;
   url: string;
+};
+
+export type GitHubActionsSecretPublicKey = {
+  keyId: string;
+  key: string;
+};
+
+export type GitHubActionsSecretMetadata = {
+  name: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type GitHubFile = {
@@ -225,6 +237,8 @@ export type GitHubMockFile = GitHubFile & {
 };
 
 export type GitHubLiteMockState = {
+  actionsSecretPublicKey: GitHubActionsSecretPublicKey;
+  actionsSecrets: GitHubActionsSecretMetadata[];
   currentUser: GitHubUser;
   repository: GitHubRepository;
   branches: Record<string, string>;
@@ -343,6 +357,15 @@ export type GetWorkflowJobLogParams = RepoRef & {
 };
 
 export type GitHubLiteClient = {
+  getActionsSecretPublicKey(
+    params: RepoRef,
+  ): Promise<GitHubActionsSecretPublicKey>;
+  getActionsSecret(
+    params: RepoRef & { name: string },
+  ): Promise<GitHubActionsSecretMetadata | null>;
+  putActionsSecret(
+    params: RepoRef & { name: string; encryptedValue: string; keyId: string },
+  ): Promise<void>;
   getCurrentUser(): Promise<GitHubUser>;
   getRepository(params: RepoRef): Promise<GitHubRepository>;
   getFile(

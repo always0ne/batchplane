@@ -5,6 +5,7 @@ import {
   createExecutionRequestId,
   createScheduledExecutionRequestId,
 } from "./execution-request-evidence.js";
+import { generateParameterEncryptionKey } from "./parameter-encryption.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
 const batch: GitHubBatchDefinition = {
@@ -109,24 +110,34 @@ describe("execution request issue serialization", () => {
   };
 
   it("builds an auditable GitHub issue body", async () => {
+    const { configuration } = await generateParameterEncryptionKey();
     const issue = await buildExecutionRequestIssue({
       approvedBatchRevision: {
         governedChangeId: "bgc-20260509-payment.daily-close-approved",
         targetRevisionDigest:
           "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
       },
-      batch,
+      batch: {
+        ...batch,
+        parameters: [
+          { name: "cycleDate", required: true, sensitive: false },
+          { name: "apiToken", required: true, sensitive: true },
+        ],
+      },
+      parameterSourceRevision: "approved-merge-sha",
+      repositoryId: "123",
+      encryptionConfiguration: configuration,
       expiresAt: new Date("2026-05-09T02:02:03.000Z"),
       parameters: [
         {
           name: "cycleDate",
-          sensitive: false,
-          value: "2026-05-09",
+          source: "VALUE",
+          value: { kind: "VALUE", value: "2026-05-09" },
         },
         {
           name: "apiToken",
-          sensitive: true,
-          value: "super-secret-token",
+          source: "VALUE",
+          value: { kind: "VALUE", value: "super-secret-token" },
         },
       ],
       requestId: "btr-20260509010203-payment.daily-close-abcdef12",
@@ -157,7 +168,14 @@ describe("execution request issue serialization", () => {
     expect(issue.body).toContain('"cycleDate"');
     expect(issue.body).toContain('"value": "2026-05-09"');
     expect(issue.body).toContain('"apiToken"');
-    expect(issue.body).toContain('"valueDigest": "sha256:');
+    expect(issue.body).toContain('"encrypted": {');
+    expect(issue.body).not.toContain('"valueDigest"');
+    expect(issue.payload.spec.parameters?.apiToken).toMatchObject({
+      sensitive: true,
+      source: {
+        origin: { type: "REQUEST_VALUE", requestId: issue.request.requestId },
+      },
+    });
     expect(issue.body).not.toContain("super-secret-token");
   });
 

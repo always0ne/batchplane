@@ -7,6 +7,11 @@ approval surface, dispatcher runtime, and audit trail. The React/Vite UI is
 static; it does not run a BatchPlane server. In Lite, the Workspace is backed by
 one target GitHub repository.
 
+The approved #212 [execution-parameter contract](./approved-execution-parameters.md)
+is `IMPLEMENTED_PENDING_VALIDATION` during integration. The setup/input steps
+below describe its approved behavior, not a completed live check. Actual GitHub
+key upload, command delivery and numeric limits remain `NOT_TESTED`.
+
 This guide covers the first complete Lite path:
 
 1. Prepare a target GitHub repository for the Workspace.
@@ -43,6 +48,15 @@ Required repository permissions:
 - `Issues`: read and write
 - `Pull requests`: read and write
 - `Metadata`: read-only
+
+For **sensitive-value submission**, additionally grant repository `Secrets`:
+read-only to inspect `BATCHPLANE_INPUT_KEY` metadata. The ordinary requester does
+not need Secrets-write access or the private key. For **initial administrator
+setup**, grant repository `Secrets`: read and write for the matching private-key
+upload, alongside the existing PR permissions. Ordinary-only/parameter-free
+submission does not require this additional encryption permission/setup.
+See GitHub's [metadata read](https://docs.github.com/en/rest/actions/secrets#get-a-repository-secret)
+and [upload permission](https://docs.github.com/en/rest/actions/secrets#create-or-update-a-repository-secret).
 
 Why each permission is needed:
 
@@ -136,6 +150,38 @@ For a quick target-repository skeleton, copy
 The Workspace installation PR flow is still the preferred production-like path
 because it leaves native pull-request review evidence.
 
+## Initialize Sensitive Input Encryption
+
+Only the Workspace administrator initializes encryption, in one setup session.
+Do not manually register one Secret per parameter.
+
+1. Check connection and installation. In Workspace, inspect encryption settings
+   and existing setup-request/Secret metadata before choosing initialization.
+2. The app generates a transient RSA pair and first creates a public-config PR
+   for `.batch-governance/parameter-encryption.yml`. Keep the created request link.
+3. The same connected product-client setup session uploads that pair's private
+   PKCS#8 as the one `BATCHPLANE_INPUT_KEY` Actions Secret. The public PR follows
+   normal approval/merge; it never contains the private key.
+4. Refresh after application. Public config must be applied and Secret metadata
+   must be PRESENT for submission readiness. ABSENT or UNKNOWN/unreadable metadata
+   blocks sensitive-value submission with a reason; ordinary-only use is unaffected.
+   Presence is not cryptographic key-pair or live runner proof.
+5. If upload fails, keep the PR link and retry with the retained pair in the
+   same connected client session. Reconnect must not regenerate/overwrite keys.
+   If transient private material is lost, report incomplete setup for explicit
+   administrator resolution; do not claim recovery or completion.
+
+The app rechecks Secret presence and coalesces same-client initialization, without
+knowingly overwriting an existing key. GitHub Secret PUT is an upsert, not atomic
+create-if-absent: two simultaneous administrators are not mutually excluded.
+Use one administrator session; no new lock/recovery subsystem is included.
+
+Private material is never stored in browser storage, repository files or logs.
+Setup metadata/upload evidence is separate from the first separately authorized
+approved runtime decryption. No extra verification workflow or saved-value reveal
+is provided. See the [complete contract](./approved-execution-parameters.md) and
+[QA-L06 procedure](./user-qa.md#qa-l06-approved-parameters-become-actual-business-command-inputs).
+
 ## Workspace Policy
 
 Workspace approval mode is stored in:
@@ -195,6 +241,15 @@ Required operator decisions:
 - Batch command
 - optional execution file
 - optional schedules
+- parameter definitions: exact name, required/sensitive flags and optional default
+
+Names follow `^[A-Za-z_][A-Za-z0-9_]*$` without trim/case conversion; exact/case-only
+duplicates are rejected. Values are literal strings, including empty, whitespace,
+Unicode and newlines; NUL is rejected. Sensitive defaults are encrypted and saved
+values are opaque references, not revealable plaintext. For each schedule select
+the Batch default, an explicit value, or omission for an optional definition.
+Definitions, defaults, schedule selections and the generated workflow share the
+same registration/change request.
 
 Registration creates a pull request with:
 
@@ -210,13 +265,23 @@ the batch job depends on the Gate job.
 Approve and merge the registration PR from the approvals inbox. After merge,
 refresh Batches; the batch is read from the target repository.
 
+Existing parameter-free Batches keep their execution path. To add parameters,
+use the Batch change flow so definition and workflow are updated together.
+A shared Workspace workflow update alone does not upgrade each Batch. If semantic
+input-delivery support is missing, parameter execution is blocked with a change
+link; do not repair it by direct workflow edits.
+
 ## Request Execution
 
 Manual execution starts from an active registered batch.
 
 1. Choose `Request run`.
 2. Review the batch context, workflow, runner, command, and request reason.
-3. Create the execution request.
+3. For each approved definition select `DEFAULT`, `VALUE`, or optional `OMIT`.
+   Required means present: explicit `""` is accepted and never selects a default.
+   `OMIT` creates no variable, unlike explicit empty. Saved sensitive defaults
+   can be reused without revealing them; a mask is never submitted as a value.
+4. Create the execution request.
 
 The UI creates a GitHub Issue containing:
 
@@ -276,8 +341,13 @@ The target workflow runs `batchplane-gate` before the batch job. Gate verifies:
 - direct UI reruns are not being used as a new authorization
 - repository role mapping and Workspace self-approval policy allow the approval
 
-If Gate passes, the `run-batch` job executes the Batch command. If Gate fails,
-the Batch command does not run.
+If Gate passes, a parameterized `run-batch` job prepares the same approved inputs
+before the existing native command. The Gate companion input-preparation Action
+reuses authorization, decrypts and masks before same-job `environment` output.
+Only `Run batch.env` binds `fromJSON(steps.prepare.outputs.environment)` to
+`BATCHPLANE_PARAM_<exact name>`. The private key is preparation-only; no launcher,
+`GITHUB_ENV` or extra workflow/job is added. If Gate/preparation fails or output
+is missing, the command must not run; no empty-map fallback is permitted.
 
 ## Gate Blocked Behavior
 
@@ -299,6 +369,11 @@ The execution run list and run detail should distinguish Gate blocked runs from
 business failures. Business failures occur only after Gate allowed execution and
 the downstream Batch command failed.
 
+For input-preparation denial, show BLOCKED only with verified correlated evidence
+that the command did not start. Missing/unreadable evidence stays UNCONFIRMED,
+not a business failure. Old hash-only sensitive requests remain readable but need
+a replacement request for execution, never post-approval plaintext injection.
+
 ## Schedule Notes
 
 Schedules are stored inside the owning batch definition and approved through
@@ -312,6 +387,12 @@ Each observed native Run records a schedule-specific execution request, Gate
 decision, business execution and result in the same workflow. The approved
 Batch revision is its authorization; there is no per-occurrence approval
 comment or second dispatched Run. Scheduled requests do not wait in approvals.
+
+Each schedule uses its approved definition-based default/explicit/omit choices;
+the occurrence records frozen values and source merge SHA. Two schedules can use
+different ordinary or encrypted sensitive values. Later default changes do not
+rewrite existing requests. BatchPlane does not compute business dates or evaluate
+input expressions in #212.
 
 Full and partial native reruns are blocked before the command. Separate native
 Runs are not deduplicated by an inferred nominal scheduled time. Delay is
@@ -333,8 +414,11 @@ simple, but it also means these limitations are part of the design:
   attempting direct `workflow_dispatch`; Gate is the enforcement point.
 - The browser token is available to the running page. Use trusted builds and
   least-privilege fine-grained tokens.
-- Lite has no server-side secret vault. Do not write sensitive parameter values
-  to Issues, pull requests, YAML, or logs.
+- Lite has no server-side secret vault. Sensitive plaintext must not be written
+  to Issues, PRs, YAML or logs; approved values use authenticated JWE ciphertext.
+  Mask plaintext and JSON-escaped form before output. Same-job outputs use runner
+  files, not encrypted/memory-only delivery; batch code and workflow/runner admins
+  can expose/transform values. The private key stays preparation-only.
 - Job logs are fetched on demand and treated as transient operator evidence.
   They may contain large text or masked secrets from GitHub Actions.
 - GitHub API and Actions visibility may lag. Immediate UI handoff evidence
@@ -346,6 +430,12 @@ simple, but it also means these limitations are part of the design:
   production use.
 
 ## Verification Checklist
+
+Record actual results separately; these items are not already passed. Preserve
+drafts on provider rejection without truncation. Numeric payload/runtime bounds
+need authorized actual-provider evidence. The existing Bash trap path does not
+establish Windows support. The parent owns complete CI/browser checks; see QA-L06
+for local versus live acceptance and preservation of prior QA run records.
 
 - Workspace connection succeeds.
 - Installation status shows all required files present.

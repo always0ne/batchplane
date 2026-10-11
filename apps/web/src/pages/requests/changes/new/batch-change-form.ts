@@ -65,6 +65,9 @@ export function toBatchChangeDraft({
   scheduleDrafts,
   targetBatchId,
   values,
+  parameters,
+  sensitiveInputsAvailable,
+  sensitiveInputsUnavailableReason,
 }: {
   execution: GitHubActionsExecutionSettings;
   changeRequestId: string;
@@ -72,12 +75,22 @@ export function toBatchChangeDraft({
   scheduleDrafts: ScheduleDraft[];
   targetBatchId?: string;
   values: BatchChangeFormValues;
+  parameters?: BatchChangeDraft["parameters"];
+  sensitiveInputsAvailable?: boolean;
+  sensitiveInputsUnavailableReason?: BatchChangeDraft["sensitiveInputsUnavailableReason"];
 }): BatchChangeDraft {
   return {
     batch: normalizeBatchValues(values),
     execution: normalizeExecution(execution),
     changeRequestId,
     mode,
+    ...(parameters !== undefined ? { parameters } : {}),
+    ...(sensitiveInputsAvailable !== undefined
+      ? { sensitiveInputsAvailable }
+      : {}),
+    ...(sensitiveInputsUnavailableReason !== undefined
+      ? { sensitiveInputsUnavailableReason }
+      : {}),
     schedules: scheduleDrafts
       .filter((schedule) => schedule.status === "active")
       .map((schedule) => normalizeSchedule(schedule.values)),

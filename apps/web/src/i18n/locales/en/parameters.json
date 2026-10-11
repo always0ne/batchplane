@@ -1,0 +1,47 @@
+{
+  "title": "Parameters",
+  "definitions": "Parameter definitions",
+  "empty": "No parameters defined.",
+  "add": "Add parameter",
+  "remove": "Remove parameter",
+  "name": "Name",
+  "required": "Required",
+  "optional": "Optional",
+  "sensitive": "Sensitive",
+  "ordinary": "Ordinary",
+  "hasDefault": "Set a default value",
+  "defaultValue": "Default value",
+  "noDefault": "No default value",
+  "protected": "Protected value",
+  "emptyValue": "Empty string",
+  "valueUnavailable": "Value unavailable",
+  "value": "Value for {{name}}",
+  "source": "Source for {{name}}",
+  "sources": {
+    "DEFAULT": "Use batch default",
+    "VALUE": "Specify a value",
+    "OMIT": "Omit"
+  },
+  "show": "Show entered value",
+  "hide": "Hide entered value",
+  "savedSensitiveCaution": "Saved sensitive values cannot be revealed again.",
+  "replace": "Replace protected value",
+  "notReady": "Sensitive input is unavailable. Check Workspace setup and access.",
+  "workspace": "Open Workspace",
+  "unavailableReasons": {
+    "NOT_CONFIGURED": "Workspace sensitive input setup is not configured.",
+    "KEY_NOT_REGISTERED": "The Workspace protection key is not registered.",
+    "STATUS_UNAVAILABLE": "Workspace sensitive input readiness could not be verified. Check access and try again.",
+    "INVALID_CONFIGURATION": "Workspace sensitive input configuration is invalid."
+  },
+  "workflowUpdate": "The batch needs an update before parameters can be delivered.",
+  "updateBatch": "Request batch update",
+  "validation": {
+    "PARAMETER_NAME_INVALID": "Use a name starting with a letter or underscore, followed by letters, digits or underscores.",
+    "PARAMETER_NAME_DUPLICATED": "Parameter names must be unique, including letter case.",
+    "PARAMETER_NUL_UNSUPPORTED": "Parameter values cannot contain a NUL character.",
+    "DEFAULT_REQUIRED": "Select a supplied value for {{name}}; no default is available.",
+    "REQUIRED": "A value is required for {{name}}.",
+    "SENSITIVE_UNAVAILABLE": "Workspace readiness must be verified to use a sensitive value for {{name}}."
+  }
+}

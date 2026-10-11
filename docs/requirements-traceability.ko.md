@@ -24,6 +24,11 @@ QA 참조는 [한글 QA 시트](./user-qa.ko.md)로 이어진다. 준비 상태�
 아니며 [결과 양식](./qa-result-template.ko.md)은 모든 사례를 NOT_TESTED로 시작한다.
 Main·플랫폼 설계 행은 현재 클릭해 사용할 수 있는 기능이 아니다.
 
+2026-10-11 승인된 #212 [실행 파라미터 계약](./approved-execution-parameters.ko.md)은
+소스 검토·전체 로컬 검사·한영 desktop/mobile 브라우저 검증 후 `AVAILABLE`이다.
+실제 플랫폼 키 업로드·
+전달·수치 한계는 `NOT_TESTED`다. 위 과거 기준선을 보완하며 그 결과를 소급 변경하지 않는다.
+
 ## 제품 요구사항
 
 | 요구사항 ID              | 관찰 가능한 범위                                            | 작업 / 시점                                  | 준비 상태                                                  | QA                                                                     |
@@ -36,10 +41,10 @@ Main·플랫폼 설계 행은 현재 클릭해 사용할 수 있는 기능이 �
 | CP-BAT-007..CP-BAT-008   | 유효 형상·이력·삭제 이후 연속성                             | 기존 Lite; #226/#228/#229                    | 존재, 이력 조회 결함                                       | QA-L02, QA-L04, QA-L12, QA-L14, QA-M04                                 |
 | CP-CHG-001..CP-CHG-009   | 통제 변경·실제 diff·낡은 승인·native 반영 결과              | 기존 Lite; #223/#228/#231                    | Lite 존재, Main 예정                                       | QA-L02, QA-L03, QA-L04, QA-L09, QA-M04, QA-P02                         |
 | CP-APR-001..CP-APR-010   | 제품 권한·유효 정책·기본/완화 모드·결정 증적                | #223 이후 #227/#228                          | Lite 보정 구현, 사용자·실제 플랫폼 QA 대기, Main 설계 필요 | QA-L01, QA-L05, QA-L09, QA-L13, QA-M01, QA-M02                         |
-| CP-EXE-001..CP-EXE-004   | 정확한 수동 입력·권한·안전한 비밀 처리·트리거 맥락          | 기존 Lite; #212/#228                         | 요청 존재, 종단 입력 결함                                  | QA-L05, QA-L06, QA-L07, QA-M02                                         |
+| CP-EXE-001..CP-EXE-004   | 정확한 수동 입력·권한·안전한 비밀 처리·트리거 맥락          | 기존 Lite; 승인 #212/#228                    | #212 AVAILABLE; 실제 플랫폼 NOT_TESTED                     | QA-L05, QA-L06, QA-L07, QA-M02                                         |
 | CP-EXE-005..CP-EXE-006   | 범위가 제한된 Main 실행 허용                                | #227/#228                                    | 설계 필요, permit 표현 미확정                              | QA-M01, QA-M02, QA-P01                                                 |
 | CP-EXE-007..CP-EXE-008   | 재실행 권한 재사용 금지, 확인된 전달 실패 시 종결           | #224; native 검증 #202; Main #228            | native 검사 존재, 실패 요청 재시도 불일치 대기             | QA-L08, QA-L10, QA-M02                                                 |
-| CP-EXE-009               | 승인 값이 실제 명령에 도달                                  | Main 전 #212; #228/#231                      | 알려진 결함                                                | QA-L06, QA-M02, QA-P01                                                 |
+| CP-EXE-009               | 승인 값이 실제 명령에 도달                                  | Main 전 승인 #212; #228/#231                 | AVAILABLE; 실제 전달 NOT_TESTED                            | QA-L06, QA-M02, QA-P01                                                 |
 | CP-EXE-010               | 만료·종결 실패가 유효 후속 작업을 허용                      | #224                                         | 보정 예정                                                  | QA-L10                                                                 |
 | CP-EXE-011..CP-EXE-012   | 승인 후 철회, 실제 대기/실행 중 취소                        | Lite 수용 전 #225; #227/#228/#231            | 상세 권한/UX 필요                                          | QA-L11, QA-L17, QA-M02, QA-P01                                         |
 | CP-EXE-013               | 취소와 독립적인 관찰 보정                                   | Main 첫 흐름 #228; #231                      | 예정, Lite 추가 시점 별도                                  | QA-M03, QA-P01                                                         |
@@ -78,7 +83,7 @@ Main·플랫폼 설계 행은 현재 클릭해 사용할 수 있는 기능이 �
 | [PR #192](https://github.com/always0ne/batchplane/pull/192) | M0-A, 1단계                      | 정합화 문서. 신규 제품 구현 없음                                                                        |
 | [#232](https://github.com/always0ne/batchplane/issues/232)  | M1, 1단계 및 변경마다 유지       | 추적표·QA 시트/결과 양식·영향 선택. 사용자 QA 완료가 아님                                               |
 | [#223](https://github.com/always0ne/batchplane/issues/223)  | M0-R, 2a                         | 화면·명령·Gate 정책과 결합 증적 보정, BF-7 후속 페이지 조회 구현, QA-L05 사용자·실제 플랫폼 재검증 대기 |
-| [#212](https://github.com/always0ne/batchplane/issues/212)  | M0-R, 2b                         | QA-L06 실제 승인 런타임 값                                                                              |
+| [#212](https://github.com/always0ne/batchplane/issues/212)  | M0-R, 2b                         | 구현·로컬 검증 완료, 사용자/플랫폼 수용 대기. QA-L06 실제 플랫폼 전달/한계 NOT_TESTED                   |
 | [#224](https://github.com/always0ne/batchplane/issues/224)  | M0-R, 2c                         | QA-L10 종결/새 요청 동작                                                                                |
 | [#225](https://github.com/always0ne/batchplane/issues/225)  | M0-R, 2d                         | UI 상태뿐 아닌 QA-L11 실제 취소                                                                         |
 | [#206](https://github.com/always0ne/batchplane/issues/206)  | M0-R, 3                          | QA-L16과 BF-3                                                                                           |
@@ -97,6 +102,17 @@ Main·플랫폼 설계 행은 현재 클릭해 사용할 수 있는 기능이 �
 | [#68](https://github.com/always0ne/batchplane/issues/68)    | M0-S, 첫 외부 릴리스             | QA-R01 실제 지원에 맞는 사용·기여 안내                                                                  |
 
 ## 추적 범위 유지
+
+#212는 CP-EXE-001..CP-EXE-004/CP-EXE-009를 직접 바꾸며 기존 Workspace/플랫폼,
+배치/변경, 승인, 스케줄/Gate, 결과/로그, UI 요구와 연결된다. QA-L01-L03,
+QA-L05-L09, QA-L12, QA-L15, QA-L18을 재검증한다. 키 설정·부분 성공/재연결,
+정의+workflow diff, 정책에 결합된 확정 입력, native 스케줄 값, 직접/재실행 차단,
+출처 변경, 증거 기반 준비 결과, 로그 마스킹, 요청 인계, 양 언어/모바일 입력
+컨트롤이 영향 범위다. [QA-L06](./user-qa.ko.md#qa-l06-승인된-파라미터가-실제-업무-명령의-입력이-된다)에
+실용 절차와 로컬/별도 승인 실환경 구분이 있다. 연결 사례의 기존 사용 가능 상태가
+새 #212 경로 통과를 뜻하지 않는다. 신규 경로는 사용자 QA 가능 상태이며 실제 플랫폼 결과는 NOT_TESTED다.
+기존 버전/회차 결과를 보존하고 영향받은 PASS는 새 결과 회차에 `RETEST_REQUIRED`로
+기록한다. 문서 검사로 #212·#202·#119·릴리스 마일스톤을 완료하지 않는다.
 
 #223 변경은 QA-L05와 연결 흐름인 QA-L01, QA-L09, QA-L15, QA-L18에 영향을 준다.
 #226 실행·감사·내처리함 이력 조회, #202 실제 스케줄 검증, #232 사용자 수용을

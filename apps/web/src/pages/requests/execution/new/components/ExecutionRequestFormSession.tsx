@@ -14,6 +14,10 @@ import {
 import { BatchRequestContext } from "./BatchRequestContext";
 import { ExecutionRequestForm } from "./ExecutionRequestForm";
 import { ExecutionRequestReview } from "./ExecutionRequestReview";
+import {
+  initialParameterSelection,
+  parameterSelectionProblems,
+} from "../../../parameters/parameter-selections";
 
 export function ExecutionRequestFormSession({
   draft,
@@ -24,28 +28,34 @@ export function ExecutionRequestFormSession({
   const navigate = useNavigate();
   const [formValues, setFormValues] = useState<ExecutionRequestFormValues>({
     expiresInHours: "1",
-    parameters: [],
+    parameters: (draft.parameters ?? []).map(initialParameterSelection),
     reason: t("form.defaultReason"),
     targetRevision: draft.batch.executionTarget?.targetRevision ?? "",
   });
   const validationErrors = useMemo(
     () => [
-      ...draft.creationCapability.unavailableReasons.map((reason) =>
-        t(`validation.readiness.${reason}`),
-      ),
+      ...draft.creationCapability.unavailableReasons
+        .filter((reason) => reason !== "PARAMETER_WORKFLOW_UPDATE_REQUIRED")
+        .map((reason) => t(`validation.readiness.${reason}`)),
       ...validateForm(formValues, t),
     ],
-    [draft.creationCapability.unavailableReasons, formValues, t],
+    [draft, formValues, t],
   );
+  const parameterProblems = parameterSelectionProblems(
+    draft.parameters ?? [],
+    formValues.parameters,
+    draft.sensitiveInputsAvailable === true,
+    { requireSensitiveReadiness: true },
+  );
+  const isReady =
+    draft.creationCapability.canCreate &&
+    validationErrors.length === 0 &&
+    parameterProblems.length === 0;
   const input = useMemo(
     () => ({
       draft,
       expiresAt: addHours(draft.requestedAt, Number(formValues.expiresInHours)),
-      parameters: formValues.parameters.map(({ name, sensitive, value }) => ({
-        name,
-        sensitive,
-        value,
-      })),
+      parameters: formValues.parameters,
       reason: formValues.reason,
       targetRevision: formValues.targetRevision,
     }),
@@ -53,8 +63,7 @@ export function ExecutionRequestFormSession({
   );
   const previewState = useExecutionRequestPreview({
     input,
-    isReady:
-      draft.creationCapability.canCreate && validationErrors.length === 0,
+    isReady,
   });
   const { state: submitState, submit } = useExecutionRequestSubmission(
     draft.requestId,
@@ -63,7 +72,7 @@ export function ExecutionRequestFormSession({
   async function submitExecutionRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (previewState.type !== "ready") return;
+    if (!isReady || previewState.type !== "ready") return;
     const result = await submit(input);
     if (!result) return;
     navigate(
@@ -87,7 +96,9 @@ export function ExecutionRequestFormSession({
   }
 
   const canSubmit =
-    previewState.type === "ready" && submitState.type !== "submitting";
+    isReady &&
+    previewState.type === "ready" &&
+    submitState.type !== "submitting";
 
   return (
     <section>
@@ -102,6 +113,7 @@ export function ExecutionRequestFormSession({
         <div className="min-w-0 space-y-4">
           <BatchRequestContext batch={draft.batch} />
           <ExecutionRequestForm
+            draft={draft}
             formValues={formValues}
             onChange={setFormValues}
             submitState={submitState}

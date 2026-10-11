@@ -11,6 +11,12 @@ import {
 
 import type { ExecutionRequestPayload } from "./execution-request-evidence.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import {
+  assertStoredParameterDefinitions,
+  assertStoredScheduleParameters,
+  type GitHubBatchParameterDefinition,
+  type GitHubScheduleParameterSelection,
+} from "./parameter-storage.js";
 
 export { batchPlaneApiVersion, legacyBatchPlaneApiVersion };
 
@@ -78,12 +84,14 @@ export type BatchDefinitionFile = {
     };
     gateRequired: true;
     owner: string;
+    parameters?: GitHubBatchParameterDefinition[];
     schedules?: Array<{
       cron: string;
       enabled: boolean;
       id: string;
       name: string;
       timezone: string;
+      parameters?: GitHubScheduleParameterSelection[];
     }>;
     status: BatchStatus;
     workflow: { path: string; ref: string };
@@ -164,6 +172,21 @@ export function validateBatchDefinition(
   validateExecution(record.execution, diagnostics);
   validateStringArray(record.labels, "labels", diagnostics, false);
   validateSchedules(record.schedules, "schedules", diagnostics);
+  try {
+    assertStoredParameterDefinitions(record.parameters);
+    if (record.schedules === undefined || Array.isArray(record.schedules)) {
+      assertStoredScheduleParameters({
+        parameters: record.parameters,
+        schedules: record.schedules,
+      } as Pick<GitHubBatchDefinition, "parameters" | "schedules">);
+    }
+  } catch (error) {
+    const code =
+      error instanceof Error && error.message.startsWith("PARAMETER_")
+        ? error.message
+        : "PARAMETER_DEFINITION_INVALID";
+    diagnostics.push(problem(code, "parameters", code));
+  }
   return diagnostics;
 }
 
@@ -190,6 +213,7 @@ export function validateBatchDefinitionFile(
             name: item.name,
             scheduleId: item.id,
             timezone: item.timezone,
+            parameters: item.parameters,
           };
         })
       : undefined;
@@ -204,6 +228,7 @@ export function validateBatchDefinitionFile(
         labels: metadata.labels,
         name: metadata.name,
         owner: spec.owner,
+        parameters: spec.parameters,
         schedules,
         status: spec.status,
         workflow: spec.workflow,
@@ -232,6 +257,9 @@ export function batchDefinitionFromFile(
     ...(file.metadata.labels ? { labels: file.metadata.labels } : {}),
     name: file.metadata.name,
     owner: file.spec.owner,
+    ...(file.spec.parameters !== undefined
+      ? { parameters: file.spec.parameters }
+      : {}),
     ...(file.spec.schedules
       ? {
           schedules: file.spec.schedules.map((schedule) => ({
@@ -240,6 +268,9 @@ export function batchDefinitionFromFile(
             name: schedule.name,
             scheduleId: schedule.id,
             timezone: schedule.timezone,
+            ...(schedule.parameters !== undefined
+              ? { parameters: schedule.parameters }
+              : {}),
           })),
         }
       : {}),

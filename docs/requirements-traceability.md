@@ -27,6 +27,13 @@ state is not a test result; the [result template](./qa-result-template.md)
 starts every case NOT_TESTED. Main and provider-design rows are not clickable
 current features.
 
+The 2026-10-11 approved #212
+[execution-parameter contract](./approved-execution-parameters.md) is
+`AVAILABLE` after source review, full local checks and EN/KO desktop/mobile
+browser review. Actual-provider key upload,
+delivery and numeric limits remain `NOT_TESTED`. This supplements the historical
+baseline above, not a retrospective change to its results.
+
 ## Product Requirements
 
 | Requirement IDs          | Observable scope                                                                                | Work / timing                                                          | Readiness                                                                    | QA                                                                     |
@@ -39,10 +46,10 @@ current features.
 | CP-BAT-007..CP-BAT-008   | Effective configuration/history and deletion continuity                                         | Existing Lite; #226/#228/#229                                          | Present with history-query gap                                               | QA-L02, QA-L04, QA-L12, QA-L14, QA-M04                                 |
 | CP-CHG-001..CP-CHG-009   | Controlled changes, real diff, stale approval and native apply result                           | Existing Lite; #223/#228/#231                                          | Present Lite; Main planned                                                   | QA-L02, QA-L03, QA-L04, QA-L09, QA-M04, QA-P02                         |
 | CP-APR-001..CP-APR-010   | Product authority, effective policy, default/relaxed modes and decision evidence                | #223 then #227/#228                                                    | Lite correction implemented; owner/provider QA pending; Main design required | QA-L01, QA-L05, QA-L09, QA-L13, QA-M01, QA-M02                         |
-| CP-EXE-001..CP-EXE-004   | Exact manual inputs/authority, safe secret handling and trigger context                         | Existing Lite; #212/#228                                               | Present request; end-to-end input gap                                        | QA-L05, QA-L06, QA-L07, QA-M02                                         |
+| CP-EXE-001..CP-EXE-004   | Exact manual inputs/authority, safe secret handling and trigger context                         | Existing Lite; approved #212/#228                                      | #212 AVAILABLE; provider NOT_TESTED                                          | QA-L05, QA-L06, QA-L07, QA-M02                                         |
 | CP-EXE-005..CP-EXE-006   | Scope-bound Main execution admission                                                            | #227/#228                                                              | Design required; permit representation not frozen                            | QA-M01, QA-M02, QA-P01                                                 |
 | CP-EXE-007..CP-EXE-008   | No reused rerun authority; confirmed delivery failure ends request                              | #224; native verification #202; Main #228                              | Native checks present; failed-request retry mismatch pending                 | QA-L08, QA-L10, QA-M02                                                 |
-| CP-EXE-009               | Approved values reach the actual command                                                        | #212, before Main; #228/#231                                           | Known gap                                                                    | QA-L06, QA-M02, QA-P01                                                 |
+| CP-EXE-009               | Approved values reach the actual command                                                        | Approved #212, before Main; #228/#231                                  | AVAILABLE; actual delivery NOT_TESTED                                        | QA-L06, QA-M02, QA-P01                                                 |
 | CP-EXE-010               | Expiry and terminal failure release valid next work                                             | #224                                                                   | Planned correction                                                           | QA-L10                                                                 |
 | CP-EXE-011..CP-EXE-012   | Approved withdrawal and real queued/running cancellation                                        | #225 before Lite acceptance; #227/#228/#231                            | Detailed authority/UX required                                               | QA-L11, QA-L17, QA-M02, QA-P01                                         |
 | CP-EXE-013               | Observation repair independent of cancel                                                        | #228 first Main flow; #231                                             | Planned; Lite additional timing separate                                     | QA-M03, QA-P01                                                         |
@@ -81,7 +88,7 @@ Closed historical refactoring issues are not reopened or duplicated.
 | [PR #192](https://github.com/always0ne/batchplane/pull/192) | M0-A, stage 1                               | Reconciled docs, no new product implementation                                                                                         |
 | [#232](https://github.com/always0ne/batchplane/issues/232)  | M1, stage 1 and maintained with changes     | Traceability, QA sheet/result template, impact selection; not completed user QA                                                        |
 | [#223](https://github.com/always0ne/batchplane/issues/223)  | M0-R, 2a                                    | Capability/command/Gate policy and bound evidence corrected; BF-7 continuation implemented; QA-L05 owner/provider revalidation pending |
-| [#212](https://github.com/always0ne/batchplane/issues/212)  | M0-R, 2b                                    | QA-L06 actual approved runtime values                                                                                                  |
+| [#212](https://github.com/always0ne/batchplane/issues/212)  | M0-R, 2b                                    | Implemented and locally verified; user/provider acceptance pending. QA-L06 actual-provider delivery/limits NOT_TESTED                  |
 | [#224](https://github.com/always0ne/batchplane/issues/224)  | M0-R, 2c                                    | QA-L10 terminal/new-request behavior                                                                                                   |
 | [#225](https://github.com/always0ne/batchplane/issues/225)  | M0-R, 2d                                    | QA-L11 real cancellation, not only UI state                                                                                            |
 | [#206](https://github.com/always0ne/batchplane/issues/206)  | M0-R, 3                                     | QA-L16 and BF-3                                                                                                                        |
@@ -100,6 +107,19 @@ Closed historical refactoring issues are not reopened or duplicated.
 | [#68](https://github.com/always0ne/batchplane/issues/68)    | M0-S, first external release                | QA-R01 accurate supported use/contribution guidance                                                                                    |
 
 ## Coverage Maintenance
+
+#212 directly changes CP-EXE-001..CP-EXE-004/CP-EXE-009 and connects existing
+Workspace/provider, Batch/change, approval, schedule/Gate, outcome/log and UI
+requirements. Revalidate QA-L01-L03, QA-L05-L09, QA-L12, QA-L15 and QA-L18:
+key setup/partial reconnect, definition+workflow diff, policy-bound frozen inputs,
+native schedule values, direct/rerun denial, source drift, evidence-based
+preparation outcomes, log masking, request handoff and bilingual/mobile input
+controls. [QA-L06](./user-qa.md#qa-l06-approved-parameters-become-actual-business-command-inputs)
+contains the practical procedure and local versus authorized live distinction.
+Existing availability on connected cases does not pass their new #212 paths;
+those paths are available for user QA, with actual-provider results NOT_TESTED. Preserve prior version/run
+records and add `RETEST_REQUIRED` for impacted passes in a new result session.
+No documentation check closes #212, #202, #119 or a release milestone.
 
 The #223 change affects QA-L05 directly and the connected QA-L01, QA-L09,
 QA-L15 and QA-L18 flows. It does not complete #226's execution/audit/My Work

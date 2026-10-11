@@ -1,9 +1,11 @@
 import type { ChangeEvent } from "react";
+import type { ExecutionRequestDraft } from "@batchplane/ui-client";
 import { useTranslation } from "react-i18next";
 
 import type { ExecutionRequestFormValues } from "../execution-request-form-values";
 import type { ExecutionRequestSubmissionState } from "../hooks/useExecutionRequestSubmission";
-import { ExecutionRequestParameters } from "./ExecutionRequestParameters";
+import { ParameterSelections } from "../../../parameters/components/ParameterSelections";
+import { ParameterWorkflowReadiness } from "./ParameterWorkflowReadiness";
 import { ExecutionRequestField } from "./ExecutionRequestField";
 import { SubmissionMessage } from "./SubmissionMessage";
 
@@ -14,11 +16,13 @@ export function ExecutionRequestForm({
   onChange,
   submitState,
   validationErrors,
+  draft,
 }: {
   formValues: ExecutionRequestFormValues;
   onChange: (values: ExecutionRequestFormValues) => void;
   submitState: ExecutionRequestSubmissionState;
   validationErrors: string[];
+  draft: ExecutionRequestDraft;
 }) {
   const { t } = useTranslation("executionRequests");
 
@@ -70,10 +74,17 @@ export function ExecutionRequestForm({
         />
       </ExecutionRequestField>
 
-      <ExecutionRequestParameters
+      <ParameterSelections
+        definitions={draft.parameters ?? []}
+        requireSensitiveReadiness
         onChange={(parameters) => onChange({ ...formValues, parameters })}
-        parameters={formValues.parameters}
+        selections={formValues.parameters}
+        sensitiveInputsAvailable={draft.sensitiveInputsAvailable === true}
+        sensitiveInputsUnavailableReason={
+          draft.sensitiveInputsUnavailableReason
+        }
       />
+      <ParameterWorkflowReadiness draft={draft} />
 
       {validationErrors.length > 0 ? (
         <ul className="mt-4 space-y-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">

@@ -1,11 +1,16 @@
-import { createRequestDigest, type CanonicalValue } from "@batchplane/digest";
 import { isBatchPlaneApiVersion } from "@batchplane/domain";
 import {
   parseExecutionGateResult,
   type ExecutionGateResult,
   type NativeScheduleGateOccurrence,
 } from "./execution-gate-result.js";
-import type { ExecutionRequestPayload } from "./execution-request-evidence.js";
+import {
+  createExecutionRequestDigest,
+  type ExecutionRequestPayload,
+} from "./execution-request-evidence.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import { validateApprovedParameters } from "./parameter-materialization.js";
+import { inputPreparationStepName } from "./github-workflow.js";
 import type {
   GitHubLiteClient,
   GitHubWorkflowJob,
@@ -16,6 +21,8 @@ import { getNativeScheduleWorkflowJobIdentity } from "./github-workflow.js";
 
 /** Technical fields compared against a native-schedule request snapshot. */
 export type NativeScheduleBatchSnapshot = {
+  parameters?: GitHubBatchDefinition["parameters"];
+  schedules?: GitHubBatchDefinition["schedules"];
   batchId: string;
   domain: string;
   environment: string;
@@ -46,6 +53,7 @@ export type NativeScheduleRequestExpectation = {
   occurrence: NativeScheduleOccurrence;
   requestDigest: string;
   requestId: string;
+  parameterSourceRevision?: string;
 };
 
 export type VerifiedNativeScheduleRequest = {
@@ -193,7 +201,7 @@ async function collectNativeScheduleEvidence({
     expectedJobId: businessJobId,
     expectedJobName: businessJobName,
     expectedOccurrence,
-    expectedStepName: "Reverify approved native schedule evidence",
+    expectedStepName: nativeEntryGateStepName(business),
     job: business,
     repository,
     run,
@@ -209,6 +217,18 @@ async function collectNativeScheduleEvidence({
     run,
     runContextMatches: true,
   };
+}
+
+function nativeEntryGateStepName(business: GitHubWorkflowJob): string {
+  const preparation = business.steps?.find(
+    (step) =>
+      step.name === inputPreparationStepName &&
+      step.status === "completed" &&
+      step.conclusion !== "skipped",
+  );
+  return preparation
+    ? inputPreparationStepName
+    : "Reverify approved native schedule evidence";
 }
 
 function classifyNativeScheduleEvidence(
@@ -362,7 +382,17 @@ export async function verifyNativeScheduleRequestIssue(
 
   let digest: string;
   try {
-    digest = await createRequestDigest(payload as unknown as CanonicalValue);
+    if (
+      expected.batch.parameters?.length ||
+      payload.spec.parameters !== undefined
+    ) {
+      validateApprovedParameters(
+        payload,
+        expected.batch as GitHubBatchDefinition,
+        expected.parameterSourceRevision ?? "",
+      );
+    }
+    digest = await createExecutionRequestDigest(payload);
   } catch {
     return null;
   }

@@ -7721,10 +7721,43 @@ function isRateLimitedResponse(response, message) {
   return message.toLowerCase().includes("rate limit");
 }
 
+// ../../packages/github-lite/dist/github-actions-secrets.js
+function createGitHubActionsSecretOperations({ request }) {
+  function base(owner, repo) {
+    return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/secrets`;
+  }
+  return {
+    async getActionsSecretPublicKey({ owner, repo }) {
+      const result = await request(`${base(owner, repo)}/public-key`);
+      if (!result)
+        throw new GitHubLiteApiError("Actions upload key is unavailable.", "unknown", 500);
+      return { keyId: result.key_id, key: result.key };
+    },
+    async getActionsSecret({ owner, repo, name }) {
+      const result = await request(`${base(owner, repo)}/${encodeURIComponent(name)}`, {}, { allowNotFound: true });
+      return result ? {
+        name: result.name,
+        createdAt: result.created_at,
+        updatedAt: result.updated_at
+      } : null;
+    },
+    async putActionsSecret({ owner, repo, name, encryptedValue, keyId }) {
+      await request(`${base(owner, repo)}/${encodeURIComponent(name)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          encrypted_value: encryptedValue,
+          key_id: keyId
+        })
+      });
+    }
+  };
+}
+
 // ../../packages/github-lite/dist/github-client.js
 function createGitHubLiteClient(options) {
   const requester = createGitHubRequester(options);
   return {
+    ...createGitHubActionsSecretOperations(requester),
     ...createRepositoryOperations(requester),
     ...createPullRequestOperations(requester),
     ...createIssueOperations(requester),
@@ -7748,6 +7781,7 @@ function createRepositoryOperations(requester) {
         throw new GitHubLiteApiError("GitHub repository was empty.", "unknown", 500);
       }
       return {
+        id: String(repository.id),
         owner: repository.owner.login,
         repo: repository.name,
         defaultBranch: repository.default_branch,
@@ -8110,6 +8144,26 @@ function isBatchPlaneApiVersion(value) {
   return typeof value === "string" && supportedBatchPlaneApiVersions.includes(value);
 }
 
+// ../../packages/domain/dist/parameters.js
+function validateParameterNames(names) {
+  const seen = /* @__PURE__ */ new Set();
+  for (const name of names) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) {
+      throw new Error("PARAMETER_NAME_INVALID");
+    }
+    const identity = name.toLowerCase();
+    if (seen.has(identity))
+      throw new Error("PARAMETER_NAME_DUPLICATED");
+    seen.add(identity);
+  }
+}
+function validateParameterString(value) {
+  if (typeof value !== "string")
+    throw new Error("PARAMETER_VALUE_INVALID");
+  if (value.includes("\0"))
+    throw new Error("PARAMETER_NUL_UNSUPPORTED");
+}
+
 // ../../packages/domain/dist/approval-policy.js
 function authorizeManualApproval(authorization) {
   if (!authorization.actorHasApproverRole) {
@@ -8134,6 +8188,302 @@ var defaultWorkspacePolicy = {
   }
 };
 
+// ../../packages/github-lite/dist/repository-yaml.js
+var import_yaml = __toESM(require_dist(), 1);
+function parseRepositoryYaml(input) {
+  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
+  if (document.errors.length > 0) {
+    return {
+      diagnostics: document.errors.map(toYamlDiagnostic),
+      ok: false
+    };
+  }
+  return { ok: true, value: document.toJS() };
+}
+function formatRepositoryYamlDiagnostics(diagnostics) {
+  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
+}
+function toYamlDiagnostic(error) {
+  const position = error.linePos?.[0];
+  return {
+    column: position?.col ?? 1,
+    line: position?.line ?? 1,
+    message: error.message
+  };
+}
+
+// ../../packages/github-lite/dist/parameter-storage.js
+function copyStoredParameterValue(value) {
+  return value.sensitive ? { sensitive: true, encrypted: { ...value.encrypted } } : { value: value.value };
+}
+function assertStoredParameterValue(value, sensitive) {
+  if (!isParameterRecord(value))
+    throw new Error("PARAMETER_VALUE_INVALID");
+  if (sensitive) {
+    if (value.sensitive !== true || !hasOnlyParameterKeys(value, ["sensitive", "encrypted"]))
+      throw new Error("PARAMETER_SENSITIVITY_MISMATCH");
+    const encrypted = value.encrypted;
+    if (!isParameterRecord(encrypted) || !hasOnlyParameterKeys(encrypted, ["version", "keyId", "jwe"]) || encrypted.version !== 1 || typeof encrypted.keyId !== "string" || !encrypted.keyId || typeof encrypted.jwe !== "string" || !encrypted.jwe)
+      throw new Error("PARAMETER_ENCRYPTED_VALUE_INVALID");
+  } else {
+    if (value.sensitive !== void 0 && value.sensitive !== false || !hasOnlyParameterKeys(value, ["sensitive", "value"]))
+      throw new Error("PARAMETER_SENSITIVITY_MISMATCH");
+    validateParameterString(value.value);
+  }
+}
+function assertStoredParameterDefinitions(parameters) {
+  if (parameters === void 0)
+    return;
+  if (!Array.isArray(parameters))
+    throw new Error("PARAMETER_DEFINITIONS_INVALID");
+  for (const item of parameters) {
+    if (!isParameterRecord(item) || !hasOnlyParameterKeys(item, [
+      "name",
+      "required",
+      "sensitive",
+      "defaultValue"
+    ]) || typeof item.name !== "string" || typeof item.required !== "boolean" || typeof item.sensitive !== "boolean")
+      throw new Error("PARAMETER_DEFINITION_INVALID");
+    if (Object.hasOwn(item, "defaultValue"))
+      assertStoredParameterValue(item.defaultValue, item.sensitive);
+  }
+  validateParameterNames(parameters.map((item) => item.name));
+}
+function assertStoredScheduleParameters(batch) {
+  assertStoredParameterDefinitions(batch.parameters);
+  if (!batch.parameters?.length && !batch.schedules?.some((schedule) => schedule.parameters !== void 0))
+    return;
+  const definitions = new Map(batch.parameters?.map((definition) => [definition.name, definition]));
+  const scheduleIds = /* @__PURE__ */ new Set();
+  for (const schedule of batch.schedules ?? []) {
+    if (scheduleIds.has(schedule.scheduleId))
+      throw new Error("PARAMETER_SCHEDULE_DUPLICATED");
+    scheduleIds.add(schedule.scheduleId);
+    if (schedule.parameters !== void 0 && !Array.isArray(schedule.parameters))
+      throw new Error("PARAMETER_SELECTION_INVALID");
+    const selections = schedule.parameters ?? [];
+    validateParameterNames(selections.map((item) => item.name));
+    for (const selection of selections) {
+      if (!isParameterRecord(selection))
+        throw new Error("PARAMETER_SELECTION_INVALID");
+      const definition = definitions.get(selection.name);
+      if (!definition)
+        throw new Error("PARAMETER_NAME_UNKNOWN");
+      if (selection.source === "VALUE") {
+        if (!hasOnlyParameterKeys(selection, ["name", "source", "value"]))
+          throw new Error("PARAMETER_SELECTION_INVALID");
+        assertStoredParameterValue(selection.value, definition.sensitive);
+      } else if (selection.source === "DEFAULT" || selection.source === "OMIT") {
+        if (!hasOnlyParameterKeys(selection, ["name", "source"]))
+          throw new Error("PARAMETER_SELECTION_INVALID");
+        if (selection.source === "OMIT" && definition.required)
+          throw new Error("PARAMETER_REQUIRED");
+        if (selection.source === "DEFAULT" && definition.defaultValue === void 0)
+          throw new Error("PARAMETER_DEFAULT_UNAVAILABLE");
+      } else
+        throw new Error("PARAMETER_SELECTION_INVALID");
+    }
+    for (const definition of definitions.values()) {
+      if (definition.required && definition.defaultValue === void 0 && !selections.some((selection) => selection.name === definition.name && selection.source === "VALUE"))
+        throw new Error("PARAMETER_REQUIRED");
+    }
+  }
+}
+function isParameterRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function hasOnlyParameterKeys(value, keys) {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
+
+// ../../packages/digest/dist/index.js
+function canonicalize(value) {
+  return JSON.stringify(normalize(value));
+}
+function canonicalizeExact(value) {
+  return JSON.stringify(normalizeExact(value));
+}
+async function createExactCanonicalDigest(value) {
+  return `sha256:${await sha256Hex(canonicalizeExact(value))}`;
+}
+async function createCanonicalDigest(value) {
+  return `sha256:${await sha256Hex(canonicalize(value))}`;
+}
+async function createRequestDigest(input) {
+  return createCanonicalDigest(isDigestEnvelope(input) ? input.payload : input);
+}
+async function sha256Hex(value) {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return digestToHex(digest);
+}
+async function sha256BytesHex(value) {
+  const bytes = toByteView(value);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return digestToHex(digest);
+}
+function toByteView(value) {
+  const source = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  const copiedBytes = new Uint8Array(source.byteLength);
+  copiedBytes.set(source);
+  return copiedBytes;
+}
+function digestToHex(digest) {
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function normalizeExact(value) {
+  if (Array.isArray(value))
+    return value.map(normalizeExact);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().filter((key) => value[key] !== void 0).map((key) => [key, normalizeExact(value[key])]));
+  }
+  return value;
+}
+function normalize(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalize(item));
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((acc, key) => {
+      const entry = value[key];
+      if (entry === void 0 || entry === null || entry === "") {
+        return acc;
+      }
+      acc[key] = normalize(entry);
+      return acc;
+    }, {});
+  }
+  if (typeof value === "string") {
+    return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  }
+  return value;
+}
+function isDigestEnvelope(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payload" in value);
+}
+
+// ../../packages/github-lite/dist/parameter-validation.js
+function resolveDefaultOrOmission(definition, source, revision) {
+  if (source === "OMIT") {
+    if (definition.required)
+      throw new Error("PARAMETER_REQUIRED");
+    return {
+      sensitive: definition.sensitive,
+      source: { origin: { type: "OMIT" } }
+    };
+  }
+  if (definition.defaultValue === void 0)
+    throw new Error("PARAMETER_DEFAULT_UNAVAILABLE");
+  return {
+    ...copyStoredParameterValue(definition.defaultValue),
+    source: { origin: { type: "BATCH_DEFAULT" }, revision }
+  };
+}
+function resolveScheduledParameters(batch, scheduleId, sourceRevision) {
+  assertStoredScheduleParameters(batch);
+  const matches = batch.schedules?.filter((schedule2) => schedule2.scheduleId === scheduleId) ?? [];
+  if (matches.length !== 1)
+    throw new Error("PARAMETER_SCHEDULE_UNKNOWN");
+  if (batch.parameters?.length && !sourceRevision)
+    throw new Error("PARAMETER_SOURCE_REVISION_INVALID");
+  const schedule = matches[0];
+  return Object.fromEntries((batch.parameters ?? []).map((definition) => {
+    const selection = schedule.parameters?.find((candidate) => candidate.name === definition.name);
+    if (selection?.source === "VALUE")
+      return [
+        definition.name,
+        {
+          ...copyStoredParameterValue(selection.value),
+          source: {
+            origin: { type: "SCHEDULE_VALUE", scheduleId },
+            revision: sourceRevision
+          }
+        }
+      ];
+    const inherited = definition.defaultValue !== void 0 ? "DEFAULT" : "OMIT";
+    return [
+      definition.name,
+      resolveDefaultOrOmission(definition, selection?.source ?? inherited, sourceRevision)
+    ];
+  }));
+}
+function validateApprovedParameters(payload, batch, sourceRevision) {
+  if (!isParameterRecord(payload.metadata) || !isParameterRecord(payload.spec))
+    throw new Error("PARAMETER_CONTRACT_INVALID");
+  assertStoredParameterDefinitions(batch.parameters);
+  const definitions = batch.parameters ?? [];
+  const records = payload.spec.parameters;
+  if (!definitions.length && records === void 0 && payload.spec.parameterContractVersion === void 0)
+    return {};
+  assertParameterContract(payload, batch, sourceRevision, records);
+  if (payload.spec.triggerType === "SCHEDULE")
+    assertScheduledEvidence(payload, batch, sourceRevision, records);
+  const selected = [];
+  for (const definition of definitions) {
+    const parameter = validateParameterRecord(records[definition.name], definition, payload, sourceRevision);
+    if (parameter)
+      selected.push([definition.name, parameter]);
+  }
+  return Object.fromEntries(selected);
+}
+function assertParameterContract(payload, batch, sourceRevision, records) {
+  if (payload.metadata.batchId !== batch.batchId || payload.spec.parameterContractVersion !== "PARAMETER_DELIVERY_V1" || payload.spec.parameterSourceRevision !== sourceRevision || !sourceRevision || !isParameterRecord(records))
+    throw new Error("PARAMETER_CONTRACT_INVALID");
+  const names = Object.keys(records);
+  validateParameterNames(names);
+  const definitions = batch.parameters ?? [];
+  if (names.length !== definitions.length || names.some((name) => !definitions.some((definition) => definition.name === name)))
+    throw new Error("PARAMETER_DEFINITIONS_MISMATCH");
+}
+function assertScheduledEvidence(payload, batch, revision, records) {
+  if (!payload.spec.schedule || !sameParameterEvidence(records, resolveScheduledParameters(batch, payload.spec.schedule.scheduleId, revision)))
+    throw new Error("PARAMETER_SCHEDULE_SOURCE_MISMATCH");
+}
+function validateParameterRecord(record, definition, payload, revision) {
+  if (!isParameterRecord(record) || !isParameterRecord(record.source) || !isParameterRecord(record.source.origin))
+    throw new Error("PARAMETER_SOURCE_INVALID");
+  const source = record.source;
+  const origin = record.source.origin;
+  if (origin.type === "OMIT") {
+    if (definition.required || record.sensitive !== definition.sensitive || !hasOnlyParameterKeys(record, ["sensitive", "source"]) || !hasOnlyParameterKeys(source, ["origin"]) || !hasOnlyParameterKeys(origin, ["type"]))
+      throw new Error("PARAMETER_REQUIRED");
+    return void 0;
+  }
+  const value = { ...record };
+  delete value.source;
+  assertStoredParameterValue(value, definition.sensitive);
+  const verifiedSource = validateValueSource(source, origin, value, definition, payload, revision);
+  return { ...copyStoredParameterValue(value), source: verifiedSource };
+}
+function validateValueSource(source, origin, value, definition, payload, revision) {
+  switch (origin.type) {
+    case "BATCH_DEFAULT":
+      if (!hasOnlyParameterKeys(source, ["origin", "revision"]) || !hasOnlyParameterKeys(origin, ["type"]) || source.revision !== revision || definition.defaultValue === void 0 || !sameParameterEvidence(value, copyStoredParameterValue(definition.defaultValue)))
+        throw new Error("PARAMETER_DEFAULT_SOURCE_MISMATCH");
+      return { origin: { type: "BATCH_DEFAULT" }, revision };
+    case "REQUEST_VALUE":
+      if (payload.spec.triggerType === "SCHEDULE" || !hasOnlyParameterKeys(source, ["origin"]) || !hasOnlyParameterKeys(origin, ["type", "requestId"]) || origin.requestId !== payload.metadata.requestId)
+        throw new Error("PARAMETER_REQUEST_SOURCE_MISMATCH");
+      return {
+        origin: {
+          type: "REQUEST_VALUE",
+          requestId: payload.metadata.requestId
+        }
+      };
+    case "SCHEDULE_VALUE":
+      if (payload.spec.triggerType !== "SCHEDULE" || !hasOnlyParameterKeys(source, ["origin", "revision"]) || !hasOnlyParameterKeys(origin, ["type", "scheduleId"]) || source.revision !== revision || typeof origin.scheduleId !== "string" || origin.scheduleId !== payload.spec.schedule?.scheduleId)
+        throw new Error("PARAMETER_SCHEDULE_SOURCE_MISMATCH");
+      return {
+        origin: { type: "SCHEDULE_VALUE", scheduleId: origin.scheduleId },
+        revision
+      };
+    default:
+      throw new Error("PARAMETER_SOURCE_INVALID");
+  }
+}
+function sameParameterEvidence(left, right) {
+  return canonicalizeExact(left) === canonicalizeExact(right);
+}
+
 // ../../packages/github-lite/dist/repository-schema.js
 function isCanonicalBatchId(value) {
   return typeof value === "string" && /^[A-Za-z0-9](?:[A-Za-z0-9]|[.-](?=[A-Za-z0-9]))*$/.test(value);
@@ -8155,6 +8505,18 @@ function validateBatchDefinition(definition) {
   validateExecution(record.execution, diagnostics);
   validateStringArray(record.labels, "labels", diagnostics, false);
   validateSchedules(record.schedules, "schedules", diagnostics);
+  try {
+    assertStoredParameterDefinitions(record.parameters);
+    if (record.schedules === void 0 || Array.isArray(record.schedules)) {
+      assertStoredScheduleParameters({
+        parameters: record.parameters,
+        schedules: record.schedules
+      });
+    }
+  } catch (error) {
+    const code = error instanceof Error && error.message.startsWith("PARAMETER_") ? error.message : "PARAMETER_DEFINITION_INVALID";
+    diagnostics.push(problem(code, "parameters", code));
+  }
   return diagnostics;
 }
 function validateBatchDefinitionFile(file) {
@@ -8174,7 +8536,8 @@ function validateBatchDefinitionFile(file) {
         enabled: item.enabled,
         name: item.name,
         scheduleId: item.id,
-        timezone: item.timezone
+        timezone: item.timezone,
+        parameters: item.parameters
       };
     }) : void 0;
     diagnostics.push(...validateBatchDefinition({
@@ -8187,6 +8550,7 @@ function validateBatchDefinitionFile(file) {
       labels: metadata.labels,
       name: metadata.name,
       owner: spec.owner,
+      parameters: spec.parameters,
       schedules,
       status: spec.status,
       workflow: spec.workflow
@@ -8416,82 +8780,506 @@ var roleMappingRoles = [
   "auditor"
 ];
 
-// ../../packages/github-lite/dist/repository-yaml.js
-var import_yaml = __toESM(require_dist(), 1);
-function parseRepositoryYaml(input) {
-  const document = (0, import_yaml.parseDocument)(input, { strict: true, uniqueKeys: true });
-  if (document.errors.length > 0) {
-    return {
-      diagnostics: document.errors.map(toYamlDiagnostic),
-      ok: false
-    };
+// ../../packages/github-lite/dist/batch-definition-codec.js
+function getBatchDefinitionPath(batchId) {
+  return `.batch-governance/batches/${assertCanonicalBatchId(batchId)}.yml`;
+}
+function getBatchWorkflowPath(batchId) {
+  return `.github/workflows/${assertCanonicalBatchId(batchId)}.yml`;
+}
+function getBatchArtifactPath(batchId, fileName) {
+  const batchSlug = assertCanonicalBatchId(batchId);
+  const fileSlug = toFileNameSlug(fileName);
+  return `.batch-governance/batches/${batchSlug}/artifacts/${fileSlug || "artifact.bin"}`;
+}
+function assertCanonicalBatchId(batchId) {
+  if (isCanonicalBatchId(batchId)) {
+    return batchId;
   }
-  return { ok: true, value: document.toJS() };
+  throw new Error("Batch ID must be a canonical repository-safe identifier containing only letters, digits, dots, and hyphens.");
 }
-function formatRepositoryYamlDiagnostics(diagnostics) {
-  return diagnostics.map((diagnostic) => `line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`).join("; ");
-}
-function toYamlDiagnostic(error) {
-  const position = error.linePos?.[0];
+function parseBatchDefinitionYaml(yaml) {
+  const result = parseRepositoryYaml(yaml);
+  if (!result.ok) {
+    throw new Error(`Invalid BatchPlane YAML: ${formatRepositoryYamlDiagnostics(result.diagnostics)}`);
+  }
+  const document = asYamlRecord(result.value);
+  const validation = validateBatchDefinitionFile(document);
+  if (!validation.ok) {
+    throw new Error(`Invalid BatchPlane BatchDefinition: ${validation.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; ")}`);
+  }
+  const metadata = asYamlRecord(document.metadata);
+  const spec = asYamlRecord(document.spec);
+  const workflow = asYamlRecord(spec.workflow);
+  const execution = asYamlRecord(spec.execution);
+  const schedules = readYamlSchedules(spec, "schedules");
+  const criticality = parseCriticality(readYamlString(spec, "criticality"));
+  const status = parseBatchStatus(readYamlString(spec, "status"));
+  const command = readYamlString(execution, "command");
+  const runsOn = readYamlRunnerLabel(execution, "runsOn");
+  const artifactPath = readYamlString(execution, "artifactPath");
   return {
-    column: position?.col ?? 1,
-    line: position?.line ?? 1,
-    message: error.message
+    batchId: readYamlString(metadata, "id"),
+    governedChangeId: readYamlString(metadata, "governedChangeId") || void 0,
+    name: readYamlString(metadata, "name"),
+    owner: readYamlString(spec, "owner"),
+    domain: readYamlString(spec, "domain"),
+    environment: readYamlString(spec, "environment"),
+    criticality,
+    status,
+    workflow: {
+      path: readYamlString(workflow, "path"),
+      ref: readYamlString(workflow, "ref")
+    },
+    gateRequired: readYamlBoolean(spec, "gateRequired"),
+    execution: command || runsOn ? {
+      ...artifactPath ? { artifactPath } : {},
+      command,
+      runsOn: runsOn || ""
+    } : void 0,
+    ...spec.parameters !== void 0 ? {
+      parameters: spec.parameters
+    } : {},
+    schedules: schedules.length > 0 ? schedules : void 0
   };
 }
-
-// ../../packages/digest/dist/index.js
-function canonicalize(value) {
-  return JSON.stringify(normalize(value));
+function asYamlRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
-async function createCanonicalDigest(value) {
-  return `sha256:${await sha256Hex(canonicalize(value))}`;
-}
-async function createRequestDigest(input) {
-  return createCanonicalDigest(isDigestEnvelope(input) ? input.payload : input);
-}
-async function sha256Hex(value) {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return digestToHex(digest);
-}
-async function sha256BytesHex(value) {
-  const bytes = toByteView(value);
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
-  return digestToHex(digest);
-}
-function toByteView(value) {
-  const source = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  const copiedBytes = new Uint8Array(source.byteLength);
-  copiedBytes.set(source);
-  return copiedBytes;
-}
-function digestToHex(digest) {
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-function normalize(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => normalize(item));
+function readYamlString(record, key) {
+  const value = record[key];
+  if (value === void 0 || value === null || Array.isArray(value)) {
+    return "";
   }
-  if (value && typeof value === "object") {
-    return Object.keys(value).sort().reduce((acc, key) => {
-      const entry = value[key];
-      if (entry === void 0 || entry === null || entry === "") {
-        return acc;
-      }
-      acc[key] = normalize(entry);
-      return acc;
-    }, {});
-  }
+  return typeof value === "object" ? "" : String(value);
+}
+function readYamlRunnerLabel(record, key) {
+  const value = record[key];
   if (typeof value === "string") {
-    return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    return value;
   }
-  return value;
+  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+    return value;
+  }
+  return "";
 }
-function isDigestEnvelope(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payload" in value);
+function readYamlBoolean(record, key) {
+  return record[key] === true;
+}
+function readYamlSchedules(record, key) {
+  const value = record[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => asYamlRecord(item)).map((item) => ({
+    cron: readYamlString(item, "cron"),
+    enabled: readYamlBoolean(item, "enabled"),
+    name: readYamlString(item, "name"),
+    scheduleId: readYamlString(item, "id"),
+    timezone: readYamlString(item, "timezone"),
+    ...item.parameters !== void 0 ? {
+      parameters: item.parameters
+    } : {}
+  })).filter((schedule) => Boolean(schedule.scheduleId) || Boolean(schedule.name) || Boolean(schedule.cron) || Boolean(schedule.timezone));
+}
+function parseCriticality(value) {
+  if (value === "LOW" || value === "MEDIUM" || value === "HIGH" || value === "CRITICAL") {
+    return value;
+  }
+  return "MEDIUM";
+}
+function parseBatchStatus(value) {
+  if (value === "ACTIVE" || value === "INACTIVE") {
+    return value;
+  }
+  return "INACTIVE";
+}
+function toFileNameSlug(value) {
+  return value.trim().replace(/[\\/]+/g, "-").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/[._-]+$/g, "").replace(/^[._-]+/g, "").slice(0, 120);
+}
+
+// ../../packages/github-lite/dist/github-workflow.js
+var inputPreparationActionRef = "always0ne/batchplane/actions/gate/input-preparation@main";
+var parameterEnvironmentExpression = "${{ fromJSON(steps.prepare.outputs.environment) }}";
+var inputPreparationStepName = "Prepare approved batch inputs";
+var batchPlaneGateActionRef = "always0ne/batchplane/actions/gate@main";
+var batchPlaneScheduleRequestActionRef = "always0ne/batchplane/actions/schedule-request@main";
+var batchPlaneScheduleResultActionRef = "always0ne/batchplane/actions/schedule-result@main";
+function buildBatchWorkflowYaml(definition) {
+  const workflowName = definition.name || definition.batchId || "New batch";
+  const batchId = definition.batchId || "batch-id";
+  const runCommandLines = indentRunCommand(definition.execution?.command ?? "");
+  const runner = formatRunnerLabel(definition.execution?.runsOn ?? "ubuntu-latest");
+  const batchPath = getBatchDefinitionPath(batchId);
+  const enabledSchedules = (definition.schedules ?? []).filter((schedule) => schedule.enabled);
+  assertUnambiguousScheduleTimezones(enabledSchedules);
+  const scheduleEntries = Array.from(new Map(enabledSchedules.map((schedule) => ({
+    cron: schedule.cron.trim(),
+    timezone: schedule.timezone.trim()
+  })).filter((schedule) => schedule.cron && schedule.timezone).map((schedule) => [
+    `${schedule.cron}\0${schedule.timezone}`,
+    schedule
+  ])).values());
+  return [
+    `name: ${yamlString(`BatchPlane - ${workflowName}`)}`,
+    "run-name: BatchPlane ${{ github.event.inputs.batch_id || 'scheduled' }} ${{ github.event.inputs.request_id || github.event.schedule || '' }}",
+    "",
+    "on:",
+    "  workflow_dispatch:",
+    "    inputs:",
+    "      request_id:",
+    "        description: BatchPlane execution request ID",
+    "        required: true",
+    "        type: string",
+    "      batch_id:",
+    "        description: BatchPlane batch ID",
+    "        required: true",
+    "        type: string",
+    "      request_digest:",
+    "        description: BatchPlane approved request digest",
+    "        required: true",
+    "        type: string",
+    "      schedule_id:",
+    "        description: BatchPlane schedule identifier for scheduled dispatches",
+    "        required: false",
+    "        type: string",
+    ...scheduleEntries.length > 0 ? [
+      "  schedule:",
+      ...scheduleEntries.map((schedule) => `    - cron: ${yamlString(schedule.cron)}
+      timezone: ${yamlString(schedule.timezone)}`)
+    ] : [],
+    "",
+    "jobs:",
+    ...enabledSchedules.flatMap((schedule) => buildScheduledRequestJobLines({
+      batchId,
+      batchPath,
+      runCommand: definition.execution?.command ?? "",
+      runner,
+      schedule
+    })),
+    "  batchplane-gate:",
+    "    name: BatchPlane Gate",
+    "    if: github.event_name == 'workflow_dispatch'",
+    "    runs-on: ubuntu-latest",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    outputs:",
+    "      verified_sha: ${{ steps.verify.outputs.verified_sha }}",
+    "    permissions:",
+    "      contents: read",
+    "      issues: read",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Verify approved execution evidence",
+    "        id: verify",
+    `        uses: ${batchPlaneGateActionRef}`,
+    "        with:",
+    "          mode: lite",
+    "          batch-id: ${{ inputs.batch_id }}",
+    "          config-path: .batch-governance",
+    "          request-id: ${{ inputs.request_id }}",
+    "          approval-source: issue",
+    "          approval-ref: ${{ inputs.request_id }}",
+    "          request-digest: ${{ inputs.request_digest }}",
+    "          schedule-id: ${{ inputs.schedule_id }}",
+    "          gate-job-name: BatchPlane Gate",
+    "          gate-step-name: Verify approved execution evidence",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "",
+    "  run-batch:",
+    "    name: Run governed batch",
+    "    if: github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''",
+    `    runs-on: ${runner}`,
+    "    needs: batchplane-gate",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    permissions:",
+    "      contents: read",
+    "      issues: read",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Checkout registered assets",
+    "        uses: actions/checkout@v4",
+    "        with:",
+    "          ref: ${{ needs.batchplane-gate.outputs.verified_sha }}",
+    "",
+    ...buildInputPreparationLines({
+      batchId: "${{ inputs.batch_id }}",
+      requestId: "${{ inputs.request_id }}",
+      requestDigest: "${{ inputs.request_digest }}",
+      jobName: "Run governed batch"
+    }),
+    "      - name: Run batch",
+    `        env: ${parameterEnvironmentExpression}`,
+    "        run: |",
+    '          echo "::group::BatchPlane batch command"',
+    `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
+    `          echo ${yamlString(`BatchPlane approved execution for ${batchId}`)}`,
+    ...runCommandLines,
+    ""
+  ].join("\n");
+}
+function yamlString(value) {
+  return JSON.stringify(value);
+}
+function githubExpressionString(value) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+function indentRunCommand(runCommand) {
+  const lines = runCommand.trimEnd().split("\n");
+  if (lines.length === 0 || lines.every((line) => !line.trim())) {
+    return [
+      "          # Define the governed batch command during registration."
+    ];
+  }
+  return lines.map((line) => `          ${line}`);
+}
+function formatRunnerLabel(runnerLabel) {
+  if (Array.isArray(runnerLabel)) {
+    return `[${runnerLabel.map(yamlString).join(", ")}]`;
+  }
+  return yamlString(runnerLabel || "ubuntu-latest");
+}
+function buildScheduledRequestJobLines({ batchId, batchPath, runCommand, runner, schedule }) {
+  const identity = getNativeScheduleWorkflowJobIdentity(schedule);
+  const { businessJobId, businessJobName, controlJobId: jobId, controlJobName } = identity;
+  return [
+    `  ${jobId}:`,
+    `    name: ${yamlString(controlJobName)}`,
+    `    if: github.event_name == 'schedule' && github.event.schedule == ${githubExpressionString(schedule.cron)}`,
+    "    outputs:",
+    "      request-id: ${{ steps.schedule_request.outputs.request-id }}",
+    "      request-digest: ${{ steps.schedule_request.outputs.request-digest }}",
+    "      issue-number: ${{ steps.schedule_request.outputs.issue-number }}",
+    "    concurrency:",
+    `      group: ${yamlString(`batchplane-schedule-${toWorkflowJobId(batchId)}-${toScheduleWorkflowJobId(schedule.scheduleId)}`)}`,
+    "      cancel-in-progress: false",
+    "    runs-on: ubuntu-latest",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    permissions:",
+    "      contents: read",
+    "      issues: write",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Record native scheduled execution request",
+    "        id: schedule_request",
+    "        continue-on-error: true",
+    `        uses: ${batchPlaneScheduleRequestActionRef}`,
+    "        with:",
+    `          batch-id: ${yamlString(batchId)}`,
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          cron: ${yamlString(schedule.cron)}`,
+    `          timezone: ${yamlString(schedule.timezone)}`,
+    `          definition-path: ${yamlString(batchPath)}`,
+    "          config-path: .batch-governance",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "      - name: Verify approved native schedule evidence",
+    "        id: verify",
+    "        if: always()",
+    `        uses: ${batchPlaneGateActionRef}`,
+    "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    "          request-id: ${{ steps.schedule_request.outputs.request-id }}",
+    "          request-digest: ${{ steps.schedule_request.outputs.request-digest }}",
+    "          issue-number: ${{ steps.schedule_request.outputs.issue-number }}",
+    "          controller-reason: ${{ steps.schedule_request.outputs.failure-reason }}",
+    "          record-evidence: true",
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          gate-job-name: ${yamlString(controlJobName)}`,
+    "          gate-step-name: Verify approved native schedule evidence",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "",
+    `  ${businessJobId}:`,
+    `    name: ${yamlString(businessJobName)}`,
+    `    needs: ${jobId}`,
+    `    if: github.event_name == 'schedule' && needs.${jobId}.result == 'success'`,
+    `    runs-on: ${runner}`,
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    permissions:",
+    "      contents: read",
+    "      issues: read",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Reverify approved native schedule evidence",
+    "        id: verify",
+    `        uses: ${batchPlaneGateActionRef}`,
+    "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    `          request-id: \${{ needs.${jobId}.outputs.request-id }}`,
+    `          request-digest: \${{ needs.${jobId}.outputs.request-digest }}`,
+    `          issue-number: \${{ needs.${jobId}.outputs.issue-number }}`,
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          gate-job-name: ${yamlString(businessJobName)}`,
+    "          gate-step-name: Reverify approved native schedule evidence",
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "      - name: Checkout registered assets",
+    "        if: steps.verify.outputs.verified_sha != ''",
+    "        uses: actions/checkout@v4",
+    "        with:",
+    "          ref: ${{ steps.verify.outputs.verified_sha }}",
+    ...buildInputPreparationLines({
+      batchId,
+      requestId: `\${{ needs.${jobId}.outputs.request-id }}`,
+      requestDigest: `\${{ needs.${jobId}.outputs.request-digest }}`,
+      issueNumber: `\${{ needs.${jobId}.outputs.issue-number }}`,
+      scheduleId: schedule.scheduleId,
+      jobName: businessJobName
+    }),
+    "      - name: Run batch",
+    "        if: steps.verify.outputs.verified_sha != ''",
+    `        env: ${parameterEnvironmentExpression}`,
+    "        run: |",
+    '          echo "::group::BatchPlane batch command"',
+    `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
+    `          echo ${yamlString(`BatchPlane approved execution for ${batchId}`)}`,
+    ...indentRunCommand(runCommand),
+    "",
+    `  result-${jobId}:`,
+    `    name: ${yamlString(`Record ${schedule.name || schedule.scheduleId} result`)}`,
+    `    needs: [${jobId}, ${businessJobId}]`,
+    `    if: github.event_name == 'schedule' && github.event.schedule == ${githubExpressionString(schedule.cron)} && always() && needs.${jobId}.outputs.issue-number != ''`,
+    "    runs-on: ubuntu-latest",
+    "    env:",
+    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
+    "    permissions:",
+    "      actions: read",
+    "      contents: read",
+    "      issues: write",
+    "      pull-requests: read",
+    "    steps:",
+    "      - name: Record native schedule result",
+    `        uses: ${batchPlaneScheduleResultActionRef}`,
+    "        with:",
+    `          batch-id: ${yamlString(batchId)}`,
+    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
+    `          issue-number: \${{ needs.${jobId}.outputs.issue-number }}`,
+    `          request-id: \${{ needs.${jobId}.outputs.request-id }}`,
+    `          request-digest: \${{ needs.${jobId}.outputs.request-digest }}`,
+    `          control-result: \${{ needs.${jobId}.result }}`,
+    `          business-result: \${{ needs.${businessJobId}.result }}`,
+    `          business-job-id: ${yamlString(businessJobId)}`,
+    `          business-job-name: ${yamlString(businessJobName)}`,
+    `          control-job-id: ${yamlString(jobId)}`,
+    `          control-job-name: ${yamlString(controlJobName)}`,
+    `          definition-path: ${yamlString(batchPath)}`,
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    ""
+  ];
+}
+function buildInputPreparationLines({ batchId, requestId, requestDigest, issueNumber, scheduleId, jobName }) {
+  return [
+    `      - name: ${inputPreparationStepName}`,
+    "        id: prepare",
+    `        uses: ${inputPreparationActionRef}`,
+    "        with:",
+    "          mode: lite",
+    `          batch-id: ${yamlString(batchId)}`,
+    "          config-path: .batch-governance",
+    `          request-id: ${yamlString(requestId)}`,
+    `          request-digest: ${yamlString(requestDigest)}`,
+    "          approval-source: issue",
+    `          approval-ref: ${yamlString(requestId)}`,
+    ...issueNumber ? [`          issue-number: ${yamlString(issueNumber)}`] : [],
+    ...scheduleId ? [`          schedule-id: ${yamlString(scheduleId)}`] : [],
+    `          gate-job-name: ${yamlString(jobName)}`,
+    `          gate-step-name: ${inputPreparationStepName}`,
+    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
+    "          private-key: ${{ secrets.BATCHPLANE_INPUT_KEY }}"
+  ];
+}
+function getNativeScheduleWorkflowJobIdentity(schedule) {
+  const controlJobId = toScheduleWorkflowJobId(schedule.scheduleId);
+  return {
+    businessJobId: `run-${controlJobId}`,
+    businessJobName: `Run [${schedule.scheduleId}]`,
+    controlJobId,
+    controlJobName: `Schedule [${schedule.scheduleId}]`
+  };
+}
+function assertUnambiguousScheduleTimezones(schedules) {
+  const timezoneByCron = /* @__PURE__ */ new Map();
+  for (const schedule of schedules) {
+    const cron = schedule.cron.trim();
+    const timezone = schedule.timezone.trim();
+    const existing = timezoneByCron.get(cron);
+    if (existing && existing !== timezone) {
+      throw new Error(`SCHEDULE_TIMEZONE_AMBIGUOUS: schedules with cron ${cron} must use one timezone per workflow.`);
+    }
+    timezoneByCron.set(cron, timezone);
+  }
+}
+function toWorkflowJobId(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 48) || "schedule_request";
+}
+function toScheduleWorkflowJobId(scheduleId) {
+  const encoded = Array.from(scheduleId).map((character) => character.codePointAt(0).toString(16)).join("_");
+  return `schedule_${encoded}`;
+}
+
+// ../../packages/github-lite/dist/parameter-workflow.js
+function hasParameterDelivery(workflowYaml, batch) {
+  const parsed = parseRepositoryYaml(workflowYaml);
+  if (!parsed.ok || !isRecord2(parsed.value))
+    return false;
+  const jobs = parsed.value.jobs;
+  if (!isRecord2(jobs))
+    return false;
+  if (!hasBusinessInputBinding(jobs["run-batch"], {
+    "batch-id": "${{ inputs.batch_id }}",
+    "request-id": "${{ inputs.request_id }}",
+    "request-digest": "${{ inputs.request_digest }}"
+  }))
+    return false;
+  return (batch.schedules ?? []).filter((schedule) => schedule.enabled).every((schedule) => {
+    const { controlJobId, businessJobId } = getNativeScheduleWorkflowJobIdentity(schedule);
+    return hasBusinessInputBinding(jobs[businessJobId], {
+      "batch-id": batch.batchId,
+      "request-id": `\${{ needs.${controlJobId}.outputs.request-id }}`,
+      "request-digest": `\${{ needs.${controlJobId}.outputs.request-digest }}`,
+      "issue-number": `\${{ needs.${controlJobId}.outputs.issue-number }}`,
+      "schedule-id": schedule.scheduleId
+    });
+  });
+}
+function hasBusinessInputBinding(job, expectedInputs) {
+  if (!isRecord2(job) || !Array.isArray(job.steps))
+    return false;
+  const steps = job.steps.filter(isRecord2);
+  const preparationIndex = steps.findIndex((step) => step.id === "prepare" && step.uses === inputPreparationActionRef);
+  const businessIndex = steps.findIndex((step) => step.name === "Run batch");
+  if (preparationIndex < 0 || businessIndex <= preparationIndex)
+    return false;
+  const preparation = steps[preparationIndex];
+  const business = steps[businessIndex];
+  const requiredInputs = {
+    ...expectedInputs,
+    mode: "lite",
+    "approval-source": "issue",
+    "approval-ref": expectedInputs["request-id"],
+    "github-token": "${{ secrets.GITHUB_TOKEN }}",
+    "private-key": "${{ secrets.BATCHPLANE_INPUT_KEY }}"
+  };
+  const inputs = preparation.with;
+  return preparation["continue-on-error"] !== true && business.env === parameterEnvironmentExpression && isRecord2(inputs) && Object.entries(requiredInputs).every(([name, value]) => inputs[name] === value);
+}
+function isRecord2(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 // ../../packages/github-lite/dist/execution-request-evidence.js
+function createExecutionRequestDigest(payload) {
+  const value = payload;
+  if (payload.spec.parameterContractVersion === "PARAMETER_DELIVERY_V1") {
+    return createExactCanonicalDigest(value);
+  }
+  return createRequestDigest(value);
+}
 function isSameGitHubLogin(left, right) {
   return Boolean(left.trim() && right.trim()) && left.trim().toLowerCase() === right.trim().toLowerCase();
 }
@@ -8625,398 +9413,6 @@ async function loadCurrentExecutionApprovalPolicy(client, repository, configPath
     roleMapping,
     revision
   };
-}
-
-// ../../packages/github-lite/dist/batch-definition-codec.js
-function getBatchDefinitionPath(batchId) {
-  return `.batch-governance/batches/${assertCanonicalBatchId(batchId)}.yml`;
-}
-function getBatchWorkflowPath(batchId) {
-  return `.github/workflows/${assertCanonicalBatchId(batchId)}.yml`;
-}
-function getBatchArtifactPath(batchId, fileName) {
-  const batchSlug = assertCanonicalBatchId(batchId);
-  const fileSlug = toFileNameSlug(fileName);
-  return `.batch-governance/batches/${batchSlug}/artifacts/${fileSlug || "artifact.bin"}`;
-}
-function assertCanonicalBatchId(batchId) {
-  if (isCanonicalBatchId(batchId)) {
-    return batchId;
-  }
-  throw new Error("Batch ID must be a canonical repository-safe identifier containing only letters, digits, dots, and hyphens.");
-}
-function parseBatchDefinitionYaml(yaml) {
-  const result = parseRepositoryYaml(yaml);
-  if (!result.ok) {
-    throw new Error(`Invalid BatchPlane YAML: ${formatRepositoryYamlDiagnostics(result.diagnostics)}`);
-  }
-  const document = asYamlRecord(result.value);
-  const validation = validateBatchDefinitionFile(document);
-  if (!validation.ok) {
-    throw new Error(`Invalid BatchPlane BatchDefinition: ${validation.diagnostics.map((diagnostic) => `${diagnostic.field}: ${diagnostic.message}`).join("; ")}`);
-  }
-  const metadata = asYamlRecord(document.metadata);
-  const spec = asYamlRecord(document.spec);
-  const workflow = asYamlRecord(spec.workflow);
-  const execution = asYamlRecord(spec.execution);
-  const schedules = readYamlSchedules(spec, "schedules");
-  const criticality = parseCriticality(readYamlString(spec, "criticality"));
-  const status = parseBatchStatus(readYamlString(spec, "status"));
-  const command = readYamlString(execution, "command");
-  const runsOn = readYamlRunnerLabel(execution, "runsOn");
-  const artifactPath = readYamlString(execution, "artifactPath");
-  return {
-    batchId: readYamlString(metadata, "id"),
-    governedChangeId: readYamlString(metadata, "governedChangeId") || void 0,
-    name: readYamlString(metadata, "name"),
-    owner: readYamlString(spec, "owner"),
-    domain: readYamlString(spec, "domain"),
-    environment: readYamlString(spec, "environment"),
-    criticality,
-    status,
-    workflow: {
-      path: readYamlString(workflow, "path"),
-      ref: readYamlString(workflow, "ref")
-    },
-    gateRequired: readYamlBoolean(spec, "gateRequired"),
-    execution: command || runsOn ? {
-      ...artifactPath ? { artifactPath } : {},
-      command,
-      runsOn: runsOn || ""
-    } : void 0,
-    schedules: schedules.length > 0 ? schedules : void 0
-  };
-}
-function asYamlRecord(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-function readYamlString(record, key) {
-  const value = record[key];
-  if (value === void 0 || value === null || Array.isArray(value)) {
-    return "";
-  }
-  return typeof value === "object" ? "" : String(value);
-}
-function readYamlRunnerLabel(record, key) {
-  const value = record[key];
-  if (typeof value === "string") {
-    return value;
-  }
-  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
-    return value;
-  }
-  return "";
-}
-function readYamlBoolean(record, key) {
-  return record[key] === true;
-}
-function readYamlSchedules(record, key) {
-  const value = record[key];
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.map((item) => asYamlRecord(item)).map((item) => ({
-    cron: readYamlString(item, "cron"),
-    enabled: readYamlBoolean(item, "enabled"),
-    name: readYamlString(item, "name"),
-    scheduleId: readYamlString(item, "id"),
-    timezone: readYamlString(item, "timezone")
-  })).filter((schedule) => Boolean(schedule.scheduleId) || Boolean(schedule.name) || Boolean(schedule.cron) || Boolean(schedule.timezone));
-}
-function parseCriticality(value) {
-  if (value === "LOW" || value === "MEDIUM" || value === "HIGH" || value === "CRITICAL") {
-    return value;
-  }
-  return "MEDIUM";
-}
-function parseBatchStatus(value) {
-  if (value === "ACTIVE" || value === "INACTIVE") {
-    return value;
-  }
-  return "INACTIVE";
-}
-function toFileNameSlug(value) {
-  return value.trim().replace(/[\\/]+/g, "-").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/[._-]+$/g, "").replace(/^[._-]+/g, "").slice(0, 120);
-}
-
-// ../../packages/github-lite/dist/github-workflow.js
-var batchPlaneGateActionRef = "always0ne/batchplane/actions/gate@main";
-var batchPlaneScheduleRequestActionRef = "always0ne/batchplane/actions/schedule-request@main";
-var batchPlaneScheduleResultActionRef = "always0ne/batchplane/actions/schedule-result@main";
-function buildBatchWorkflowYaml(definition) {
-  const workflowName = definition.name || definition.batchId || "New batch";
-  const batchId = definition.batchId || "batch-id";
-  const runCommandLines = indentRunCommand(definition.execution?.command ?? "");
-  const runner = formatRunnerLabel(definition.execution?.runsOn ?? "ubuntu-latest");
-  const batchPath = getBatchDefinitionPath(batchId);
-  const enabledSchedules = (definition.schedules ?? []).filter((schedule) => schedule.enabled);
-  assertUnambiguousScheduleTimezones(enabledSchedules);
-  const scheduleEntries = Array.from(new Map(enabledSchedules.map((schedule) => ({
-    cron: schedule.cron.trim(),
-    timezone: schedule.timezone.trim()
-  })).filter((schedule) => schedule.cron && schedule.timezone).map((schedule) => [
-    `${schedule.cron}\0${schedule.timezone}`,
-    schedule
-  ])).values());
-  return [
-    `name: ${yamlString(`BatchPlane - ${workflowName}`)}`,
-    "run-name: BatchPlane ${{ github.event.inputs.batch_id || 'scheduled' }} ${{ github.event.inputs.request_id || github.event.schedule || '' }}",
-    "",
-    "on:",
-    "  workflow_dispatch:",
-    "    inputs:",
-    "      request_id:",
-    "        description: BatchPlane execution request ID",
-    "        required: true",
-    "        type: string",
-    "      batch_id:",
-    "        description: BatchPlane batch ID",
-    "        required: true",
-    "        type: string",
-    "      request_digest:",
-    "        description: BatchPlane approved request digest",
-    "        required: true",
-    "        type: string",
-    "      schedule_id:",
-    "        description: BatchPlane schedule identifier for scheduled dispatches",
-    "        required: false",
-    "        type: string",
-    ...scheduleEntries.length > 0 ? [
-      "  schedule:",
-      ...scheduleEntries.map((schedule) => `    - cron: ${yamlString(schedule.cron)}
-      timezone: ${yamlString(schedule.timezone)}`)
-    ] : [],
-    "",
-    "jobs:",
-    ...enabledSchedules.flatMap((schedule) => buildScheduledRequestJobLines({
-      batchId,
-      batchPath,
-      runCommand: definition.execution?.command ?? "",
-      runner,
-      schedule
-    })),
-    "  batchplane-gate:",
-    "    name: BatchPlane Gate",
-    "    if: github.event_name == 'workflow_dispatch'",
-    "    runs-on: ubuntu-latest",
-    "    env:",
-    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
-    "    outputs:",
-    "      verified_sha: ${{ steps.verify.outputs.verified_sha }}",
-    "    permissions:",
-    "      contents: read",
-    "      issues: read",
-    "      pull-requests: read",
-    "    steps:",
-    "      - name: Verify approved execution evidence",
-    "        id: verify",
-    `        uses: ${batchPlaneGateActionRef}`,
-    "        with:",
-    "          mode: lite",
-    "          batch-id: ${{ inputs.batch_id }}",
-    "          config-path: .batch-governance",
-    "          request-id: ${{ inputs.request_id }}",
-    "          approval-source: issue",
-    "          approval-ref: ${{ inputs.request_id }}",
-    "          request-digest: ${{ inputs.request_digest }}",
-    "          schedule-id: ${{ inputs.schedule_id }}",
-    "          gate-job-name: BatchPlane Gate",
-    "          gate-step-name: Verify approved execution evidence",
-    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
-    "",
-    "  run-batch:",
-    "    name: Run governed batch",
-    "    if: github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''",
-    `    runs-on: ${runner}`,
-    "    needs: batchplane-gate",
-    "    permissions:",
-    "      contents: read",
-    "    steps:",
-    "      - name: Checkout registered assets",
-    "        uses: actions/checkout@v4",
-    "        with:",
-    "          ref: ${{ needs.batchplane-gate.outputs.verified_sha }}",
-    "",
-    "      - name: Run batch",
-    "        run: |",
-    '          echo "::group::BatchPlane batch command"',
-    `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
-    `          echo ${yamlString(`BatchPlane approved execution for ${batchId}`)}`,
-    ...runCommandLines,
-    ""
-  ].join("\n");
-}
-function yamlString(value) {
-  return JSON.stringify(value);
-}
-function githubExpressionString(value) {
-  return `'${value.replace(/'/g, "''")}'`;
-}
-function indentRunCommand(runCommand) {
-  const lines = runCommand.trimEnd().split("\n");
-  if (lines.length === 0 || lines.every((line) => !line.trim())) {
-    return [
-      "          # Define the governed batch command during registration."
-    ];
-  }
-  return lines.map((line) => `          ${line}`);
-}
-function formatRunnerLabel(runnerLabel) {
-  if (Array.isArray(runnerLabel)) {
-    return `[${runnerLabel.map(yamlString).join(", ")}]`;
-  }
-  return yamlString(runnerLabel || "ubuntu-latest");
-}
-function buildScheduledRequestJobLines({ batchId, batchPath, runCommand, runner, schedule }) {
-  const identity = getNativeScheduleWorkflowJobIdentity(schedule);
-  const { businessJobId, businessJobName, controlJobId: jobId, controlJobName } = identity;
-  return [
-    `  ${jobId}:`,
-    `    name: ${yamlString(controlJobName)}`,
-    `    if: github.event_name == 'schedule' && github.event.schedule == ${githubExpressionString(schedule.cron)}`,
-    "    outputs:",
-    "      request-id: ${{ steps.schedule_request.outputs.request-id }}",
-    "      request-digest: ${{ steps.schedule_request.outputs.request-digest }}",
-    "      issue-number: ${{ steps.schedule_request.outputs.issue-number }}",
-    "    concurrency:",
-    `      group: ${yamlString(`batchplane-schedule-${toWorkflowJobId(batchId)}-${toScheduleWorkflowJobId(schedule.scheduleId)}`)}`,
-    "      cancel-in-progress: false",
-    "    runs-on: ubuntu-latest",
-    "    env:",
-    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
-    "    permissions:",
-    "      contents: read",
-    "      issues: write",
-    "      pull-requests: read",
-    "    steps:",
-    "      - name: Record native scheduled execution request",
-    "        id: schedule_request",
-    "        continue-on-error: true",
-    `        uses: ${batchPlaneScheduleRequestActionRef}`,
-    "        with:",
-    `          batch-id: ${yamlString(batchId)}`,
-    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
-    `          cron: ${yamlString(schedule.cron)}`,
-    `          timezone: ${yamlString(schedule.timezone)}`,
-    `          definition-path: ${yamlString(batchPath)}`,
-    "          config-path: .batch-governance",
-    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
-    "      - name: Verify approved native schedule evidence",
-    "        id: verify",
-    "        if: always()",
-    `        uses: ${batchPlaneGateActionRef}`,
-    "        with:",
-    "          mode: lite",
-    `          batch-id: ${yamlString(batchId)}`,
-    "          config-path: .batch-governance",
-    "          request-id: ${{ steps.schedule_request.outputs.request-id }}",
-    "          request-digest: ${{ steps.schedule_request.outputs.request-digest }}",
-    "          issue-number: ${{ steps.schedule_request.outputs.issue-number }}",
-    "          controller-reason: ${{ steps.schedule_request.outputs.failure-reason }}",
-    "          record-evidence: true",
-    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
-    `          gate-job-name: ${yamlString(controlJobName)}`,
-    "          gate-step-name: Verify approved native schedule evidence",
-    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
-    "",
-    `  ${businessJobId}:`,
-    `    name: ${yamlString(businessJobName)}`,
-    `    needs: ${jobId}`,
-    `    if: github.event_name == 'schedule' && needs.${jobId}.result == 'success'`,
-    `    runs-on: ${runner}`,
-    "    env:",
-    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
-    "    permissions:",
-    "      contents: read",
-    "      issues: read",
-    "      pull-requests: read",
-    "    steps:",
-    "      - name: Reverify approved native schedule evidence",
-    "        id: verify",
-    `        uses: ${batchPlaneGateActionRef}`,
-    "        with:",
-    "          mode: lite",
-    `          batch-id: ${yamlString(batchId)}`,
-    "          config-path: .batch-governance",
-    `          request-id: \${{ needs.${jobId}.outputs.request-id }}`,
-    `          request-digest: \${{ needs.${jobId}.outputs.request-digest }}`,
-    `          issue-number: \${{ needs.${jobId}.outputs.issue-number }}`,
-    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
-    `          gate-job-name: ${yamlString(businessJobName)}`,
-    "          gate-step-name: Reverify approved native schedule evidence",
-    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
-    "      - name: Checkout registered assets",
-    "        if: steps.verify.outputs.verified_sha != ''",
-    "        uses: actions/checkout@v4",
-    "        with:",
-    "          ref: ${{ steps.verify.outputs.verified_sha }}",
-    "      - name: Run batch",
-    "        if: steps.verify.outputs.verified_sha != ''",
-    "        run: |",
-    '          echo "::group::BatchPlane batch command"',
-    `          trap 'status=$?; echo "::endgroup::"; exit $status' EXIT`,
-    `          echo ${yamlString(`BatchPlane approved execution for ${batchId}`)}`,
-    ...indentRunCommand(runCommand),
-    "",
-    `  result-${jobId}:`,
-    `    name: ${yamlString(`Record ${schedule.name || schedule.scheduleId} result`)}`,
-    `    needs: [${jobId}, ${businessJobId}]`,
-    `    if: github.event_name == 'schedule' && github.event.schedule == ${githubExpressionString(schedule.cron)} && always() && needs.${jobId}.outputs.issue-number != ''`,
-    "    runs-on: ubuntu-latest",
-    "    env:",
-    "      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}",
-    "    permissions:",
-    "      actions: read",
-    "      contents: read",
-    "      issues: write",
-    "      pull-requests: read",
-    "    steps:",
-    "      - name: Record native schedule result",
-    `        uses: ${batchPlaneScheduleResultActionRef}`,
-    "        with:",
-    `          batch-id: ${yamlString(batchId)}`,
-    `          schedule-id: ${yamlString(schedule.scheduleId)}`,
-    `          issue-number: \${{ needs.${jobId}.outputs.issue-number }}`,
-    `          request-id: \${{ needs.${jobId}.outputs.request-id }}`,
-    `          request-digest: \${{ needs.${jobId}.outputs.request-digest }}`,
-    `          control-result: \${{ needs.${jobId}.result }}`,
-    `          business-result: \${{ needs.${businessJobId}.result }}`,
-    `          business-job-id: ${yamlString(businessJobId)}`,
-    `          business-job-name: ${yamlString(businessJobName)}`,
-    `          control-job-id: ${yamlString(jobId)}`,
-    `          control-job-name: ${yamlString(controlJobName)}`,
-    `          definition-path: ${yamlString(batchPath)}`,
-    "          github-token: ${{ secrets.GITHUB_TOKEN }}",
-    ""
-  ];
-}
-function getNativeScheduleWorkflowJobIdentity(schedule) {
-  const controlJobId = toScheduleWorkflowJobId(schedule.scheduleId);
-  return {
-    businessJobId: `run-${controlJobId}`,
-    businessJobName: `Run [${schedule.scheduleId}]`,
-    controlJobId,
-    controlJobName: `Schedule [${schedule.scheduleId}]`
-  };
-}
-function assertUnambiguousScheduleTimezones(schedules) {
-  const timezoneByCron = /* @__PURE__ */ new Map();
-  for (const schedule of schedules) {
-    const cron = schedule.cron.trim();
-    const timezone = schedule.timezone.trim();
-    const existing = timezoneByCron.get(cron);
-    if (existing && existing !== timezone) {
-      throw new Error(`SCHEDULE_TIMEZONE_AMBIGUOUS: schedules with cron ${cron} must use one timezone per workflow.`);
-    }
-    timezoneByCron.set(cron, timezone);
-  }
-}
-function toWorkflowJobId(value) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 48) || "schedule_request";
-}
-function toScheduleWorkflowJobId(scheduleId) {
-  const encoded = Array.from(scheduleId).map((character) => character.codePointAt(0).toString(16)).join("_");
-  return `schedule_${encoded}`;
 }
 
 // ../../packages/github-lite/dist/change-request-evidence.js
@@ -9541,7 +9937,10 @@ async function verifyNativeScheduleRequestIssue(body, expected) {
   }
   let digest;
   try {
-    digest = await createRequestDigest(payload);
+    if (expected.batch.parameters?.length || payload.spec.parameters !== void 0) {
+      validateApprovedParameters(payload, expected.batch, expected.parameterSourceRevision ?? "");
+    }
+    digest = await createExecutionRequestDigest(payload);
   } catch {
     return null;
   }
@@ -9633,7 +10032,7 @@ var supportedBatchPlaneApiVersions2 = [
   legacyBatchPlaneApiVersion2
 ];
 function validateBatchDefinitionFile2(file) {
-  if (!isRecord2(file)) {
+  if (!isRecord3(file)) {
     return { ok: false };
   }
   if (!isBatchPlaneApiVersion2(file.apiVersion) || file.kind !== "BatchDefinition") {
@@ -9681,11 +10080,11 @@ function validateBatchDefinitionFile2(file) {
     }
   };
 }
-function isRecord2(value) {
+function isRecord3(value) {
   return typeof value === "object" && value !== null;
 }
 function asRecord2(value) {
-  return isRecord2(value) ? value : null;
+  return isRecord3(value) ? value : null;
 }
 function isString2(value) {
   return typeof value === "string";
@@ -10229,6 +10628,59 @@ function deny2(reasonCode, message) {
   return { message, reasonCode, result: "DENY" };
 }
 
+// src/gate-parameters.ts
+async function verifyParameterBinding({
+  input,
+  issueBody,
+  client,
+  revision
+}) {
+  try {
+    const sourceRevision = revision.verifiedSha;
+    const path = `${input.configPath.replace(/\/+$/u, "")}/batches/${input.batchId}.yml`;
+    const file = await client.getFile(path, sourceRevision);
+    if (!file) throw new Error("PARAMETER_DEFINITION_UNAVAILABLE");
+    const batch = parseBatchDefinitionYaml(file.content);
+    const payload = parseCanonicalPayload(
+      issueBody
+    );
+    if (!payload?.spec || !payload.metadata)
+      throw new Error("PARAMETER_REQUEST_INVALID");
+    const hasParameters = Boolean(
+      batch.parameters?.length || payload.spec.parameters || payload.spec.parameterContractVersion
+    );
+    if (!hasParameters) return revision;
+    if (payload.metadata.batchId !== input.batchId || payload.metadata.requestId !== input.requestId || await createExecutionRequestDigest(payload) !== input.requestDigest)
+      throw new Error("REQUEST_DIGEST_MISMATCH");
+    const approvedParameters = validateApprovedParameters(
+      payload,
+      batch,
+      sourceRevision
+    );
+    const workflow = await client.getFile(
+      batch.workflow.path,
+      input.workflowSha
+    );
+    if (!workflow || !hasParameterDelivery(workflow.content, batch)) {
+      throw new Error("PARAMETER_WORKFLOW_UPDATE_REQUIRED");
+    }
+    return { ...revision, approvedParameters };
+  } catch (error) {
+    const code = parameterFailureCode(error);
+    return {
+      result: "DENY",
+      reasonCode: code,
+      message: `Approved inputs could not be verified (${code}). The batch command did not start.`
+    };
+  }
+}
+function parameterFailureCode(error) {
+  if (error instanceof Error && /^(?:PARAMETER_[A-Z_]+|REQUEST_DIGEST_MISMATCH)$/u.test(error.message)) {
+    return error.message;
+  }
+  return "PARAMETER_PREPARATION_FAILED";
+}
+
 // src/gate-manual-authorization.ts
 async function verifyManualAuthorization({
   evidence,
@@ -10508,13 +10960,20 @@ async function verifyLiteAuthorization(input, verifyBatchRevision = verifyApprov
   if (authorization.result === "DENY") {
     return authorization;
   }
-  return verifyApprovedRevision({
+  const revision = await verifyApprovedRevision({
     authorization,
     input,
     repository: requestContext.repository,
     request,
     token: requestContext.token,
     verifyBatchRevision
+  });
+  if (revision.result === "DENY" || !revision.verifiedSha) return revision;
+  return verifyParameterBinding({
+    input,
+    issueBody: evidence.issueBody ?? "",
+    client: requestContext.client,
+    revision
   });
 }
 function createRequestContext(input) {

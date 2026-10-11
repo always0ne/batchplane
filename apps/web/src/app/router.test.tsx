@@ -39,6 +39,12 @@ const disconnectedClient = {
   inspectWorkspace: async () => {
     throw new WorkspaceNotConnectedError();
   },
+  inspectWorkspaceEncryption: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
+  initializeWorkspaceEncryption: async () => {
+    throw new WorkspaceNotConnectedError();
+  },
   requestWorkspaceInstallation: async () => {
     throw new WorkspaceNotConnectedError();
   },

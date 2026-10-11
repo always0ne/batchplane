@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { GitHubLiteClient, GitHubWorkflowJob } from "./github-types.js";
 import { getNativeScheduleWorkflowJobIdentity } from "./github-workflow.js";
+import { inputPreparationStepName } from "./github-workflow.js";
 import { inspectNativeScheduleExecution } from "./native-schedule-evidence.js";
 
 const repository = { owner: "acme", repo: "batch" };
@@ -178,6 +179,86 @@ function clientFor({
 }
 
 describe("native schedule execution evidence", () => {
+  it("prefers job-bound preparation DENY and leaves missing or mismatched preparation proof unconfirmed", async () => {
+    const business = businessJob();
+    business.conclusion = "failure";
+    const reverify = business.steps![0]!;
+    business.steps = [
+      reverify,
+      {
+        name: inputPreparationStepName,
+        number: 2,
+        startedAt: "2026-01-02T03:04:04Z",
+        completedAt: "2026-01-02T03:04:05Z",
+        status: "completed",
+        conclusion: "failure",
+      },
+      {
+        name: "Run batch",
+        number: 3,
+        status: "completed",
+        conclusion: "skipped",
+      },
+    ];
+    for (const proof of ["denied", "missing", "wrong-request"] as const) {
+      const { client } = clientFor({
+        attempt: 1,
+        jobs: [controlJob(), business],
+      });
+      const oldEntry = gateLog({
+        allowed: true,
+        job: identity.businessJobId,
+        jobName: businessJobName,
+        runAttempt: 1,
+        step: reverify.name,
+        timestamp: "2026-01-02T03:04:03.500Z",
+      });
+      const preparation = gateLog({
+        allowed: false,
+        job: identity.businessJobId,
+        jobName: businessJobName,
+        runAttempt: 1,
+        step: inputPreparationStepName,
+        timestamp: "2026-01-02T03:04:04.500Z",
+        occurrence:
+          proof === "wrong-request"
+            ? { ...expectedOccurrence, requestId: "different-request" }
+            : expectedOccurrence,
+      });
+      vi.mocked(client.getWorkflowJobLog).mockImplementation(
+        async ({ jobId }) => ({
+          jobId,
+          truncated: false,
+          sizeBytes: 1,
+          content:
+            jobId === 201
+              ? gateLog({
+                  allowed: true,
+                  job: identity.controlJobId,
+                  jobName: controlJobName,
+                  runAttempt: 1,
+                  step: "Verify approved native schedule evidence",
+                })
+              : [oldEntry, proof === "missing" ? "" : preparation].join("\n"),
+        }),
+      );
+      const result = await inspectNativeScheduleExecution({
+        client,
+        expectedOccurrence,
+        expectedRepositoryId: "99",
+        expectedWorkflowPath: workflowPath,
+        repository,
+        runAttempt: 1,
+        runId: 100,
+        schedule: { scheduleId: "weekday-close" },
+      });
+      expect(result.observation).toBe(
+        proof === "denied" ? "BLOCKED" : "UNCONFIRMED",
+      );
+      if (proof !== "denied")
+        expect(result.reason).toBe("GATE_EVIDENCE_UNCONFIRMED");
+    }
+  });
   it("uses the exact API attempt and unique generated jobs for success", async () => {
     const { client, getWorkflowRun } = clientFor({
       attempt: 1,

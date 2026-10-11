@@ -2,6 +2,7 @@ import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { ExecutionRequestPreviewState } from "../hooks/useExecutionRequestPreview";
+import { ExecutionRequestParameterSummary } from "../../components/ExecutionRequestParameterSummary";
 
 export function ExecutionRequestPayloadPreview({
   previewState,
@@ -16,6 +17,11 @@ export function ExecutionRequestPayloadPreview({
       <h2 className="text-lg font-semibold text-bp-graphite">
         {t("payload.title")}
       </h2>
+      {previewRequest ? (
+        <ExecutionRequestParameterSummary
+          parameters={previewRequest.parameters}
+        />
+      ) : null}
       {previewState.type === "loading" ? (
         <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-bp-muted">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

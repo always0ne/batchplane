@@ -8,6 +8,7 @@ import type { GitHubWorkflowJob, GitHubWorkflowRun } from "./github-types.js";
 import type { GitHubExecutionRun } from "./repository-evidence-types.js";
 import { type ExecutionRequestForRun } from "./inspection-context.js";
 import { type NativeSchedulePresentation } from "./native-schedule-projections.js";
+import { inputPreparationStepName } from "./github-workflow.js";
 export type ExecutionRunFacts = GitHubExecutionRun & {
   evidenceScope?: "SOURCE_RUN";
   nativeSchedule?: NativeSchedulePresentation;
@@ -40,9 +41,9 @@ export function toExecutionRun(
     toExecutionRunJob(job, jobRoles?.get(String(job.id))),
   );
   const inferredBatchId = parseBatchIdFromRun(run, workflow?.path);
-  const status = nativeSchedule
-    ? nativeSchedule.observation
-    : toExecutionRunStatus(run, gateDecision);
+  const status =
+    nativeSchedule?.observation ??
+    manualExecutionStatus(run, jobs, gateDecision);
   const terminal =
     status !== "QUEUED" && status !== "RUNNING" && status !== "UNCONFIRMED";
   let completedAt: string | undefined;
@@ -92,6 +93,33 @@ export function toExecutionRun(
     workflowRunId: String(run.id),
     ...(run.url ? { workflowRunUrl: run.url } : {}),
   };
+}
+
+function manualExecutionStatus(
+  run: GitHubWorkflowRun,
+  jobs: GitHubWorkflowJob[],
+  gateDecision: GateDecision | undefined,
+): ExecutionRunStatus {
+  if (gateDecision?.allowed === false) return "BLOCKED";
+  const preparationDidNotFinish = jobs.some((job) => {
+    const preparation = job.steps?.find(
+      (step) => step.name === inputPreparationStepName,
+    );
+    const business = job.steps?.find((step) => step.name === "Run batch");
+    return (
+      preparation?.status === "completed" &&
+      preparation.conclusion !== "success" &&
+      business?.conclusion === "skipped"
+    );
+  });
+  if (
+    run.status === "completed" &&
+    run.conclusion !== "cancelled" &&
+    preparationDidNotFinish
+  ) {
+    return "UNCONFIRMED";
+  }
+  return toExecutionRunStatus(run, gateDecision);
 }
 
 export function toNativeSourceRun(

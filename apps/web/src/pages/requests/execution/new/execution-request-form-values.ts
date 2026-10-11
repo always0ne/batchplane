@@ -1,10 +1,8 @@
-import type { ExecutionRequestParameter } from "@batchplane/ui-client";
-
-export type ParameterRow = ExecutionRequestParameter & { id: string };
+import type { ParameterSelection } from "@batchplane/domain";
 
 export type ExecutionRequestFormValues = {
   expiresInHours: string;
-  parameters: ParameterRow[];
+  parameters: ParameterSelection[];
   reason: string;
   targetRevision: string;
 };
@@ -29,12 +27,6 @@ export function validateForm(
   ) {
     errors.push(t("validation.expiresIn"));
   }
-
-  values.parameters.forEach((parameter) => {
-    if (!parameter.name.trim() && parameter.value.trim()) {
-      errors.push(t("validation.parameterName"));
-    }
-  });
 
   return errors;
 }

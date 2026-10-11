@@ -4,8 +4,11 @@ import type {
   ExecutionRunJob,
   ExecutionRunStatus,
   WorkspaceApprovalMode,
+  BatchParameterDefinition,
+  ParameterSelection,
 } from "@batchplane/domain";
 import type { BatchExecutionTarget } from "./batch-details.js";
+import type { WorkspaceEncryptionUnavailableReason } from "./workspace.js";
 
 /** Source evidence can be inspected before an execution request is correlated. */
 export type ExecutionRunPresentation = ExecutionRun & {
@@ -21,10 +24,15 @@ export type ExecutionRunPresentation = ExecutionRun & {
   };
 };
 
-export type ExecutionRequestParameter = {
+export type ExecutionRequestParameter = ParameterSelection;
+
+/** Selected inputs without provider ciphertext or saved-reference identities. */
+export type ExecutionRequestParameterSummary = {
   name: string;
   sensitive: boolean;
-  value: string;
+  source: "DEFAULT" | "VALUE" | "OMIT";
+  /** Present only for ordinary selected values, including the empty string. */
+  value?: string;
 };
 
 export type ExecutionRequestBatchContext = {
@@ -40,6 +48,9 @@ export type ExecutionRequestBatchContext = {
 };
 
 export type ExecutionRequestDraft = {
+  parameters?: BatchParameterDefinition[];
+  sensitiveInputsAvailable?: boolean;
+  sensitiveInputsUnavailableReason?: WorkspaceEncryptionUnavailableReason;
   approvedBatchRevision: {
     governedChangeId: string;
     targetRevisionDigest: string;
@@ -48,7 +59,10 @@ export type ExecutionRequestDraft = {
   creationCapability: {
     canCreate: boolean;
     unavailableReasons: Array<
-      "BATCH_INACTIVE" | "EXECUTION_COMMAND_UNAVAILABLE" | "GATE_NOT_REQUIRED"
+      | "BATCH_INACTIVE"
+      | "EXECUTION_COMMAND_UNAVAILABLE"
+      | "GATE_NOT_REQUIRED"
+      | "PARAMETER_WORKFLOW_UPDATE_REQUIRED"
     >;
   };
   requestId: string;
@@ -197,6 +211,7 @@ export type ExecutionRequestApprovalNotice = {
 };
 
 export type ExecutionRequest = {
+  parameters?: ExecutionRequestParameterSummary[];
   approvalDecision?: ExecutionDecision;
   approvalNotice?: ExecutionRequestApprovalNotice;
   batch: {

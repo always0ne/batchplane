@@ -33,6 +33,12 @@ import {
 } from "./execution-approval-legacy.js";
 import { stringifyRepositoryYaml } from "./repository-yaml.js";
 import { loadHistoricalWorkspacePolicy } from "./workspace-authorization.js";
+import { buildBatchWorkflowYaml } from "./github-workflow.js";
+import { buildWorkspaceEncryptionConfiguration } from "./workspace-encryption-configuration.js";
+import {
+  generateParameterEncryptionKey,
+  parameterPrivateKeySecretName,
+} from "./parameter-encryption.js";
 import {
   buildChangeRequestBody,
   changeRequestEvidenceVersion,
@@ -472,6 +478,202 @@ describe("GitHub Lite execution approval client", () => {
     await expect(
       client.loadExecutionRequestDraft({ batchId: "missing.batch" }),
     ).resolves.toEqual({ batchId: "missing.batch", type: "not-found" });
+  });
+
+  it("projects immutable defaults, blocks an old workflow even with forged readiness, and preserves the draft on provider rejection", async () => {
+    const protectedDefault = {
+      sensitive: true as const,
+      encrypted: {
+        version: 1 as const,
+        keyId: "saved-key",
+        jwe: "frozen-default-ciphertext",
+      },
+    };
+    const batch: GitHubBatchDefinition = {
+      ...batchDefinition(),
+      parameters: [
+        { name: "DATE", required: true, sensitive: false },
+        {
+          name: "TOKEN",
+          required: false,
+          sensitive: true,
+          defaultValue: protectedDefault,
+        },
+      ],
+    };
+    const createExecutionRequest = vi
+      .fn()
+      .mockImplementation(async ({ body }) => ({ ...createIssue(), body }));
+    const context = createContext({
+      batchDefinitions: [batch],
+      createExecutionRequest,
+      workspaceApprovalMode: "SELF_APPROVAL_BLOCKED",
+    });
+    const { configuration } = await generateParameterEncryptionKey();
+    context.client.state.actionsSecrets.push({
+      name: parameterPrivateKeySecretName,
+      createdAt: "2026-09-01T00:00:00Z",
+      updatedAt: "2026-09-01T00:00:00Z",
+    });
+    context.client.state.files.push({
+      branch: "approved-sha",
+      path: ".batch-governance/parameter-encryption.yml",
+      content: buildWorkspaceEncryptionConfiguration(configuration),
+      sha: "applied-public-configuration",
+    });
+    context.client.state.files = context.client.state.files.filter(
+      (file) => file.path !== batch.workflow.path,
+    );
+    for (const branch of ["main", "approved-sha"])
+      context.client.state.files.push({
+        branch,
+        path: batch.workflow.path,
+        content: buildBatchWorkflowYaml(batch),
+        sha: "delivery-workflow",
+      });
+    const product = createGitHubLiteExecutionApprovalClient(context);
+    const loaded = await product.loadExecutionRequestDraft({
+      batchId: batch.batchId,
+    });
+    if (loaded.type !== "ready") throw new Error("Expected input draft");
+    expect(loaded.draft).toMatchObject({
+      parameters: [
+        { name: "DATE", required: true, sensitive: false },
+        { name: "TOKEN", defaultValue: { kind: "SAVED" } },
+      ],
+      creationCapability: { canCreate: true },
+    });
+    expect(JSON.stringify(loaded.draft.parameters)).not.toContain(
+      protectedDefault.encrypted.jwe,
+    );
+    const input = {
+      draft: {
+        ...loaded.draft,
+        requestedAt: draft.requestedAt,
+        requestId: draft.requestId,
+      },
+      parameters: [
+        {
+          name: "DATE",
+          source: "VALUE" as const,
+          value: { kind: "VALUE" as const, value: "" },
+        },
+        { name: "TOKEN", source: "DEFAULT" as const },
+      ],
+      reason: "Exact approved inputs",
+      targetRevision: "main",
+      expiresAt: "2026-09-11T10:00:00.000Z",
+    };
+    const preview = await product.previewExecutionRequest(input);
+    expect(preview.request).toMatchObject({
+      parameters: [
+        { name: "DATE", sensitive: false, source: "VALUE", value: "" },
+        { name: "TOKEN", sensitive: true, source: "DEFAULT" },
+      ],
+    });
+    const created = await product.createExecutionRequest(input);
+    expect(created.request).toMatchObject({
+      parameters: [
+        { name: "DATE", value: "" },
+        { name: "TOKEN", sensitive: true, source: "DEFAULT" },
+      ],
+    });
+    expect(created.request.evidence.requestDigest).toBe(
+      preview.request.evidence.requestDigest,
+    );
+    context.client.getIssue = vi
+      .fn()
+      .mockResolvedValue(createExecutionRequest.mock.results[0]!.value);
+    const detail = await product.getExecutionRequest({ requestLocator: "71" });
+    expect(detail?.parameters).toEqual(preview.request.parameters);
+    expect(detail?.parameters).toEqual([
+      { name: "DATE", sensitive: false, source: "VALUE", value: "" },
+      { name: "TOKEN", sensitive: true, source: "DEFAULT" },
+    ]);
+    const snapshot = structuredClone(input);
+    createExecutionRequest.mockRejectedValueOnce(
+      new Error("Provider rejected request"),
+    );
+    await expect(product.createExecutionRequest(input)).rejects.toThrow(
+      "Provider rejected request",
+    );
+    expect(input).toEqual(snapshot);
+    context.client.state.actionsSecrets = [];
+    const incomplete = await product.loadExecutionRequestDraft({
+      batchId: batch.batchId,
+    });
+    expect(incomplete).toMatchObject({
+      draft: {
+        sensitiveInputsAvailable: false,
+        sensitiveInputsUnavailableReason: "KEY_NOT_REGISTERED",
+      },
+    });
+    await expect(product.createExecutionRequest(input)).rejects.toThrow(
+      "PARAMETER_ENCRYPTION_KEY_NOT_REGISTERED",
+    );
+    context.client.getActionsSecret = vi
+      .fn()
+      .mockRejectedValue(new Error("Metadata read denied"));
+    const unknown = await product.loadExecutionRequestDraft({
+      batchId: batch.batchId,
+    });
+    expect(unknown).toMatchObject({
+      draft: {
+        sensitiveInputsAvailable: false,
+        sensitiveInputsUnavailableReason: "STATUS_UNAVAILABLE",
+      },
+    });
+    await expect(product.previewExecutionRequest(input)).rejects.toThrow(
+      "PARAMETER_ENCRYPTION_STATUS_UNAVAILABLE",
+    );
+    await expect(
+      product.previewExecutionRequest({
+        ...input,
+        parameters: [input.parameters[0]!, { name: "TOKEN", source: "OMIT" }],
+      }),
+    ).resolves.toMatchObject({
+      request: {
+        parameters: [
+          { name: "DATE", value: "" },
+          { name: "TOKEN", source: "OMIT" },
+        ],
+      },
+    });
+    const configurationFile = context.client.state.files.find(
+      (file) => file.path === ".batch-governance/parameter-encryption.yml",
+    )!;
+    configurationFile.content = "version: 1\nkeyId: bad\npublicKey: {}\n";
+    const invalid = await product.loadExecutionRequestDraft({
+      batchId: batch.batchId,
+    });
+    expect(invalid).toMatchObject({
+      draft: {
+        sensitiveInputsAvailable: false,
+        sensitiveInputsUnavailableReason: "INVALID_CONFIGURATION",
+      },
+    });
+    await expect(product.previewExecutionRequest(input)).rejects.toThrow(
+      "PARAMETER_ENCRYPTION_INVALID_CONFIGURATION",
+    );
+    const workflow = context.client.state.files.find(
+      (file) =>
+        file.branch === "approved-sha" && file.path === batch.workflow.path,
+    )!;
+    workflow.content = "# batchplane:parameter-delivery-v1\njobs: {}\n";
+    const blocked = await product.loadExecutionRequestDraft({
+      batchId: batch.batchId,
+    });
+    expect(blocked).toMatchObject({
+      draft: {
+        creationCapability: {
+          canCreate: false,
+          unavailableReasons: ["PARAMETER_WORKFLOW_UPDATE_REQUIRED"],
+        },
+      },
+    });
+    await expect(product.previewExecutionRequest(input)).rejects.toMatchObject({
+      unavailableReasons: ["PARAMETER_WORKFLOW_UPDATE_REQUIRED"],
+    });
   });
 
   it("projects creation readiness and rejects a direct create that bypasses it", async () => {
@@ -1165,6 +1367,7 @@ function createContext({
   const state = createGitHubLiteMockState({
     currentUser: { login: "developer" },
   });
+  state.branches["approved-sha"] = "approved-sha";
   state.files = [
     ...state.files.filter(
       (file) =>
@@ -1191,6 +1394,11 @@ function createContext({
       sha: "roles-sha",
     },
   ];
+  state.files.push(
+    ...state.files
+      .filter((file) => file.branch === "main")
+      .map((file) => ({ ...file, branch: "approved-sha" })),
+  );
   const client = createMockGitHubLiteClient(state);
   client.createIssue = createExecutionRequest;
   client.getIssue = getExecutionRequestIssue;

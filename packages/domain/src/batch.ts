@@ -1,3 +1,8 @@
+import type {
+  BatchParameterDefinition,
+  ParameterSelection,
+} from "./parameters.js";
+
 export type BatchStatus = "ACTIVE" | "INACTIVE";
 
 export type Criticality = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -8,6 +13,7 @@ export type BatchSchedule = {
   cron: string;
   timezone: string;
   enabled: boolean;
+  parameters?: ParameterSelection[];
 };
 
 /** The provider-neutral business definition of a managed batch. */
@@ -23,4 +29,5 @@ export type BatchDefinition = {
   description?: string;
   labels?: string[];
   schedules?: BatchSchedule[];
+  parameters?: BatchParameterDefinition[];
 };

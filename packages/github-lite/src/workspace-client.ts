@@ -15,6 +15,7 @@ import {
   type WorkspaceInstallation,
 } from "@batchplane/ui-client";
 import { toProductReadError } from "./product-read-errors.js";
+import { createWorkspaceEncryptionSetup } from "./workspace-encryption-setup.js";
 
 export function createGitHubLiteWorkspaceClient(
   context: GitHubRepositoryContext,
@@ -24,8 +25,15 @@ export function createGitHubLiteWorkspaceClient(
   | "requestWorkspaceInstallation"
   | "requestWorkspaceUpdate"
   | "requestWorkspacePolicyChange"
+  | "inspectWorkspaceEncryption"
+  | "initializeWorkspaceEncryption"
 > {
+  const encryption = createWorkspaceEncryptionSetup(context);
   return {
+    inspectWorkspaceEncryption: () =>
+      withWorkspaceErrorMapping(encryption.inspectWorkspaceEncryption),
+    initializeWorkspaceEncryption: () =>
+      withWorkspaceErrorMapping(encryption.initializeWorkspaceEncryption),
     inspectWorkspace: () =>
       withWorkspaceErrorMapping(async () => {
         const [user, repository] = await Promise.all([
@@ -133,6 +141,7 @@ async function withWorkspaceErrorMapping<T>(
   try {
     return await operation();
   } catch (error) {
+    if (error instanceof WorkspaceSettingsError) throw error;
     throw new WorkspaceSettingsError(toProductReadError(error));
   }
 }

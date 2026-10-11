@@ -1,12 +1,16 @@
 import type { BatchScheduleDisplay } from "@batchplane/ui-client";
+import type { BatchParameterDefinition } from "@batchplane/domain";
 import { useTranslation } from "react-i18next";
 
 import { BatchDetailFact } from "./BatchDetailFact";
+import { ParameterSelectionSummary } from "../../../requests/parameters/components/ParameterSelectionSummary";
 
 export function BatchSchedules({
   schedules,
+  definitions = [],
 }: {
   schedules: BatchScheduleDisplay[];
+  definitions?: BatchParameterDefinition[];
 }) {
   const { t } = useTranslation("batches");
 
@@ -61,6 +65,10 @@ export function BatchSchedules({
                   value={schedule.generatedCron}
                 />
               </dl>
+              <ParameterSelectionSummary
+                definitions={definitions}
+                selections={schedule.parameters ?? []}
+              />
             </li>
           ))}
         </ul>

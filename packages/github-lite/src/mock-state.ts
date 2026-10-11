@@ -21,6 +21,7 @@ export function createGitHubLiteMockState(
   overrides: Partial<GitHubLiteMockState> = {},
 ): GitHubLiteMockState {
   const repository: GitHubRepository = overrides.repository ?? {
+    id: "101",
     defaultBranch: "main",
     owner: "always0ne",
     private: true,
@@ -58,6 +59,11 @@ export function createGitHubLiteMockState(
     },
   ];
   const defaultState: GitHubLiteMockState = {
+    actionsSecretPublicKey: {
+      keyId: "mock-actions-key",
+      key: "CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    },
+    actionsSecrets: [],
     branches: {
       main: "mock-main-sha",
     },
@@ -232,6 +238,8 @@ export function replaceMockState(
   target.repository = replacement.repository;
   target.repositoryPermissions = replacement.repositoryPermissions;
   target.teamMemberships = replacement.teamMemberships;
+  target.actionsSecrets = replacement.actionsSecrets;
+  target.actionsSecretPublicKey = replacement.actionsSecretPublicKey;
   target.workflowRuns = replacement.workflowRuns;
   target.workflows = replacement.workflows;
 }

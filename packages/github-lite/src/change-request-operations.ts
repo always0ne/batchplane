@@ -63,6 +63,14 @@ import {
   verifyApprovedBatchRevision,
 } from "./approved-batch-revision.js";
 import { loadChangeRequestDetail } from "./change-request-projection.js";
+import {
+  materializeBatchParameters,
+  hasSavedParameterInputs,
+  hasNewSensitiveParameterInputs,
+  requireParameterEncryptionConfiguration,
+} from "./parameter-materialization.js";
+import { loadWorkspaceEncryptionReadiness } from "./workspace-encryption-readiness.js";
+import type { GitHubBatchDefinition } from "./github-batch-definition.js";
 
 export function createChangeRequestOperations(
   session: { owner: string; repo: string },
@@ -114,6 +122,12 @@ async function loadBatchChangeDraft(
   { client, repository }: ChangeRequestOperationsContext,
   { batchId, mode }: Parameters<BatchPlaneClient["loadBatchChangeDraft"]>[0],
 ) {
+  const workspace = await client.getRepository(repository);
+  const readiness = await loadWorkspaceEncryptionReadiness({
+    client,
+    repositoryRef: repository,
+    ref: workspace.defaultBranch,
+  });
   if (mode === "create") {
     const user = await client.getCurrentUser();
     const empty = createEmptyBatchDraft();
@@ -124,6 +138,9 @@ async function loadBatchChangeDraft(
       changeRequestId: createChangeRequestId("new-batch"),
       mode,
       schedules: [],
+      parameters: [],
+      sensitiveInputsAvailable: readiness.available,
+      sensitiveInputsUnavailableReason: readiness.unavailableReason,
     };
   }
 
@@ -137,7 +154,21 @@ async function loadBatchChangeDraft(
   );
 
   if (!batch) throw new Error("The governed batch could not be found.");
-  const draft = toBatchChangeDraft(batch);
+  const verification = batch.parameters?.length
+    ? await verifyApprovedBatchRevision({
+        batchId: batch.batchId,
+        client,
+        repository,
+      })
+    : undefined;
+  const draft = toBatchChangeDraft(batch, {
+    repositoryId: workspace.id,
+    batchId: batch.batchId,
+    sourceRevision:
+      verification?.controlStatus === "VERIFIED"
+        ? verification.verifiedSha
+        : "",
+  });
   const owner = draft.batch.owner.trim() || fallbackOwner;
 
   return {
@@ -146,7 +177,10 @@ async function loadBatchChangeDraft(
     changeRequestId: createChangeRequestId(batch.batchId),
     execution: draft.execution,
     mode,
-    schedules: batch.schedules ?? [],
+    schedules: draft.schedules,
+    parameters: draft.parameters,
+    sensitiveInputsAvailable: readiness.available,
+    sensitiveInputsUnavailableReason: readiness.unavailableReason,
     targetBatchId: batch.batchId,
   };
 }
@@ -254,16 +288,22 @@ async function previewBatchChange(
     (await client.getCurrentUser()).login,
   );
   assertChangeBatchIdentity(normalizedDraft);
-  const prepared = prepareChangeRequest(
+  const defaultBranch = (await client.getRepository(repository)).defaultBranch;
+  const baseRevisionSha = await client.getBranchHeadSha({
+    ...repository,
+    branch: defaultBranch,
+  });
+  const prepared = await prepareDraftAtRevision(
+    { client, repository },
     normalizedDraft,
     normalizedDraft.changeRequestId ??
       createChangeRequestId(normalizedDraft.batch.batchId),
+    baseRevisionSha,
   );
-  const defaultBranch = (await client.getRepository(repository)).defaultBranch;
   const files = await loadPreparedChangePreviewFiles(
     client,
     repository,
-    defaultBranch,
+    baseRevisionSha,
     prepared.files,
   );
 
@@ -273,7 +313,7 @@ async function previewBatchChange(
     targetRevisionDigest: await createPreparedChangeTargetDigest({
       client,
       prepared,
-      ref: defaultBranch,
+      ref: baseRevisionSha,
       repository,
     }),
   };
@@ -365,7 +405,12 @@ async function requestBatchRemediation(
     context.client,
     input.batchId,
   );
-  const historicalDraft = toBatchChangeDraft(historical.batch);
+  const workspace = await context.client.getRepository(context.repository);
+  const historicalDraft = toBatchChangeDraft(historical.batch, {
+    repositoryId: workspace.id,
+    batchId: input.batchId,
+    sourceRevision: historical.verifiedSha,
+  });
   const currentDraft = current ? toBatchChangeDraft(current) : undefined;
 
   return createBatchChangeRequest(context, {
@@ -385,7 +430,8 @@ async function requestBatchRemediation(
     changeRequestId: createChangeRequestId(input.batchId),
     mode: current ? "change" : "create",
     remediation: "RESTORE_LAST_APPROVED",
-    schedules: historical.batch.schedules ?? [],
+    schedules: historicalDraft.schedules,
+    parameters: historicalDraft.parameters,
     ...(current ? { targetBatchId: input.batchId } : {}),
   });
 }
@@ -574,7 +620,12 @@ async function prepareNewChangeRequest(
 ) {
   const changeRequestId =
     draft.changeRequestId ?? createChangeRequestId(draft.batch.batchId);
-  const prepared = prepareChangeRequest(draft, changeRequestId);
+  const prepared = await prepareDraftAtRevision(
+    { client, repository },
+    draft,
+    changeRequestId,
+    baseRevisionSha,
+  );
   const previewFiles = await loadPreparedChangePreviewFiles(
     client,
     repository,
@@ -596,6 +647,92 @@ async function prepareNewChangeRequest(
       ref: baseRevisionSha,
       repository,
     }),
+  };
+}
+
+async function prepareDraftAtRevision(
+  { client, repository }: ChangeRequestOperationsContext,
+  draft: BatchChangeDraft,
+  changeRequestId: string,
+  baseRevisionSha: string,
+) {
+  if (draft.mode === "delete")
+    return prepareChangeRequest(draft, changeRequestId, {
+      schedules: draft.schedules.map(
+        ({ scheduleId, name, cron, timezone, enabled }) => ({
+          scheduleId,
+          name,
+          cron,
+          timezone,
+          enabled,
+        }),
+      ),
+    });
+  const workspace = await client.getRepository(repository);
+  const source = await loadApprovedSavedParameterSource(
+    { client, repository },
+    draft,
+  );
+  const configuration = hasNewSensitiveParameterInputs(
+    draft.parameters,
+    draft.schedules,
+  )
+    ? requireParameterEncryptionConfiguration(
+        await loadWorkspaceEncryptionReadiness({
+          client,
+          repositoryRef: repository,
+          ref: baseRevisionSha,
+        }),
+      )
+    : undefined;
+  const storedParameters = await materializeBatchParameters(
+    draft.parameters,
+    draft.schedules,
+    {
+      repositoryId: workspace.id,
+      batchId: draft.batch.batchId,
+      ...source,
+      configuration,
+    },
+  );
+  return prepareChangeRequest(draft, changeRequestId, storedParameters);
+}
+
+async function loadApprovedSavedParameterSource(
+  { client, repository }: ChangeRequestOperationsContext,
+  draft: BatchChangeDraft,
+): Promise<{ sourceRevision: string; approvedSource?: GitHubBatchDefinition }> {
+  if (!hasSavedParameterInputs(draft.parameters, draft.schedules))
+    return { sourceRevision: "" };
+  if (draft.remediation === "RESTORE_LAST_APPROVED") {
+    const historical = await loadLastApprovedBatchRevision({
+      client,
+      repository,
+      batchId: draft.batch.batchId,
+    });
+    if (historical.status !== "VERIFIED")
+      throw new Error("PARAMETER_SAVED_SOURCE_UNAVAILABLE");
+    return {
+      sourceRevision: historical.verifiedSha,
+      approvedSource: historical.batch,
+    };
+  }
+  const verification = await verifyApprovedBatchRevision({
+    client,
+    repository,
+    batchId: draft.batch.batchId,
+  });
+  if (verification.controlStatus !== "VERIFIED")
+    throw new Error("PARAMETER_SAVED_SOURCE_UNAVAILABLE");
+  const file = await client.getFile({
+    ...repository,
+    path: getBatchDefinitionPath(draft.batch.batchId),
+    ref: verification.verifiedSha,
+  });
+  if (!file) throw new Error("PARAMETER_SAVED_SOURCE_UNAVAILABLE");
+  return {
+    sourceRevision: verification.verifiedSha,
+    approvedSource: parseBatchDefinitionYaml(file.content),
   };
 }
 

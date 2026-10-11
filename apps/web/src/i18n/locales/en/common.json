@@ -14,6 +14,7 @@
       "batch-control-unknown": "Batch control unavailable",
       "live": "Live GitHub",
       "happy-path": "Happy path",
+      "approved-parameters": "Approved parameters",
       "approval-pending": "Approval pending",
       "business-failed": "Business failed",
       "dispatch-failed": "Dispatch failed",

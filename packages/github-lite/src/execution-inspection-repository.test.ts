@@ -292,6 +292,80 @@ describe("GitHub execution inspection and evidence", () => {
     expect(projectedRun.status).toBe("FAILED");
   });
 
+  it("shows a verified preparation denial as blocked, and unreadable preparation evidence as unconfirmed rather than a business failure", async () => {
+    const state = createGitHubLiteMockState();
+    const client = createMockGitHubLiteClient(state);
+    const run = state.workflowRuns.find(
+      (candidate) =>
+        candidate.conclusion === "failure" && candidate.runAttempt === 1,
+    )!;
+    const timestamp = "2026-05-14T01:08:05.000Z";
+    const preparationName = "Prepare approved batch inputs";
+    const listJobs = client.listWorkflowRunJobs;
+    client.listWorkflowRunJobs = async (input) =>
+      (await listJobs(input)).map((job) => {
+        if (job.name === "BatchPlane Gate") return job;
+        return {
+          ...job,
+          steps: [
+            {
+              number: 1,
+              name: preparationName,
+              status: "completed",
+              conclusion: "failure",
+              startedAt: timestamp,
+              completedAt: timestamp,
+            },
+            {
+              number: 2,
+              name: "Run batch",
+              status: "completed",
+              conclusion: "skipped",
+            },
+          ],
+        };
+      });
+    const business = (
+      await client.listWorkflowRunJobs({ ...session, runId: run.id })
+    ).find((job) => job.name !== "BatchPlane Gate")!;
+    client.getWorkflowJobLog = async ({ jobId }) => ({
+      jobId,
+      sizeBytes: 0,
+      truncated: false,
+      content: `${timestamp} BATCHPLANE_GATE_RESULT ${JSON.stringify({
+        version: 1,
+        gateJob: "run-batch",
+        gateJobName: business.name,
+        gateStep: preparationName,
+        repository: "always0ne/batch",
+        runId: String(run.id),
+        runAttempt: 1,
+        result: "DENY",
+        reasonCode: "PARAMETER_DECRYPTION_FAILED",
+        message: "Input preparation failed. The batch command did not start.",
+      })}`,
+    });
+    const runs = createGitHubLiteExecutionRunClient({
+      client,
+      repositoryRef: session,
+    });
+    expect(await runs.getExecutionRun({ runId: String(run.id) })).toMatchObject(
+      {
+        status: "BLOCKED",
+        gateDecision: {
+          allowed: false,
+          reasonCode: "PARAMETER_DECRYPTION_FAILED",
+        },
+      },
+    );
+    client.getWorkflowJobLog = async () => {
+      throw new Error("Log unavailable");
+    };
+    expect(await runs.getExecutionRun({ runId: String(run.id) })).toMatchObject(
+      { status: "UNCONFIRMED" },
+    );
+  });
+
   it("loads execution run job logs on demand", async () => {
     const state = createGitHubLiteMockState();
     const client = createMockGitHubLiteClient(state);

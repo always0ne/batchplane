@@ -10,6 +10,7 @@ import {
   type GitHubBatchDefinition,
   validateBatchDefinitionFile,
   verifyApprovedBatchRevision,
+  resolveScheduledParameters,
   type ApprovedBatchRevisionResult,
 } from "@batchplane/github-lite";
 
@@ -155,6 +156,17 @@ export async function createNativeScheduledExecutionRequest(
   const issue = await buildExecutionRequestIssue({
     approvedBatchRevision: revision.approvedRevision,
     batch,
+    ...(batch.parameters?.length
+      ? {
+          parameterPayload: resolveScheduledParameters(
+            batch,
+            input.scheduleId,
+            revision.verifiedSha,
+          ),
+          parameterSourceRevision: revision.verifiedSha,
+          repositoryId: input.repositoryId,
+        }
+      : {}),
     reason:
       "Native GitHub Actions schedule occurrence from an approved BatchPlane schedule.",
     requestId,

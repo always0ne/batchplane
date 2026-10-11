@@ -1,0 +1,33 @@
+{
+  "title": "Workspace encryption",
+  "checkFirst": "Check the Workspace connection first.",
+  "loading": "Checking encryption setup…",
+  "unavailable": "Encryption setup requires verified maintainer or administrator authority and no existing setup. Existing keys are never replaced here.",
+  "initialize": "Set up encryption",
+  "initializing": "Setting up encryption…",
+  "retry": "Retry private key upload",
+  "publicConfiguration": "Public configuration",
+  "published": "Approved configuration present",
+  "notPublished": "Not applied",
+  "notVerified": "Not verified",
+  "privateKey": "Private key",
+  "maskedSaved": "•••••••• (saved)",
+  "privateKeyStates": {
+    "ABSENT": "Not saved",
+    "UNKNOWN": "Not verified"
+  },
+  "states": {
+    "NOT_CONFIGURED": "Not configured",
+    "PENDING_APPROVAL": "Setup recorded · approval pending",
+    "SETUP_RECORDED": "Setup evidence recorded",
+    "INCOMPLETE": "Encryption setup incomplete",
+    "INVALID_CONFIGURATION": "Encryption configuration needs administrator review",
+    "STATUS_UNAVAILABLE": "Setup status cannot be verified"
+  },
+  "setupEvidenceOnly": "Saved-key metadata is setup evidence, not proof that the keys match or that runner decryption succeeds.",
+  "retrySameKey": "The public configuration request is retained. Retry uploads the same private key held in this client session.",
+  "adminResolution": "An administrator must resolve the existing configuration and saved key before a new setup. A lost private key cannot be recovered here. Review the existing request; no key will be regenerated or overwritten.",
+  "statusUnavailable": "Sensitive input requires an applied public configuration and recorded private-key registration. Setup status needs metadata read access, including for ordinary requesters; no write grant is required. Runner decryption is verified separately.",
+  "statusCheckFailed": "The public configuration request was created, but setup status could not be checked. Retry checks the existing request before uploading the same private key; no new key is generated.",
+  "uploadFailed": "Private key upload failed. The public configuration request is retained."
+}

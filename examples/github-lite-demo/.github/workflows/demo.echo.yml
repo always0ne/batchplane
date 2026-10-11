@@ -56,15 +56,35 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && needs.batchplane-gate.outputs.verified_sha != ''
     runs-on: "ubuntu-latest"
     needs: batchplane-gate
+    env:
+      GITHUB_WORKFLOW_SHA: ${{ github.workflow_sha }}
     permissions:
       contents: read
+      issues: read
+      pull-requests: read
     steps:
       - name: Checkout registered assets
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.batchplane-gate.outputs.verified_sha }}
 
+      - name: Prepare approved batch inputs
+        id: prepare
+        uses: always0ne/batchplane/actions/gate/input-preparation@main
+        with:
+          mode: lite
+          batch-id: "${{ inputs.batch_id }}"
+          config-path: .batch-governance
+          request-id: "${{ inputs.request_id }}"
+          request-digest: "${{ inputs.request_digest }}"
+          approval-source: issue
+          approval-ref: "${{ inputs.request_id }}"
+          gate-job-name: "Run governed batch"
+          gate-step-name: Prepare approved batch inputs
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          private-key: ${{ secrets.BATCHPLANE_INPUT_KEY }}
       - name: Run batch
+        env: ${{ fromJSON(steps.prepare.outputs.environment) }}
         run: |
           echo "::group::BatchPlane batch command"
           trap 'status=$?; echo "::endgroup::"; exit $status' EXIT

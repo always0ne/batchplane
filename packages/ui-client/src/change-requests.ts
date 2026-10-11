@@ -1,10 +1,12 @@
 import type {
   BatchSchedule,
+  BatchParameterDefinition,
   ChangeRequestDecision,
   ChangeRequestDecisionSource,
   ChangeRequestType,
 } from "@batchplane/domain";
 import type { GitHubActionsExecutionSettings } from "./github-actions-execution.js";
+import type { WorkspaceEncryptionUnavailableReason } from "./workspace.js";
 
 export type BatchChangeBusinessInput = Pick<
   import("@batchplane/domain").BatchDefinition,
@@ -26,6 +28,9 @@ export type BatchChangeDraft = {
   mode: "create" | "change" | "delete";
   remediation?: "REVIEW_CURRENT" | "RESTORE_LAST_APPROVED";
   schedules: BatchSchedule[];
+  parameters?: BatchParameterDefinition[];
+  sensitiveInputsAvailable?: boolean;
+  sensitiveInputsUnavailableReason?: WorkspaceEncryptionUnavailableReason;
   /** Immutable identity supplied by the change route, never user-editable. */
   targetBatchId?: string;
 };

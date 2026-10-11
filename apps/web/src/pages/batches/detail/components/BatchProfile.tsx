@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { BatchDetailFact } from "./BatchDetailFact";
 import { BatchExecutionTarget } from "./BatchExecutionTarget";
 import { BatchSchedules } from "./BatchSchedules";
+import { BatchParameters } from "./BatchParameters";
 
 export function BatchProfile({
   batch,
@@ -74,7 +75,11 @@ export function BatchProfile({
         </section>
         <BatchExecutionTarget batch={batch} />
       </div>
-      <BatchSchedules schedules={batch.schedules ?? []} />
+      <BatchParameters definitions={batch.parameters ?? []} />
+      <BatchSchedules
+        definitions={batch.parameters ?? []}
+        schedules={batch.schedules ?? []}
+      />
     </article>
   );
 }

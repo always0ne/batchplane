@@ -11,6 +11,7 @@ import {
   type GateGitHubClient,
 } from "./gate-github-client.js";
 import { verifyLiteInput } from "./gate-input.js";
+import { verifyParameterBinding } from "./gate-parameters.js";
 import { verifyManualAuthorization } from "./gate-manual-authorization.js";
 import {
   loadNativeScheduleBatch,
@@ -93,13 +94,20 @@ export async function verifyLiteAuthorization(
     return authorization;
   }
 
-  return verifyApprovedRevision({
+  const revision = await verifyApprovedRevision({
     authorization,
     input,
     repository: requestContext.repository,
     request,
     token: requestContext.token,
     verifyBatchRevision,
+  });
+  if (revision.result === "DENY" || !revision.verifiedSha) return revision;
+  return verifyParameterBinding({
+    input,
+    issueBody: evidence.issueBody ?? "",
+    client: requestContext.client,
+    revision,
   });
 }
 

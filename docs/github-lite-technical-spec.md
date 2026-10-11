@@ -12,6 +12,10 @@ references remain #196 work for the first external release. These are different
 readiness states; do not introduce a delegated-schedule compatibility layer.
 [Traceability](./requirements-traceability.md) records the remaining gaps.
 
+#212 follows the [approved execution-parameter contract](./approved-execution-parameters.md).
+Implementation is `AVAILABLE` after local integration checks, not a live-runtime or release pass;
+actual-provider setup/delivery and supported bounds remain `NOT_TESTED`.
+
 ## Product Routing Boundary
 
 The shared React router exposes `/executions`, `/executions/:executionId`,
@@ -35,6 +39,7 @@ Control and audit records live in the target GitHub repository:
 ```text
 .batch-governance/
   workspace.yml
+  parameter-encryption.yml  # optional public configuration for sensitive inputs
   batches/
     {batchId}.yml
     {batchId}/
@@ -396,9 +401,52 @@ match the delivered native event. Trustworthy expected time, when available, is 
 timing analysis, but provider delay alone is not a reason to reinterpret the
 event as a different approval.
 
+## Approved Parameter Integration
+
+Approved Batch definitions own names and required/sensitive flags. Manual and
+per-schedule selections use `DEFAULT / VALUE / OMIT`; preserve exact strings and
+empty/presence distinctions. Saved sensitive values use opaque product references,
+with versioned `jose@6.2.12` JWE (`RSA-OAEP-256`/`A256GCM`) in adapter persistence.
+New parameterized payloads include
+`spec.parameterContractVersion: "PARAMETER_DELIVERY_V1"`,
+`spec.parameterSourceRevision` (approved merge SHA), and
+exact selected values/ciphertext plus verified origin/source revision in the
+canonical digest. Old `valueDigest`-only history is readable, not decryptable.
+
+The Gate package builds the companion
+[input-preparation Action](../actions/gate/input-preparation/action.yml), reusing
+Gate authorization in the existing manual/schedule business job. It rechecks the
+same approved snapshot, decrypts, validates and masks plaintext plus JSON-escaped
+form before `setOutput("environment", ...)`. Only `Run batch` binds
+`env: ${{ fromJSON(steps.prepare.outputs.environment) }}` to exact
+`BATCHPLANE_PARAM_<exact name>` string keys. No `GITHUB_ENV`, launcher or additional
+workflow/job; a missing output cannot default to `{}`. Private PKCS#8 from the
+single `BATCHPLANE_INPUT_KEY` Secret belongs only to preparation, never to its
+output or the business command. Same-job outputs are not encrypted, memory-only
+or a sandbox against batch code, workflow admins or runner admins.
+Sensitive submission additionally reads Secret metadata with repository
+`Secrets: read`; administrator initialization uploads with `Secrets: write`.
+Requesters need neither write access nor the private key. Applied public config
+with absent/unknown metadata cannot be ready; present metadata is not a
+cryptographic key-pair or actual-runner verification result.
+
+Definition and generated workflow updates share one Batch change request.
+`hasParameterDelivery` checks actual preparation ordering/request bindings and
+output-to-env semantics for manual and enabled schedule jobs, not a marker alone.
+Old unsupported workflows block new parameter delivery with a change link, while
+parameter-free execution remains unchanged. Workspace shared updates do not
+upgrade every Batch. Missing keys, tampering and preparation failures prevent
+command start; project `BLOCKED` only from verified correlated evidence, otherwise
+`UNCONFIRMED`, never a fabricated business failure. Existing native Bash/shell,
+exit/log/cancellation behavior must be preserved, with no new Windows claim.
+
+Setup order, partial/reconnect handling, algorithms, source contracts, limits and
+acceptance are normative in the linked complete contract, not inferred from the
+parameter-free example below.
+
 ## Execution Request Payload
 
-Manual request payload:
+Parameter-free manual request payload (unchanged):
 
 ```json
 {

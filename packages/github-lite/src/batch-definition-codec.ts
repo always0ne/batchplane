@@ -1,8 +1,4 @@
-import type {
-  BatchSchedule,
-  BatchStatus,
-  Criticality,
-} from "@batchplane/domain";
+import type { BatchStatus, Criticality } from "@batchplane/domain";
 
 import {
   formatRepositoryYamlDiagnostics,
@@ -11,6 +7,11 @@ import {
   type RepositoryYamlValue,
 } from "./repository-yaml.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import type {
+  GitHubBatchParameterDefinition,
+  GitHubBatchSchedule,
+  GitHubScheduleParameterSelection,
+} from "./parameter-storage.js";
 import {
   isCanonicalBatchId,
   validateBatchDefinitionFile,
@@ -32,7 +33,8 @@ export type BatchRegistrationFormValues = {
 export type BatchDefinitionOptions = {
   artifactPath?: string | null;
   governedChangeId?: string;
-  schedules?: BatchSchedule[];
+  schedules?: GitHubBatchSchedule[];
+  parameters?: GitHubBatchParameterDefinition[];
 };
 
 export function toBatchDefinition(
@@ -69,7 +71,13 @@ export function toBatchDefinition(
       name: schedule.name.trim(),
       scheduleId: schedule.scheduleId.trim(),
       timezone: schedule.timezone.trim(),
+      ...(schedule.parameters !== undefined
+        ? { parameters: schedule.parameters }
+        : {}),
     })),
+    ...(options.parameters !== undefined
+      ? { parameters: options.parameters }
+      : {}),
   };
 }
 
@@ -118,6 +126,7 @@ export function serializeBatchDefinitionYaml(
       environment: definition.environment,
       gateRequired: definition.gateRequired,
       owner: definition.owner,
+      parameters: definition.parameters,
       status: definition.status,
       workflow: {
         path: definition.workflow.path,
@@ -136,6 +145,7 @@ export function serializeBatchDefinitionYaml(
         id: schedule.scheduleId,
         name: schedule.name,
         timezone: schedule.timezone,
+        parameters: schedule.parameters,
       })),
     },
   });
@@ -193,6 +203,12 @@ export function parseBatchDefinitionYaml(yaml: string): GitHubBatchDefinition {
             runsOn: runsOn || "",
           }
         : undefined,
+    ...(spec.parameters !== undefined
+      ? {
+          parameters:
+            spec.parameters as unknown as GitHubBatchParameterDefinition[],
+        }
+      : {}),
     schedules: schedules.length > 0 ? schedules : undefined,
   };
 }
@@ -248,7 +264,7 @@ function readYamlBoolean(
 function readYamlSchedules(
   record: Record<string, RepositoryYamlValue | undefined>,
   key: string,
-): BatchSchedule[] {
+): GitHubBatchSchedule[] {
   const value = record[key];
 
   if (!Array.isArray(value)) {
@@ -263,6 +279,12 @@ function readYamlSchedules(
       name: readYamlString(item, "name"),
       scheduleId: readYamlString(item, "id"),
       timezone: readYamlString(item, "timezone"),
+      ...(item.parameters !== undefined
+        ? {
+            parameters:
+              item.parameters as unknown as GitHubScheduleParameterSelection[],
+          }
+        : {}),
     }))
     .filter(
       (schedule) =>

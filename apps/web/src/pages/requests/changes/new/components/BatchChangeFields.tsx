@@ -4,6 +4,7 @@ import { BatchMetadataEditor } from "./BatchMetadataEditor";
 import { DeleteChangeSummary } from "./DeleteChangeSummary";
 import { GitHubBatchExecutionInput } from "./GitHubBatchExecutionInput";
 import { BatchScheduleEditor } from "./schedules/BatchScheduleEditor";
+import { BatchParameterDefinitions } from "./parameters/BatchParameterDefinitions";
 
 export function BatchChangeFields({
   form,
@@ -35,7 +36,15 @@ export function BatchChangeFields({
         onFileChange={form.selectArtifact}
         value={form.execution}
       />
+      <BatchParameterDefinitions
+        editor={form.parameterEditor}
+        sensitiveInputsAvailable={form.sensitiveInputsAvailable}
+        sensitiveInputsUnavailableReason={form.sensitiveInputsUnavailableReason}
+      />
       <BatchScheduleEditor
+        definitions={form.parameterEditor.definitions}
+        sensitiveInputsAvailable={form.sensitiveInputsAvailable}
+        sensitiveInputsUnavailableReason={form.sensitiveInputsUnavailableReason}
         drafts={form.scheduleDrafts}
         onAdd={form.addSchedule}
         onRemove={form.removeSchedule}

@@ -1,0 +1,46 @@
+name: BatchPlane Approved Inputs
+description: Reverify approved execution inputs and prepare the business step environment.
+outputs:
+  environment:
+    description: JSON environment map for the same-job Run batch step; contains plaintext values.
+inputs:
+  mode:
+    required: true
+    description: BatchPlane runtime mode
+  batch-id:
+    required: true
+    description: Approved Batch ID
+  config-path:
+    default: .batch-governance
+    description: BatchPlane configuration path
+  request-id:
+    required: true
+    description: Approved execution request ID
+  request-digest:
+    required: true
+    description: Approved execution request digest
+  approval-source:
+    description: Approval evidence source
+    default: issue
+  approval-ref:
+    description: Approval request reference
+  schedule-id:
+    description: Native schedule identifier
+  issue-number:
+    description: Native schedule request Issue number
+  github-token:
+    required: true
+    description: Token for approval and registered revision reads
+  dispatcher-actor:
+    default: github-actions[bot]
+    description: Expected manual dispatcher actor
+  private-key:
+    description: Workspace private key, required only when approved inputs contain protected values
+  gate-job-name:
+    description: Generated business job name for evidence correlation
+  gate-step-name:
+    default: Prepare approved batch inputs
+    description: Preparation step name for evidence correlation
+runs:
+  using: node24
+  main: dist/index.js

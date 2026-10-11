@@ -10,6 +10,10 @@ NATIVE_SCHEDULE_V2, native 시간대 생성, 별도 결과 Action은 구현했�
 상태를 구분하며 전결 스케줄 호환 계층을 도입하지 않는다.
 [추적표](./requirements-traceability.ko.md)에 남은 결함이 있다.
 
+#212는 [승인 실행 파라미터 계약](./approved-execution-parameters.ko.md)을 따른다.
+구현은 로컬 통합 검증 후 `AVAILABLE`이며 실환경 runtime·릴리스 통과가 아니다.
+실제 플랫폼 설정/전달·지원 한계는 `NOT_TESTED`다.
+
 ## 제품 라우팅 경계
 
 공유 React 라우터는 실행 조회·설정에 `/executions`, `/executions/:executionId`,
@@ -29,6 +33,7 @@ GitHub Pages 하위 basename 배포를 포함해 링크에서 기존 필터·que
 ```text
 .batch-governance/
   workspace.yml
+  parameter-encryption.yml  # optional public configuration for sensitive inputs
   batches/
     {batchId}.yml
     {batchId}/
@@ -317,9 +322,47 @@ commit SHA·생성 workflow 대상·`github.event.schedule`·Run 식별·
 불일치면 거부한다. 신뢰할 예정 시각이 있으면 분석용으로 유지하지만 플랫폼 지연만으로
 다른 승인으로 재해석하지 않는다.
 
+## 승인 파라미터 통합
+
+승인 배치 정의가 이름·필수/민감 flag를 소유한다. 수동·스케줄별 선택은
+`DEFAULT / VALUE / OMIT`이며 정확한 문자열·빈 값/존재 구분을 보존한다. 저장 민감
+값은 제품의 불투명 참조를 사용하고 어댑터 저장에는 버전 `jose@6.2.12` JWE
+(`RSA-OAEP-256`/`A256GCM`)를 쓴다. 신규 파라미터 payload는
+`spec.parameterContractVersion: "PARAMETER_DELIVERY_V1"`,
+`spec.parameterSourceRevision`(승인 merge SHA), 정확한 선택 값/암호문과 검증된
+원본 위치·출처 형상을 정규 digest에 포함한다. 기존 `valueDigest` 전용 이력은
+조회할 수 있으나 복호화할 수 없다.
+
+Gate 패키지는 [입력 준비 동반 Action](../actions/gate/input-preparation/action.yml)을
+빌드하며 기존 수동/스케줄 업무 job에서 Gate 인가를 재사용한다. 같은 승인 스냅샷을
+재검증하고 복호화·검증 후 평문과 JSON escape 형태를 마스킹한 다음
+`setOutput("environment", ...)`한다. `Run batch`에만
+`env: ${{ fromJSON(steps.prepare.outputs.environment) }}`로 정확한
+`BATCHPLANE_PARAM_<exact name>` 문자열 key를 연결한다. `GITHUB_ENV`·launcher·
+추가 workflow/job은 없고 output 누락을 `{}`로 대체하지 않는다. 단일
+`BATCHPLANE_INPUT_KEY` Secret의 개인 PKCS#8은 준비에만 제공하며 output·업무
+명령에 전달하지 않는다. 동일 job output은 암호화·메모리 전용 전달도 아니고
+배치 코드·workflow/runner 관리자에 대한 sandbox도 아니다.
+민감 제출에는 저장소 `Secrets: read`로 Secret 메타데이터를 추가 조회하고 최초
+관리자 설정 업로드에는 `Secrets: write`를 쓴다. 요청자에게 쓰기·개인키를 요구하지
+않는다. 반영 공개 설정이 있어도 메타데이터 부재·불명은 준비 완료가 아니며 존재도
+암호학적 키 쌍·실제 runner 검증 결과가 아니다.
+
+정의·생성 workflow 갱신은 배치 변경 요청 하나를 사용한다. `hasParameterDelivery`는
+marker만 보지 않고 수동·활성 스케줄 job의 실제 준비 순서·요청 바인딩·output/env
+의미를 검사한다. 구형 미지원 workflow는 신규 입력 전달을 막고 변경 링크를
+제공하되 파라미터 없는 실행은 유지한다. Workspace 공용 갱신이 모든 배치를
+업그레이드하지 않는다. 키 누락·변조·준비 실패는 명령 시작을 막는다. 연결된 검증
+증거가 있을 때만 `BLOCKED`, 아니면 `UNCONFIRMED`이며 업무 실패를 꾸며내지
+않는다. 기존 native Bash/shell·종료/로그/취소를 유지하고 Windows 지원을 새로
+주장하지 않는다.
+
+설정 순서·부분 성공/재연결·알고리즘·출처 계약·한계·수용은 연결된 전체 계약이
+규정하며 아래 파라미터 없는 예제에서 추론하지 않는다.
+
 ## 실행 요청 Payload
 
-수동 payload:
+파라미터 없는 수동 payload(기존 유지):
 
 ```json
 {
