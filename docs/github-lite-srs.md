@@ -16,6 +16,10 @@ required. [Traceability](./requirements-traceability.md) and the
 [roadmap](./control-plane-migration-plan.md) distinguish implementation from
 acceptance and planned work.
 
+The approved #212 [execution-parameter contract](./approved-execution-parameters.md)
+replaces the historical hash-only sensitive-input rule. Its integration readiness
+is `AVAILABLE` after local integration checks; actual-provider acceptance is `NOT_TESTED`.
+
 ## Scope
 
 GitHub Lite stores configuration and audit evidence in a GitHub repository.
@@ -338,14 +342,33 @@ The request payload includes:
 - requested workflow ref
 - request reason
 - non-sensitive parameters
-- sensitive parameter value digests only
+- sensitive parameter authenticated ciphertext, never plaintext or a new plaintext hash
+- `PARAMETER_DELIVERY_V1`, verified `parameterSourceRevision` (Batch merge SHA),
+  and selected parameter origins/source revisions for parameterized requests
 - batch summary fields
 - workflow path and ref
 
-Sensitive parameter values must not be written to the GitHub Issue body,
+Sensitive parameter plaintext must not be written to the GitHub Issue body,
 canonical payload, browser storage, or handoff state. The UI may keep the value
-only in transient form state before submission and must show that only the value
-digest is persisted.
+only in transient form state before submission. Persist the versioned JWE
+ciphertext bound to the exact approved source and request digest. Saved sensitive
+defaults/overrides are opaque references in product UI and have no saved reveal.
+Legacy hash-only history remains readable but is not decryptable/executable;
+require a replacement request, not post-approval plaintext injection.
+
+Definitions and required/sensitive flags come from the approved Batch. Selections
+are `DEFAULT / VALUE / OMIT`; required checks presence and accepts `""`. Preserve
+exact names, whitespace, Unicode and newlines; reject NUL and case-only duplicate
+names. Optional omission delivers no variable. Registration/parameter additions
+update definition and workflow in one Batch change request. Ordinary-only and
+parameter-free use must not require encryption setup. Sensitive setup uses one
+`BATCHPLANE_INPUT_KEY` Actions Secret and a reviewed public-config PR, without
+regenerating/overwriting on reconnect. Follow the complete contract for binding,
+semantic per-Batch readiness, masking, trust boundaries and evidence-based outcomes.
+Sensitive-value submission needs repository `Secrets: read` for private-key
+metadata only; initial administrator setup needs `Secrets: write` for upload.
+Requesters do not need write access or the key. Applied config with absent or
+unknown metadata is not ready; present metadata is not pair/runtime proof.
 
 The request digest prevents approval evidence from being replayed against a
 different payload.
@@ -595,6 +618,12 @@ auditable after the BatchPlane rebrand.
 Schedules are stored only in `BatchDefinition.spec.schedules` and are changed
 through the owning Batch's controlled registration or change request.
 
+Each schedule selects values for the same approved parameter definitions: default,
+explicit value or optional omission. Resolve values into the native occurrence
+record from the verified approved revision, including encrypted sensitive defaults
+and overrides. No per-occurrence approval, extra dispatcher or dynamic date
+calculation is introduced; fixed strings remain literal.
+
 An approved schedule embedded in a BatchDefinition revision means:
 
 > This verified batch revision may run unattended under these recurrence rules.
@@ -663,7 +692,8 @@ Main includes it in its first flow, and Lite timing remains separate.
 
 ## Remaining Operating Acceptance
 
-- #212 binds approved parameter values to the actual business command.
+- #212: approved parameter contract implemented and locally verified, `AVAILABLE`;
+  actual business delivery and provider limits remain `NOT_TESTED`.
 - #223 aligns approval capability/command/Gate and complete approved-revision lookup.
 - #224 corrects expiry/failure termination and removes same-request failed dispatch retry.
 - #225 implements approved withdrawal, explicit queued cancel/running stop and real outcomes.

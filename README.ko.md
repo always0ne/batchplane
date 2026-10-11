@@ -26,6 +26,13 @@ Actions이며 다음 Jenkins로 플랫폼 경계를 검증한다. 다른 배치 
 [사용자 QA 시트](docs/user-qa.ko.md)로 잔여 작업을 추적한다.
 실제 결과는 [QA 결과 양식](docs/qa-result-template.ko.md)에 기록한다.
 
+#212 [승인 입력 계약](docs/approved-execution-parameters.ko.md)은
+로컬 통합 검증 후 `AVAILABLE`이며 실제 플랫폼 전달은 `NOT_TESTED`다.
+[민감 입력 설정](docs/repo-mode-getting-started.ko.md#민감-입력-암호화-초기화)을 따른다.
+제출에는 추가 저장소 `Secrets: read` 메타데이터 조회, 최초 관리자 설정에는
+`Secrets: write`가 필요하다. 일반 값만 쓰는 사용에 설정·쓰기를 요구하지 않으며
+Secret 존재는 키 쌍·실제 runner 증거가 아니다.
+
 ## 개발
 
 이 저장소는 pnpm workspace를 사용한다.
@@ -154,7 +161,7 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist actions/schedule-result/dist
+git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/gate/input-preparation/dist actions/schedule-request/dist actions/schedule-result/dist
 VITE_BASE_PATH=/batchplane/ pnpm --filter @batchplane/web build
 git diff --check
 ```

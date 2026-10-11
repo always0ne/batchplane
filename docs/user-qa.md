@@ -14,12 +14,13 @@ repeating a common procedure in Main/Jenkins, record its existing case ID and
 environment instead of duplicating the case. Neither automated test counts nor
 this sheet's case count is a quality target.
 
-| Implementation readiness | Meaning                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------ |
-| `AVAILABLE`              | The relevant feature exists and can be checked by the user. This does not mean it passed.        |
-| `KNOWN_GAP`              | A known correction remains. Partial checks are possible, but a complete pass cannot be recorded. |
-| `PLANNED`                | Confirmed follow-up scope. Do not look for nonexistent buttons or assume it works.               |
-| `DESIGN_REQUIRED`        | Finalize executable procedures after detailed model/UX/integration approval.                     |
+| Implementation readiness         | Meaning                                                                                                                                                     |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AVAILABLE`                      | The relevant feature exists and can be checked by the user. This does not mean it passed.                                                                   |
+| `IMPLEMENTED_PENDING_VALIDATION` | The approved implementation is being integrated; final parent review/local/browser evidence is required before AVAILABLE. No complete-path pass is implied. |
+| `KNOWN_GAP`                      | A known correction remains. Partial checks are possible, but a complete pass cannot be recorded.                                                            |
+| `PLANNED`                        | Confirmed follow-up scope. Do not look for nonexistent buttons or assume it works.                                                                          |
+| `DESIGN_REQUIRED`                | Finalize executable procedures after detailed model/UX/integration approval.                                                                                |
 
 Record one of `NOT_TESTED / PASS / FAIL / BLOCKED / RETEST_REQUIRED / N/A`.
 `N/A` needs an edition/support-scope reason; do not hide missing implementation
@@ -39,8 +40,8 @@ overwriting the old result. Readiness and result are separate columns.
 - Use commands without external business effects: `printf 'QA_OK\n'` for success,
   `exit 7` for failure and `sleep 120` for cancellation. Cancellation is not rollback.
 - Distinguish Batch IDs such as `qa-success`, `qa-failure`, and `qa-cancel`.
-  An unexecuted sample is not evidence. After #212 inputs and #225 cancellation
-  are implemented, update this sheet with their approved inputs and screen steps.
+  An unexecuted sample is not evidence. #212's approved inputs and screen steps
+  are below; #225 cancellation procedures still depend on its implementation.
 - Record app commit/build, Action SHA, target repository/default branch,
   Workspace policy, user roles and browser/locale/viewport. Do not retain tokens
   or sensitive logs.
@@ -142,17 +143,97 @@ results, browser checks and owner/provider QA are recorded separately by version
 
 ### QA-L06: Approved Parameters Become Actual Business Command Inputs
 
-Readiness: `KNOWN_GAP` #212.
+Readiness: `AVAILABLE` after #212 source review, full local checks and EN/KO
+desktop/mobile browser verification. Actual-provider result: `NOT_TESTED`.
+Use the [complete approved contract](./approved-execution-parameters.md) and
+[setup guide](./repo-mode-getting-started.md#initialize-sensitive-input-encryption).
 
-Steps: Prepare a test Batch accepting non-secret `qa-value-1` under the input
-contract to be approved in #212. Compare preview/request/approval with actual
-business output. Check an attempt to execute different values after approval
-through that contract's validation path.
+Preparation: A requests, B approves, C is unauthorized; also use a Workspace
+administrator for initialization. In an authorized dedicated repository prepare
+one harmless Batch with `TEXT` (required ordinary, default `qa-value-1`), `EMPTY`
+(required ordinary without default), `OPTIONAL` (optional ordinary), and `SECRET`
+(required sensitive with a synthetic default). The test command checks exact
+environment values/presence and emits only assertion outcomes, never the secret,
+private key or a secret-derived hash. Record version/Action SHA and exact
+request/Run/attempt/job/step links. These are instructions, not performed tests.
 
-Expected: The actual command uses the approved value, not merely a UI record or
-successful dispatch. Unapproved values do not execute. Sensitive values are not
-recorded verbatim. Automatic approval also shows latest request state and links
-to the correlated **execution detail**.
+1. **Setup and reconnect:** In Workspace, inspect connection/install state, then
+   initialize as administrator with repository `Secrets: write`. Verify the
+   public-config PR is created before upload of the matching private PKCS#8
+   into `BATCHPLANE_INPUT_KEY`. Review/apply the public PR normally. Inspect
+   partial PR/upload failure using local fixtures; retain its request link.
+   Retry only with the retained pair in the same connected product-client setup
+   session. Reconnect or loss of transient key material must not regenerate/
+   overwrite. Deny C's setup attempt. A sensitive-value requester needs additional
+   `Secrets: read` only for metadata, not write or private-key access. Check
+   applied config with PRESENT, ABSENT and UNKNOWN metadata: absent/unknown cannot
+   be ready. Present metadata is not pair/runtime proof. Confirm ordinary-only/
+   parameter-free use still works without Secrets-write or encryption setup.
+2. **Definitions and defaults:** Register definitions and two schedules in one
+   Batch change request. Compare definition+workflow diff before/after approval.
+   Reject undeclared names, edited flags and names outside
+   `^[A-Za-z_][A-Za-z0-9_]*$`, including duplicates differing only in case; do not
+   trim/uppercase. Saved sensitive defaults remain opaque references and have
+   no reveal control. A displayed mask must never be submitted as a value.
+3. **Manual value choices:** Request with `TEXT=DEFAULT`, `EMPTY=VALUE` using
+   `""`, `OPTIONAL=OMIT`, `SECRET=DEFAULT`. Repeat with explicit TEXT/SECRET
+   overrides and OPTIONAL explicitly `""`. Check required absence/OMIT denial
+   separately from accepted required empty. Compare preview/canonical approved
+   evidence and command assertions under all existing manual approval modes.
+   Change the approved Batch default later and confirm the prior request keeps
+   its original selected ciphertext/value and source SHA.
+4. **Literal strings and failures:** Use explicit whitespace-only strings,
+   leading zeroes, Unicode, newlines and shell-looking literals in ordinary and
+   synthetic sensitive inputs. Values are neither evaluated nor normalized.
+   Reject NUL, including after decryption. Simulate final serialized provider
+   rejection: draft and values stay intact with actionable guidance, never
+   truncation or dropped fields. Numeric support limits remain NOT_TESTED until
+   an authorized real-provider/runner test measures the exact path.
+5. **Schedule-specific delivery:** Use the same definitions: schedule A selects
+   TEXT's default and a saved sensitive default; schedule B explicitly overrides
+   TEXT and SECRET. Give EMPTY explicit `""` in both; compare OPTIONAL omission
+   with explicit empty. Both changes use the owning Batch request. Observe real
+   native events only with separate live authorization. Each same-Run occurrence
+   freezes its values/source revision, with no approval comment, new job/workflow
+   or second dispatcher Run. Manual execution is not schedule proof.
+6. **Tampering and pre-command denial:** Locally mutate ciphertext, key/context,
+   origin/source revision, request digest, saved reference and exact names.
+   Check required-data/key absence, decryption error and missing/malformed output.
+   Runtime must reject before command start, not supply empty values or `{}`.
+   Verify `PARAMETER_DELIVERY_V1` and approved merge SHA binding. Check native
+   direct/full/partial rerun denial remains intact. Only exact verified evidence
+   yields BLOCKED; absent/unreadable/uncorrelated preparation evidence stays
+   UNCONFIRMED, not business failure. Do not tamper with a real operating repo.
+7. **Old workflows/history:** Keep an existing parameter-free Batch unchanged.
+   Add parameters through one change updating definition+workflow. An old workflow
+   without semantic preparation/output/env support must block parameter requests
+   and show the change link even if shared installation is current. Legacy
+   `valueDigest`-only sensitive history stays readable but cannot run/decrypt;
+   require a replacement request, without editing its old approval.
+8. **Runtime/logs and handoff:** Check same-job preparation before the existing
+   `Run batch`, exact `BATCHPLANE_PARAM_<exact name>` mapping and no private key in
+   output/business env. Check masking of plaintext and JSON-escaped form before
+   output without printing comparison secrets. Verify working directory, exit
+   status, streamed business/full logs, cancellation and exact detail links on
+   the existing supported path; do not infer Windows support from the Bash trap.
+   Automatic approval shows the latest request and correlated execution detail.
+
+Expected: The command receives the exact approved selection, not just a stored
+request or successful dispatch. Sensitive storage is JWE, not plaintext/new
+plaintext hashes, and saved reveal is absent. Step outputs are runner files, not
+encrypted/memory-only delivery or a sandbox; batch code and workflow/runner admins
+can reveal/transform values. Local contract/crypto/fixtures and bilingual browser
+observations are separate from authorized actual GitHub setup/manual/schedule/
+cancellation evidence. Record each level separately; no local pass can promote
+actual-provider result from NOT_TESTED. Parent owns full CI/browser verification.
+
+Connected impact: QA-L01 setup/partial reconnect; QA-L02/L03 definition, schedule
+and workflow diff; QA-L05 policy and frozen-input approval; QA-L07 schedule values;
+QA-L08 direct/rerun denial; QA-L09 tampered source/upgrade; QA-L12 masking and
+evidence-based BLOCKED/UNCONFIRMED; QA-L15 handoff; QA-L18 English/Korean desktop/
+mobile choices, disabled reasons and wrapping. The new #212 paths are available
+for user QA; their actual-provider results remain NOT_TESTED. Preserve old
+run records and record impacted passes as RETEST_REQUIRED in a new versioned run.
 
 ### QA-L07: Real Native Scheduling Uses The Approved Revision And Correlates Its Result
 

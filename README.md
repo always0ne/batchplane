@@ -29,6 +29,13 @@ Use the [approved roadmap](docs/control-plane-migration-plan.md),
 [user QA sheet](docs/user-qa.md) to track the remaining work.
 Record actual results with the [QA result template](docs/qa-result-template.md).
 
+#212's [approved input contract](docs/approved-execution-parameters.md) is
+`AVAILABLE` after local integration checks; actual-provider delivery remains `NOT_TESTED`.
+Follow [sensitive-input setup](docs/repo-mode-getting-started.md#initialize-sensitive-input-encryption):
+submission needs additional repository `Secrets: read` metadata access; initial
+administrator setup needs `Secrets: write`. Ordinary-only use needs neither setup
+nor write access; Secret presence is not key-pair or live-runner proof.
+
 ## Development
 
 This repository uses pnpm workspaces.
@@ -167,7 +174,7 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/schedule-request/dist actions/schedule-result/dist
+git diff --exit-code -- actions/dispatcher/dist actions/gate/dist actions/gate/input-preparation/dist actions/schedule-request/dist actions/schedule-result/dist
 VITE_BASE_PATH=/batchplane/ pnpm --filter @batchplane/web build
 git diff --check
 ```
