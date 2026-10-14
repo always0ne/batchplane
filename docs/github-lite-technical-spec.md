@@ -548,8 +548,7 @@ effective policy mode is `SELF_APPROVAL_ALLOWED` or `AUTO_APPROVE`.
 
 The dispatcher must verify:
 
-- command is `approve` (current retry-dispatch support is a known mismatch
-  scheduled for removal in #224, as documented below)
+- command is `approve`; the retired `retry-dispatch` command is ignored
 - approval commands are actionable only when the triggering comment contains
   the `batchplane:execution-approval` marker and an approved decision
 - request evidence exists
@@ -634,8 +633,8 @@ The dispatcher workflow is responsible for:
 - reading the execution request issue body
 - verifying BatchPlane evidence
 - serializing dispatch attempts for the same execution request issue
-- ignoring requests that already have `batchplane:dispatching` or
-  `batchplane:dispatched` state evidence
+- ignoring requests already dispatched, dispatching, terminally failed or
+  awaiting confirmation of delivery
 - calling the target workflow with:
   - `request_id`
   - `batch_id`
@@ -649,11 +648,33 @@ The dispatcher writes state evidence as Issue labels and comments:
 - `batchplane:dispatched` with a `DISPATCHED` `batchplane:bgcp:dispatcher`
   marker after `workflow_dispatch` succeeds
 - `batchplane:dispatch-failed` with a `DISPATCH_FAILED`
-  `batchplane:bgcp:dispatcher` marker when dispatch fails
-- Current implementation still accepts `retry-dispatch` after DISPATCH_FAILED.
-  This is a known target-policy mismatch to remove in #224, not the desired
-  contract. Confirmed failure ends the request and requires a new request;
-  uncertain delivery is not confirmed failure.
+  `batchplane:bgcp:dispatcher` marker when delivery is confirmed rejected
+- `DISPATCH_UNCONFIRMED` when acceptance cannot be determined; preserve the
+  dispatch lock. Transport failure, timeout and server error are not proof
+  that the target rejected the execution.
+
+Only an explicit provider rejection is terminal delivery failure. The
+[GitHub REST troubleshooting contract](https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api)
+distinguishes authentication, authorization, validation and rate-limit
+rejections from timeout/server failures. The adapter retains its existing API
+version and [workflow dispatch endpoint](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event).
+No transport retry, API-version upgrade or new result-repair command is added.
+A successful dispatch followed by failed evidence recording must never become
+a confirmed delivery rejection. Matching previous evidence prevents another
+delivery even after the request deadline passes.
+
+Existing execution reads may resolve `DISPATCHING`/`DISPATCH_UNCONFIRMED`
+when explicit source request correlation is found. Batch-name inference alone
+is insufficient. An unavailable observation preserves uncertainty; it never
+proves rejection. This read projection neither rewrites evidence nor proves
+approval or business success, and cannot erase `DISPATCH_FAILED` history.
+It uses the current execution window, not a new complete-history repair scan.
+
+Confirmed failure requires an explicitly authored new request. Expiry is
+derived from the existing deadline only before delivery starts. Source Issues
+and historical decision records remain intact; status reads do not write to
+GitHub. Request detail links to the normal new-request route, which loads current
+Batch and Workspace policy and obtains a new request identity.
 
 ## Change Request Approval Detail Contract
 
@@ -732,8 +753,10 @@ schedule, workflow, or artifact changes.
 Pending control is a batch-wide guard. An open change request in `OPEN` or
 `APPROVED_PENDING_MERGE` blocks another registration, change, or delete request
 for that Batch. An execution request in `REQUESTED`, `APPROVED`, or
-`DISPATCHING` also blocks it; `DISPATCH_FAILED`, `DISPATCHED`, `GATE_BLOCKED`,
-and `REJECTED` do not. GitHub Lite performs the check before request creation,
+`DISPATCHING` or `DISPATCH_UNCONFIRMED` also blocks it; `EXPIRED`,
+`DISPATCH_FAILED`, `DISPATCHED`, `GATE_BLOCKED`, and `REJECTED` do not. The same
+evidence projection used by request detail determines this status, rather than
+only open/closed Issues or stale labels. GitHub Lite performs the check before request creation,
 but the browser-side check and creation are not atomic across browsers. This
 revision adds no lock or controller; trusted cross-client coordination belongs
 to future Main/R2-B work.

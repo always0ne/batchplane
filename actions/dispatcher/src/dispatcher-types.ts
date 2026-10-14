@@ -1,6 +1,6 @@
 import type { ApprovedBatchRevisionResult } from "@batchplane/github-lite";
 
-export type DispatcherCommand = "approve" | "retry-dispatch" | "ignore";
+export type DispatcherCommand = "approve" | "ignore";
 
 export type ExecutionRequestEvidence = {
   approvedBatchRevision: {
@@ -28,7 +28,11 @@ export type ExecutionApprovalEvidence = {
   requestId: string;
 };
 
-export type DispatcherStatus = "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED";
+export type DispatcherStatus =
+  | "DISPATCHING"
+  | "DISPATCHED"
+  | "DISPATCH_FAILED"
+  | "DISPATCH_UNCONFIRMED";
 
 export type DispatcherStatusEvidence = {
   batchId: string;
@@ -77,7 +81,7 @@ export type DispatcherRunResult =
       dispatchPlan?: DispatcherDispatchPlan;
       message: string;
       reasonCode: string;
-      status: "failed" | "ignored";
+      status: "failed" | "ignored" | "unconfirmed";
     };
 
 export type DispatcherVerificationResult =

@@ -100,7 +100,8 @@ export function buildMockExecutionIssueBody(
   scenario: GitHubLiteMockExecutionScenario,
 ): string {
   const requestedAt = "2026-05-14T01:02:03.000Z";
-  const expiresAt = "2026-05-14T02:02:03.000Z";
+  // Keep demo pending requests actionable when the fixture is loaded later.
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   const requestStatus =
     scenario.state === "rejected" ? "REJECTED" : "REQUESTED";
 

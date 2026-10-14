@@ -440,14 +440,24 @@ dispatcher는 `workflow_dispatch` 전후 Issue에 상태를 남겨야 한다.
 
 - 전달 전 `DISPATCHING` 증거와 `batchplane:dispatching` label
 - 성공 후 `DISPATCHED` 증거와 `batchplane:dispatched` label
-- 실패 후 `DISPATCH_FAILED` 증거와 `batchplane:dispatch-failed` label
+- 전달 거절 확인 후 `DISPATCH_FAILED` 증거와 `batchplane:dispatch-failed` label
+- 수락 여부를 알 수 없으면 `DISPATCH_UNCONFIRMED` 증거를 남기고 전달 잠금을
+  유지한다. 자동으로 다시 보내지 않는다.
 
-같은 요청 ID·배치 ID·digest의 `DISPATCHING`·`DISPATCHED` 증거가 이미 있으면
+같은 요청 ID·배치 ID·digest의 `DISPATCHING`·`DISPATCHED`·`DISPATCH_FAILED`·
+`DISPATCH_UNCONFIRMED` 증거가 이미 있으면
 중복 승인 댓글을 무시한다.
 
-현재 구현 주의: `DISPATCH_FAILED` 뒤 `retry-dispatch` 명령이 아직 있다. 승인 목표
-#224는 같은 요청 재전달 경로를 제거한다. 확인된 전달 실패는 종결하고 사용자가
-현재 입력·정책으로 새 요청을 만든다. 수락 여부 불명을 확인된 실패로 오분류하지 않는다.
+dispatcher는 `retry-dispatch`를 수용하지 않는다. 확인된 전달 실패는 종결하고
+사용자가 현재 정의·입력·권한·정책으로 새 요청을 만든다. AUTO_APPROVE도 같으며
+수락 여부 불명을 확인된 실패로 오분류하지 않는다.
+
+미전달 요청이 만료 시각에 도달하면 `EXPIRED`다. 상세·목록·승인 명령·선행 변경
+제한 판단이 일치해야 한다. 이미 전달됐거나 접수됐을 가능성이 있는 실행은
+요청 기한이 지났다고 만료 처리하지 않는다. 종결 상세는 기존 사유와 증거를
+보존하고 승인·digest·민감 원문을 복사하지 않은 기존 새 요청 작성 경로를 제공한다.
+만료로 원본 Issue를 삭제하거나 자동으로 닫지 않으며 조회만을 위한 만료 job이나
+증거 쓰기도 추가하지 않는다.
 
 리브랜딩 이후에도 기존 저장소를 감사할 수 있도록 legacy `batchtrail.io/v1`,
 `batchtrail:*` marker·label을 기존 조회기에서 계속 읽어야 한다.
@@ -517,7 +527,7 @@ Lite에서 스케줄 Issue 수 증가는 수용한다. Issue·댓글은 GitHub �
 - #212: 승인 파라미터 계약 구현·로컬 검증 완료, `AVAILABLE`.
   실제 업무 전달·플랫폼 한계는 `NOT_TESTED`.
 - #223: 승인 화면·명령·Gate와 승인 형상 조회 완전성 정합화.
-- #224: 만료·실패 종결 보정, 같은 요청 전달 실패 재시도 제거.
+- #224: 만료·실패 종결 보정과 같은 요청 재전달 제거를 구현했다. 실제 플랫폼 수용은 별도다.
 - #225: 승인 후 철회, 명시적 대기 취소·실행 중단, 실제 결과.
 - #206: 배치 간 스케줄 현황·상세, cron 미리보기 일치.
 - #226: 과거 실행·감사 완전 조회, 오래된 내처리함 미처리 보존.

@@ -136,6 +136,8 @@ export function toExecutionRequestAuditItems({
         issueNumber: request.issue.number,
         requestId: request.requestId,
         status: request.dispatcherStatus.status,
+        reasonCode: request.dispatcherStatus.reasonCode,
+        message: request.dispatcherStatus.message,
       }),
     });
   }

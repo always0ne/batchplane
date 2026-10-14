@@ -77,7 +77,10 @@ export function executionApprovalCapabilityFor(
   context: ExecutionApprovalContext,
 ): ExecutionRequestCapability {
   const pending =
-    request.triggerType !== "SCHEDULE" && request.status === "REQUESTED";
+    request.triggerType !== "SCHEDULE" &&
+    request.status === "REQUESTED" &&
+    request.issue.state === "open" &&
+    !(Date.parse(request.expiresAt) <= Date.now());
   if (!pending) {
     return {
       canApprove: false,

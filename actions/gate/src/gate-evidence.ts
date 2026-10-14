@@ -18,11 +18,13 @@ import type {
 
 export async function findGitHubApprovalEvidence({
   client,
+  dispatcherActor,
   issueNumber,
   loadApproval,
   requestId,
 }: {
   client: GateGitHubClient;
+  dispatcherActor: string;
   issueNumber?: number;
   loadApproval: boolean;
   requestId: string;
@@ -42,27 +44,64 @@ export async function findGitHubApprovalEvidence({
     return { approval: null, request: null };
   }
 
-  const approval = loadApproval
-    ? ((await client.listIssueComments(issue.number))
-        .slice()
-        .reverse()
-        .map(parseExecutionApprovalEvidence)
-        .find((evidence) =>
-          evidence
-            ? evidence.requestId === request.requestId &&
-              evidence.batchId === request.batchId &&
-              evidence.requestDigest === request.requestDigest
-            : false,
-        ) ?? null)
-    : null;
+  const comments = loadApproval
+    ? await client.listIssueComments(issue.number)
+    : [];
+  const approval =
+    comments
+      .slice()
+      .reverse()
+      .map(parseExecutionApprovalEvidence)
+      .find(
+        (evidence) =>
+          evidence?.requestId === request.requestId &&
+          evidence.batchId === request.batchId &&
+          evidence.requestDigest === request.requestDigest,
+      ) ?? null;
 
   return {
     approval,
+    dispatchFailure: findTrustedDispatchFailure(
+      comments,
+      request,
+      dispatcherActor,
+    ),
     issueAuthor: issue.author,
     issueBody: issue.body,
     issueNumber: issue.number,
     request,
   };
+}
+
+function findTrustedDispatchFailure(
+  comments: GateIssueComment[],
+  request: ExecutionRequestEvidence,
+  dispatcherActor: string,
+): GateEvidence["dispatchFailure"] {
+  for (const comment of comments.slice().reverse()) {
+    if (
+      comment.author !== dispatcherActor ||
+      !comment.createdAt ||
+      comment.createdAt !== comment.updatedAt
+    )
+      continue;
+
+    const marker = parseBatchPlaneMarker(comment.body, "bgcp:dispatcher");
+    if (
+      marker.get("status") !== "DISPATCH_FAILED" ||
+      marker.get("requestId") !== request.requestId ||
+      marker.get("batchId") !== request.batchId ||
+      marker.get("requestDigest") !== request.requestDigest
+    )
+      continue;
+
+    return {
+      reasonCode: marker.get("reasonCode") || "WORKFLOW_DISPATCH_FAILED",
+      message:
+        "Execution request delivery failed and is terminal. Create a new request.",
+    };
+  }
+  return undefined;
 }
 
 export function parseExecutionRequestEvidence(

@@ -14,6 +14,8 @@ export const statusFilters = [
   "DISPATCHING",
   "DISPATCHED",
   "DISPATCH_FAILED",
+  "DISPATCH_UNCONFIRMED",
+  "EXPIRED",
   "GATE_BLOCKED",
 ] as const;
 export type RequestStatusFilter = (typeof statusFilters)[number];
@@ -100,7 +102,7 @@ export function statusLabel(status: string, t: (key: string) => string) {
 }
 
 export function statusClassName(status: string) {
-  if (status === "SCHEDULE_RECORDED") {
+  if (status === "SCHEDULE_RECORDED" || status === "EXPIRED") {
     return "rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700";
   }
   if (
@@ -110,7 +112,11 @@ export function statusClassName(status: string) {
   ) {
     return "rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-700";
   }
-  if (status === "REQUESTED" || status === "OPEN") {
+  if (
+    status === "REQUESTED" ||
+    status === "OPEN" ||
+    status === "DISPATCH_UNCONFIRMED"
+  ) {
     return "rounded-md bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800";
   }
   return "rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700";

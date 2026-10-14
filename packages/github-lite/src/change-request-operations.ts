@@ -71,6 +71,15 @@ import {
 } from "./parameter-materialization.js";
 import { loadWorkspaceEncryptionReadiness } from "./workspace-encryption-readiness.js";
 import type { GitHubBatchDefinition } from "./github-batch-definition.js";
+import {
+  parseExecutionRequestDetail,
+  type ExecutionApprovalRequest,
+} from "./execution-approval-legacy.js";
+import { observePendingRequestDelivery } from "./execution-request-delivery.js";
+import {
+  toRepositoryIssue,
+  toRepositoryIssueComment,
+} from "./inspection-context.js";
 
 export function createChangeRequestOperations(
   session: { owner: string; repo: string },
@@ -1363,13 +1372,34 @@ async function findPendingBatchControl(
     }
   }
 
-  const issue = issues.find(
-    (candidate) =>
-      !candidate.isPullRequest &&
-      candidate.labels.includes("batchplane:execution-request") &&
-      readExecutionRequestBatchId(candidate.body) === batchId &&
-      !hasTerminalExecutionLabel(candidate.labels),
+  const candidates = issues.filter(
+    (issue) =>
+      parseExecutionRequestDetail(toRepositoryIssue(issue))?.batchId ===
+      batchId,
   );
+  const evidence = await Promise.all(
+    candidates.map(async (issue) => {
+      const comments = await client.listIssueComments({
+        ...repository,
+        issueNumber: issue.number,
+      });
+      return parseExecutionRequestDetail(
+        toRepositoryIssue(issue),
+        comments.map(toRepositoryIssueComment),
+      );
+    }),
+  );
+  const requests = await observePendingRequestDelivery(
+    { client, repositoryRef: repository },
+    evidence.filter(
+      (request): request is ExecutionApprovalRequest => request !== null,
+    ),
+  );
+  const issue = requests.find((request) =>
+    ["REQUESTED", "APPROVED", "DISPATCHING", "DISPATCH_UNCONFIRMED"].includes(
+      request.status,
+    ),
+  )?.issue;
 
   return issue
     ? {
@@ -1378,19 +1408,6 @@ async function findPendingBatchControl(
         title: issue.title,
       }
     : null;
-}
-
-function readExecutionRequestBatchId(body: string): string | null {
-  const match =
-    /<!--\s*batchplane:execution-request[\s\S]*?^batchId=(.+)$/m.exec(body);
-
-  return match?.[1]?.trim() || null;
-}
-
-function hasTerminalExecutionLabel(labels: string[]): boolean {
-  return ["dispatched", "dispatch-failed", "gate-blocked", "rejected"].some(
-    (status) => labels.includes(`batchplane:${status}`),
-  );
 }
 
 async function resolveUnmergedChangeState(

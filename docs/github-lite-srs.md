@@ -597,17 +597,27 @@ and after `workflow_dispatch`:
 - `DISPATCHING` evidence and `batchplane:dispatching` label before dispatch
 - `DISPATCHED` evidence and `batchplane:dispatched` label after success
 - `DISPATCH_FAILED` evidence and `batchplane:dispatch-failed` label after
-  failure
+  confirmed delivery rejection
+- `DISPATCH_UNCONFIRMED` evidence when acceptance cannot be determined;
+  retain the dispatch lock and never resend automatically
 
 The dispatcher must ignore duplicate approval comments when matching
-`DISPATCHING` or `DISPATCHED` evidence already exists for the same request ID,
+`DISPATCHING`, `DISPATCHED`, `DISPATCH_FAILED` or `DISPATCH_UNCONFIRMED`
+evidence already exists for the same request ID,
 Batch ID, and request digest.
 
-Current implementation caveat: the dispatcher still recognizes a
-`retry-dispatch` command after DISPATCH_FAILED. The approved target in #224
-removes that same-request redelivery path. Confirmed dispatch failure terminates
-the request; the user creates a new request under current inputs/policy.
+The dispatcher does not accept `retry-dispatch`. Confirmed dispatch failure
+terminates the request; the user creates a new request under current
+definitions, inputs, permissions and policy, including AUTO_APPROVE.
 Unknown acceptance must not be misclassified as confirmed failure.
+
+An undelivered request at or after its expiry is `EXPIRED`. Detail, lists,
+approval decisions and pending-change checks must agree. The deadline cannot
+relabel an already dispatched or potentially accepted execution as expired.
+Terminal detail preserves the original reason/evidence and offers the existing
+new-request route without copying approval, digest or sensitive plaintext.
+Expiry does not delete or automatically close the source Issue, and reads do
+not create expiry jobs or write evidence merely to display the status.
 
 Readers must continue to accept legacy `batchtrail.io/v1`, `batchtrail:*`
 markers, and `batchtrail:*` labels so existing Lite repositories remain
@@ -695,7 +705,7 @@ Main includes it in its first flow, and Lite timing remains separate.
 - #212: approved parameter contract implemented and locally verified, `AVAILABLE`;
   actual business delivery and provider limits remain `NOT_TESTED`.
 - #223 aligns approval capability/command/Gate and complete approved-revision lookup.
-- #224 corrects expiry/failure termination and removes same-request failed dispatch retry.
+- #224 implements expiry/failure termination and removes same-request failed dispatch retry; actual-provider acceptance remains separate.
 - #225 implements approved withdrawal, explicit queued cancel/running stop and real outcomes.
 - #206 provides cross-Batch schedule inventory/detail and cron preview agreement.
 - #226 completes older execution/audit retrieval and keeps old unresolved My Work visible.

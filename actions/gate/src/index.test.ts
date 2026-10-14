@@ -16,6 +16,7 @@ import {
   verifyLiteInput,
 } from ".";
 import {
+  buildDispatchedCommentBody,
   buildExecutionApprovalCommentBody,
   buildExecutionIssueBody,
   sharedBatchId as batchId,
@@ -328,6 +329,65 @@ describe("Gate action runtime", () => {
       result: "ALLOW",
       verifiedSha,
     });
+  });
+
+  it("denies reuse only for an unedited matching dispatcher failure, not labels or untrusted comments", async () => {
+    const failure = {
+      body: buildDispatchedCommentBody({ status: "DISPATCH_FAILED" }),
+      created_at: "2026-05-09T01:31:00.000Z",
+      updated_at: "2026-05-09T01:31:00.000Z",
+      user: { login: "github-actions[bot]" },
+    };
+    const input = authorizedGateInput();
+    await expect(
+      verifyLiteAuthorization(
+        {
+          ...input,
+          fetcher: createGateFetchMock({
+            comments: [failure, buildApprovalComment()],
+          }),
+        },
+        verifyApprovedRevision,
+      ),
+    ).resolves.toMatchObject({
+      result: "DENY",
+      reasonCode: "WORKFLOW_DISPATCH_FAILED",
+    });
+
+    const nonTerminalEvidence = [
+      [],
+      [{ ...failure, user: { login: "developer" } }],
+      [{ ...failure, updated_at: "2026-05-09T01:32:00.000Z" }],
+      [
+        {
+          ...failure,
+          body: failure.body.replaceAll(requestId, "other-request"),
+        },
+      ],
+      [
+        {
+          ...failure,
+          body: failure.body.replaceAll(
+            "DISPATCH_FAILED",
+            "DISPATCH_UNCONFIRMED",
+          ),
+        },
+      ],
+    ];
+    for (const comments of nonTerminalEvidence) {
+      await expect(
+        verifyLiteAuthorization(
+          {
+            ...input,
+            fetcher: createGateFetchMock({
+              comments: [...comments, buildApprovalComment()],
+              issueLabels: ["batchplane:dispatch-failed"],
+            }),
+          },
+          verifyApprovedRevision,
+        ),
+      ).resolves.toMatchObject({ result: "ALLOW" });
+    }
   });
 
   it("denies forged, missing or divergent parsed requester identity before manual and auto-approval, including a manual event with a schedule payload", async () => {

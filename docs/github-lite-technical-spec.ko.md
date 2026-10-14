@@ -452,7 +452,7 @@ selfApproval=true
 
 dispatcher 검사:
 
-- 명령이 `approve`인지. 현재 `retry-dispatch` 지원은 아래에 기록한 #224 제거 대상 불일치다.
+- 명령이 `approve`인지. 폐기한 `retry-dispatch` 명령은 무시한다.
 - 이벤트 댓글에 `batchplane:execution-approval`과 승인 결정이 있을 때만 처리 가능한 명령
 - 요청 증거 존재
 - 승인 증거 존재
@@ -528,7 +528,7 @@ dispatcher 책임:
 - 실행 요청 Issue body 읽기
 - BatchPlane 증적 검증
 - 같은 Issue의 전달 시도 직렬화
-- `batchplane:dispatching`, `batchplane:dispatched` 상태 증거가 있는 요청 무시
+- 전달 중·전달 완료·종결 실패·전달 여부 미확인 요청 무시
 - `request_id`, `batch_id`, `request_digest`로 대상 workflow 호출
 - 성공·실패 증적 기록
 
@@ -536,10 +536,29 @@ Issue label·댓글 상태:
 
 - 전달 전 `DISPATCHING` `batchplane:bgcp:dispatcher` marker와 `batchplane:dispatching`
 - 성공 후 `DISPATCHED` `batchplane:bgcp:dispatcher` marker와 `batchplane:dispatched`
-- 실패 시 `DISPATCH_FAILED` `batchplane:bgcp:dispatcher` marker와 `batchplane:dispatch-failed`
-- 현재는 `DISPATCH_FAILED` 후 `retry-dispatch`를 수용한다. #224에서 제거할 알려진
-  정책 불일치이지 목표 계약이 아니다. 확인된 실패는 종결·새 요청이며 전달 불명은
-  확인된 실패가 아니다.
+- 전달 거절 확인 시 `DISPATCH_FAILED` `batchplane:bgcp:dispatcher` marker와 `batchplane:dispatch-failed`
+- 수락 여부를 알 수 없으면 `DISPATCH_UNCONFIRMED`와 전달 잠금을 유지한다.
+  통신 실패·timeout·서버 오류는 대상이 실행을 거절했다는 증거가 아니다.
+
+명시적인 플랫폼 거절만 전달 실패로 종결한다.
+[GitHub REST 오류 계약](https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api)은
+인증·인가·유효성·호출 한도 거절과 timeout/서버 오류를 구분한다. 기존 API 버전과
+[workflow dispatch endpoint](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)를
+유지하며 통신 재시도·API 버전 변경·새 결과 복구 명령을 추가하지 않는다.
+전달 성공 후 증거 기록이 실패했다고 전달 거절로 바꾸지 않는다. 요청 기한이
+지나도 일치하는 기존 전달 증거가 있으면 다시 전달하지 않는다.
+
+기존 실행 조회에서 명시적인 원본 요청 연결을 찾으면 `DISPATCHING`/
+`DISPATCH_UNCONFIRMED`의 전달 상태를 확인할 수 있다. 배치명만으로 추정한
+연결은 충분하지 않다. 조회할 수 없으면 미확인 상태를 유지하며 거절로 판단하지
+않는다. 이 조회 결과는 증거를 다시 쓰거나 승인·업무 성공을 증명하지 않으며
+`DISPATCH_FAILED` 이력을 지울 수 없다. 기존 실행 조회 범위를 사용하며
+과거 전체 이력을 복구하는 새 탐색 기능을 추가하지 않는다.
+
+확인된 실패는 명시적인 새 요청 작성이 필요하다. 만료는 전달 시작 전 기존
+기한으로만 판단한다. 원본 Issue와 결정 이력은 보존하며 상태 조회가 GitHub에
+쓰기를 수행하지 않는다. 요청 상세는 일반 작성 경로로 연결하고 현재 배치·
+Workspace 정책을 읽어 새 요청 식별자를 발급받는다.
 
 ## 변경 요청 승인 상세 계약
 
@@ -593,8 +612,10 @@ Issue·workflow run은 별도 증거로 남아 배치 ID로 조회할 수 있어
 
 선행 통제는 배치 전체의 생성 제한이다. 열린 변경의 `OPEN`, `APPROVED_PENDING_MERGE`는
 같은 배치의 등록·변경·삭제를 차단한다. 실행의 `REQUESTED`, `APPROVED`,
-`DISPATCHING`도 차단하지만 `DISPATCH_FAILED`, `DISPATCHED`, `GATE_BLOCKED`,
-`REJECTED`는 차단하지 않는다. 생성 전에 확인하지만 브라우저 간 확인·생성은
+`DISPATCHING`, `DISPATCH_UNCONFIRMED`도 차단하지만 `EXPIRED`, `DISPATCH_FAILED`,
+`DISPATCHED`, `GATE_BLOCKED`, `REJECTED`는 차단하지 않는다. 열린 Issue 여부나
+오래된 label만으로 판단하지 않고 요청 상세와 같은 증거 상태 계산을 사용한다.
+생성 전에 확인하지만 브라우저 간 확인·생성은
 원자적이지 않다. 이 변경은 잠금·controller를 추가하지 않으며 신뢰할 조율은 향후
 Main/R2-B 작업에 속한다.
 

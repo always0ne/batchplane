@@ -20,6 +20,8 @@ export function StatusBadge({ request }: { request: ExecutionRequest }) {
 }
 
 function statusPalette(status: ExecutionRequest["status"]): string {
+  if (status === "EXPIRED") return "bg-slate-100 text-slate-700";
+  if (status === "DISPATCH_UNCONFIRMED") return "bg-amber-50 text-amber-800";
   if (status === "REQUESTED") return "bg-amber-50 text-amber-800";
   if (status === "APPROVED" || status === "DISPATCHING")
     return "bg-sky-50 text-sky-800";

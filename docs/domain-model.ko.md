@@ -240,6 +240,8 @@ stateDiagram-v2
     AUTHORIZED --> EXPIRED: 인가 만료
     DISPATCHING --> DISPATCHED: 플랫폼 수락
     DISPATCHING --> DISPATCH_FAILED: 플랫폼 거절 확인
+    DISPATCHING --> DISPATCH_UNCONFIRMED: 수락 여부를 확인할 수 없음
+    DISPATCH_UNCONFIRMED --> DISPATCHED: 연관 실행 관측
     DISPATCH_FAILED --> [*]
     DISPATCHED --> [*]
 ```
@@ -248,6 +250,12 @@ stateDiagram-v2
 확인된 전달 실패가 아니며 맹목적인 재전달을 유발하면 안 된다. 전달 실패가 확인되면
 현재 정책·입력으로 새 요청이 필요하다. 만료·종결 요청이 유효한 새 작업을 영구히
 막을 수 없다(#224).
+
+Lite의 `EXPIRED`는 미전달 요청을 조회할 때 계산하는 상태다. 전달 잠금과 수락
+불명은 기한보다 우선하며 만료가 이미 접수됐을 수 있는 업무를 다시 보내는
+근거가 될 수 없다. 확인된 `DISPATCH_FAILED`는 AUTO_APPROVE에서도 종결이다.
+원본 요청·결정·실패 사유는 계속 조회할 수 있으며 사용자가 새 식별자와 현재
+정책으로 다음 실행을 요청한다. 기존 실행을 관측하면 다시 보내지 않고 불확실성을 해소한다.
 
 승인 후 철회는 요청자·승인자·대상 실행 권한 보유자에게 허용한다. native 작업이
 대기·실행 중이면 명시적인 실제 취소/중단 확인과 사유가 필요하다. 이미 끝났다면

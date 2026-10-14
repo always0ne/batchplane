@@ -282,12 +282,37 @@ after an administrator removes the system itself.
 
 ### QA-L10: Expiry And Confirmed Delivery Failure End The Request And Allow New Work
 
-Readiness: `PLANNED` #224. Existing retry-dispatch is a known policy mismatch.
+Readiness: `AVAILABLE` for local fixtures in #224; actual-provider acceptance
+is `NOT_TESTED` until recorded for the tested revision/environment.
 
-Steps: After design/implementation, create expiry and **confirmed** delivery
-rejection using dedicated fixtures. Check detail and availability of the next
-change/execution request. Separately check a response with unknown delivery
-acceptance.
+Steps:
+
+1. Use a harmless dedicated Batch. Create a manual request with a short expiry
+   and leave it undelivered. After expiry, refresh request inventory, detail,
+   approvals and My Work. Do not change the workstation clock or production
+   workflows to manufacture expiry.
+2. Confirm the expired request no longer offers approval or blocks a valid
+   Batch change. Follow **Create new execution request** from detail and check
+   the current Batch definition, new request ID, default authoring reason and current input
+   selections. The old approval/digest or entered sensitive value is not copied.
+3. With an isolated fixture, return a documented provider rejection from the
+   dispatch call. Check `DISPATCH_FAILED`, preserved reason/evidence, no approval
+   action, and the same fresh-request journey. Repeated approval or the retired
+   `/bgcp retry-dispatch` command must not deliver this request again.
+4. Separately simulate a dropped response or server timeout. Check
+   `DISPATCH_UNCONFIRMED`, no retry/replacement shortcut, and no false release of
+   the pending-change guard after the deadline. A subsequently correlated
+   execution remains accessible without another dispatch.
+5. Repeat the relevant path under AUTO_APPROVE. A new request evaluates current
+   policy; a failed request never reuses its prior automatic approval. Check EN
+   and KO at desktop and mobile widths, and retain old audit evidence.
+
+Use fixtures for rejection/timeout unless a separate live test is authorized.
+The browser must not create arbitrary failures by changing live Actions rights.
+For an existing Workspace, deploy the new UI and use the updated dispatcher/Gate
+Action revision. If Actions are pinned, update their pins through the normal
+change process. Existing Batch definitions, schedules, parameters and encryption
+keys need no migration for #224. Do not reset the Workspace or rewrite old Issues.
 
 Expected: Expiry/failure does not indefinitely block valid work. Confirmed
 delivery failure starts again through a new request/current policy, without

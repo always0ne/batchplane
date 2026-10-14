@@ -3,7 +3,9 @@ export type ExecutionRequestStatus =
   | "APPROVED"
   | "REJECTED"
   | "CANCELED"
+  | "EXPIRED"
   | "DISPATCHING"
+  | "DISPATCH_UNCONFIRMED"
   | "DISPATCHED"
   | "DISPATCH_FAILED";
 

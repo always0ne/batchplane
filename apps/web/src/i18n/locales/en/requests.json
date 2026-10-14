@@ -46,6 +46,8 @@
     "CLOSED": "Closed",
     "DISPATCHED": "Dispatched",
     "DISPATCH_FAILED": "Dispatch failed",
+    "DISPATCH_UNCONFIRMED": "Delivery unconfirmed",
+    "EXPIRED": "Expired",
     "DISPATCHING": "Dispatching",
     "GATE_BLOCKED": "Gate blocked",
     "MERGED": "Merged",

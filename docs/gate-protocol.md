@@ -35,8 +35,12 @@ unedited comment author, and follows all comment pages. Relaxed modes do not
 replace role proof; automatic approval additionally requires explicit policy
 evidence and an eligible requester. Missing/unreadable authorization denies
 execution. QA-L05 tracks owner/provider revalidation separately from automated
-checks. Actual approved input binding is #212; target failed-request termination
-is #224.
+checks. Actual approved input binding is #212. Under #224, Gate rejects reuse of
+a request with an unedited, identity-bound delivery-failure record authored by
+the configured dispatcher. Labels or another user's failure-looking comment
+are not sufficient. Unconfirmed delivery is not a confirmed rejection and does
+not by itself deny the already-accepted execution. Existing authority, expiry,
+revision and digest checks still apply.
 
 Native schedule workflow:
 [schedule-request](../actions/schedule-request/action.yml) records the occurrence,

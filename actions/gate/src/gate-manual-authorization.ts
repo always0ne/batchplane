@@ -44,6 +44,12 @@ export async function verifyManualAuthorization({
     );
   const evidenceFailure = verifyApprovalEvidence(request, approval, input);
   if (evidenceFailure) return evidenceFailure;
+  if (evidence.dispatchFailure) {
+    return deny(
+      evidence.dispatchFailure.reasonCode,
+      evidence.dispatchFailure.message,
+    );
+  }
 
   const client = createGitHubLiteClient({
     apiBaseUrl: input.apiBaseUrl,

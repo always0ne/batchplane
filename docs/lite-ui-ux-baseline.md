@@ -207,6 +207,13 @@ backfill, new review policy, or stronger evidence retention.
   a fabricated success, or a false business failure.
 - Failed, Gate-blocked, dispatching, dispatched, and rejected execution issues
   are not approval work. They must not be shown with approve/reject controls.
+- Expired and delivery-unconfirmed requests are also not approval work. Keep
+  their detail and history reachable. Expired/confirmed-failed detail explains
+  termination and links to the normal new execution request Page without
+  copying past approval or sensitive inputs. Show this in the existing decision
+  region, not another setup flow or oversized explanation card. New authoring
+  loads current definitions, permission and policy. Unknown delivery has no
+  retry or replacement shortcut and must not look like confirmed failure.
 - Rejecting an execution request must require a reason.
 - Self-approval must be disabled with an explicit reason unless the effective
   Workspace policy permits eligible self-approval through `SELF_APPROVAL_ALLOWED`

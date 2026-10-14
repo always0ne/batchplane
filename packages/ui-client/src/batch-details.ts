@@ -60,7 +60,9 @@ export type BatchRecentExecutionRequestSummary = {
     | "REQUESTED"
     | "APPROVED"
     | "REJECTED"
+    | "EXPIRED"
     | "DISPATCHING"
+    | "DISPATCH_UNCONFIRMED"
     | "DISPATCHED"
     | "DISPATCH_FAILED"
     | "GATE_BLOCKED";

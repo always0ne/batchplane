@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { BatchPlaneClient, ExecutionRequest } from "@batchplane/ui-client";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BatchPlaneClientContext } from "../../../../client/batch-plane-client-context";
@@ -128,6 +128,85 @@ describe("ExecutionRequestDetailPage", () => {
         "Auto-approval evidence was not recorded for this execution request.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it.each(["EXPIRED", "DISPATCH_FAILED"] as const)(
+    "keeps %s evidence inspectable and links a fresh request without reusing inputs or approval",
+    async (status) => {
+      const detail = request({
+        status,
+        capability: { canApprove: false, canReject: false },
+        attempts: { type: "loaded", attempts: [] },
+        dispatcher:
+          status === "DISPATCH_FAILED"
+            ? {
+                actor: "dispatcher",
+                createdAt: "2026-09-11T00:10:00.000Z",
+                status: "DISPATCH_FAILED",
+                reasonCode: "WORKFLOW_DISPATCH_FAILED",
+                message: "Workflow target was not found.",
+              }
+            : undefined,
+      });
+      renderDetail(createClient({ getExecutionRequest: async () => detail }));
+
+      const nextRequest = await screen.findByRole("link", {
+        name: "Create new execution request",
+      });
+      expect(nextRequest).toHaveAttribute(
+        "href",
+        "/batches/payment.daily-close/execution-requests/new",
+      );
+      expect(
+        screen.getByRole("heading", { name: "Request closed" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Approve execution" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Reject" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText("Close payments.")).toBeInTheDocument();
+      if (status === "DISPATCH_FAILED") {
+        expect(
+          screen.getByText(
+            "WORKFLOW_DISPATCH_FAILED: Workflow target was not found.",
+          ),
+        ).toBeInTheDocument();
+      }
+      fireEvent.click(nextRequest);
+      expect(
+        await screen.findByText("New request without copied state"),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("does not offer approval or a replacement request when delivery is unconfirmed", async () => {
+    renderDetail(
+      createClient({
+        getExecutionRequest: async () =>
+          request({
+            status: "DISPATCH_UNCONFIRMED",
+            capability: { canApprove: false, canReject: false },
+            attempts: { type: "loaded", attempts: [] },
+          }),
+      }),
+    );
+
+    expect(
+      await screen.findByTitle(
+        "Execution delivery could not be confirmed. This is not a confirmed failure; do not submit a replacement until the outcome is known.",
+      ),
+    ).toHaveTextContent("Delivery unconfirmed");
+    expect(
+      screen.queryByRole("link", { name: "Create new execution request" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Approve execution" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Request closed" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows that a created pending request is awaiting its latest status", async () => {
@@ -539,9 +618,24 @@ function renderDetail(client: BatchPlaneClient, state?: unknown) {
             element={<ExecutionRequestDetailPage />}
             path="/execution-requests/:requestLocator"
           />
+          <Route
+            element={<NewRequestDestination />}
+            path="/batches/:batchId/execution-requests/new"
+          />
         </Routes>
       </MemoryRouter>
     </BatchPlaneClientContext.Provider>,
+  );
+}
+
+function NewRequestDestination() {
+  const location = useLocation();
+  return (
+    <p>
+      {location.state === null
+        ? "New request without copied state"
+        : "Unexpected copied state"}
+    </p>
   );
 }
 

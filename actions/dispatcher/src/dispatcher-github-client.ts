@@ -65,8 +65,9 @@ export function createDispatcherGitHubClient({
     });
 
     if (!response.ok) {
+      const details = await response.text().catch(() => response.statusText);
       throw new GitHubApiRequestError(
-        `GitHub API request failed: ${response.status} ${await response.text()}`,
+        `GitHub API request failed: ${response.status} ${details}`,
         response.status,
       );
     }
@@ -202,4 +203,10 @@ class GitHubApiRequestError extends Error {
 
 function isGitHubApiStatus(error: unknown, status: number): boolean {
   return error instanceof GitHubApiRequestError && error.status === status;
+}
+
+export function isConfirmedDispatchRejection(error: unknown): boolean {
+  if (!(error instanceof GitHubApiRequestError)) return false;
+  // GitHub documents these as rejected requests, unlike timeouts/server errors.
+  return [400, 401, 403, 404, 422, 429].includes(error.status);
 }

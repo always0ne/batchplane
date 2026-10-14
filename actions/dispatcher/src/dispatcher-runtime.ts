@@ -22,7 +22,7 @@ export async function runDispatcherFromEnvironment(
     repo,
   });
 
-  if (result.status === "failed") {
+  if (result.status === "failed" || result.status === "unconfirmed") {
     throw new Error(`${result.reasonCode}: ${result.message}`);
   }
 }
