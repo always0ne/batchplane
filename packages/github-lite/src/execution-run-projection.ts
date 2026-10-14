@@ -10,6 +10,8 @@ import { type ExecutionRequestForRun } from "./inspection-context.js";
 import { type NativeSchedulePresentation } from "./native-schedule-projections.js";
 import { inputPreparationStepName } from "./github-workflow.js";
 export type ExecutionRunFacts = GitHubExecutionRun & {
+  /** Explicit source evidence only; excludes the batch-name correlation fallback. */
+  observedRequestId?: string;
   evidenceScope?: "SOURCE_RUN";
   nativeSchedule?: NativeSchedulePresentation;
   observedAt?: string;
@@ -63,6 +65,8 @@ export function toExecutionRun(
 
   return {
     actor: run.actor,
+    observedRequestId:
+      run.requestId ?? parseRequestIdFromRun(run) ?? gateDecision?.requestId,
     sourceStatus: run.status,
     ...(run.conclusion ? { sourceConclusion: run.conclusion } : {}),
     observedAt: run.updatedAt ?? run.startedAt ?? run.createdAt,

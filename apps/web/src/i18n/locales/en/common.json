@@ -56,7 +56,9 @@
       "CANCELED": "Canceled",
       "DISPATCHING": "Dispatching",
       "DISPATCHED": "Dispatched",
-      "DISPATCH_FAILED": "Dispatch failed"
+      "DISPATCH_FAILED": "Dispatch failed",
+      "DISPATCH_UNCONFIRMED": "Delivery unconfirmed",
+      "EXPIRED": "Expired"
     },
     "approvalDecision": {
       "APPROVED": "Approved",

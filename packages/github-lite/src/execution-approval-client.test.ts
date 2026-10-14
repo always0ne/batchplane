@@ -24,7 +24,7 @@ import type {
   RepositoryPullRequest,
 } from "./repository-evidence-types.js";
 import { isExecutionRequestCreationUnavailableError } from "@batchplane/ui-client";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createGitHubLiteExecutionApprovalClient } from "./execution-approval-client.js";
 import {
@@ -76,6 +76,12 @@ const draft = {
 };
 
 describe("GitHub Lite execution approval client", () => {
+  beforeEach(() => {
+    vi.setSystemTime(new Date("2026-09-11T09:10:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   it("defaults only a missing policy and rejects present malformed policy in the shared revision reader", async () => {
     const context = createContext();
     const policy = context.client.state.files.find((file) =>
@@ -858,7 +864,7 @@ describe("GitHub Lite execution approval client", () => {
     ).toBeLessThan(
       vi.mocked(context.client.createIssueComment).mock.invocationCallOrder[0]!,
     );
-    expect(context.client.getIssue).not.toHaveBeenCalled();
+    expect(context.client.getIssue).toHaveBeenCalled();
     expect(context.client.listIssues).not.toHaveBeenCalled();
   });
 
@@ -992,6 +998,73 @@ describe("GitHub Lite execution approval client", () => {
       requests: [],
       workspaceDefaultBranch: "main",
     });
+  });
+
+  it("keeps expired requests in history and My Work but prevents approval and rejection after a stale read", async () => {
+    const issue = await createCanonicalIssue();
+    const context = createContext({
+      getExecutionRequestIssue: vi.fn().mockResolvedValue(issue),
+      listExecutionRequestIssues: vi.fn().mockResolvedValue([issue]),
+    });
+    const client = createGitHubLiteExecutionApprovalClient(context);
+    expect(
+      (await client.getExecutionRequest({ requestLocator: "71" }))?.capability
+        .canApprove,
+    ).toBe(true);
+    vi.setSystemTime(new Date("2026-09-11T10:00:00.000Z"));
+    expect(
+      await client.getExecutionRequest({ requestLocator: "71" }),
+    ).toMatchObject({
+      status: "EXPIRED",
+      capability: { canApprove: false, canReject: false },
+    });
+    expect((await client.listApprovalRequests()).requests).toEqual([]);
+    expect((await client.listWorkspaceRequests()).requests).toEqual([
+      expect.objectContaining({
+        request: expect.objectContaining({ status: "EXPIRED" }),
+      }),
+    ]);
+    expect((await client.getMyWork()).items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          priority: "HIGH",
+          request: expect.objectContaining({
+            request: expect.objectContaining({ status: "EXPIRED" }),
+          }),
+        }),
+      ]),
+    );
+    await expect(
+      client.approveExecutionRequest({ requestLocator: "71" }),
+    ).rejects.toThrow("not currently approvable");
+    await expect(
+      client.rejectExecutionRequest({
+        requestLocator: "71",
+        reason: "Too late",
+      }),
+    ).rejects.toThrow("not currently rejectable");
+    expect(context.client.createIssueComment).not.toHaveBeenCalled();
+  });
+
+  it("does not automatically approve a request that expired while its creation was in flight", async () => {
+    const issue = await createCanonicalIssue();
+    const context = createContext({
+      createExecutionRequest: vi.fn(async () => {
+        vi.setSystemTime(new Date("2026-09-11T10:00:00.000Z"));
+        return issue;
+      }),
+    });
+    const client = createGitHubLiteExecutionApprovalClient(context);
+    const result = await client.createExecutionRequest({
+      draft,
+      expiresAt: "2026-09-11T10:00:00.000Z",
+      parameters: [],
+      reason: "Reconciled",
+      targetRevision: "main",
+    });
+    expect(result.request.status).toBe("EXPIRED");
+    expect(result.postCreateError?.code).toBe("AUTO_APPROVAL_RECORDING_FAILED");
+    expect(context.client.createIssueComment).not.toHaveBeenCalled();
   });
 
   it("keeps the raw source title on workspace inventory rows", async () => {
@@ -1331,7 +1404,7 @@ describe("GitHub Lite execution approval client", () => {
         postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" },
         request: { requestId: draft.requestId, status: "REQUESTED" },
       });
-      expect(context.client.getIssue).not.toHaveBeenCalled();
+      expect(context.client.getIssue).toHaveBeenCalled();
       expect(context.client.listIssues).not.toHaveBeenCalled();
       if (failure === "unverified requester") {
         expect(context.client.createIssueComment).not.toHaveBeenCalled();
@@ -1347,7 +1420,7 @@ function createContext({
   createExecutionRequest = vi
     .fn()
     .mockImplementation(async () => createIssue()),
-  getExecutionRequestIssue = vi.fn(),
+  getExecutionRequestIssue,
   listExecutionRequestIssues = vi.fn().mockResolvedValue([]),
   listRegistrationRequests = vi.fn().mockResolvedValue([]),
   executionRuns = [],
@@ -1366,6 +1439,7 @@ function createContext({
 } = {}) {
   const state = createGitHubLiteMockState({
     currentUser: { login: "developer" },
+    issues: [createIssue()],
   });
   state.branches["approved-sha"] = "approved-sha";
   state.files = [
@@ -1400,8 +1474,17 @@ function createContext({
       .map((file) => ({ ...file, branch: "approved-sha" })),
   );
   const client = createMockGitHubLiteClient(state);
-  client.createIssue = createExecutionRequest;
-  client.getIssue = getExecutionRequestIssue;
+  client.createIssue = vi.fn(async (input) => {
+    const issue = await createExecutionRequest(input);
+    client.state.issues = [
+      ...client.state.issues.filter(
+        (existing) => existing.number !== issue.number,
+      ),
+      issue,
+    ];
+    return issue;
+  });
+  client.getIssue = getExecutionRequestIssue ?? vi.fn(client.getIssue);
   client.listIssues = listExecutionRequestIssues;
   client.listPullRequests = listRegistrationRequests;
   client.listIssueComments = vi.fn().mockResolvedValue([]);

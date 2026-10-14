@@ -70,6 +70,10 @@ import {
   loadExecutionApprovalContext,
   type ExecutionApprovalContext,
 } from "./execution-approval-authorization.js";
+import {
+  observePendingRequestDelivery,
+  withObservedExecutionDelivery,
+} from "./execution-request-delivery.js";
 
 type ExecutionApprovalClient = Pick<
   BatchPlaneClient,
@@ -203,19 +207,19 @@ export function createGitHubLiteExecutionApprovalClient(
         ...context.repositoryRef,
         issueNumber,
       });
-      const parsed = parseExecutionRequestDetail(issue, comments);
-      if (!parsed) return null;
-
-      const [approvalContext, attempts, sourceChange] = await Promise.all([
+      const evidence = parseExecutionRequestDetail(issue, comments);
+      if (!evidence) return null;
+      const [approvalContext, inspection, sourceChange] = await Promise.all([
         loadExecutionApprovalContext(context),
-        loadAttempts(context, parsed),
-        loadSourceChange(context, parsed),
+        loadAttempts(context, evidence),
+        loadSourceChange(context, evidence),
       ]);
+      const parsed = inspection.request;
 
       return projectRequest({
         request: parsed,
         capability: executionApprovalCapabilityFor(parsed, approvalContext),
-        attempts,
+        attempts: inspection.attempts,
         workspaceLabel: workspaceLabel(context.repositoryRef),
         approvalNotice: executionApprovalNoticeFor(parsed, approvalContext),
         sourceChange,
@@ -228,11 +232,11 @@ export function createGitHubLiteExecutionApprovalClient(
     },
 
     async approveExecutionRequest({ requestLocator }) {
+      const approvalContext = await loadExecutionApprovalContext(context);
       const { comments, issue, parsed } = await loadCurrentRequest(
         context,
         requestLocator,
       );
-      const approvalContext = await loadExecutionApprovalContext(context);
       const capability = executionApprovalCapabilityFor(
         parsed,
         approvalContext,
@@ -277,11 +281,11 @@ export function createGitHubLiteExecutionApprovalClient(
       const normalizedReason = reason.trim();
       if (!normalizedReason) throw new Error("A rejection reason is required.");
 
+      const approvalContext = await loadExecutionApprovalContext(context);
       const { comments, issue, parsed } = await loadCurrentRequest(
         context,
         requestLocator,
       );
-      const approvalContext = await loadExecutionApprovalContext(context);
       const capability = executionApprovalCapabilityFor(
         parsed,
         approvalContext,
@@ -349,14 +353,25 @@ export function createGitHubLiteExecutionApprovalClient(
     async getMyWork(): Promise<MyWorkInventory> {
       const [actor, requests, runs] = await Promise.all([
         context.client.getCurrentUser(),
-        loadRequestInventory(context),
+        loadRequestInventory(context, { observeDelivery: false }),
         listExecutionRunFacts(context, { limit: 100 }),
       ]);
 
       return {
         currentUser: actor.login,
         items: [
-          ...requests.flatMap((item) => requestWorkItems(item, actor.login)),
+          ...requests.flatMap((item) => {
+            if (item.kind === "EXECUTION") {
+              return requestWorkItems(
+                {
+                  ...item,
+                  request: withObservedExecutionDelivery(item.request, runs),
+                },
+                actor.login,
+              );
+            }
+            return requestWorkItems(item, actor.login);
+          }),
           ...failureFollowUpWorkItems(
             runs,
             requests.filter(
@@ -555,6 +570,7 @@ async function loadCurrentRequest(
 
 async function loadExecutionRequestItems(
   context: GitHubRepositoryContext,
+  { observeDelivery = true }: { observeDelivery?: boolean } = {},
 ): Promise<ExecutionRequestInventoryItem[]> {
   const issues = await listExecutionIssues(context, {
     state: "all",
@@ -568,14 +584,24 @@ async function loadExecutionRequestItems(
     state: "all",
   });
 
-  return Promise.all(
-    issues.map(async (issue): Promise<ExecutionRequestInventoryItem | null> => {
+  const evidence = await Promise.all(
+    issues.map(async (issue) => {
       const comments = await context.client.listIssueComments({
         ...context.repositoryRef,
         issueNumber: issue.number,
       });
-      const parsed = parseExecutionRequestDetail(issue, comments);
-      if (!parsed) return null;
+      return parseExecutionRequestDetail(issue, comments);
+    }),
+  );
+  const parsed = evidence.filter(
+    (request): request is ExecutionApprovalRequest => request !== null,
+  );
+  const requests = observeDelivery
+    ? await observePendingRequestDelivery(context, parsed)
+    : parsed;
+  return Promise.all(
+    requests.map(async (parsed): Promise<ExecutionRequestInventoryItem> => {
+      const issue = parsed.issue;
       return {
         actor: parsed.requestedBy || issue.author,
         kind: "EXECUTION",
@@ -598,18 +624,15 @@ async function loadExecutionRequestItems(
         updatedAt: issue.updatedAt ?? issue.createdAt ?? parsed.requestedAt,
       };
     }),
-  ).then((items) =>
-    items.filter(
-      (item): item is ExecutionRequestInventoryItem => item !== null,
-    ),
   );
 }
 
 async function loadRequestInventory(
   context: GitHubRepositoryContext,
+  options: { observeDelivery?: boolean } = {},
 ): Promise<RequestInventoryItem[]> {
   const [execution, changeRequests] = await Promise.all([
-    loadExecutionRequestItems(context),
+    loadExecutionRequestItems(context, options),
     loadChangeRequestItems(context),
   ]);
 
@@ -693,9 +716,12 @@ async function loadAttempts(
       requestId: request.requestId,
       workflowPath: request.workflow?.path,
     });
-    return { attempts: runs.map(toAttempt), type: "loaded" as const };
+    return {
+      request: withObservedExecutionDelivery(request, runs),
+      attempts: { attempts: runs.map(toAttempt), type: "loaded" as const },
+    };
   } catch {
-    return { type: "unavailable" as const };
+    return { request, attempts: { type: "unavailable" as const } };
   }
 }
 
@@ -863,7 +889,12 @@ function requestWorkItems(
       : item.request.requester === actor;
   const priority =
     item.kind === "EXECUTION" &&
-    ["DISPATCH_FAILED", "GATE_BLOCKED"].includes(item.request.status)
+    [
+      "DISPATCH_FAILED",
+      "DISPATCH_UNCONFIRMED",
+      "EXPIRED",
+      "GATE_BLOCKED",
+    ].includes(item.request.status)
       ? ("HIGH" as const)
       : ("NORMAL" as const);
   const awaitsDecision =
@@ -1061,24 +1092,29 @@ async function recordAutomaticApproval(
   createdRequest: ExecutionApprovalRequest,
   approvalContext: ExecutionApprovalContext,
 ) {
-  const approvalBody = buildExecutionApprovalComment({
-    approvalMode: approvalContext.approvalMode,
-    approvalType: "WORKSPACE_AUTO_APPROVED",
-    approvedAt: new Date(),
-    approver: approvalContext.actorLogin,
-    request: createdRequest,
-  });
+  let current = {
+    issue: createdIssue,
+    comments: [] as RepositoryIssueComment[],
+    parsed: createdRequest,
+  };
   let approvalComment;
 
   try {
+    current = await loadCurrentRequest(context, String(createdIssue.number));
+    if (
+      current.parsed.status !== "REQUESTED" ||
+      current.issue.state !== "open"
+    ) {
+      throw new Error("The execution request is not currently approvable.");
+    }
     const automatic = resolveAutoApproval({
       actorHasRequesterRole: approvalContext.actorHasRequesterRole,
       approvalMode: approvalContext.approvalMode,
     });
     if (
-      !createdRequest.requesterIdentityVerified ||
+      !current.parsed.requesterIdentityVerified ||
       !isSameGitHubLogin(
-        createdRequest.requestedBy,
+        current.parsed.requestedBy,
         approvalContext.actorLogin,
       ) ||
       !approvalContext.authorization ||
@@ -1091,7 +1127,13 @@ async function recordAutomaticApproval(
     }
     approvalComment = await context.client.createIssueComment({
       ...context.repositoryRef,
-      body: approvalBody,
+      body: buildExecutionApprovalComment({
+        approvalMode: approvalContext.approvalMode,
+        approvalType: "WORKSPACE_AUTO_APPROVED",
+        approvedAt: new Date(),
+        approver: approvalContext.actorLogin,
+        request: current.parsed,
+      }),
       issueNumber: createdIssue.number,
     });
   } catch {
@@ -1099,13 +1141,16 @@ async function recordAutomaticApproval(
       postCreateError: { code: "AUTO_APPROVAL_RECORDING_FAILED" as const },
       request: await projectCreatedRequest(
         context,
-        createdRequest,
+        current.parsed,
         approvalContext,
       ),
     };
   }
 
-  const approvedRequest = requireParsedRequest(createdIssue, [approvalComment]);
+  const approvedRequest = requireParsedRequest(current.issue, [
+    ...current.comments,
+    approvalComment,
+  ]);
   return {
     request: await projectCreatedRequest(
       context,

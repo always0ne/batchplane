@@ -61,6 +61,7 @@ export type ApprovalCommand = {
 };
 
 export type GateEvidence = {
+  dispatchFailure?: { reasonCode: string; message: string };
   issueAuthor?: string;
   issueBody?: string;
   issueNumber?: number;

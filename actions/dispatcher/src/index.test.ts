@@ -30,12 +30,12 @@ const verifyApprovedBatchRevision = async () => ({
 });
 
 describe("dispatcher verification", () => {
-  it("keeps the legacy slash command parser", () => {
+  it("accepts approval commands and ignores the retired retry-dispatch command", () => {
     expect(parseDispatcherCommand("/bgcp approve requestDigest=abc")).toBe(
       "approve",
     );
     expect(parseDispatcherCommand("/bgcp retry-dispatch requestId=abc")).toBe(
-      "retry-dispatch",
+      "ignore",
     );
     expect(parseDispatcherCommand("looks good")).toBe("ignore");
   });
@@ -143,18 +143,24 @@ describe("dispatcher verification", () => {
     });
   });
 
-  it("rejects expired requests", () => {
-    expect(
-      verifyDispatcherEvidence({
-        issueAuthor: "Developer",
-        approvalCommentBody,
-        issueBody,
-        now: new Date("2026-05-09T02:02:03.000Z"),
-      }),
-    ).toMatchObject({
-      ok: false,
+  it("rejects an expired pending request without dispatch or a misleading delivery-failure record", async () => {
+    const scenario = createDispatchScenario();
+    await expect(
+      scenario.run(new Date("2026-05-09T02:02:03.000Z")),
+    ).resolves.toMatchObject({
+      status: "failed",
       reasonCode: "EXPIRED_REQUEST",
     });
+    expect(scenario.dispatchCount()).toBe(0);
+    expect(scenario.comments).toEqual([]);
+    await expect(
+      scenario.run(new Date("2026-05-09T03:00:00.000Z")),
+    ).resolves.toMatchObject({
+      status: "failed",
+      reasonCode: "EXPIRED_REQUEST",
+    });
+    expect(scenario.dispatchCount()).toBe(0);
+    expect(scenario.writes).toEqual([]);
   });
 
   it("dispatches an approved execution request", async () => {
@@ -326,209 +332,84 @@ describe("dispatcher verification", () => {
     }
   });
 
-  it("ignores markerless approval-looking comments without recording dispatch failure", async () => {
-    const requests: Array<{
-      body?: unknown;
-      input: string;
-      method: string;
-    }> = [];
-    const fetcher: typeof fetch = async (input, init) => {
-      const url = input.toString();
-      const method = init?.method ?? "GET";
-      const body = init?.body ? JSON.parse(init.body.toString()) : undefined;
-
-      requests.push({ body, input: url, method });
-
-      if (url.endsWith("/issues/34")) {
-        return Response.json({ body: issueBody, user: { login: "Developer" } });
-      }
-
-      if (url.endsWith("/issues/comments/99")) {
-        return Response.json({
-          body: "/bgcp approve requestDigest=sha256:abc",
-        });
-      }
-
-      if (method === "GET" && url.includes("/issues/34/comments?")) {
-        return Response.json([]);
-      }
-
-      return Response.json({ message: "not found" }, { status: 404 });
-    };
-
-    await expect(
-      dispatchApprovedExecutionRequest({
-        apiBaseUrl: "https://api.github.test",
-        commentId: 99,
-        fetcher,
-        githubToken: "ghs_test",
-        issueNumber: 34,
-        now: new Date("2026-05-09T01:30:03.000Z"),
-        owner: "always0ne",
-        repo: "batch",
-        verifyBatchRevision: verifyApprovedBatchRevision,
-      }),
-    ).resolves.toMatchObject({
-      reasonCode: "IGNORED_COMMENT",
-      status: "ignored",
-    });
-
-    expect(
-      requests.some((request) => request.input.endsWith("/dispatches")),
-    ).toBe(false);
-    expect(
-      requests.some(
-        (request) =>
-          request.method === "POST" &&
-          request.input.endsWith("/issues/34/comments"),
-      ),
-    ).toBe(false);
+  it("does not mutate request history for markerless or mismatched approval comments", async () => {
+    const cases = [
+      {
+        commandBody: "/bgcp approve requestDigest=sha256:abc",
+        reasonCode: "IGNORED_COMMENT",
+      },
+      {
+        commandBody: approvalCommentBody.replaceAll(requestId, "other-request"),
+        reasonCode: "REQUEST_FIELD_MISMATCH",
+      },
+      {
+        commandBody: approvalCommentBody.replaceAll(
+          requestDigest,
+          "sha256:other",
+        ),
+        reasonCode: "DIGEST_MISMATCH",
+      },
+    ];
+    for (const { commandBody, reasonCode } of cases) {
+      const scenario = createDispatchScenario({ commandBody });
+      await expect(scenario.run()).resolves.toMatchObject({ reasonCode });
+      expect(scenario.dispatchCount()).toBe(0);
+      expect(scenario.writes).toEqual([]);
+    }
   });
 
-  it("ignores duplicate approval comments after dispatch evidence exists", async () => {
-    const requests: Array<{
-      body?: unknown;
-      input: string;
-      method: string;
-    }> = [];
-    const fetcher: typeof fetch = async (input, init) => {
-      const url = input.toString();
-      const method = init?.method ?? "GET";
-      const body = init?.body ? JSON.parse(init.body.toString()) : undefined;
+  it("preserves handled outcomes and labels when duplicate approval arrives after expiry", async () => {
+    for (const status of [
+      "DISPATCHED",
+      "DISPATCHING",
+      "DISPATCH_FAILED",
+      "DISPATCH_UNCONFIRMED",
+    ]) {
+      const comment = dispatchedCommentBody.replaceAll("DISPATCHED", status);
+      const scenario = createDispatchScenario({
+        comments: [comment],
+        labels: ["batchplane:dispatching"],
+      });
+      await expect(
+        scenario.run(new Date("2026-05-09T03:00:00.000Z")),
+      ).resolves.toMatchObject({ status: "ignored" });
+      expect(scenario.dispatchCount(), status).toBe(0);
+      expect(scenario.writes, status).toEqual([]);
+      expect(scenario.comments, status).toEqual([comment]);
+      expect([...scenario.labels], status).toEqual(["batchplane:dispatching"]);
+    }
 
-      requests.push({ body, input: url, method });
-
-      if (url.endsWith("/issues/34")) {
-        return Response.json({
-          body: issueBody,
-          labels: [],
-          user: { login: "Developer" },
-        });
-      }
-
-      if (url.endsWith("/issues/comments/99")) {
-        return Response.json({ body: approvalCommentBody });
-      }
-
-      if (method === "GET" && url.includes("/issues/34/comments?")) {
-        return Response.json([{ body: dispatchedCommentBody }]);
-      }
-
-      return Response.json({ message: "not found" }, { status: 404 });
-    };
-
-    await expect(
-      dispatchApprovedExecutionRequest({
-        apiBaseUrl: "https://api.github.test",
-        commentId: 99,
-        fetcher,
-        githubToken: "ghs_test",
-        issueNumber: 34,
-        now: new Date("2026-05-09T01:30:03.000Z"),
-        owner: "always0ne",
-        repo: "batch",
-        verifyBatchRevision: verifyApprovedBatchRevision,
-      }),
-    ).resolves.toMatchObject({
-      reasonCode: "DISPATCH_ALREADY_HANDLED",
-      status: "ignored",
+    const labeled = createDispatchScenario({
+      labels: ["batchplane:dispatch-failed"],
     });
-
-    expect(
-      requests.some((request) => request.input.endsWith("/dispatches")),
-    ).toBe(false);
+    await expect(labeled.run()).resolves.toMatchObject({ status: "ignored" });
+    expect(labeled.writes).toEqual([]);
   });
 
-  it("writes dispatch failure evidence and label when workflow dispatch fails", async () => {
-    const requests: Array<{
-      body?: unknown;
-      input: string;
-      method: string;
-    }> = [];
-    const fetcher: typeof fetch = async (input, init) => {
-      const url = input.toString();
-      const method = init?.method ?? "GET";
-      const body = init?.body ? JSON.parse(init.body.toString()) : undefined;
+  it("terminates explicit provider rejections and never resends the failed request", async () => {
+    for (const status of [400, 401, 403, 404, 422, 429]) {
+      const scenario = createDispatchScenario({
+        dispatchResponse: () =>
+          Response.json({ message: "Request rejected" }, { status }),
+      });
+      await expect(scenario.run()).resolves.toMatchObject({
+        status: "failed",
+        reasonCode: "WORKFLOW_DISPATCH_FAILED",
+      });
+      expect(scenario.comments.at(-1)).toContain("status=DISPATCH_FAILED");
+      expect(scenario.comments.at(-1)).toContain(
+        `GitHub API request failed: ${status}`,
+      );
+      expect(scenario.labels.has("batchplane:dispatch-failed")).toBe(true);
+      expect(scenario.labels.has("batchplane:dispatching")).toBe(false);
 
-      requests.push({ body, input: url, method });
-
-      if (url.endsWith("/issues/34")) {
-        return Response.json({
-          body: issueBody,
-          labels: [],
-          user: { login: "Developer" },
-        });
-      }
-
-      if (url.endsWith("/issues/comments/99")) {
-        return Response.json({ body: approvalCommentBody });
-      }
-
-      if (method === "GET" && url.includes("/issues/34/comments?")) {
-        return Response.json([]);
-      }
-
-      if (method === "POST" && url.endsWith("/labels")) {
-        return Response.json({ name: body.name });
-      }
-
-      if (method === "POST" && url.endsWith("/issues/34/labels")) {
-        return Response.json([]);
-      }
-
-      if (
-        method === "DELETE" &&
-        url.endsWith("/issues/34/labels/batchtrail%3Adispatching")
-      ) {
-        return new Response(null, { status: 204 });
-      }
-
-      if (url.endsWith("/dispatches")) {
-        return Response.json({ message: "boom" }, { status: 500 });
-      }
-
-      if (url.endsWith("/issues/34/comments")) {
-        return Response.json({ id: 100, body: "dispatch comment" });
-      }
-
-      return Response.json({ message: "not found" }, { status: 404 });
-    };
-
-    await expect(
-      dispatchApprovedExecutionRequest({
-        apiBaseUrl: "https://api.github.test",
-        commentId: 99,
-        fetcher,
-        githubToken: "ghs_test",
-        issueNumber: 34,
-        now: new Date("2026-05-09T01:30:03.000Z"),
-        owner: "always0ne",
-        repo: "batch",
-        verifyBatchRevision: verifyApprovedBatchRevision,
-      }),
-    ).resolves.toMatchObject({
-      reasonCode: "WORKFLOW_DISPATCH_FAILED",
-      status: "failed",
-    });
-
-    expect(requests).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          body: { labels: ["batchplane:dispatch-failed"] },
-          input:
-            "https://api.github.test/repos/always0ne/batch/issues/34/labels",
-          method: "POST",
-        }),
-        expect.objectContaining({
-          body: expect.objectContaining({
-            body: expect.stringContaining("status=DISPATCH_FAILED"),
-          }),
-          input:
-            "https://api.github.test/repos/always0ne/batch/issues/34/comments",
-          method: "POST",
-        }),
-      ]),
-    );
+      const recordedWrites = scenario.writes.length;
+      await expect(scenario.run()).resolves.toMatchObject({
+        status: "ignored",
+      });
+      expect(scenario.dispatchCount(), `HTTP ${status}`).toBe(1);
+      expect(scenario.writes).toHaveLength(recordedWrites);
+    }
   });
 
   it("writes failure evidence when verification fails", async () => {
@@ -601,186 +482,155 @@ describe("dispatcher verification", () => {
     );
   });
 
-  it("retries dispatch only after matching dispatch-failed evidence exists", async () => {
-    const retryCommentBody = "/bgcp retry-dispatch requestId=abc";
-    const requests: Array<{
-      body?: unknown;
-      input: string;
-      method: string;
-    }> = [];
-    const fetcher: typeof fetch = async (input, init) => {
-      const url = input.toString();
-      const method = init?.method ?? "GET";
-      const body = init?.body ? JSON.parse(init.body.toString()) : undefined;
-
-      requests.push({ body, input: url, method });
-
-      if (url.endsWith("/issues/34")) {
-        return Response.json({
-          body: issueBody,
-          labels: ["batchplane:dispatch-failed"],
-          user: { login: "Developer" },
-        });
-      }
-
-      if (url.endsWith("/issues/comments/99")) {
-        return Response.json({ body: retryCommentBody });
-      }
-
-      if (method === "GET" && url.includes("/issues/34/comments?")) {
-        return Response.json([
-          { body: approvalCommentBody },
-          {
-            body: buildDispatchedCommentBody({
-              requestDigest,
-              requestId,
-              status: "DISPATCH_FAILED",
-            }),
-          },
-          { body: retryCommentBody },
-        ]);
-      }
-
-      if (method === "POST" && url.endsWith("/labels")) {
-        return Response.json({ name: body.name });
-      }
-
-      if (method === "POST" && url.endsWith("/issues/34/labels")) {
-        return Response.json([]);
-      }
-
-      if (
-        method === "DELETE" &&
-        url.endsWith("/issues/34/labels/batchplane%3Adispatch-failed")
-      ) {
-        return new Response(null, { status: 204 });
-      }
-
-      if (
-        method === "DELETE" &&
-        url.endsWith("/issues/34/labels/batchtrail%3Adispatch-failed")
-      ) {
-        return Response.json({ message: "not found" }, { status: 404 });
-      }
-
-      if (
-        method === "DELETE" &&
-        url.endsWith("/issues/34/labels/batchplane%3Adispatching")
-      ) {
-        return new Response(null, { status: 204 });
-      }
-
-      if (url.endsWith("/dispatches")) {
-        return new Response(null, { status: 204 });
-      }
-
-      if (url.endsWith("/issues/34/comments")) {
-        return Response.json({ id: 100, body: "dispatch comment" });
-      }
-
-      return Response.json({ message: "not found" }, { status: 404 });
-    };
-
-    await expect(
-      dispatchApprovedExecutionRequest({
-        apiBaseUrl: "https://api.github.test",
-        commentId: 99,
-        fetcher,
-        githubToken: "ghs_test",
-        issueNumber: 34,
-        now: new Date("2026-05-09T01:30:03.000Z"),
-        owner: "always0ne",
-        repo: "batch",
-        verifyBatchRevision: verifyApprovedBatchRevision,
-      }),
-    ).resolves.toMatchObject({
-      status: "dispatched",
-    });
-
-    expect(requests).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          input:
-            "https://api.github.test/repos/always0ne/batch/issues/34/labels/batchplane%3Adispatch-failed",
-          method: "DELETE",
-        }),
-        expect.objectContaining({
-          input:
-            "https://api.github.test/repos/always0ne/batch/actions/workflows/daily-close.yml/dispatches",
-          method: "POST",
-        }),
-      ]),
-    );
+  it("ignores retired retry commands without changing failed history or dispatching", async () => {
+    for (const comments of [
+      [],
+      [buildDispatchedCommentBody({ status: "DISPATCH_FAILED" })],
+    ]) {
+      const scenario = createDispatchScenario({
+        commandBody: "/bgcp retry-dispatch requestId=abc",
+        comments,
+      });
+      await expect(scenario.run()).resolves.toMatchObject({
+        status: "ignored",
+        reasonCode: "IGNORED_COMMENT",
+      });
+      expect(scenario.dispatchCount()).toBe(0);
+      expect(scenario.writes).toEqual([]);
+    }
   });
 
-  it("denies retry-dispatch when matching dispatch-failed evidence does not exist", async () => {
-    const retryCommentBody = "/bgcp retry-dispatch requestId=abc";
-    const requests: Array<{
-      body?: unknown;
-      input: string;
-      method: string;
-    }> = [];
-    const fetcher: typeof fetch = async (input, init) => {
-      const url = input.toString();
-      const method = init?.method ?? "GET";
-      const body = init?.body ? JSON.parse(init.body.toString()) : undefined;
+  it("keeps uncertain acceptance locked and does not mark failure or resend on a later approval", async () => {
+    const responses = [
+      () => {
+        throw new TypeError("Network connection lost");
+      },
+      () => {
+        throw new DOMException("Request timed out", "TimeoutError");
+      },
+      () => Response.json({ message: "Request timeout" }, { status: 408 }),
+      () => Response.json({ message: "Server error" }, { status: 500 }),
+      () => Response.json({ message: "Gateway timeout" }, { status: 504 }),
+    ];
+    for (const dispatchResponse of responses) {
+      const scenario = createDispatchScenario({ dispatchResponse });
+      await expect(scenario.run()).resolves.toMatchObject({
+        status: "unconfirmed",
+        reasonCode: "DISPATCH_ACCEPTANCE_UNCONFIRMED",
+      });
+      expect(scenario.comments.at(-1)).toContain("status=DISPATCH_UNCONFIRMED");
+      expect(scenario.labels.has("batchplane:dispatching")).toBe(true);
+      expect(scenario.labels.has("batchplane:dispatch-failed")).toBe(false);
+      expect(
+        scenario.comments.some((comment) =>
+          comment.includes("status=DISPATCH_FAILED"),
+        ),
+      ).toBe(false);
 
-      requests.push({ body, input: url, method });
+      const recordedWrites = scenario.writes.length;
+      await expect(scenario.run()).resolves.toMatchObject({
+        status: "ignored",
+        reasonCode: "DISPATCH_ACCEPTANCE_UNCONFIRMED",
+      });
+      expect(scenario.dispatchCount()).toBe(1);
+      expect(scenario.writes).toHaveLength(recordedWrites);
+    }
+  });
 
-      if (url.endsWith("/issues/34")) {
-        return Response.json({
-          body: issueBody,
-          labels: [],
-          user: { login: "Developer" },
-        });
-      }
-
-      if (url.endsWith("/issues/comments/99")) {
-        return Response.json({ body: retryCommentBody });
-      }
-
-      if (method === "GET" && url.includes("/issues/34/comments?")) {
-        return Response.json([{ body: approvalCommentBody }]);
-      }
-
-      if (url.endsWith("/issues/34/comments")) {
-        return Response.json({ id: 100, body: "failure comment" });
-      }
-
-      return Response.json({ message: "not found" }, { status: 404 });
-    };
-
-    await expect(
-      dispatchApprovedExecutionRequest({
-        apiBaseUrl: "https://api.github.test",
-        commentId: 99,
-        fetcher,
-        githubToken: "ghs_test",
-        issueNumber: 34,
-        now: new Date("2026-05-09T01:30:03.000Z"),
-        owner: "always0ne",
-        repo: "batch",
-        verifyBatchRevision: verifyApprovedBatchRevision,
-      }),
-    ).resolves.toMatchObject({
-      reasonCode: "RETRY_DISPATCH_NOT_ALLOWED",
-      status: "failed",
-    });
-
-    expect(
-      requests.some((request) => request.input.endsWith("/dispatches")),
-    ).toBe(false);
-    expect(requests).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          body: expect.objectContaining({
-            body: expect.stringContaining("RETRY_DISPATCH_NOT_ALLOWED"),
-          }),
-          input:
-            "https://api.github.test/repos/always0ne/batch/issues/34/comments",
-          method: "POST",
-        }),
-      ]),
+  it("retains the lock when recording an accepted dispatch fails without inventing delivery failure", async () => {
+    const scenario = createDispatchScenario({ failSuccessComment: true });
+    await expect(scenario.run()).rejects.toThrow(
+      "Workflow dispatch was accepted, but its result could not be recorded",
     );
+    expect(scenario.labels.has("batchplane:dispatching")).toBe(true);
+    expect(scenario.labels.has("batchplane:dispatch-failed")).toBe(false);
+    expect(scenario.comments).toEqual([
+      expect.stringContaining("status=DISPATCHING"),
+    ]);
+
+    const recordedWrites = scenario.writes.length;
+    await expect(scenario.run()).resolves.toMatchObject({ status: "ignored" });
+    expect(scenario.dispatchCount()).toBe(1);
+    expect(scenario.writes).toHaveLength(recordedWrites);
   });
 });
+
+function createDispatchScenario({
+  commandBody = approvalCommentBody,
+  comments: initialComments = [],
+  labels: initialLabels = [],
+  dispatchResponse = () => new Response(null, { status: 204 }),
+  failSuccessComment = false,
+}: {
+  commandBody?: string;
+  comments?: string[];
+  labels?: string[];
+  dispatchResponse?: () => Response;
+  failSuccessComment?: boolean;
+} = {}) {
+  const comments = [...initialComments];
+  const labels = new Set(initialLabels);
+  const writes: string[] = [];
+  let dispatchCount = 0;
+  const fetcher: typeof fetch = async (input, init) => {
+    const url = new URL(input.toString());
+    const path = url.pathname;
+    const method = init?.method ?? "GET";
+    const body = init?.body ? JSON.parse(init.body.toString()) : undefined;
+    if (method !== "GET") writes.push(`${method} ${path}`);
+    if (method === "GET" && path.endsWith("/issues/34"))
+      return Response.json({
+        body: issueBody,
+        user: { login: "Developer" },
+        labels: [...labels],
+      });
+    if (method === "GET" && path.endsWith("/issues/comments/99"))
+      return Response.json({ body: commandBody });
+    if (method === "GET" && path.endsWith("/issues/34/comments"))
+      return Response.json(
+        url.searchParams.get("page") === "1"
+          ? comments.map((body) => ({ body }))
+          : [],
+      );
+    if (method === "POST" && path.endsWith("/issues/34/comments")) {
+      if (failSuccessComment && body.body.includes("status=DISPATCHED"))
+        throw new TypeError("Evidence write failed");
+      comments.push(body.body);
+      return Response.json({ id: comments.length, body: body.body });
+    }
+    if (method === "POST" && path.endsWith("/issues/34/labels")) {
+      for (const label of body.labels) labels.add(label);
+      return Response.json([]);
+    }
+    if (method === "POST" && path.endsWith("/labels"))
+      return Response.json({ name: body.name });
+    if (method === "DELETE" && path.includes("/issues/34/labels/")) {
+      labels.delete(decodeURIComponent(path.split("/").at(-1) ?? ""));
+      return new Response(null, { status: 204 });
+    }
+    if (method === "POST" && path.endsWith("/dispatches")) {
+      dispatchCount += 1;
+      return dispatchResponse();
+    }
+    throw new Error(`Unexpected request: ${method} ${url}`);
+  };
+
+  return {
+    comments,
+    labels,
+    writes,
+    dispatchCount: () => dispatchCount,
+    run: (now = new Date("2026-05-09T01:30:03.000Z")) =>
+      dispatchApprovedExecutionRequest({
+        apiBaseUrl: "https://api.github.test",
+        commentId: 99,
+        fetcher,
+        githubToken: "ghs_test",
+        issueNumber: 34,
+        now,
+        owner: "always0ne",
+        repo: "batch",
+        verifyBatchRevision: verifyApprovedBatchRevision,
+      }),
+  };
+}

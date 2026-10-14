@@ -153,6 +153,7 @@ async function loadApprovalEvidence(
   try {
     return await findGitHubApprovalEvidence({
       client,
+      dispatcherActor: input.expectedDispatcherActor ?? "github-actions[bot]",
       issueNumber:
         input.eventName === "schedule"
           ? parseNativeIssueNumber(input.issueNumber)

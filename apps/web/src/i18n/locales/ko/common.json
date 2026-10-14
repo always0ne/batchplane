@@ -56,7 +56,9 @@
       "CANCELED": "취소됨",
       "DISPATCHING": "Dispatch 중",
       "DISPATCHED": "Dispatch 완료",
-      "DISPATCH_FAILED": "Dispatch 실패"
+      "DISPATCH_FAILED": "Dispatch 실패",
+      "DISPATCH_UNCONFIRMED": "전달 여부 미확인",
+      "EXPIRED": "만료됨"
     },
     "approvalDecision": {
       "APPROVED": "승인",

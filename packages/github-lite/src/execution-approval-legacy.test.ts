@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   RepositoryIssue,
@@ -144,6 +144,12 @@ const dispatcherComment: RepositoryIssueComment = {
 };
 
 describe("approval model", () => {
+  beforeEach(() => {
+    vi.setSystemTime(new Date("2026-05-09T01:30:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   it("detects registration pull requests", () => {
     expect(isRegistrationApprovalRequest(pullRequest)).toBe(true);
     expect(
@@ -291,6 +297,76 @@ describe("approval model", () => {
         dispatcherComment,
       ])?.status,
     ).toBe("DISPATCHED");
+  });
+
+  it("expires undelivered requests without erasing approval, rejection or delivery history", () => {
+    vi.setSystemTime(new Date("2026-05-09T02:02:03.000Z"));
+    expect(parseExecutionRequestDetail(executionIssue)?.status).toBe("EXPIRED");
+    expect(
+      parseExecutionRequestDetail(executionIssue, [approvalComment]),
+    ).toMatchObject({
+      status: "EXPIRED",
+      approvalDecision: { decision: "APPROVED" },
+    });
+    expect(parseExecutionApprovalRequest(executionIssue)).toBeNull();
+    expect(
+      parseExecutionRequestDetail(executionIssue, [dispatcherComment])?.status,
+    ).toBe("DISPATCHED");
+    expect(
+      parseExecutionRequestDetail({
+        ...executionIssue,
+        labels: ["batchplane:rejected"],
+      })?.status,
+    ).toBe("REJECTED");
+    const scheduled = {
+      ...executionIssue,
+      body: executionIssue.body.replace(
+        '"spec": {',
+        '"spec": { "triggerType": "SCHEDULE",',
+      ),
+    };
+    expect(parseExecutionRequestDetail(scheduled)?.status).toBe("REQUESTED");
+  });
+
+  it("preserves confirmed dispatch failure and its cause after stale labels or a later Gate denial", () => {
+    const failure = {
+      ...dispatcherComment,
+      body:
+        dispatcherComment.body.replaceAll("DISPATCHED", "DISPATCH_FAILED") +
+        "\n- Reason code: DISPATCH_FAILED\n- Message: Workflow rejected",
+    };
+    const gate = {
+      ...dispatcherComment,
+      id: 3,
+      body: "<!-- batchplane:gate-decision\nallowed=false\nreasonCode=DISPATCH_FAILED\n-->",
+    };
+    expect(
+      parseExecutionRequestDetail(
+        { ...executionIssue, labels: ["batchplane:dispatched"] },
+        [failure, gate],
+      ),
+    ).toMatchObject({
+      status: "DISPATCH_FAILED",
+      dispatcherStatus: {
+        reasonCode: "DISPATCH_FAILED",
+        message: "Workflow rejected",
+      },
+      gateDecision: { allowed: false },
+    });
+    const uncertain = {
+      ...failure,
+      body: dispatcherComment.body.replaceAll(
+        "DISPATCHED",
+        "DISPATCH_UNCONFIRMED",
+      ),
+    };
+    vi.setSystemTime(new Date("2026-05-10T00:00:00.000Z"));
+    expect(
+      parseExecutionRequestDetail(
+        { ...executionIssue, labels: ["batchplane:dispatch-failed"] },
+        [uncertain],
+      )?.status,
+    ).toBe("DISPATCH_UNCONFIRMED");
   });
 
   it("binds decisions to this request, actual author and edit validity while retaining raw comments", () => {

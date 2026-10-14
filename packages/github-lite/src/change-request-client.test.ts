@@ -360,22 +360,40 @@ describe("change request drafts and creation", () => {
     ["REQUESTED", "blocking", [], true],
     ["APPROVED", "blocking", ["batchplane:approved"], true],
     ["DISPATCHING", "blocking", ["batchplane:dispatching"], true],
+    ["DISPATCH_UNCONFIRMED", "blocking", ["batchplane:dispatching"], true],
+    ["EXPIRED", "not blocking", [], false],
     ["DISPATCH_FAILED", "not blocking", ["batchplane:dispatch-failed"], false],
     ["DISPATCHED", "not blocking", ["batchplane:dispatched"], false],
     ["GATE_BLOCKED", "not blocking", ["batchplane:gate-blocked"], false],
     ["REJECTED", "not blocking", ["batchplane:rejected"], false],
   ])(
     "%s execution request is %s as a change blocker",
-    async (_status, _blockerState, statusLabels, blocksChange) => {
+    async (status, _blockerState, statusLabels, blocksChange) => {
+      const issue = executionRequestIssue({
+        labels: ["batchplane:execution-request", ...statusLabels],
+      });
+      if (status === "EXPIRED" || status === "DISPATCH_UNCONFIRMED") {
+        issue.body += "\n- Expires at: 2000-01-01T00:00:00.000Z";
+      }
       const state = createGitHubLiteMockState({
         currentUser: { login: "developer" },
-        issues: [
-          executionRequestIssue({
-            labels: ["batchplane:execution-request", ...statusLabels],
-          }),
-        ],
+        issues: [issue],
       });
       const client = createMockGitHubLiteClient(state);
+      if (status === "DISPATCH_UNCONFIRMED") {
+        client.listIssueComments = vi.fn().mockResolvedValue([
+          {
+            id: 100,
+            issueNumber: 99,
+            author: "github-actions[bot]",
+            createdAt: "2000-01-01T00:00:00.000Z",
+            body: "<!-- batchplane:bgcp:dispatcher\nstatus=DISPATCH_UNCONFIRMED\n-->",
+          },
+        ]);
+        client.listWorkflowRuns = vi
+          .fn()
+          .mockRejectedValue(new Error("Actions unavailable"));
+      }
       const changeRequests = createGitHubLiteChangeRequestClient(
         session(),
         client,
@@ -2205,6 +2223,7 @@ function executionRequestIssue({ labels }: { labels: string[] }) {
       "requestId=btr-20260901-payment-daily-close-0001",
       "batchId=payment.daily-close",
       "requestDigest=sha256:request",
+      "status=REQUESTED",
       "-->",
     ].join("\n"),
     isPullRequest: false,

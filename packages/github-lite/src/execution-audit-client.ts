@@ -1,6 +1,7 @@
 import type { GitHubRepositoryContext } from "./github-types.js";
 import type { BatchPlaneClient } from "@batchplane/ui-client";
 import { parseExecutionRequestDetail } from "./execution-approval-legacy.js";
+import { withObservedExecutionDelivery } from "./execution-request-delivery.js";
 import {
   compareAuditItemsDesc,
   toExecutionRequestAuditItems,
@@ -43,7 +44,7 @@ export function createGitHubLiteAuditClient(
         ...records.registrationItems,
         ...records.executionRequests.flatMap((request) =>
           toExecutionRequestAuditItems({
-            request,
+            request: withObservedExecutionDelivery(request, runs),
             failureFollowUps: failureFollowUps.get(request.issue.number) ?? [],
           }),
         ),

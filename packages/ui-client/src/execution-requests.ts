@@ -136,7 +136,13 @@ export type ExecutionDecision = {
 export type ExecutionDispatch = {
   actor: string;
   createdAt: string;
-  status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED";
+  status:
+    | "DISPATCHING"
+    | "DISPATCHED"
+    | "DISPATCH_FAILED"
+    | "DISPATCH_UNCONFIRMED";
+  reasonCode?: string;
+  message?: string;
 };
 
 export type ExecutionGateDecision = {

@@ -5,7 +5,7 @@ import type {
 import { useTranslation } from "react-i18next";
 
 import { ExecutionApprovalActions } from "../../components/ExecutionApprovalActions";
-import { executionRequestStatusHelpKey } from "../execution-request-detail-view";
+import { ExecutionRequestOutcome } from "./ExecutionRequestOutcome";
 
 export function ExecutionRequestDecision({
   canAct,
@@ -62,16 +62,7 @@ export function ExecutionRequestDecision({
   }
 
   if (!scheduled) {
-    return (
-      <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-bold text-bp-graphite">
-          {t("detail.actions.closedTitle")}
-        </h2>
-        <p className="mt-2 text-sm font-semibold text-bp-muted">
-          {t(executionRequestStatusHelpKey(request))}
-        </p>
-      </article>
-    );
+    return <ExecutionRequestOutcome request={request} />;
   }
 
   return null;

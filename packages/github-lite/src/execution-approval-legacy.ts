@@ -1,4 +1,5 @@
 import type {
+  ExecutionRequestStatus,
   WorkspaceApprovalMode,
   WorkspacePolicy,
 } from "@batchplane/domain";
@@ -14,12 +15,7 @@ import type {
 } from "./repository-evidence-types.js";
 
 export type ExecutionRequestDisplayStatus =
-  | "REQUESTED"
-  | "APPROVED"
-  | "REJECTED"
-  | "DISPATCHING"
-  | "DISPATCHED"
-  | "DISPATCH_FAILED"
+  | Exclude<ExecutionRequestStatus, "CANCELED">
   | "GATE_BLOCKED";
 
 export type ExecutionApprovalRequest = {
@@ -63,7 +59,13 @@ export type ExecutionApprovalDecision = {
 export type ExecutionDispatcherStatus = {
   actor: string;
   createdAt: string;
-  status: "DISPATCHING" | "DISPATCHED" | "DISPATCH_FAILED";
+  status:
+    | "DISPATCHING"
+    | "DISPATCHED"
+    | "DISPATCH_FAILED"
+    | "DISPATCH_UNCONFIRMED";
+  reasonCode?: string;
+  message?: string;
 };
 
 export type ExecutionGateDecision = {
@@ -222,14 +224,19 @@ export function parseExecutionRequestDetail(
     batchId,
     requestDigest,
   });
-  const dispatcherStatus = findLatestDispatcherStatus(comments);
-  const gateDecision = findLatestGateDecision(comments);
+  const identity = { requestId, batchId, requestDigest };
+  const dispatcherStatus = findLatestDispatcherStatus(comments, identity);
+  const gateDecision = findLatestGateDecision(comments, identity);
+  const expiresAt =
+    payload?.spec?.expiresAt ?? readMarkdownField(issue.body, "Expires at");
   const displayStatus = getExecutionRequestDisplayStatus({
     approvalDecision,
     dispatcherStatus,
     gateDecision,
     issue,
     markerStatus: status,
+    expiresAt,
+    nativeSchedule: payload?.spec?.triggerType === "SCHEDULE",
   });
 
   return {
@@ -238,7 +245,7 @@ export function parseExecutionRequestDetail(
     comments,
     ...(dispatcherStatus ? { dispatcherStatus } : {}),
     ...(payload?.spec?.execution ? { execution: payload.spec.execution } : {}),
-    expiresAt: readMarkdownField(issue.body, "Expires at"),
+    expiresAt,
     ...(gateDecision ? { gateDecision } : {}),
     issue,
     reason: payload?.spec?.reason ?? "",
@@ -440,6 +447,7 @@ export function parseExecutionDecisionEvidence(
 
 function findLatestDispatcherStatus(
   comments: RepositoryIssueComment[],
+  request: RequestIdentity,
 ): ExecutionDispatcherStatus | undefined {
   for (let index = comments.length - 1; index >= 0; index -= 1) {
     const comment = comments[index];
@@ -448,21 +456,32 @@ function findLatestDispatcherStatus(
       continue;
     }
 
-    const marker = parseBatchPlaneMarker(comment.body, "bgcp:dispatcher");
+    const current = parseBatchPlaneMarker(comment.body, "bgcp:dispatcher");
+    const marker = current.size
+      ? current
+      : parseBatchPlaneMarker(comment.body, "execution-dispatch");
+    if (!matchesRequest(marker, request)) continue;
     const status = marker.get("status");
 
     if (
       status !== "DISPATCHING" &&
       status !== "DISPATCHED" &&
-      status !== "DISPATCH_FAILED"
+      status !== "DISPATCH_FAILED" &&
+      status !== "DISPATCH_UNCONFIRMED"
     ) {
       continue;
     }
 
+    const reasonCode =
+      marker.get("reasonCode") ||
+      readMarkdownField(comment.body, "Reason code");
+    const message = readMarkdownField(comment.body, "Message");
     return {
       actor: comment.author,
       createdAt: comment.createdAt,
       status,
+      ...(reasonCode ? { reasonCode } : {}),
+      ...(message ? { message } : {}),
     };
   }
 
@@ -471,6 +490,7 @@ function findLatestDispatcherStatus(
 
 function findLatestGateDecision(
   comments: RepositoryIssueComment[],
+  request: RequestIdentity,
 ): ExecutionGateDecision | undefined {
   for (let index = comments.length - 1; index >= 0; index -= 1) {
     const comment = comments[index];
@@ -480,6 +500,7 @@ function findLatestGateDecision(
     }
 
     const marker = parseBatchPlaneMarker(comment.body, "gate-decision");
+    if (!matchesRequest(marker, request)) continue;
     const allowed = marker.get("allowed");
     const reasonCode = marker.get("reasonCode");
 
@@ -504,13 +525,27 @@ function getExecutionRequestDisplayStatus({
   gateDecision,
   issue,
   markerStatus,
+  expiresAt,
+  nativeSchedule,
 }: {
   approvalDecision?: ExecutionApprovalDecision;
   dispatcherStatus?: ExecutionDispatcherStatus;
   gateDecision?: ExecutionGateDecision;
   issue: RepositoryIssue;
   markerStatus: string;
+  expiresAt: string;
+  nativeSchedule: boolean;
 }): ExecutionRequestDisplayStatus {
+  if (dispatcherStatus?.status === "DISPATCH_FAILED") {
+    return dispatcherStatus.reasonCode === "EXPIRED_REQUEST"
+      ? "EXPIRED"
+      : "DISPATCH_FAILED";
+  }
+  if (gateDecision) return gateDecision.allowed ? "DISPATCHED" : "GATE_BLOCKED";
+  // Recorded delivery outcomes take precedence over labels left by earlier steps.
+  if (dispatcherStatus) return dispatcherStatus.status;
+  if (hasBatchPlaneLabel(issue.labels, "dispatch-unconfirmed"))
+    return "DISPATCH_UNCONFIRMED";
   if (
     markerStatus === "REJECTED" ||
     hasBatchPlaneLabel(issue.labels, "rejected") ||
@@ -519,39 +554,45 @@ function getExecutionRequestDisplayStatus({
     return "REJECTED";
   }
 
-  if (
-    hasBatchPlaneLabel(issue.labels, "gate-blocked") ||
-    gateDecision?.allowed === false
-  ) {
+  if (hasBatchPlaneLabel(issue.labels, "gate-blocked")) {
     return "GATE_BLOCKED";
   }
 
-  if (
-    hasBatchPlaneLabel(issue.labels, "dispatch-failed") ||
-    dispatcherStatus?.status === "DISPATCH_FAILED"
-  ) {
+  if (hasBatchPlaneLabel(issue.labels, "dispatch-failed")) {
     return "DISPATCH_FAILED";
   }
 
-  if (
-    hasBatchPlaneLabel(issue.labels, "dispatched") ||
-    dispatcherStatus?.status === "DISPATCHED"
-  ) {
+  if (hasBatchPlaneLabel(issue.labels, "dispatched")) {
     return "DISPATCHED";
   }
 
-  if (
-    hasBatchPlaneLabel(issue.labels, "dispatching") ||
-    dispatcherStatus?.status === "DISPATCHING"
-  ) {
+  if (hasBatchPlaneLabel(issue.labels, "dispatching")) {
     return "DISPATCHING";
   }
+
+  if (!nativeSchedule && Date.parse(expiresAt) <= Date.now()) return "EXPIRED";
 
   if (approvalDecision?.decision === "APPROVED") {
     return "APPROVED";
   }
 
   return "REQUESTED";
+}
+
+type RequestIdentity = {
+  requestId: string;
+  batchId: string;
+  requestDigest: string;
+};
+
+function matchesRequest(
+  marker: Map<string, string>,
+  request: RequestIdentity,
+): boolean {
+  // Pre-dispatch validation failures are scoped to the Issue and omit a plan.
+  return Object.entries(request).every(
+    ([key, value]) => !marker.has(key) || marker.get(key) === value,
+  );
 }
 
 function hasBatchPlaneLabel(labels: string[], name: string): boolean {

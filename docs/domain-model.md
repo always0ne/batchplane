@@ -250,6 +250,8 @@ stateDiagram-v2
     AUTHORIZED --> EXPIRED: authorization expires
     DISPATCHING --> DISPATCHED: provider accepted
     DISPATCHING --> DISPATCH_FAILED: confirmed provider rejection
+    DISPATCHING --> DISPATCH_UNCONFIRMED: acceptance cannot be determined
+    DISPATCH_UNCONFIRMED --> DISPATCHED: correlated execution observed
     DISPATCH_FAILED --> [*]
     DISPATCHED --> [*]
 ```
@@ -259,6 +261,14 @@ The execution result is not part of this state machine. It belongs to
 must not cause blind redelivery. Confirmed dispatch failure requires a new
 request under current policy/inputs. Expired/terminal requests cannot
 indefinitely block valid new work (#224).
+
+In Lite, `EXPIRED` is a read-time projection for an undelivered request. A
+dispatch lock or uncertain acceptance takes precedence over the deadline;
+expiry cannot authorize resending potentially accepted work. Confirmed
+`DISPATCH_FAILED` is terminal even under AUTO_APPROVE. The original request,
+decisions and failure reason remain inspectable, and a user starts the next
+execution through a fresh request identity and current policy. Observing an
+existing execution resolves uncertainty without sending it again.
 
 Approved withdrawal is allowed for requester, approver or target-execution-
 authorized user. Once native work is queued/running, explicit real cancel/stop

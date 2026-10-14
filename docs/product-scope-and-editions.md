@@ -21,20 +21,20 @@ example, not the committed third provider.
 
 ## Editions And Current Availability
 
-| Concern                | Lite baseline                                                                                               | Main target                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Runtime                | React/Vite static UI plus GitHub APIs and Actions; no product server/DB                                     | Kotlin/Spring Boot modular monolith and MySQL                              |
-| UI                     | Existing shared React product Pages                                                                         | Same source with a Main client implementation, not a second UI             |
-| Authority              | Repository definitions, PRs, Issues/comments and native execution evidence                                  | Product state, decisions and audit in MySQL                                |
-| Identity               | Session-scoped GitHub identity mapped to product roles                                                      | Environment-specific identity adapters; product-owned authorization        |
-| Connections            | Currently one connected repository-backed Workspace                                                         | Multiple Workspaces, multiple platform connections per Workspace           |
-| Change / execution     | Implemented core flow, with known gaps and pending QA                                                       | Planned complete vertical flows                                            |
-| Schedule               | Native same-execution control/business/result implementation; live #202 still open                          | Approved-revision authority, native scheduler and delay monitoring         |
-| Approved input binding | End-to-end correction pending #212                                                                          | Required in first manual execution flow                                    |
-| Lifecycle              | Termination correction #224 and approved withdrawal/real cancel #225 pending                                | Required in first flow; result synchronization is a separate command       |
-| Multi-Workspace        | #142: aggregate authorized queries and unified requests, Lite-first subject to agreed feasibility gate      | Required product scope, not just switching                                 |
-| History / review       | Execution logs, deleted history, explanation and explicit manager review present; completeness #226 pending | Required across supported operations                                       |
-| Supported engines      | GitHub Actions                                                                                              | GitHub Actions, early real Jenkins, then broader/third-platform validation |
+| Concern                | Lite baseline                                                                                                 | Main target                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Runtime                | React/Vite static UI plus GitHub APIs and Actions; no product server/DB                                       | Kotlin/Spring Boot modular monolith and MySQL                              |
+| UI                     | Existing shared React product Pages                                                                           | Same source with a Main client implementation, not a second UI             |
+| Authority              | Repository definitions, PRs, Issues/comments and native execution evidence                                    | Product state, decisions and audit in MySQL                                |
+| Identity               | Session-scoped GitHub identity mapped to product roles                                                        | Environment-specific identity adapters; product-owned authorization        |
+| Connections            | Currently one connected repository-backed Workspace                                                           | Multiple Workspaces, multiple platform connections per Workspace           |
+| Change / execution     | Implemented core flow, with known gaps and pending QA                                                         | Planned complete vertical flows                                            |
+| Schedule               | Native same-execution control/business/result implementation; live #202 still open                            | Approved-revision authority, native scheduler and delay monitoring         |
+| Approved input binding | End-to-end correction pending #212                                                                            | Required in first manual execution flow                                    |
+| Lifecycle              | Termination #224 locally implemented; owner/provider QA pending. Approved withdrawal/real cancel #225 pending | Required in first flow; result synchronization is a separate command       |
+| Multi-Workspace        | #142: aggregate authorized queries and unified requests, Lite-first subject to agreed feasibility gate        | Required product scope, not just switching                                 |
+| History / review       | Execution logs, deleted history, explanation and explicit manager review present; completeness #226 pending   | Required across supported operations                                       |
+| Supported engines      | GitHub Actions                                                                                                | GitHub Actions, early real Jenkins, then broader/third-platform validation |
 
 “Present” means code exists, not that manual or live acceptance passed.
 Read the [user QA sheet](./user-qa.md) before claiming operating readiness.

@@ -10102,6 +10102,7 @@ function isAllowedBatchStatus(value) {
 // src/gate-evidence.ts
 async function findGitHubApprovalEvidence({
   client,
+  dispatcherActor,
   issueNumber,
   loadApproval,
   requestId
@@ -10114,16 +10115,36 @@ async function findGitHubApprovalEvidence({
   if (!request) {
     return { approval: null, request: null };
   }
-  const approval = loadApproval ? (await client.listIssueComments(issue.number)).slice().reverse().map(parseExecutionApprovalEvidence).find(
-    (evidence) => evidence ? evidence.requestId === request.requestId && evidence.batchId === request.batchId && evidence.requestDigest === request.requestDigest : false
-  ) ?? null : null;
+  const comments = loadApproval ? await client.listIssueComments(issue.number) : [];
+  const approval = comments.slice().reverse().map(parseExecutionApprovalEvidence).find(
+    (evidence) => evidence?.requestId === request.requestId && evidence.batchId === request.batchId && evidence.requestDigest === request.requestDigest
+  ) ?? null;
   return {
     approval,
+    dispatchFailure: findTrustedDispatchFailure(
+      comments,
+      request,
+      dispatcherActor
+    ),
     issueAuthor: issue.author,
     issueBody: issue.body,
     issueNumber: issue.number,
     request
   };
+}
+function findTrustedDispatchFailure(comments, request, dispatcherActor) {
+  for (const comment of comments.slice().reverse()) {
+    if (comment.author !== dispatcherActor || !comment.createdAt || comment.createdAt !== comment.updatedAt)
+      continue;
+    const marker = parseBatchPlaneMarker2(comment.body, "bgcp:dispatcher");
+    if (marker.get("status") !== "DISPATCH_FAILED" || marker.get("requestId") !== request.requestId || marker.get("batchId") !== request.batchId || marker.get("requestDigest") !== request.requestDigest)
+      continue;
+    return {
+      reasonCode: marker.get("reasonCode") || "WORKFLOW_DISPATCH_FAILED",
+      message: "Execution request delivery failed and is terminal. Create a new request."
+    };
+  }
+  return void 0;
 }
 function parseExecutionRequestEvidence(issueBody) {
   const marker = parseBatchPlaneMarker2(issueBody, "execution-request");
@@ -10696,6 +10717,12 @@ async function verifyManualAuthorization({
     );
   const evidenceFailure = verifyApprovalEvidence(request, approval, input);
   if (evidenceFailure) return evidenceFailure;
+  if (evidence.dispatchFailure) {
+    return deny3(
+      evidence.dispatchFailure.reasonCode,
+      evidence.dispatchFailure.message
+    );
+  }
   const client = createGitHubLiteClient({
     apiBaseUrl: input.apiBaseUrl,
     fetcher: input.fetcher,
@@ -11007,6 +11034,7 @@ async function loadApprovalEvidence(input, client) {
   try {
     return await findGitHubApprovalEvidence({
       client,
+      dispatcherActor: input.expectedDispatcherActor ?? "github-actions[bot]",
       issueNumber: input.eventName === "schedule" ? parseNativeIssueNumber(input.issueNumber) : void 0,
       loadApproval: input.eventName !== "schedule",
       requestId: input.requestId ?? ""

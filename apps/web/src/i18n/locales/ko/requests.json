@@ -46,6 +46,8 @@
     "CLOSED": "닫힘",
     "DISPATCHED": "Dispatch 완료",
     "DISPATCH_FAILED": "Dispatch 실패",
+    "DISPATCH_UNCONFIRMED": "전달 여부 미확인",
+    "EXPIRED": "만료됨",
     "DISPATCHING": "Dispatch 중",
     "GATE_BLOCKED": "Gate 차단",
     "MERGED": "병합됨",

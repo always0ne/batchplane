@@ -42,6 +42,11 @@ export function DispatcherEvidence({
   if (request.attempts.type === "unavailable") {
     workflowRunEvidence = t("detail.dispatcher.workflowRunUnavailable");
   }
+  const deliveryReason = request.dispatcher?.reasonCode;
+  const deliveryMessage = request.dispatcher?.message;
+  const deliveryDetail = [deliveryReason, deliveryMessage]
+    .filter(Boolean)
+    .join(": ");
   return (
     <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="text-base font-bold text-bp-graphite">
@@ -81,6 +86,12 @@ export function DispatcherEvidence({
               label={t("detail.dispatcher.approvalEvidence")}
               value={approvalEvidence}
             />
+            {deliveryDetail && (
+              <Fact
+                label={t("detail.dispatcher.failureReason")}
+                value={deliveryDetail}
+              />
+            )}
           </>
         ) : null}
         {gateEvidence ? (

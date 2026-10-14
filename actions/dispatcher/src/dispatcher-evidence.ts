@@ -63,14 +63,6 @@ export function verifyDispatcherEvidence({
     };
   }
 
-  if (isExpired(request.expiresAt, now)) {
-    return {
-      ok: false,
-      message: "Execution request approval window has expired.",
-      reasonCode: "EXPIRED_REQUEST",
-    };
-  }
-
   if (!request.workflowPath || !request.workflowRef) {
     return {
       ok: false,
@@ -113,6 +105,14 @@ export function verifyDispatcherEvidence({
       ok: false,
       message: "Execution approval digest does not match the request digest.",
       reasonCode: "DIGEST_MISMATCH",
+    };
+  }
+
+  if (isExpired(request.expiresAt, now)) {
+    return {
+      ok: false,
+      message: "Execution request approval window has expired.",
+      reasonCode: "EXPIRED_REQUEST",
     };
   }
 
@@ -232,7 +232,8 @@ export function parseDispatcherStatusEvidence(
   if (
     (status !== "DISPATCHING" &&
       status !== "DISPATCHED" &&
-      status !== "DISPATCH_FAILED") ||
+      status !== "DISPATCH_FAILED" &&
+      status !== "DISPATCH_UNCONFIRMED") ||
     !requestId ||
     !batchId ||
     !requestDigest
@@ -295,7 +296,10 @@ export function buildDispatchSuccessComment(
 export function buildDispatchFailureComment(
   message: string,
   reasonCode: string,
-  dispatchPlan?: DispatcherDispatchPlan,
+  dispatchPlan?: Pick<
+    DispatcherDispatchPlan,
+    "batchId" | "requestDigest" | "requestId"
+  >,
 ) {
   return [
     "## BatchPlane Dispatch",
@@ -321,6 +325,30 @@ export function buildDispatchFailureComment(
           `requestDigest=${dispatchPlan.requestDigest}`,
         ]
       : []),
+    "-->",
+  ].join("\n");
+}
+
+export function buildDispatchUnconfirmedComment(
+  dispatchPlan: DispatcherDispatchPlan,
+  message: string,
+): string {
+  return [
+    "## BatchPlane Dispatch",
+    "",
+    "- Status: DISPATCH_UNCONFIRMED",
+    "- Reason code: DISPATCH_ACCEPTANCE_UNCONFIRMED",
+    `- Message: ${message}`,
+    `- Request ID: \`${dispatchPlan.requestId}\``,
+    `- Batch ID: \`${dispatchPlan.batchId}\``,
+    `- Request digest: \`${dispatchPlan.requestDigest}\``,
+    "",
+    "<!-- batchplane:bgcp:dispatcher",
+    "status=DISPATCH_UNCONFIRMED",
+    "reasonCode=DISPATCH_ACCEPTANCE_UNCONFIRMED",
+    `requestId=${dispatchPlan.requestId}`,
+    `batchId=${dispatchPlan.batchId}`,
+    `requestDigest=${dispatchPlan.requestDigest}`,
     "-->",
   ].join("\n");
 }
